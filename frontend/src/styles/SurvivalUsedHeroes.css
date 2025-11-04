@@ -1,0 +1,172 @@
+/* Survival Used Heroes Component */
+.survival-used-heroes {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #ff6600;
+  border-radius: 15px;
+  padding: 20px;
+}
+
+.survival-used-heroes h3 {
+  color: #ff6600;
+  margin: 0 0 10px 0;
+  font-size: 1.5rem;
+  text-align: center;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.used-heroes-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  text-align: center;
+  margin-bottom: 15px;
+  font-style: italic;
+}
+
+.no-used-heroes {
+  text-align: center;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.no-used-heroes p {
+  margin: 0 0 10px 0;
+}
+
+.hint {
+  font-size: 0.85rem;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.used-heroes-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.used-heroes-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.used-heroes-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+}
+
+.used-heroes-list::-webkit-scrollbar-thumb {
+  background: #ff6600;
+  border-radius: 3px;
+}
+
+.used-heroes-list::-webkit-scrollbar-thumb:hover {
+  background: #ff8833;
+}
+
+.used-hero-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 102, 0, 0.3);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.used-hero-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 102, 0, 0.5);
+}
+
+.used-hero-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 102, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.used-hero-name {
+  color: white;
+  font-weight: bold;
+  font-size: 0.95rem;
+  flex: 1;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.used-heroes-count {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 102, 0, 0.3);
+  font-style: italic;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .survival-used-heroes {
+    padding: 15px;
+  }
+  
+  .survival-used-heroes h3 {
+    font-size: 1.3rem;
+  }
+  
+  .used-heroes-list {
+    max-height: 200px;
+  }
+  
+  .used-hero-item {
+    gap: 10px;
+    padding: 6px;
+  }
+  
+  .used-hero-image {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .used-hero-name {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .survival-used-heroes {
+    padding: 12px;
+  }
+  
+  .survival-used-heroes h3 {
+    font-size: 1.2rem;
+  }
+  
+  .used-heroes-subtitle {
+    font-size: 0.8rem;
+  }
+  
+  .used-heroes-list {
+    max-height: 150px;
+  }
+  
+  .used-hero-item {
+    gap: 8px;
+    padding: 5px;
+  }
+  
+  .used-hero-image {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .used-hero-name {
+    font-size: 0.85rem;
+  }
+  
+  .used-heroes-count {
+    font-size: 0.8rem;
+  }
+}

@@ -1,0 +1,2212 @@
+/* Minimal reset to ensure edges touch browser boundaries */
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent any scrollbars */
+  height: 100vh; /* Fixed viewport height */
+}
+
+.App {
+  height: 100vh; /* Fixed height instead of min-height */
+  color: white;
+  overflow: hidden; /* Prevent scrollbars */
+}
+
+.app-layout {
+  display: flex;
+  height: 100vh; /* Fixed height instead of min-height */
+  overflow: hidden; /* Prevent scrollbars */
+}
+
+.game-sidebar {
+  width: 300px;
+  background: rgba(0, 0, 0, 0.8);
+  border-right: 2px solid #007bff;
+  padding: 0; /* Remove padding to reach edge */
+  overflow-y: hidden; /* Remove scrolling */
+  flex-shrink: 0;
+  height: 100vh; /* Fixed height */
+}
+
+.game-sidebar > * {
+  padding: 20px; /* Add padding to individual children instead */
+}
+
+.sidebar-header h2 {
+  margin: 0 0 20px 0;
+  padding: 20px 20px 0px 20px; /* Custom padding for header */
+  font-size: 1.8rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  color: #007bff;
+  text-align: center;
+}
+
+.game-content {
+  flex: 1;
+  padding: 0; /* Remove padding so battle areas can extend to all edges */
+  text-align: center;
+  /* Account for fixed action bar on the right during battle */
+  margin-right: 0; /* Reset - action bar will be on top during battle */
+}
+
+.connection-status {
+  background: #ffc107;
+  color: #000;
+  padding: 6px 12px;
+  border-radius: 4px;
+  margin-top: 8px;
+  display: block;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.waiting {
+  font-size: 1.5rem;
+  margin-top: 2rem;
+}
+
+.game-ended {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2rem;
+  border-radius: 12px;
+  margin: 2rem auto;
+  max-width: 400px;
+}
+
+.game-ended h2 {
+  margin-top: 0;
+  font-size: 2.5rem;
+}
+
+/* Game Over Overlay Styles */
+.battle-with-overlay {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+.game-over-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(5px);
+}
+
+.game-over-modal {
+  background: linear-gradient(135deg, rgba(30, 45, 70, 0.95) 0%, rgba(20, 35, 60, 0.98) 100%);
+  border: 3px solid rgba(0, 123, 255, 0.7);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  overflow: hidden;
+}
+
+.game-over-content {
+  padding: 40px 30px;
+}
+
+.game-over-title {
+  font-size: 3rem;
+  font-weight: bold;
+  margin: 0 0 20px 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+  animation: titleGlow 2s ease-in-out infinite alternate;
+}
+
+.game-over-title.winner {
+  color: #28a745;
+  border-bottom: 3px solid #28a745;
+  padding-bottom: 15px;
+}
+
+.game-over-title.loser {
+  color: #dc3545;
+  border-bottom: 3px solid #dc3545;
+  padding-bottom: 15px;
+}
+
+@keyframes titleGlow {
+  from { filter: drop-shadow(0 0 10px currentColor); }
+  to { filter: drop-shadow(0 0 20px currentColor); }
+}
+
+.game-over-message {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.2rem;
+  line-height: 1.5;
+  margin: 20px 0 30px 0;
+}
+
+.return-to-lobby-button {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 15px 30px;
+  font-weight: bold;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 180px;
+  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+
+.return-to-lobby-button:hover {
+  background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 123, 255, 0.5);
+}
+
+/* Responsive adjustments for game over overlay */
+@media (max-width: 768px) {
+  .game-over-modal {
+    width: 95%;
+    margin: 20px;
+  }
+  
+  .game-over-title {
+    font-size: 2.5rem;
+  }
+  
+  .game-over-content {
+    padding: 30px 20px;
+  }
+  
+  .game-over-message {
+    font-size: 1.1rem;
+  }
+}
+
+.error {
+  background: #dc3545;
+  color: white;
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.turn-indicator {
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin: 16px 0;
+  text-align: center;
+  animation: pulse 2s infinite;
+}
+
+.turn-indicator.my-turn {
+  background: rgba(40, 167, 69, 0.3);
+  border: 2px solid #28a745;
+  color: #28a745;
+}
+
+.turn-indicator.opponent-turn {
+  background: rgba(220, 53, 69, 0.3);
+  border: 2px solid #dc3545;
+  color: #dc3545;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Card Styles */
+.hero-card {
+  background: linear-gradient(145deg, #ffffff 0%, #f0f0f0 100%);
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  padding: 0;
+  margin: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #333;
+  width: 234px; /* Increased from 180px to 234px (30% bigger) */
+  height: 360px; /* Increased from 320px to 360px to show attack value */
+  position: relative;
+  overflow: hidden;
+  display: flex; /* Use flexbox for perfect alignment */
+  flex-direction: column; /* Stack image and content vertically */
+}
+
+.hero-card:hover {
+  overflow: visible;
+}
+
+.hero-card:hover {
+  transform: scale(1.1);
+  z-index: 10;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  border-color: #007bff;
+  /* Maintain flexbox layout on hover */
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card.selected {
+  border-color: #28a745;
+  background: linear-gradient(145deg, #d4edda 0%, #c3e6cb 100%);
+  /* Maintain flexbox layout when selected */
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card.banned {
+  opacity: 0.3;
+  filter: grayscale(100%);
+  /* Maintain flexbox layout when banned */
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card.enemy {
+  border-color: #dc3545;
+  /* Maintain flexbox layout for enemy cards */
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card.ally {
+  border-color: #28a745;
+  /* Maintain flexbox layout for ally cards */
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card.current-turn {
+  border: 3px solid #ffc107;
+  transform: scale(1.1); /* This works with the larger base size */
+  z-index: 10;
+  background: rgba(255, 193, 7, 0.1);
+  /* Keep the same flexbox layout as regular cards */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure current turn card image still fills properly */
+.hero-card.current-turn .hero-image {
+  height: 182px; /* Maintain the increased height even when scaled */
+  flex-shrink: 0; /* Prevent shrinking */
+  margin: 0;
+  padding: 0;
+}
+
+.hero-card.dead {
+  opacity: 0.3;
+  filter: grayscale(80%);
+  pointer-events: none;
+  border-color: #6c757d;
+  background: rgba(108, 117, 125, 0.1);
+  /* Maintain flexbox layout for dead cards */
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card.selectable {
+  border: 2px solid #28a745;
+  cursor: pointer;
+  /* Maintain flexbox layout for selectable cards */
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card.selectable:hover {
+  border-color: #007bff;
+  transform: scale(1.1);
+  /* Maintain flexbox layout for selectable hover */
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+.hero-image {
+  width: 100%;
+  height: 182px; /* Increased from 140px to 182px (30% bigger) */
+  object-fit: cover;
+  border-radius: 10px 10px 0 0;
+  margin: 0; /* Remove all margins */
+  padding: 0; /* Remove all padding */
+  display: block; /* Ensure no spacing */
+  flex-shrink: 0; /* Don't allow image to shrink */
+}
+
+.hero-card-content {
+  padding: 0; /* Remove all padding to eliminate space */
+  margin: 0; /* Remove all margins */
+  position: relative;
+  flex: 1; /* Take up all remaining space in the card */
+  display: flex;
+  flex-direction: column;
+  font-weight: bold; /* Make all text in hero cards bold */
+}
+
+
+
+.hero-stats {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 12px;
+  border-radius: 0 0 10px 10px; /* Only round bottom corners */
+  font-size: 0.9rem;
+  margin: 0; /* Remove all margins */
+  position: relative;
+  width: 100%; /* Ensure full width */
+  box-sizing: border-box; /* Include padding in calculations */
+  /* Fill the remaining space and connect to image */
+  flex: 1; /* Take up all available space in the content area */
+  margin-top: -1px; /* Slight negative margin to just touch the image */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* Align content to top */
+}
+
+.hero-stats .hero-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  text-align: center; /* Center the hero name */
+  color: white; /* Ensure name is white in the dark box */
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3); /* Add subtle separator */
+}
+
+.hero-stats-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.hero-stats-row:last-child {
+  margin-bottom: 0;
+}
+
+.stat-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.hero-tooltip {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 10px;
+  background: rgba(0, 0, 0, 0.95);
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 230px; /* Reduced by 20px from 250px */
+  max-width: 270px; /* Reduced by 20px from 290px */
+  z-index: 1000;
+  text-align: left;
+  font-size: 0.85rem; /* Slightly smaller font to fit more content */
+  line-height: 1.4; /* Better line spacing for readability */
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  /* Remove scrollbar - let content flow naturally */
+  overflow: visible;
+}
+
+.tooltip-section {
+  margin-bottom: 12px;
+}
+
+.tooltip-section:last-child {
+  margin-bottom: 0;
+}
+
+.tooltip-section h4 {
+  color: #007bff;
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  border-bottom: 1px solid #007bff;
+  padding-bottom: 4px;
+}
+
+.tooltip-ability, .tooltip-special {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.tooltip-ability {
+  background: rgba(0, 123, 255, 0.15);
+  border-left: 3px solid #007bff;
+}
+
+.tooltip-special {
+  background: rgba(255, 193, 7, 0.15);
+  border-left: 3px solid #ffc107;
+}
+
+.tooltip-ability-name, .tooltip-special-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.tooltip-ability-name {
+  color: #66b3ff;
+}
+
+.tooltip-special-name {
+  color: #ffc107;
+}
+
+.tooltip-ability-description, .tooltip-special-description {
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: white;
+}
+
+.hero-special-name {
+  font-weight: bold;
+  color: #e68900;
+}
+
+/* Status Effects - Buffs (top-left) and Debuffs (top-right) */
+.status-effects-buffs {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.status-effects-debuffs {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+
+.status-effect {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+/* Buff Effects (positive - green/blue/yellow tones) */
+.status-effect.beast-active {
+  background: #28a745;
+}
+
+.status-effect.totem-count {
+  background: rgba(139, 69, 19, 0.9); /* Brown background for totems */
+  color: white;
+  border: 1px solid #8B4513;
+}
+
+.status-effect.inspiration {
+  background: #ffc107;
+  color: #000;
+}
+
+.status-effect.damage-stacks {
+  background: #28a745;
+  color: white;
+}
+
+.status-effect.untargetable {
+  background: #17a2b8;
+}
+
+.status-effect.buff {
+  background: #28a745;
+}
+
+/* Debuff Effects (negative - red/gray tones) */
+.status-effect.poison {
+  background: #28a745;
+}
+
+.status-effect.taunt {
+  background: #dc3545;
+}
+
+.status-effect.silenced {
+  background: #6c757d;
+}
+
+.status-effect.disable-attack {
+  background: #dc3545;
+}
+
+.status-effect.grant-advantage {
+  background: #dc3545;
+}
+
+.status-effect.ride-down-debuff {
+  background: #dc3545;
+}
+
+.status-effect.debuff {
+  background: #dc3545;
+}
+
+/* Companions - stay with buffs on the left, positioned below status effects */
+.companions {
+  position: absolute;
+  top: 40px; /* Position below status effects */
+  left: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 5;
+}
+
+.companion {
+  background: rgba(0, 150, 0, 0.9);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  border: 1px solid #006600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Shaman Totems - positioned on top-left corner */
+.shaman-totems {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+}
+
+.totem-counter {
+  background: rgba(139, 69, 19, 0.9); /* Brown background for totems */
+  color: white;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  border: 2px solid #8B4513;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  display: inline-block;
+}
+
+/* Tooltip */
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.8rem;
+}
+
+.tooltip .tooltiptext::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Keyword highlighting */
+.keyword {
+  text-decoration: underline;
+  cursor: help;
+}
+
+.keyword.poison {
+  color: #28a745;
+}
+
+.keyword.taunt {
+  color: #dc3545;
+}
+
+.keyword.inspiration {
+  color: #ffc107;
+}
+
+/* Game Layout */
+.game-board {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Fixed height to match viewport */
+  padding: 0; /* Remove padding to touch edges */
+  overflow: hidden; /* Prevent scrollbars */
+}
+
+/* Lobby Styles */
+.game-lobby {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  padding: 2rem;
+}
+
+.lobby-content {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 3rem;
+  border-radius: 16px;
+  text-align: center;
+  max-width: 800px;
+  width: 100%;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.game-title {
+  margin: 0 0 3rem 0;
+  font-size: 3.5rem;
+  font-weight: bold;
+  background: linear-gradient(45deg, #007bff, #28a745);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.mode-selection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.mode-option {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.mode-option:hover {
+  border-color: #007bff;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-5px);
+}
+
+.mode-option h3 {
+  margin-top: 0;
+  font-size: 1.8rem;
+  color: #007bff;
+  margin-bottom: 1rem;
+}
+
+.mode-option p {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  color: #e0e0e0;
+}
+
+.mode-option ul {
+  text-align: left;
+  margin: 1.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.mode-option li {
+  margin-bottom: 0.5rem;
+  color: #ccc;
+}
+
+.mode-button {
+  background: linear-gradient(45deg, #007bff, #0056b3);
+  color: white;
+  padding: 15px 30px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.mode-button:hover:not(:disabled) {
+  background: linear-gradient(45deg, #0056b3, #004085);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+}
+
+.mode-button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.random-button {
+  background: linear-gradient(45deg, #28a745, #1e7e34);
+}
+
+.random-button:hover:not(:disabled) {
+  background: linear-gradient(45deg, #1e7e34, #155724);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.game-rules {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-top: 2rem;
+  text-align: left;
+}
+
+.game-rules h3 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.game-rules ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.game-rules li {
+  margin-bottom: 0.5rem;
+}
+
+/* Draft Phase Styles */
+.draft-phase {
+  padding: 15px;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+
+.draft-cards {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 1.5rem 0;
+}
+
+/* Special layout for ban phase with 5 cards - 2 rows */
+.draft-phase .draft-cards.ban-phase {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  max-width: 800px;
+  margin: 1rem auto;
+  padding: 0 20px;
+}
+
+/* First row: 3 cards centered */
+.draft-phase .draft-cards.ban-phase .ban-row-1 {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Second row: 2 cards centered */
+.draft-phase .draft-cards.ban-phase .ban-row-2 {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.draft-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 1rem 0;
+}
+
+.teams-display {
+  display: flex;
+  justify-content: space-around;
+  margin: 1rem 0;
+  gap: 1rem;
+}
+
+.current-team,
+.opponent-team {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+.current-team h3,
+.opponent-team h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.team-cards {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Team display cards slightly smaller to fit */
+.draft-phase .teams-display .hero-card {
+  width: 160px;
+  height: 240px;
+  margin: 3px;
+}
+
+/* Turn indicator styling improvements */
+.turn-indicator {
+  text-align: center;
+  padding: 8px 16px;
+  border-radius: 6px;
+  margin: 0.5rem 0;
+  font-weight: bold;
+}
+
+.turn-indicator.my-turn {
+  background-color: rgba(40, 167, 69, 0.2);
+  border: 2px solid #28a745;
+  color: #28a745;
+}
+
+.turn-indicator.opponent-turn {
+  background-color: rgba(220, 53, 69, 0.2);
+  border: 2px solid #dc3545;
+  color: #dc3545;
+}
+
+/* Setup Phase Styles */
+.setup-phase {
+  padding: 20px;
+}
+
+.attack-order-setup {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.available-heroes,
+.attack-order {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  min-width: 300px;
+}
+
+.available-heroes h3,
+.attack-order h3 {
+  text-align: center;
+  margin-top: 0;
+}
+
+.ordered-heroes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ordered-hero {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.position-number {
+  background: #007bff;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.setup-actions {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+/* Battle Phase Styles */
+.battle-phase {
+  padding: 20px;
+}
+
+.initiative-phase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+}
+
+.initiative-actions {
+  margin: 2rem 0;
+}
+
+.turn-order-choice {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-top: 2rem;
+}
+
+.turn-order-choice h3 {
+  margin-top: 0;
+  text-align: center;
+}
+
+/* Battle with Overlay Styles */
+.battle-with-overlay {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+/* Initiative Overlay Styles */
+.initiative-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(3px);
+}
+
+.initiative-choice {
+  background: rgba(20, 30, 60, 0.95);
+  border: 2px solid #4CAF50;
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.initiative-choice h2 {
+  color: #4CAF50;
+  margin-top: 0;
+  font-size: 2rem;
+  text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.initiative-results {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.player-roll {
+  margin: 0.5rem 0;
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.winner-choice h3 {
+  color: #FFD700;
+  margin: 1rem 0;
+  font-size: 1.5rem;
+}
+
+.choice-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.choice-buttons .action-button {
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  border: none;
+  color: white;
+  padding: 12px 24px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.choice-buttons .action-button:hover {
+  background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.waiting-choice {
+  color: #FFA726;
+}
+
+.waiting-choice h3 {
+  color: #FF9800;
+  margin: 1rem 0;
+}
+
+.initiative-loading {
+  background: rgba(20, 30, 60, 0.95);
+  border: 2px solid #2196F3;
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.initiative-loading h2 {
+  color: #2196F3;
+  margin-top: 0;
+  font-size: 1.8rem;
+  text-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+}
+
+.loading-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.loading-dots span {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #2196F3;
+  animation: bounce 1.4s ease-in-out infinite both;
+}
+
+.loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+.loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+.loading-dots span:nth-child(3) { animation-delay: 0; }
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  } 40% {
+    transform: scale(1);
+  }
+}
+
+.team-display {
+  display: flex;
+  gap: 16px;
+  justify-content: center; /* Center the cards */
+  flex-wrap: wrap;
+  padding: 20px; /* Add padding for card spacing from edges */
+  width: 100%; /* Full width for proper centering */
+  margin: 0 auto; /* Center the container */
+  box-sizing: border-box; /* Include padding in width calculation */
+  position: absolute; /* Position absolutely within parent */
+  top: 50%; /* Center vertically */
+  left: 50%; /* Center horizontally */
+  transform: translate(-50%, -50%); /* Perfect centering */
+}
+
+/* Adjust opponent team cards positioning to fit on screen */
+.opponent-area .team-display {
+  transform: translate(-50%, calc(-50% + 20px)); /* Move top cards down 20px to fit on screen */
+}
+
+.action-panel {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-top: 2rem;
+}
+
+.action-panel h3 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.ability-selection {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.ability-button {
+  background: #6f42c1;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+}
+
+.ability-button:hover:not(:disabled) {
+  background: #5a359a;
+}
+
+.ability-button.selected {
+  background: #28a745;
+}
+
+.ability-button.selected:hover {
+  background: #218838;
+}
+
+.attack-button {
+  background: #dc3545;
+}
+
+.attack-button:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.ability-button {
+  background: #6f42c1;
+}
+
+.ability-button:hover:not(:disabled) {
+  background: #5a359a;
+}
+
+.end-turn-button {
+  background: #6c757d;
+}
+
+.end-turn-button:hover:not(:disabled) {
+  background: #545b62;
+}
+
+.opponent-area {
+  display: block; /* Changed from flex to block to separate text from cards */
+  margin: 0; /* Remove bottom margin */
+  padding: 0; /* Remove padding so it extends to sidebars */
+  background: rgba(139, 0, 0, 0.3); /* Darker red background - dark red with higher opacity */
+  border-radius: 0; /* Remove border radius to touch all edges */
+  flex: 1; /* Take up half the available space */
+  min-height: 50vh; /* Fixed height to prevent overlap */
+  position: relative; /* For absolute positioning of content */
+  box-sizing: border-box; /* Include padding in height calculation */
+}
+
+.opponent-area h3,
+.player-area h3 {
+  text-align: center; /* Center the text */
+  margin: 0; /* Remove bottom margin */
+  position: absolute; /* Position absolutely */
+  top: 50%; /* Center vertically */
+  left: 20px; /* Simple left positioning */
+  transform: translateY(-50%); /* Center vertically only */
+  z-index: 10; /* Ensure it appears above cards */
+  background: rgba(0, 0, 0, 0.9); /* Stronger background for better readability */
+  padding: 10px 20px; /* More padding for better visibility */
+  border-radius: 8px; /* Larger border radius */
+  color: white; /* Ensure text is visible */
+  font-size: 1.4rem; /* Larger text for better visibility */
+  font-weight: bold; /* Make text bold */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); /* Add shadow for depth */
+  white-space: pre-line; /* Allow line breaks in text */
+  line-height: 1.2; /* Tighter line spacing for multi-line text */
+}
+
+/* Style opponent's team label with dark red border */
+.opponent-area h3 {
+  border: 2px solid rgba(139, 0, 0, 0.9); /* Dark red border for opponent */
+  background: rgba(139, 0, 0, 0.2); /* Subtle dark red background */
+  backdrop-filter: blur(5px); /* Blur effect for modern look */
+}
+
+/* Style player's team label with light blue border */
+.player-area h3 {
+  border: 2px solid rgba(100, 181, 246, 0.8); /* Light blue border for player */
+  background: rgba(100, 181, 246, 0.15); /* Subtle light blue background */
+  backdrop-filter: blur(5px); /* Blur effect for modern look */
+}
+
+.player-area {
+  display: block; /* Changed from flex to block to separate text from cards */
+  margin: 0; /* Remove top margin */
+  padding: 0; /* Remove padding so it extends to sidebars */
+  background: rgba(100, 181, 246, 0.25); /* Light blue background for player */
+  border-radius: 0; /* Remove border radius to touch all edges */
+  flex: 1; /* Take up half the available space */
+  min-height: 50vh; /* Ensure it takes up half the viewport */
+  position: relative; /* For absolute positioning of content */
+  box-sizing: border-box; /* Include padding in height calculation */
+  /* Removed transform to prevent overlap with opponent area */
+}
+
+.battle-info {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.battle-combined-info {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.turn-indicator {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.action-button {
+  background: #007bff;
+  color: white;
+  padding: 10px 20px;
+  font-size: 1rem;
+}
+
+.action-button:hover {
+  background: #0056b3;
+}
+
+.action-button:disabled {
+  background: #6c757d;
+}
+
+.action-button.used {
+  background: #6c757d;
+  color: #aaa;
+  opacity: 0.7;
+}
+
+.action-button.silenced {
+  background: #6c757d;
+  color: #aaa;
+  opacity: 0.6;
+  position: relative;
+}
+
+.action-button.silenced::after {
+  content: "🔇";
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 0.8rem;
+}
+
+.action-button.disable-attack {
+  background: #dc3545;
+  color: #aaa;
+  opacity: 0.6;
+  position: relative;
+}
+
+.action-button.disable-attack::after {
+  content: "❌";
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 0.8rem;
+}
+
+.action-button.permanently-disabled {
+  background: #495057;
+  color: #6c757d;
+  opacity: 0.4;
+  position: relative;
+  border: 1px solid #6c757d;
+}
+
+.action-button.permanently-disabled::after {
+  content: "🚫";
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 0.8rem;
+}
+
+.action-button.selecting {
+  background: #17a2b8;
+  color: white;
+  border: 2px solid #138496;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+
+
+
+
+/* Initiative Choice Styles */
+.initiative-choice {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2rem;
+  border-radius: 12px;
+  margin: 2rem auto;
+  max-width: 500px;
+  text-align: center;
+}
+
+.initiative-results {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.player-roll {
+  font-size: 1.2rem;
+  margin: 0.5rem 0;
+}
+
+.winner-choice h3 {
+  color: #28a745;
+  margin: 1rem 0;
+}
+
+.waiting-choice h3 {
+  color: #ffc107;
+  margin: 1rem 0;
+}
+
+.choice-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+/* Sidebar Styles */
+.game-info {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.phase-info, .player-info, .draft-info, .initiative-info {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #007bff;
+}
+
+.game-info h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+  color: #007bff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.current-phase {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #28a745;
+  text-transform: capitalize;
+}
+
+.player-entry {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.current-player {
+  background: rgba(40, 167, 69, 0.2);
+  border-left: 3px solid #28a745;
+}
+
+.opponent-player {
+  background: rgba(220, 53, 69, 0.2);
+  border-left: 3px solid #dc3545;
+}
+
+.draft-progress {
+  font-size: 0.9rem;
+  color: #ccc;
+  margin-top: 4px;
+}
+
+.draft-round {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #ffc107;
+}
+
+.turn-status {
+  margin-top: 8px;
+  font-weight: bold;
+  padding: 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.initiative-rolls {
+  margin: 8px 0;
+}
+
+.initiative-rolls > div {
+  margin: 4px 0;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.initiative-winner {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.initiative-loser {
+  color: #dc3545;
+}
+
+/* Setup and Battle Phase Styles */
+.setup-info, .battle-info, .battle-combined-info {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #28a745;
+}
+
+.setup-status {
+  color: #ffc107;
+  font-weight: bold;
+}
+
+.current-turn {
+  color: #28a745;
+  font-weight: bold;
+  font-size: 1.1rem;
+  padding: 8px;
+  background: rgba(40, 167, 69, 0.2);
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.opponent-turn {
+  color: #dc3545;
+  font-weight: bold;
+  font-size: 1.1rem;
+  padding: 8px;
+  background: rgba(220, 53, 69, 0.2);
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.action-status {
+  margin-top: 12px;
+}
+
+.actions-used {
+  margin-bottom: 10px;
+}
+
+.action-used {
+  color: #6c757d;
+  font-size: 0.9rem;
+  margin: 2px 0;
+}
+
+.action-available {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.active-hero {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 8px;
+}
+
+.active-hero h4 {
+  margin: 0 0 6px 0;
+  color: #007bff;
+  font-size: 0.95rem;
+}
+
+.active-hero .hero-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.active-hero .hero-hp {
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+/* Battle Log Styles */
+.battle-log {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #dc3545;
+  max-height: 40vh; /* Limit to 40% of viewport height */
+  overflow: hidden; /* Hide overflow on container */
+  flex: 0 0 auto; /* Don't grow/shrink, auto size */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Battle Log Section within Combined Info */
+.battle-log-section {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 10px;
+  border-left: 3px solid #dc3545;
+  margin-top: 15px;
+  max-height: 35vh; /* Slightly smaller than standalone battle log */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.battle-log-section h4 {
+  margin: 0 0 10px 0;
+  color: #dc3545;
+  font-size: 1rem;
+}
+
+.log-entries {
+  max-height: 35vh; /* Slightly less than container to account for padding */
+  overflow-y: auto; /* Add vertical scrollbar when needed */
+  overflow-x: hidden; /* Hide horizontal scrollbar */
+  padding-right: 5px; /* Add space for scrollbar */
+}
+
+/* Log entries within the combined battle section */
+.battle-log-section .log-entries {
+  max-height: 30vh; /* Smaller height within the combined section */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 5px;
+}
+
+/* Scrollbar styling for battle log */
+.log-entries::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-entries::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.log-entries::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.log-entries::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.log-entry {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.log-action {
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.ability-name {
+  color: #9d4edd;
+  font-weight: bold;
+  text-shadow: 0 0 2px rgba(157, 78, 221, 0.3);
+}
+
+.special-name {
+  color: #ffb700;
+  font-weight: bold;
+  text-shadow: 0 0 2px rgba(255, 183, 0, 0.4);
+}
+
+.trigger-context {
+  color: #888;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.log-result {
+  color: #ccc;
+}
+
+.crit {
+  color: #ffc107;
+  font-weight: bold;
+}
+
+.miss {
+  color: #dc3545;
+}
+
+.hit {
+  color: #28a745;
+}
+
+.heal {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.timekeeper-command {
+  color: #ffc107;
+  font-style: italic;
+  font-weight: bold;
+}
+
+.heal-roll-info {
+  color: #6c757d;
+  font-size: 0.8rem;
+  margin-left: 8px;
+}
+
+.buff {
+  color: #17a2b8;
+  font-weight: bold;
+}
+
+.status {
+  color: #6f42c1;
+  font-weight: bold;
+}
+
+.damage-roll-info {
+  color: #6c757d;
+  font-size: 0.8rem;
+  margin-left: 8px;
+}
+
+.roll-info {
+  color: #6c757d;
+  font-size: 0.8rem;
+  margin-left: 8px;
+}
+
+.advantage-chosen {
+  color: #007bff;
+  font-weight: bold;
+}
+
+/* Battle Layout and Action Bar */
+.battle-layout {
+  display: flex;
+  gap: 0;
+  height: 100vh; /* Fixed height to match viewport */
+  margin-right: 300px; /* Leave space for fixed action bar */
+  overflow: hidden; /* Prevent scrollbars */
+  /* Ensure it extends to all edges except right (for action bar) */
+  margin: 0;
+  margin-right: 300px; /* Only right margin for action bar */
+}
+
+.game-board {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* Remove gap to eliminate grey space between areas */
+  padding: 0; /* Remove padding so areas extend to sidebar */
+  margin: 0; /* Ensure no margins */
+  width: 100%; /* Full width */
+  height: 100vh; /* Full height */
+}
+
+.action-bar {
+  width: 300px;
+  background: rgba(0, 0, 0, 0.8);
+  border-left: 2px solid #007bff;
+  padding: 0; /* Remove padding to reach edge */
+  margin: 0; /* Ensure no margin */
+  overflow-y: hidden; /* Remove scrolling */
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* Remove gap since we'll handle spacing internally */
+  position: fixed; /* Fixed positioning to stay in place during scroll */
+  top: 0; /* Touch top edge */
+  right: 0; /* Touch right edge */
+  bottom: 0; /* Touch bottom edge */
+  height: 100vh; /* Full viewport height */
+  z-index: 1000; /* Ensure it stays on top */
+}
+
+.action-bar > * {
+  padding: 20px; /* Add padding to individual children instead */
+}
+
+.action-bar h3 {
+  margin: 0 0 0 0; /* Remove bottom margin */
+  padding: 20px 20px 10px 20px; /* Custom padding for header */
+  font-size: 1.8rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  color: #007bff;
+  text-align: center;
+}
+
+.current-hero-info {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #007bff;
+  text-align: center;
+}
+
+.current-hero-info h4 {
+  margin: 0 0 10px 0;
+  color: #007bff;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.current-hero-info p {
+  margin: 0;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.ability-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #6f42c1;
+}
+
+.ability-selection h4 {
+  margin: 0 0 10px 0;
+  color: #6f42c1;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.ability-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ability-option-button {
+  background: rgba(111, 66, 193, 0.2);
+  color: white;
+  border: 2px solid #6f42c1;
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.ability-option-button:hover {
+  background: rgba(111, 66, 193, 0.4);
+  border-color: #8a5fb7;
+  transform: translateY(-1px);
+}
+
+.ability-option-button:active {
+  transform: translateY(0);
+}
+
+.ability-name {
+  font-weight: bold;
+  font-size: 1rem;
+  margin-bottom: 4px;
+  color: #b794f6;
+}
+
+.ability-description {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  line-height: 1.3;
+}
+
+.cancel-ability-selection {
+  background: #dc3545 !important;
+  border-color: #dc3545 !important;
+}
+
+.ability-button {
+  background: #444;
+  color: white;
+  border: 2px solid #666;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.ability-button:hover {
+  background: #555;
+  border-color: #888;
+}
+
+.ability-button.selected {
+  background: #007bff;
+  border-color: #0056b3;
+}
+
+.ability-button:disabled {
+  background: #222;
+  color: #666;
+  border-color: #333;
+  cursor: not-allowed;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #dc3545;
+}
+
+.action-buttons h4 {
+  margin: 0 0 10px 0;
+  color: #dc3545;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.end-turn-section {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #ffc107;
+}
+
+.end-turn-section h4 {
+  margin: 0 0 10px 0;
+  color: #ffc107;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.simple-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.simple-actions .action-button {
+  padding: 14px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1rem;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.action-button {
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+  min-width: 140px;
+  width: 100%;
+}
+
+.attack-button {
+  background: #dc3545;
+  color: white;
+}
+
+.attack-button:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.ability-button {
+  background: #007bff;
+  color: white;
+}
+
+.ability-button:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.end-turn-button {
+  background: #6c757d;
+  color: white;
+}
+
+.end-turn-button:hover {
+  background: #545b62;
+}
+
+.action-button:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.target-info {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #28a745;
+  text-align: center;
+}
+
+.target-info p {
+  margin: 0;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.target-info h4 {
+  margin: 0 0 10px 0;
+  color: #28a745;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.wait-message {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid #6c757d;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.wait-message h4 {
+  margin: 0 0 10px 0;
+  color: #6c757d;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.wait-message p {
+  margin: 0;
+  color: #ccc;
+  font-style: italic;
+}
+
+/* Buffed Stat Styles */
+.buffed-stat {
+  position: relative;
+  display: inline-block;
+}
+
+.buffed-text {
+  color: #66b3ff;
+  text-shadow: 0 0 8px rgba(102, 179, 255, 0.6);
+  font-weight: bold;
+}
+
+.buff-tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.buff-tooltiptext {
+  visibility: hidden;
+  width: 180px;
+  background-color: rgba(0, 0, 0, 0.95);
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -90px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.8rem;
+  border: 1px solid #66b3ff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.buff-tooltiptext::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.95) transparent transparent transparent;
+}
+
+.buffed-stat:hover .buff-tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Debuffed Stat Styles */
+.buffed-stat.has-debuff {
+  color: #ff6666;
+  text-shadow: 0 0 8px rgba(255, 102, 102, 0.6);
+  font-weight: bold;
+}
+
+/* Stat Glow Effects */
+.stat-buffed {
+  color: #66b3ff;
+  text-shadow: 0 0 8px rgba(102, 179, 255, 0.8);
+  font-weight: bold;
+}
+
+.stat-debuffed {
+  color: #ff6666;
+  text-shadow: 0 0 8px rgba(255, 102, 102, 0.8);
+  font-weight: bold;
+}
+
+.stat-berserker-stacks {
+  color: #ff9900;
+  text-shadow: 0 0 8px rgba(255, 153, 0, 0.8);
+  font-weight: bold;
+}
+
+/* Status Effect Styles for debuffs */
+.status-effect.stat-modifier.debuff {
+  background-color: rgba(255, 102, 102, 0.2);
+  border: 1px solid #ff6666;
+  color: #ff6666;
+}
+
+/* Special ability activation styles */
+.special-ability {
+  color: #9966ff;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(153, 102, 255, 0.6);
+}
+
+/* Special ability section and instruction styles */
+.special-ability-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ability-instruction {
+  font-size: 0.85em;
+  color: #cccccc;
+  background: rgba(0, 123, 255, 0.1);
+  border: 1px solid rgba(0, 123, 255, 0.3);
+  border-radius: 4px;
+  padding: 6px 12px;
+  text-align: center;
+  max-width: 200px;
+  line-height: 1.2;
+}
+
+
+
+/* Survival Mode Sidebar Information */
+.survival-info {
+  background: linear-gradient(135deg, rgba(255, 102, 0, 0.1) 0%, rgba(255, 136, 51, 0.1) 100%);
+  border: 1px solid rgba(255, 102, 0, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 15px;
+}
+
+.survival-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.survival-wins {
+  color: #ffd700;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.survival-losses {
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.survival-goal {
+  color: #ff6600;
+  font-style: italic;
+  font-size: 0.85rem;
+  margin-top: 4px;
+  text-align: center;
+}

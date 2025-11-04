@@ -1,0 +1,26 @@
+/* Survival Battle Transition Component */
+.survival-battle-transition {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.transition-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 1);
+  opacity: 1;
+  transition: opacity 0.8s ease-out;
+}
+
+.survival-battle-transition.fade-out .transition-overlay {
+  opacity: 0;
+}
+

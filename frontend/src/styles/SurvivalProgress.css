@@ -1,0 +1,167 @@
+/* Survival Progress Component */
+.survival-progress {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #ff6600;
+  border-radius: 15px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.survival-progress h3 {
+  color: #ff6600;
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  text-align: center;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.progress-section {
+  margin-bottom: 20px;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.progress-title {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.progress-count {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.progress-bar-container {
+  position: relative;
+  height: 20px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 10px;
+  transition: all 0.5s ease;
+}
+
+.wins-bar {
+  background: linear-gradient(90deg, #0066cc 0%, #007bff 50%, #4da6ff 100%);
+  border: 1px solid #007bff;
+}
+
+.losses-bar {
+  background: linear-gradient(90deg, #cc0000 0%, #ff0000 50%, #ff4d4d 100%);
+  border: 1px solid #ff0000;
+}
+
+.progress-achievement {
+  text-align: center;
+  color: #ffd700;
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid #ffd700;
+  border-radius: 8px;
+  animation: achievement-glow 2s ease-in-out infinite alternate;
+}
+
+.progress-elimination {
+  text-align: center;
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid #ff6b6b;
+  border-radius: 8px;
+  animation: elimination-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes achievement-glow {
+  from {
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  to {
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+  }
+}
+
+@keyframes elimination-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .survival-progress {
+    padding: 15px;
+  }
+  
+  .survival-progress h3 {
+    font-size: 1.3rem;
+  }
+  
+  .progress-title {
+    font-size: 1rem;
+  }
+  
+  .progress-bar-container {
+    height: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .survival-progress {
+    padding: 12px;
+  }
+  
+  .survival-progress h3 {
+    font-size: 1.2rem;
+  }
+  
+  .progress-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  
+  .progress-bar-container {
+    height: 14px;
+  }
+  
+  .progress-achievement,
+  .progress-elimination {
+    font-size: 1rem;
+    padding: 8px;
+  }
+}

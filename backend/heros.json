@@ -1,0 +1,1383 @@
+[
+  {
+    "name": "Barbarian",
+    "HP": 25,
+    "Defense": 8,
+    "Accuracy": "+1",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Reckless Swing",
+        "description": "Deal 2D6 damage; Barbarian takes 2D4 recoil damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "2D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "recoil_damage",
+            "type": "recoil_damage",
+            "value": "2D4",
+            "target": "self"
+          }
+        ]
+      }
+    ],
+    "Special": [
+      {
+        "name": "Break the Line",
+        "description": "Attacks and abilities ignore taunts and deflections.",
+        "effects": [
+          {
+            "type": "passive_modifier",
+            "effect": "ignore_taunt"
+          },
+          {
+            "type": "passive_modifier",
+            "effect": "ignore_deflect"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Engineer",
+    "disabled": true,
+    "HP": 15,
+    "Defense": 6,
+    "Accuracy": "+1",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "summon",
+        "name": "Call Turret",
+        "description": "Summon a Mechanical Turret (max 2). At the end of Engineer's turn, deal 1D4 damage to a random enemy for each active turret.",
+        "target_type": "self_only",
+        "primary_effects": [
+          {
+            "type": "summon",
+            "unit": "Mechanical Turret",
+            "max": 2,
+            "behavior": {
+              "trigger": "owner_turn_end",
+              "action": "damage",
+              "value": "1D4",
+              "target": "random_enemy"
+            }
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Protective Gear",
+      "description": "When taking damage, sacrifice a Turret to negate the damage.",
+      "trigger": "on_take_damage",
+      "trigger_timing": "before_damage_applied",
+      "effects": [
+        {
+          "type": "negate_damage",
+          "cost": {
+            "type": "sacrifice",
+            "unit": "Mechanical Turret",
+            "amount": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "Bard",
+    "disabled": true,
+    "HP": 18,
+    "Defense": 7,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Song of Valor",
+        "description": "Deal 1D4 damage and give your right ally advantage on their next ability.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_buff",
+            "type": "apply_buff",
+            "effect": "grant_advantage",
+            "target": "ally_right",
+            "scope": "abilities_only"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Encore",
+      "description": "When an ally misses an attack or ability, they reroll. This resets at the start of the Bard's turn.",
+      "trigger": "on_ally_miss",
+      "frequency": "once_per_round",
+      "effects": [
+        {
+          "type": "force_reroll",
+          "target": "triggering_ally"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Assassin",
+    "HP": 18,
+    "Defense": 9,
+    "Accuracy": "+3",
+    "BasicAttack": "—",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Poison Strike",
+        "description": "Deal 1D4 damage and give the target 1 Poison stack.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "poison",
+            "stacks": 1,
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "permanent",
+      "name": "Twin Daggers",
+      "description": "No basic attack; may trigger ability twice per turn.",
+      "effects": [
+        {
+          "type": "disable_basic_attack"
+        },
+        {
+          "type": "modify_ability_usage",
+          "effect": "use_twice_per_turn"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Paladin",
+    "HP": 23,
+    "Defense": 10,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Divine Smite",
+        "description": "Deal 1D4 damage and heal an ally for 1D4.",
+        "target_type": "single_target",
+        "requires_ally_target": true,
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "heal_others",
+            "type": "heal",
+            "value": "1D4",
+            "target": "selected_ally"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reactive",
+      "name": "Shield of Faith",
+      "description": "When an opponent attacks an ally adjacent to the Paladin, taunt it.",
+      "trigger": "ally_attacked_adjacent",
+      "effects": [
+        {
+          "type": "apply_debuff",
+          "effect": "taunt",
+          "duration": 1,
+          "duration_unit": "turn",
+          "target": "attacker",
+          "taunt_target": "self"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Sorcerer",
+    "HP": 15,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Chromatic Orb",
+        "description": "Deal 2D4 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "2D4",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Twin Spell",
+      "description": "When Sorcerer hits with it's ability, roll to cast it again.",
+      "trigger": "on_ability_hit",
+      "frequency": "once_per_round",
+      "effects": [
+        {
+          "type": "conditional_repeat_cast",
+          "mechanic": "roll_to_activate"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Druid",
+    "HP": 17,
+    "Defense": 8,
+    "Accuracy": "+1",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "heal_self",
+        "name": "Wildshape",
+        "description": "Heal Druid for 1D6.",
+        "target_type": "self_only",
+        "primary_effects": [
+          {
+            "type": "heal",
+            "value": "1D6",
+            "target": "self"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "passive",
+      "name": "Healing Word",
+      "description": "At the end of the Druid's turn, heal the lowest health ally 1D4.",
+      "trigger": "end_of_turn",
+      "effects": [
+        {
+          "type": "heal",
+          "value": "1D4",
+          "target": "lowest_health_ally"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Cleric",
+    "HP": 20,
+    "Defense": 10,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Guiding Bolt",
+        "description": "Deal 1D4 damage and grant advantage on the next attack roll against the target.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "grant_advantage",
+            "duration": 1,
+            "duration_unit": "attack",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "team_aura",
+      "name": "Bless",
+      "description": "While Cleric is alive, all allies gain +1 to hit.",
+      "effects": [
+        {
+          "type": "stat_modifier",
+          "stat": "accuracy",
+          "value": 1,
+          "target": "all_allies"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Monk",
+    "HP": 16,
+    "Defense": 9,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "One-Two Punch",
+        "description": "Deal 1D6 damage and attack again.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "utility",
+            "type": "extra_action",
+            "action": "basic_attack"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "counter_attack",
+      "name": "Deflect",
+      "description": "When an ally would be hit by an attack or ability with a roll lower than monk's defense, negate the damage and deal 1D4 to the attacker.",
+      "trigger": "on_ally_hit_by_low_roll",
+      "effects": [
+        {
+          "type": "negate_damage"
+        },
+        {
+          "type": "damage",
+          "value": "1D4",
+          "target": "attacker"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Cavalier",
+    "HP": 20,
+    "Defense": 9,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Trample",
+        "description": "Deal 1D6 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional_debuff",
+      "name": "Ride Down",
+      "description": "All attacks against enemies hit by Cavalier have advantage",
+      "condition": "after_hitting_target",
+      "effects": [
+        {
+          "type": "apply_vulnerability_debuff",
+          "target": "hit_enemies",
+          "condition": "after_damage_dealt"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Piercer",
+    "HP": 19,
+    "Defense": 8,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "conditional",
+        "name": "Piercing Strike",
+        "description": "Deal 1D4 damage. Deal an additional 1D6 damage if the target has more than 8 defense.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target",
+            "conditional_damage": "1D6",
+            "condition": "target_defense_gt_8"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional",
+      "name": "Armor Breaker",
+      "description": "Gain advantage against enemies with more than 8 defense.",
+      "condition": "target_defense_gt_8",
+      "effects": [
+        {
+          "type": "grant_advantage"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Silencer",
+    "HP": 18,
+    "Defense": 7,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Silence",
+        "description": "Deal 1D6 and Silence target until next turn.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "silence",
+            "duration": 1,
+            "duration_unit": "turn",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Anti-Magic Field",
+      "description": "Enemies attacking Silencer have disadvantage on their ability rolls.",
+      "trigger": "on_targeted_by_ability",
+      "effects": [
+        {
+          "type": "grant_disadvantage",
+          "target": "attacker",
+          "scope": "abilities_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Berserker",
+    "HP": 18,
+    "Defense": 7,
+    "Accuracy": "+2",
+    "BasicAttack": "1D8",
+    "Ability": [
+      {
+        "category": "apply_buff",
+        "name": "Bloodbath",
+        "description": "Gain a bloodbath stack (max 2); each stack gives +1 damage to attacks.",
+        "target_type": "self_only",
+        "primary_effects": [
+          {
+            "type": "apply_buff",
+            "effect": "damage_stack",
+            "value": 1,
+            "max_stacks": 2,
+            "target": "self"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional",
+      "name": "Frenzy",
+      "description": "Below 10 HP, Berserker can attack twice per turn.",
+      "condition": "self_hp_lt_10",
+      "effects": [
+        {
+          "type": "extra_attack_per_turn"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Wizard",
+    "HP": 15,
+    "Defense": 5,
+    "Accuracy": "+3",
+    "BasicAttack": "2D4",
+    "Ability": [
+      {
+        "category": "aoe_damage",
+        "name": "Fireball",
+        "description": "Deal 1D4 damage to all enemies.",
+        "target_type": "all_enemies",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "all_enemies",
+            "condition": "target_ac_lte_attack_roll"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Arcane Shield",
+      "description": "The first time Wizard would take damage more than 6 damage, reduce it to 0",
+      "trigger": "on_take_damage_gt_6",
+      "frequency": "once_per_battle",
+      "effects": [
+        {
+          "type": "negate_damage",
+          "target": "self"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Fighter",
+    "HP": 18,
+    "Defense": 8,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "multi_target_damage",
+        "name": "Cleave",
+        "description": "Deal 1D6 to your target and 1D6 to the enemy to the left of them.",
+        "target_type": "multi_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          },
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "adjacent_enemy_left"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional",
+      "name": "Desperate Blows",
+      "description": "Below 10 HP, Fighter's attacks have advantage.",
+      "condition": "self_hp_lt_10",
+      "effects": [
+        {
+          "type": "grant_advantage",
+          "scope": "attacks_only"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Warlock",
+    "HP": 16,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D8",
+    "Ability": [
+      {
+        "category": "lifesteal",
+        "name": "Vitality Drain",
+        "description": "Lifesteal 1D6.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "lifesteal_damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "start_of_game",
+      "name": "Dark Pact",
+      "description": "Increase the damage of all attacks and abilities of adjacent allies by +1.",
+      "trigger": "battle_start",
+      "effects": [
+        {
+          "type": "apply_buff",
+          "effect": "damage_modifier",
+          "value": 1,
+          "target": "adjacent_allies"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Warden",
+    "HP": 21,
+    "Defense": 11,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Compel Duel",
+        "description": "Deal 1D4 damage and Taunt the target to attack Warden next turn.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "taunt",
+            "duration": 1,
+            "duration_unit": "turn",
+            "target": "target",
+            "taunt_target": "self"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "counter_attack",
+      "name": "Shield Bash",
+      "description": "Whenever an attack misses Warden, the attacker takes 1D6 damage.",
+      "trigger": "on_miss_by_ac",
+      "effects": [
+        {
+          "type": "damage",
+          "value": "1D6",
+          "target": "attacker"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Witch Doctor",
+    "disabled": true,
+    "HP": 16,
+    "Defense": 6,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "conditional",
+        "name": "Hexburst Mending",
+        "description": "Deal 1D6 damage and heal adjacent allies for 1D4.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "heal_others",
+            "type": "heal",
+            "value": "1D4",
+            "target": "adjacent_allies"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "turn_based",
+      "name": "Voodoo Ritual",
+      "description": "At the end of the Witch Doctor's turn, deal 1D4 damage to the lowest health enemy.",
+      "trigger": "end_of_turn",
+      "effects": [
+        {
+          "type": "damage",
+          "value": "1D4",
+          "target": "lowest_health_enemy"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Champion",
+    "HP": 18,
+    "Defense": 8,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "conditional",
+        "name": "Inspiring Crowd",
+        "description": "Heal Champion for 1D4 HP (1D8 if below 11 HP).",
+        "target_type": "self_only",
+        "primary_effects": [
+          {
+            "type": "conditional_heal",
+            "target": "self",
+            "condition": "self_hp_lt_11",
+            "value_true": "1D8",
+            "value_false": "1D4"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "scaling",
+      "name": "Last Stand",
+      "description": "For each fallen ally, Champion gains +1 Defense and +1D6 damage.",
+      "scale_with": "fallen_allies",
+      "effects": [
+        {
+          "type": "stat_modifier",
+          "stat": "Defense",
+          "value_per_stack": 1
+        },
+        {
+          "type": "damage_modifier",
+          "value_per_stack": "1D6"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Ranger",
+    "HP": 18,
+    "Defense": 7,
+    "Accuracy": "+3",
+    "BasicAttack": "1D8",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Piercing Shot",
+        "description": "Deal 1D6 damage and reduce the target's defense by 1 until Ranger's next turn.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "stat_modifier",
+            "stat": "Defense",
+            "value": -1,
+            "duration": 1,
+            "duration_unit": "caster_turn",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "persistent",
+      "name": "Eagle Eye",
+      "description": "Ranger rolls attacks and abilities with advantage.",
+      "effects": [
+        {
+          "type": "grant_advantage"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Blood Hunter",
+    "HP": 18,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "—",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Crimson Rite",
+        "description": "Deal 3D4 damage and take 2D4 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "3D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "recoil_damage",
+            "type": "recoil_damage",
+            "value": "2D4",
+            "target": "self"
+          }
+        ]
+      },
+      {
+        "category": "lifesteal",
+        "name": "Sanguine Renewal",
+        "description": "Deal 1D4 damage and heal Blood Hunter for that amount.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "lifesteal_damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "permanent",
+      "name": "Blood Price",
+      "description": "No basic attack; may trigger each ability once per turn.",
+      "effects": [
+        {
+          "type": "disable_basic_attack"
+        },
+        {
+          "type": "modify_ability_usage",
+          "effect": "use_twice_per_turn"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Shaman",
+    "HP": 18,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "summon_and_damage",
+        "name": "Elemental Strike",
+        "description": "Summon a totem (max 3), then deal 1D4 damage for each totem.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "summon",
+            "unit": "Totem",
+            "max": 3
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4_per_totem",
+            "target": "target",
+            "scaling": "totem_count"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "team_aura",
+      "name": "Totemic Bond",
+      "description": "While Shaman is alive, all allies gain +1 Defense.",
+      "effects": [
+        {
+          "type": "stat_modifier",
+          "stat": "Defense",
+          "value": 1,
+          "target": "all_allies"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Timekeeper",
+    "HP": 16,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D8",
+    "Ability": [
+      {
+        "category": "utility",
+        "name": "Chrono Shift",
+        "description": "Trigger an ally's ability.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "command_ally",
+            "action": "use_ability",
+            "target": "chosen_ally",
+            "against": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "team_aura",
+      "name": "Haste",
+      "description": "Adjacent allies gain advantage on their ability rolls.",
+      "effects": [
+        {
+          "type": "grant_advantage",
+          "scope": "abilities_only",
+          "target": "adjacent_allies"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Ninja",
+    "HP": 15,
+    "Defense": 7,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Sharpened Shuriken",
+        "description": "Deal 2D6 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "2D6",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Vanish",
+      "description": "Once per round after being hit, become untargetable by other heroes until Ninja's next turn.",
+      "trigger": "on_take_damage_after",
+      "frequency": "once_per_round",
+      "effects": [
+        {
+          "type": "apply_buff",
+          "effect": "untargetable",
+          "duration": 1,
+          "duration_unit": "turn",
+          "target": "self"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Dragon Rider",
+    "HP": 20,
+    "Defense": 10,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Fire Breath",
+        "description": "Deal 3D4 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "3D4",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional_permanent",
+      "name": "Dismount",
+      "description": "When Dragon Rider is reduced below 9 HP, it loses 3 Defense and cannot use its Ability; this cannot be restored by healing.",
+      "condition": "self_hp_lt_9",
+      "effects": [
+        {
+          "type": "permanent_stat_modifier",
+          "stat": "Defense",
+          "value": -3
+        },
+        {
+          "type": "disable_ability",
+          "permanent": true
+        }
+      ]
+    }
+  },
+  {
+    "name": "Bomber",
+    "HP": 14,
+    "Defense": 5,
+    "Accuracy": "+1",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "aoe_damage",
+        "name": "Bomb Toss",
+        "description": "Deal 2D4 damage to all enemies.",
+        "target_type": "all_enemies",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "2D4",
+            "target": "all_enemies"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "death",
+      "name": "Self Destruct",
+      "description": "On death, deal 2D4 to Bomber's killer.",
+      "trigger": "on_death",
+      "effects": [
+        {
+          "type": "damage",
+          "value": "2D4",
+          "target": "killer"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Beast Tamer",
+    "HP": 17,
+    "Defense": 7,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "conditional",
+        "name": "Call Beast / Command Attack",
+        "description": "Summon beast; if beast is already summoned, command it to deal 2D8 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "conditional_action",
+            "condition": "beast_inactive",
+            "action": {
+              "type": "summon",
+              "unit": "Beast"
+            }
+          },
+          {
+            "type": "conditional_action",
+            "condition": "beast_active",
+            "action": {
+              "type": "damage",
+              "value": "2D8",
+              "target": "target"
+            }
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional",
+      "name": "Pack Tactics",
+      "description": "Beast Tamer's attacks have advantage while the beast is summoned.",
+      "condition": "beast_active",
+      "effects": [
+        {
+          "type": "grant_advantage"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Brawler",
+    "HP": 18,
+    "Defense": 8,
+    "Accuracy": "+2",
+    "BasicAttack": "2D4",
+    "Ability": [],
+    "Special": {
+      "category": "permanent",
+      "name": "Iron Fists",
+      "description": "Brawler makes two basic attacks per turn. Has no abilities.",
+      "effects": [
+        {
+          "type": "modify_attack_frequency",
+          "effect": "attack_twice"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Reaper",
+    "HP": 17,
+    "Defense": 6,
+    "Accuracy": "+1",
+    "BasicAttack": "1D8",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Soul Harvest",
+        "description": "Deal 1D8 damage. If the target dies, heal Reaper to full health.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D8",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "conditional_heal",
+            "type": "heal_to_full",
+            "target": "self",
+            "condition": "target_dies_from_damage"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "team_aura",
+      "name": "Aura of Dread",
+      "description": "All enemies lose 1 AC while Reaper is alive.",
+      "effects": [
+        {
+          "type": "apply_debuff",
+          "effect": "ac_modifier",
+          "value": -1,
+          "target": "all_enemies",
+          "aura": true
+        }
+      ]
+    }
+  },
+  {
+    "name": "Plague Spreader",
+    "HP": 15,
+    "Defense": 6,
+    "Accuracy": "+1",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Poison Touch",
+        "description": "Deal 1D4 damage and apply that many Poison stacks.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "poison",
+            "value": "match_damage",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "turn_based",
+      "name": "Aura of Death",
+      "description": "At the start of Plague Spreader's turn, all other heroes take 1D4 damage.",
+      "trigger": "owner_turn_start",
+      "effects": [
+        {
+          "type": "damage",
+          "value": "1D4",
+          "target": "all_others"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Dual Defender",
+    "HP": 20,
+    "Defense": 11,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Stun",
+        "description": "Deal 1D4 damage. The target cannot make an attack on its next turn.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "disable_attack",
+            "duration": 1,
+            "duration_unit": "turn",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "team_aura",
+      "name": "Defend",
+      "description": "While Dual Defender is alive, the ally to the right uses Dual Defender's Defense.",
+      "effects": [
+        {
+          "type": "apply_buff",
+          "effect": "set_defense_to_self",
+          "target": "ally_right",
+          "aura": true
+        }
+      ]
+    }
+  },
+  {
+    "name": "Swordsman",
+    "HP": 17,
+    "Defense": 8,
+    "Accuracy": "+1",
+    "BasicAttack": "1D8",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Colossal Strike",
+        "description": "Deal 1D8 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D8",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "permanent",
+      "name": "Critical Strikes",
+      "description": "Swordsman crits on 17, 18, 19, and 20.",
+      "effects": [
+        {
+          "type": "modify_crit_range",
+          "min_roll": 17
+        }
+      ]
+    }
+  },
+  {
+    "name": "Ace",
+    "HP": 18,
+    "Defense": 7,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Stacked Deck",
+        "description": "Deal 2D4 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "2D4",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Ace Up The Sleeve",
+      "description": "When Ace rolls 1 on an attack or ability, it automatically hits and crits.",
+      "trigger": "on_roll_natural_1",
+      "effects": [
+        {
+          "type": "convert_to_critical_hit"
+        },
+        {
+          "type": "force_hit"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Elementalist",
+    "HP": 18,
+    "Defense": 8,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "multi_target_damage",
+        "name": "Thunderclap",
+        "description": "Deal 1D4 to your target and 1D4 to the enemy to the right of them.",
+        "target_type": "multi_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          },
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "adjacent_enemy_right"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "turn_based",
+      "name": "Wind Wall",
+      "description": "Each time Elementalist lands an attack or ability, she gains +1 Defense until the start of her next turn.",
+      "trigger": "on_self_hit_confirmed",
+      "effects": [
+        {
+          "type": "apply_buff",
+          "effect": "ac_modifier",
+          "value": 1,
+          "target": "self",
+          "duration": 1,
+          "duration_unit": "caster_turn"
+        }
+      ]
+    }
+  }
+]
