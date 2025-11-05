@@ -684,14 +684,6 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
     }
   };
 
-  const handleReturnToMainLobby = () => {
-    if (onReturnToLobby) {
-      onReturnToLobby(true); // Force main lobby
-    } else {
-      window.location.reload();
-    }
-  };
-
   const renderGameOverOverlay = () => {
     const isWinner = gameState.winner === playerId;
     
@@ -708,20 +700,12 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                 : 'Better luck next time! Your opponent was victorious.'}
             </p>
             {isSurvivalMode ? (
-              <div className="button-group">
-                <button 
-                  className="return-to-lobby-button"
-                  onClick={handleReturnToLobby}
-                >
-                  Return to Survival
-                </button>
-                <button 
-                  className="return-to-lobby-button secondary"
-                  onClick={handleReturnToMainLobby}
-                >
-                  Return to Main Lobby
-                </button>
-              </div>
+              <button 
+                className="return-to-lobby-button"
+                onClick={handleReturnToLobby}
+              >
+                Return to Survival
+              </button>
             ) : (
               <button 
                 className="return-to-lobby-button"

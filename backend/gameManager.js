@@ -5327,14 +5327,14 @@ class GameManager {
 
   updateSurvivalLoss(playerId, teamHeroes) {
     const state = this.getSurvivalState(playerId);
-    const heroNames = teamHeroes.map(h => h.name);
+    // NOTE: Heroes are NOT banned when losing - only winners ban their heroes
     
     const finalWins = state.wins; // Capture wins before updating
     
     state.losses += 1;
-    state.usedHeroes = [...new Set([...state.usedHeroes, ...heroNames])]; // Remove duplicates
+    // Do NOT add heroes to usedHeroes on loss - players can reuse heroes after losing
     
-    console.log(`💀 Survival loss recorded for player ${playerId}: ${state.wins} final wins, ${state.losses} losses, used heroes: ${state.usedHeroes.join(', ')}`);
+    console.log(`💀 Survival loss recorded for player ${playerId}: ${state.wins} final wins, ${state.losses} losses, used heroes remain: ${state.usedHeroes.join(', ')}`);
     
     // Award victory points for the completed run (async, but don't wait)
     this.handleSurvivalRunEnd(playerId, finalWins).catch(error => {
