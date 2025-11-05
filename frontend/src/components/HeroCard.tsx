@@ -38,8 +38,11 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
   const [hpColor, setHpColor] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [isDismounted, setIsDismounted] = useState(false);
   const previousHP = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
+  const wasDismountedRef = useRef(false);
 
   const currentHP = hero.currentHP !== undefined ? hero.currentHP : (typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP);
   const maxHP = typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP;
@@ -51,6 +54,30 @@ const HeroCard: React.FC<HeroCardProps> = ({
       setAnimatedHP(currentHP);
     }
   }, [currentHP]);
+
+  // Track Dragon Rider's Dismount trigger
+  useEffect(() => {
+    if (hero.name === 'Dragon Rider') {
+      const isDismountActive = (hero as any).permanentDisables?.abilities === true;
+      
+      if (isDismountActive && !wasDismountedRef.current) {
+        // Dismount just triggered - play flip animation
+        console.log('🐉 Dragon Rider dismounting! Triggering flip animation');
+        setIsFlipping(true);
+        setIsDismounted(true);
+        wasDismountedRef.current = true;
+        
+        // Remove flip animation class after animation completes
+        setTimeout(() => {
+          setIsFlipping(false);
+        }, 600); // Match animation duration
+      } else if (isDismountActive) {
+        // Already dismounted, just set state
+        setIsDismounted(true);
+        wasDismountedRef.current = true;
+      }
+    }
+  }, [(hero as any).permanentDisables?.abilities, hero.name]);
 
   // Animate HP changes (only if animations are enabled)
   useEffect(() => {
@@ -393,6 +420,10 @@ const HeroCard: React.FC<HeroCardProps> = ({
 
 
   const getImagePath = () => {
+    // Show dismounted version when Dragon Rider's special triggers
+    if (hero.name === 'Dragon Rider' && isDismounted) {
+      return `http://localhost:3001/hero-images/Dragon Rider (Dismounted).png`;
+    }
     return `http://localhost:3001/hero-images/${hero.name}.png`;
   };
 
@@ -597,7 +628,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       <img 
         src={getImagePath()} 
         alt={hero.name} 
-        className="hero-image"
+        className={`hero-image ${isFlipping ? 'card-flip' : ''}`}
         onError={(e) => {
           // Fallback to a placeholder if image doesn't exist
           (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';

@@ -343,6 +343,23 @@ body, html {
   flex-shrink: 0; /* Don't allow image to shrink */
 }
 
+/* Card flip animation for Dragon Rider's Dismount */
+@keyframes cardFlip {
+  0% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(90deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
+}
+
+.hero-image.card-flip {
+  animation: cardFlip 0.6s ease-in-out;
+}
+
 .hero-card-content {
   padding: 0; /* Remove all padding to eliminate space */
   margin: 0; /* Remove all margins */
