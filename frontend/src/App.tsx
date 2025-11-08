@@ -995,8 +995,23 @@ function App() {
       setState(prev => ({
         ...prev,
         survivalWins: data.state.wins,
-        survivalLosses: data.state.losses
+        survivalLosses: data.state.losses,
+        // Update victory points if provided (for run completion)
+        ...(data.victoryPoints !== undefined && { victoryPoints: data.victoryPoints })
       }));
+    });
+
+    socket.on('victory-points-update', (data) => {
+      console.log('🏆 Received victory points update:', data);
+      setState(prev => ({
+        ...prev,
+        victoryPoints: data.totalVictoryPoints
+      }));
+      
+      // Show notification to user
+      if (data.message) {
+        console.log('🎊 Victory Points:', data.message);
+      }
     });
 
     socket.on('authentication-success', (data) => {

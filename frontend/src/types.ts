@@ -84,7 +84,7 @@ export interface StatusEffects {
     duration: number;
   } | null;
   inspiration: number;
-  silenced: boolean | { active: boolean; duration: number };
+  silenced: boolean | { active: boolean; duration: number; source?: string; description?: string; tooltip?: string };
   disableAttack: boolean | { active: boolean; duration: number };
   untargetable: boolean;
   damageStacks?: number;
@@ -239,7 +239,8 @@ export interface SocketEvents {
   'reconnect-failed': (data: { message: string }) => void;
   'error': (data: { message: string }) => void;
   'survival-state-response': (data: { state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean } }) => void;
-  'survival-state-update': (data: { type: 'win' | 'loss' | 'reset'; state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean }; message: string }) => void;
+  'survival-state-update': (data: { type: 'win' | 'loss' | 'reset'; state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean }; message: string; victoryPoints?: number }) => void;
+  'victory-points-update': (data: { type: string; pointsAwarded: number; totalVictoryPoints: number; gameMode?: string; message: string }) => void;
   'game-surrendered': (data: { success: boolean; gameId: string; winner: string; surrenderedBy: string; gameState: GameState }) => void;
   'returned-to-lobby': (data: { success: boolean; error?: string; preservedSurvivalState?: any }) => void;
 }

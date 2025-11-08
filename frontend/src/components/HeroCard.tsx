@@ -285,11 +285,18 @@ const HeroCard: React.FC<HeroCardProps> = ({
     if (isSilenced) {
       const duration = typeof hero.statusEffects.silenced === 'object' ? 
                       hero.statusEffects.silenced.duration : '';
+      const isFirstPickSilence = typeof hero.statusEffects.silenced === 'object' && 
+                                hero.statusEffects.silenced.source === "First Pick Disadvantage";
+      
+      const tooltipText = isFirstPickSilence 
+        ? "First Pick Silence - Your ability is disabled this turn" 
+        : `Silenced: Cannot use abilities${duration ? ` (${duration} turns left)` : ''}`;
+      
       debuffs.push(
         <span 
           key="silenced" 
           className="status-effect silenced"
-          title={`Silenced: Cannot use abilities${duration ? ` (${duration} turns left)` : ''}`}
+          title={tooltipText}
         >
           🔇
         </span>

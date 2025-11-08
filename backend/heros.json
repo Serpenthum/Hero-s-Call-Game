@@ -1379,5 +1379,1033 @@
         }
       ]
     }
+  },
+  {
+    "name": "Pixie",
+    "HP": 12,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "\u2014",
+    "Ability": [
+      {
+        "category": "apply_buff",
+        "name": "Wish",
+        "description": "Target an ally, They gain +1 accuracy and +1 defense and are healed for 1d4.",
+        "target_type": "single_ally",
+        "primary_effects": [
+          {
+            "type": "stat_modifier",
+            "stat": "accuracy",
+            "value": 1,
+            "target": "chosen_ally"
+          },
+          {
+            "type": "stat_modifier",
+            "stat": "Defense",
+            "value": 1,
+            "target": "chosen_ally"
+          },
+          {
+            "type": "heal",
+            "value": "1D4",
+            "target": "chosen_ally"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional",
+      "name": "Fey Magic",
+      "description": "Pixie gains +6 Defense while an ally is alive.",
+      "condition": "has_ally_alive",
+      "effects": [
+        {
+          "type": "stat_modifier",
+          "stat": "Defense",
+          "value": 6,
+          "target": "self"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Mech",
+    "HP": 22,
+    "Defense": 5,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Charged first",
+        "description": "Deal 1D6 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "activated_aoe",
+      "name": "Self Destruct",
+      "description": "Mech can choose to Self Destruct and deal 2D6 damage to ALL characters.",
+      "effects": [
+        {
+          "type": "damage",
+          "value": "2D6",
+          "target": "all_heroes",
+          "cost": {
+            "type": "self_destruct"
+          }
+        }
+      ]
+    },
+    "disabled": true,
+    "Immunities": [
+      "poison"
+    ]
+  },
+  {
+    "name": "Serpent",
+    "HP": 14,
+    "Defense": 9,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Poison Strike",
+        "description": "Deal 1D6 damage and Poison the target by the same amount.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "poison",
+            "target": "target",
+            "value": "match_damage"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "activated",
+      "name": "Absorb Venom",
+      "description": "Once per turn, Serpent can absorb Poison for ALL characters. Serpent heals HP equal to how many stacks of poison were absorbed.",
+      "frequency": "once_per_round",
+      "effects": [
+        {
+          "type": "remove_debuff",
+          "effect": "poison",
+          "target": "all_heroes",
+          "collect": "removed_poison_stacks_total"
+        },
+        {
+          "type": "heal",
+          "target": "self",
+          "value_per_stack": 1,
+          "scaling": "removed_poison_stacks_total"
+        }
+      ]
+    },
+    "disabled": true,
+    "Immunities": [
+      "poison"
+    ]
+  },
+  {
+    "name": "Diplomat",
+    "HP": 17,
+    "Defense": 7,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "utility",
+        "name": "Declare War",
+        "description": "Make adjacent allies attack the target.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "command_adjacent_allies",
+            "action": "basic_attack",
+            "against": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "activated_aoe_heal",
+      "name": "Peace Treaty",
+      "description": "Once: The Diplomat can heal ALL characters 2D6.",
+      "frequency": "once",
+      "effects": [
+        {
+          "type": "heal",
+          "value": "2D6",
+          "target": "all_heroes"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Venom",
+    "HP": 15,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "summon_and_damage",
+        "name": "Plant Growth",
+        "description": "Deal 1D4 damage. Summon 1 poisonous plant (Max 2).",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "summon",
+            "unit": "Poisonous Plant",
+            "max": 2
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "turn_based",
+      "name": "System Failure",
+      "description": "At the start of Venom\u2019s turn give 1D4 poison stacks to an enemy for each poisonous plant Venom has summoned.",
+      "trigger": "owner_turn_start",
+      "effects": [
+        {
+          "category": "apply_debuff",
+          "type": "apply_debuff",
+          "effect": "poison",
+          "target": "random_enemy",
+          "value": "1D4_per_plant",
+          "scaling": "summon_count",
+          "unit": "Poisonous Plant"
+        }
+      ]
+    },
+    "disabled": true,
+    "Immunities": [
+      "poison"
+    ]
+  },
+  {
+    "name": "Knight",
+    "HP": 20,
+    "Defense": 9,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Iron Will",
+        "description": "Deal 1D6 damage. If all other allies are dead, deal an additional 1D6 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "conditional_damage",
+            "value": "1D6",
+            "target": "target",
+            "condition": "no_allies_alive"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional",
+      "name": "Tank Buster",
+      "description": "When battling an enemy with more AC than Knight, gain advantage.",
+      "effects": [
+        {
+          "type": "grant_advantage",
+          "scope": "attacks_only",
+          "condition": "target_defense_higher"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Hacker",
+    "HP": 13,
+    "Defense": 4,
+    "Accuracy": "+0",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "utility",
+        "name": "Hack",
+        "description": "Target an enemy. Take another turn as if you were that enemy. It cannot attack itself.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "take_turn_as_enemy",
+            "target": "chosen_enemy",
+            "restrictions": [
+              "no_self_target"
+            ]
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "death_trigger",
+      "name": "System Failure",
+      "description": "If hacker dies, disable the killer's special.",
+      "trigger": "on_death",
+      "effects": [
+        {
+          "type": "disable_special",
+          "target": "killer"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Shadow",
+    "HP": 17,
+    "Defense": 7,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Surprise Attack",
+        "description": "Deal 1D4 damage. Deal an extra 1D4 if Shadow has never attacked that target.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "conditional_damage",
+            "value": "1D4",
+            "target": "target",
+            "condition": "first_time_hitting_target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional_defense",
+      "name": "Shadow Form",
+      "description": "Enemies who haven\u2019t taken damage from Shadow have disadvantage on attacks and abilities that target her.",
+      "effects": [
+        {
+          "type": "grant_disadvantage",
+          "target": "enemies_targeting_owner",
+          "scope": "attacks_and_abilities",
+          "condition": "not_damaged_by_owner",
+          "targeting_type": "single_target_only"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Guardian",
+    "HP": 17,
+    "Defense": 12,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Revenge",
+        "description": "Deal 1D4 damage. If that enemy attacked Guardian this round, deal an additional 1D6 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "conditional_damage",
+            "value": "1D6",
+            "target": "target",
+            "condition": "target_attacked_owner_this_round"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Protect",
+      "description": "When an opponent attacks an ally adjacent to the Guardian, taunt it.",
+      "trigger": "on_enemy_targets_adjacent_ally",
+      "trigger_timing": "before_attack_resolves",
+      "effects": [
+        {
+          "category": "apply_debuff",
+          "type": "apply_debuff",
+          "effect": "taunt",
+          "target": "attacker",
+          "duration": 1,
+          "duration_unit": "turn",
+          "taunt_target": "self"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Phoenix",
+    "HP": 16,
+    "Defense": 7,
+    "Accuracy": "+2",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Flamestrike",
+        "description": "Deal 1D6 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "death_trigger",
+      "name": "Rebirth",
+      "description": "Once: When Phoenix dies, resurrect it at half health.",
+      "trigger": "on_death",
+      "frequency": "once",
+      "effects": [
+        {
+          "type": "revive",
+          "target": "self",
+          "health_fraction": 0.5,
+          "cleanse_on_revive": true
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Blacksmith",
+    "HP": 17,
+    "Defense": 6,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "apply_buff",
+        "name": "Sharpen",
+        "description": "Target an ally they gain +1D8 damage on their next attack.",
+        "target_type": "single_ally",
+        "primary_effects": [
+          {
+            "type": "damage_modifier",
+            "value": "+1D8",
+            "applies_to": "next_attack",
+            "target": "chosen_ally"
+          }
+        ]
+      },
+      {
+        "category": "apply_buff",
+        "name": "Reinforce",
+        "description": "Target one ally to gain +2 AC.",
+        "target_type": "single_ally",
+        "primary_effects": [
+          {
+            "type": "stat_modifier",
+            "stat": "Defense",
+            "value": 2,
+            "target": "chosen_ally"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "passive",
+      "name": "\u2014",
+      "description": "No special.",
+      "effects": []
+    },
+    "disabled": true
+  },
+  {
+    "name": "Arcane Archer",
+    "HP": 16,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Far Shot",
+        "description": "Deal 1D4 damage. If Arcane Archer has full hp, deal an additional 1D8 damage.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "conditional_damage",
+            "value": "1D8",
+            "target": "target",
+            "condition": "owner_at_full_hp"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "conditional",
+      "name": "Arcane Arrows",
+      "description": "When attacking or using an ability against an enemy Arcane Archer already damaged, add 1D4 to the damage.",
+      "condition": "target_previously_damaged_by_owner",
+      "effects": [
+        {
+          "type": "damage_modifier",
+          "value": "+1D4",
+          "applies_to": "attacks_and_abilities"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Healer",
+    "HP": 19,
+    "Defense": 5,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "heal_ally",
+        "name": "Heal",
+        "description": "Target an ally, Heal them for 2D4 health.",
+        "target_type": "single_ally",
+        "primary_effects": [
+          {
+            "type": "heal",
+            "value": "2D4",
+            "target": "chosen_ally"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "activated",
+      "name": "Cleanse",
+      "description": "Once per round, target an ally and cleanse all debuffs on them.",
+      "frequency": "once_per_round",
+      "effects": [
+        {
+          "type": "remove_debuffs",
+          "scope": "all",
+          "target": "chosen_ally"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Shroomguard",
+    "HP": 19,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D8",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Cleansing Spores",
+        "description": "Deal 1D4 damage and cleanse a random ally of all poison stacks.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "remove_debuff",
+            "effect": "poison",
+            "target": "random_ally",
+            "count": "all"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Poison Aura",
+      "description": "When Shroomguard takes damage, give ALL heroes 1 Poison Stack.",
+      "trigger": "on_take_damage",
+      "effects": [
+        {
+          "category": "apply_debuff",
+          "type": "apply_debuff",
+          "effect": "poison",
+          "target": "all_heroes",
+          "value": 1
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Angel",
+    "HP": 16,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Health Link",
+        "description": "Deal 1D4 damage and link the target to the Angel. The next time Angel takes damage, it is also dealt to the target.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "apply_status",
+            "status": "health_link",
+            "target": "target",
+            "until_trigger": "owner_next_takes_damage",
+            "effect_on_trigger": {
+              "type": "mirror_damage",
+              "source": "owner",
+              "target": "linked_target",
+              "one_shot": true
+            }
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Resurrect",
+      "description": "Once: When an ally dies, resurrect them at half health.",
+      "trigger": "on_ally_death",
+      "frequency": "once",
+      "effects": [
+        {
+          "type": "revive",
+          "target": "last_dead_ally",
+          "health_fraction": 0.5
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Sniper",
+    "HP": 15,
+    "Defense": 5,
+    "Accuracy": "+4",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Smoke Shot",
+        "description": "Deal 1D4 damage and give Sniper +5 AC until the start of his turn.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "stat_modifier",
+            "stat": "Defense",
+            "value": 5,
+            "target": "self",
+            "until": "start_of_owner_next_turn"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "activated",
+      "name": "Lock In",
+      "description": "Sniper can choose to skip his attack to have his next attack deal +3D6 damage.",
+      "effects": [
+        {
+          "type": "next_attack_bonus",
+          "value": "+3D6",
+          "stacking": true,
+          "cost": {
+            "type": "skip_current_attack"
+          }
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Agent",
+    "HP": 10,
+    "Defense": 15,
+    "Accuracy": "+3",
+    "BasicAttack": "\u2014",
+    "Ability": [
+      {
+        "category": "summon_and_damage",
+        "name": "Plan Ahead",
+        "description": "Deal 1D4 damage and Summon a Spy.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "summon",
+            "unit": "Spy"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "activated",
+      "name": "Master Plan",
+      "description": "Target an enemy hero and dismiss 2 spies. Their Defense becomes 0.",
+      "effects": [
+        {
+          "type": "set_stat",
+          "stat": "Defense",
+          "value": 0,
+          "target": "chosen_enemy",
+          "cost": {
+            "type": "dismiss_summons",
+            "unit": "Spy",
+            "amount": 2
+          }
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Pyromancer",
+    "HP": 22,
+    "Defense": 6,
+    "Accuracy": "+1",
+    "BasicAttack": "1D6",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Incinerate",
+        "description": "Deal 1d6 damage. If that kills the target, deal 1d6 to adjacent enemies.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "on_kill_splash",
+            "value": "1D6",
+            "target": "adjacent_enemies"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "turn_based",
+      "name": "Endless Burn",
+      "description": "At the end of Pyromancer's turn, it and all enemies take 1D4 damage.",
+      "trigger": "owner_turn_end",
+      "effects": [
+        {
+          "type": "damage",
+          "value": "1D4",
+          "target": "self"
+        },
+        {
+          "type": "damage",
+          "value": "1D4",
+          "target": "all_enemies"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Medic",
+    "HP": 16,
+    "Defense": 6,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "summon",
+        "name": "Med Bots",
+        "description": "Summon 1 Med Bot (Max 4).",
+        "target_type": "self_only",
+        "primary_effects": [
+          {
+            "type": "summon",
+            "unit": "Med Bot",
+            "max": 4
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Emergency Heal",
+      "description": "Once per round, when an ally takes damage, heal them 1D4 for each summoned Med Bot.",
+      "trigger": "on_ally_take_damage",
+      "frequency": "once_per_round",
+      "effects": [
+        {
+          "type": "heal",
+          "value": "1D4_per_bot",
+          "target": "damaged_ally",
+          "scaling": "summon_count",
+          "unit": "Med Bot"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Mime",
+    "HP": 17,
+    "Defense": 7,
+    "Accuracy": "+1",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "utility",
+        "name": "Copy",
+        "description": "Trigger the enemy champion\u2019s ability as if it were your own.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "copy_and_use_ability",
+            "source": "chosen_enemy",
+            "as_owner": true
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "match_start",
+      "name": "Unique Duplicate",
+      "description": "At the start of the match, choose an enemy and copy their champion\u2019s Special.",
+      "trigger": "match_start",
+      "effects": [
+        {
+          "type": "copy_special",
+          "source": "chosen_enemy"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Hoarder",
+    "HP": 16,
+    "Defense": 6,
+    "Accuracy": "+0",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Offer Bribe",
+        "description": "Deal 1D4 damage. The target cannot use its ability against Hoarder until the start of his next turn.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "apply_debuff",
+            "effect": "cannot_target_owner_with_ability",
+            "target": "target",
+            "until": "start_of_owner_next_turn"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "persistent",
+      "name": "Collect Weapons",
+      "description": "When a character dies, add their attack dice to Hoarder\u2019s.",
+      "trigger": "on_any_death",
+      "effects": [
+        {
+          "type": "inherit_attack_dice_from_fallen",
+          "target": "fallen_character"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Gambler",
+    "HP": 16,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "single_target_damage",
+        "name": "Luck of the Dice",
+        "description": "Deal 1D6 damage. If you rolled above 14, Gambler gains advantage on their next attack.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D6",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "conditional_buff",
+            "effect": "grant_advantage",
+            "scope": "attacks_only",
+            "condition": "attack_roll_gt_14"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "persistent",
+      "name": "Rigged Dice",
+      "description": "Gambler has advantage on Abilities.",
+      "effects": [
+        {
+          "type": "grant_advantage",
+          "scope": "abilities_only"
+        }
+      ]
+    },
+    "disabled": true
+  },
+  {
+    "name": "Arcanist",
+    "HP": 15,
+    "Defense": 6,
+    "Accuracy": "+2",
+    "BasicAttack": "1D4",
+    "Ability": [
+      {
+        "category": "apply_buff",
+        "name": "Enhance Ability",
+        "description": "Deal 1D4 damage and give the left ally advantage on their next ability.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "grant_advantage",
+            "target": "left_ally",
+            "scope": "next_ability"
+          }
+        ]
+      },
+      {
+        "category": "apply_buff",
+        "name": "Enhance Attack",
+        "description": "Deal 1D4 damage and give the right ally advantage on their next attack.",
+        "target_type": "single_target",
+        "primary_effects": [
+          {
+            "type": "damage",
+            "value": "1D4",
+            "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "type": "grant_advantage",
+            "target": "right_ally",
+            "scope": "next_attack"
+          }
+        ]
+      }
+    ],
+    "Special": {
+      "category": "reaction",
+      "name": "Tether Ally",
+      "description": "Once per round, when an ally lands an attack or ability, Arcanist also attacks that target.",
+      "trigger": "on_ally_hit",
+      "frequency": "once_per_round",
+      "effects": [
+        {
+          "type": "perform_basic_attack",
+          "target": "same_as_ally_target"
+        }
+      ]
+    },
+    "disabled": true
   }
 ]

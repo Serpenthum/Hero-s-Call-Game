@@ -538,6 +538,9 @@ class GameManager {
     // Apply passive effects from specials
     this.applyPassiveEffects(game);
 
+    // Apply first player disadvantage - disable first hero's ability
+    this.applyFirstPlayerDisadvantage(game, firstPlayerIndex);
+
     // Process turn start effects for the first hero to go (important for heroes like Plague Spreader)
     const firstPlayer = game.players[firstPlayerIndex];
     const firstHero = firstPlayer.team[0];
@@ -849,6 +852,9 @@ class GameManager {
     // Apply passive effects from specials
     this.applyPassiveEffects(game);
 
+    // Apply first player disadvantage - disable first hero's ability
+    this.applyFirstPlayerDisadvantage(game, firstPlayerIndex);
+
     // Process turn start effects for the first hero to go (important for heroes like Plague Spreader)
     const firstPlayer = game.players[firstPlayerIndex];
     const firstHero = firstPlayer.team[0];
@@ -1104,6 +1110,29 @@ class GameManager {
       
       console.log(`  💀 Applied ${special.name} debuff (${effect.value} ${effect.effect}) to ${target.name}`);
     });
+  }
+
+  applyFirstPlayerDisadvantage(game, firstPlayerIndex) {
+    const firstPlayer = game.players[firstPlayerIndex];
+    const firstHero = firstPlayer.team[0]; // First hero in the team (leftmost position)
+    
+    console.log(`🚫 Applying First Pick Silence to ${firstHero.name} (first player's first hero)`);
+    
+    // Initialize status effects if they don't exist
+    if (!firstHero.statusEffects) {
+      firstHero.statusEffects = {};
+    }
+    
+    // Apply the first pick silence debuff (using standard silence mechanism)
+    firstHero.statusEffects.silenced = {
+      active: true,
+      duration: 1,
+      source: "First Pick Disadvantage",
+      description: "First Pick Silence",
+      tooltip: "This hero's ability is disabled as a downside to starting first"
+    };
+    
+    console.log(`✅ First Pick Silence applied to ${firstHero.name}`);
   }
 
   getTargetsForEffect(game, sourceHero, targetType) {
@@ -4160,6 +4189,13 @@ class GameManager {
       currentTurnInfo.player.usedAbilities = [];
     }
     currentTurnInfo.player.selectedTarget = null; // Clear target selection
+
+    // Remove first pick silence debuff at end of turn (first player disadvantage cleanup)
+    if (currentTurnInfo.hero.statusEffects?.silenced && 
+        currentTurnInfo.hero.statusEffects.silenced.source === "First Pick Disadvantage") {
+      currentTurnInfo.hero.statusEffects.silenced = false;
+      console.log(`🔇 First Pick Silence removed from ${currentTurnInfo.hero.name} at end of turn`);
+    }
 
     // Apply queued taunts from Paladin Shield of Faith
     if (game.pendingTaunts && game.pendingTaunts.length > 0) {
