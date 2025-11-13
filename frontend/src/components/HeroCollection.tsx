@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import '../styles/HeroCollection.css';
 
 interface HeroAbility {
@@ -35,6 +35,61 @@ interface HeroCollectionProps {
 type SortOption = 'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage';
 type FilterOption = 'available' | 'all';
 
+// Memoized HeroCard component to prevent unnecessary re-renders
+const HeroCard = React.memo<{
+  hero: Hero;
+  actualIndex: number;
+  isSelected: boolean;
+  onClick: (index: number) => void;
+}>(({ hero, actualIndex, isSelected, onClick }) => {
+  const handleClick = useCallback(() => {
+    onClick(actualIndex);
+  }, [actualIndex, onClick]);
+
+  return (
+    <div 
+      className={`hero-card selectable collection-card ${isSelected ? 'enlarged' : ''} ${hero.disabled ? 'disabled-hero' : ''}`}
+      onClick={handleClick}
+    >
+      <img 
+        src={`http://localhost:3001/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+        alt={hero.name}
+        className="hero-image"
+        onError={(e) => {
+          (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+        }}
+      />
+      
+      <div className="hero-card-content">
+        <div className="hero-stats">
+          <div className="hero-name">
+            {hero.name}
+            {hero.disabled && <span className="disabled-badge">Not Available</span>}
+          </div>
+          <div className="hero-stats-row">
+            <span className="stat-icon">❤️</span>
+            <span>HP: {hero.HP}</span>
+          </div>
+          <div className="hero-stats-row">
+            <span className="stat-icon">🛡️</span>
+            <span>Defense: {hero.Defense}</span>
+          </div>
+          <div className="hero-stats-row">
+            <span className="stat-icon">🎯</span>
+            <span>Accuracy: {hero.Accuracy}</span>
+          </div>
+          <div className="hero-stats-row">
+            <span className="stat-icon">⚔️</span>
+            <span>Attack: {hero.BasicAttack}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+HeroCard.displayName = 'HeroCard';
+
 const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victoryPoints = 0 }) => {
   const [heroes, setHeroes] = useState<Hero[]>([]);
   const [sortedHeroes, setSortedHeroes] = useState<Hero[]>([]);
@@ -59,7 +114,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     }
   }, [heroes, sortOption, filterOption]);
 
-  const parseAttackValue = (attack: string): number => {
+  const parseAttackValue = useCallback((attack: string): number => {
     // Extract numeric value from attack string (e.g., "1D6" -> 6, "2D4" -> 8)
     const match = attack.match(/(\d+)D(\d+)/);
     if (match) {
@@ -68,15 +123,15 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       return numDice * diceSize; // Use max possible damage for comparison
     }
     return 0;
-  };
+  }, []);
 
-  const parseAccuracyValue = (accuracy: string): number => {
+  const parseAccuracyValue = useCallback((accuracy: string): number => {
     // Extract numeric value from accuracy string (e.g., "+2" -> 2, "+1" -> 1)
     const match = accuracy.match(/[+-](\d+)/);
     return match ? parseInt(match[1]) : 0;
-  };
+  }, []);
 
-  const sortHeroes = (heroList: Hero[], option: SortOption): Hero[] => {
+  const sortHeroes = useCallback((heroList: Hero[], option: SortOption): Hero[] => {
     const sorted = [...heroList];
     
     switch (option) {
@@ -93,7 +148,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       default:
         return sorted;
     }
-  };
+  }, [parseAccuracyValue, parseAttackValue]);
 
   const fetchHeroes = async () => {
     try {
@@ -202,54 +257,63 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     }
   };
 
-  const handleHeroClick = (heroIndex: number) => {
+  const handleHeroClick = useCallback((heroIndex: number) => {
     if (selectedHeroIndex === heroIndex) {
       setSelectedHeroIndex(null); // Deselect if already selected
     } else {
       setSelectedHeroIndex(heroIndex);
     }
-  };
+  }, [selectedHeroIndex]);
 
-  // Pagination helper functions
-  const getTotalPages = () => Math.ceil(sortedHeroes.length / HEROES_PER_PAGE);
+  // Memoized pagination helper functions
+  const getTotalPages = useMemo(() => 
+    Math.ceil(sortedHeroes.length / HEROES_PER_PAGE), 
+    [sortedHeroes.length]
+  );
   
-  const getCurrentPageHeroes = () => {
+  const getCurrentPageHeroes = useMemo(() => {
     const startIndex = currentPage * HEROES_PER_PAGE;
     const endIndex = startIndex + HEROES_PER_PAGE;
     return sortedHeroes.slice(startIndex, endIndex);
-  };
+  }, [sortedHeroes, currentPage]);
 
-  const handleNextPage = () => {
+  const handleNextPage = useCallback(() => {
     if (isTransitioning) return; // Prevent rapid clicking
     
     setIsTransitioning(true);
     setSelectedHeroIndex(null); // Clear selection when changing pages
     
     setTimeout(() => {
-      const totalPages = getTotalPages();
-      setCurrentPage((prev) => (prev + 1) % totalPages);
+      setCurrentPage((prev) => (prev + 1) % getTotalPages);
       
       setTimeout(() => {
         setIsTransitioning(false);
       }, 50); // Small delay to ensure page change happens before fade in
     }, 200); // Fade out duration
-  };
+  }, [isTransitioning, getTotalPages]);
 
-  const handlePrevPage = () => {
+  const handlePrevPage = useCallback(() => {
     if (isTransitioning) return; // Prevent rapid clicking
     
     setIsTransitioning(true);
     setSelectedHeroIndex(null); // Clear selection when changing pages
     
     setTimeout(() => {
-      const totalPages = getTotalPages();
-      setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
+      setCurrentPage((prev) => (prev - 1 + getTotalPages) % getTotalPages);
       
       setTimeout(() => {
         setIsTransitioning(false);
       }, 50); // Small delay to ensure page change happens before fade in
     }, 200); // Fade out duration
-  };
+  }, [isTransitioning, getTotalPages]);
+
+  const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterOption(e.target.value as FilterOption);
+  }, []);
+
+  const handleSortChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSortOption(e.target.value as SortOption);
+  }, []);
 
 
 
@@ -285,7 +349,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
               <select 
                 id="filter-select"
                 value={filterOption} 
-                onChange={(e) => setFilterOption(e.target.value as FilterOption)}
+                onChange={handleFilterChange}
                 className="filter-dropdown"
               >
                 <option value="available">Available Heroes</option>
@@ -297,7 +361,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
               <select 
                 id="sort-select"
                 value={sortOption} 
-                onChange={(e) => setSortOption(e.target.value as SortOption)}
+                onChange={handleSortChange}
                 className="sort-dropdown"
               >
                 <option value="alphabetical">Alphabetical</option>
@@ -360,53 +424,21 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       <div className="collection-content">
         <div className="collection-grid-container">
           <div className={`collection-grid ${isTransitioning ? 'transitioning' : ''}`}>
-            {getCurrentPageHeroes().map((hero, index) => {
+            {getCurrentPageHeroes.map((hero: Hero, index: number) => {
               const actualIndex = currentPage * HEROES_PER_PAGE + index;
               return (
-                <div 
-                  key={actualIndex} 
-                  className={`hero-card selectable collection-card ${selectedHeroIndex === actualIndex ? 'enlarged' : ''} ${hero.disabled ? 'disabled-hero' : ''}`}
-                  onClick={() => handleHeroClick(actualIndex)}
-                >
-                  <img 
-                    src={`http://localhost:3001/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
-                    alt={hero.name}
-                    className="hero-image"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
-                    }}
-                  />
-                  
-                  <div className="hero-card-content">
-                    <div className="hero-stats">
-                      <div className="hero-name">
-                        {hero.name}
-                        {hero.disabled && <span className="disabled-badge">Not Available</span>}
-                      </div>
-                      <div className="hero-stats-row">
-                        <span className="stat-icon">❤️</span>
-                        <span>HP: {hero.HP}</span>
-                      </div>
-                      <div className="hero-stats-row">
-                        <span className="stat-icon">🛡️</span>
-                        <span>Defense: {hero.Defense}</span>
-                      </div>
-                      <div className="hero-stats-row">
-                        <span className="stat-icon">🎯</span>
-                        <span>Accuracy: {hero.Accuracy}</span>
-                      </div>
-                      <div className="hero-stats-row">
-                        <span className="stat-icon">⚔️</span>
-                        <span>Attack: {hero.BasicAttack}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <HeroCard
+                  key={hero.name} // Use hero name as key since it's unique and stable
+                  hero={hero}
+                  actualIndex={actualIndex}
+                  isSelected={selectedHeroIndex === actualIndex}
+                  onClick={handleHeroClick}
+                />
               );
             })}
           </div>
           
-          {getTotalPages() > 1 && (
+          {getTotalPages > 1 && (
             <>
               <button 
                 className={`pagination-arrow-overlay left-arrow ${isTransitioning ? 'disabled' : ''}`}
@@ -425,7 +457,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                 ›
               </button>
               <div className="page-indicator-overlay">
-                {currentPage + 1} / {getTotalPages()}
+                {currentPage + 1} / {getTotalPages}
               </div>
             </>
           )}
