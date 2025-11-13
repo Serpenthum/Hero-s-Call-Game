@@ -17,7 +17,7 @@ async function testShamanAPI() {
       console.log('- Name:', shaman.name);
       console.log('- Disabled:', shaman.disabled);
       console.log('- HP:', shaman.HP);
-      console.log('- AC:', shaman.AC);
+      console.log('- Defense:', shaman.Defense !== undefined ? shaman.Defense : shaman.AC);
     } else {
       console.log('❌ Shaman NOT found in API response');
       

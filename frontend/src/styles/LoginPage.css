@@ -8,7 +8,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: url('http://localhost:3001/login-images/login1.png') center center / cover no-repeat,
+              linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   overflow: hidden;
 }
@@ -77,6 +78,7 @@
   max-width: 450px;
   margin: 20px;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  transform: translateX(135px);
 }
 
 .login-header {

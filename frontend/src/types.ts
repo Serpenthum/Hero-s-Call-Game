@@ -134,6 +134,7 @@ export interface Player {
   initiativeRoll?: number;
   monkAttacksRemaining?: number;
   oneTwoPunchAttacksRemaining?: number;
+  profile_icon?: string;
 }
 
 export interface GameState {
@@ -189,6 +190,28 @@ export interface DiceRoll {
   isCritical?: boolean;
 }
 
+export interface OnlinePlayer {
+  id: number;
+  username: string;
+  isInGame: boolean;
+}
+
+export interface FriendRequest {
+  id: number;
+  username: string;
+  created_at: string;
+}
+
+export interface Message {
+  id: number;
+  sender_id: number;
+  receiver_id: number;
+  sender_username: string;
+  receiver_username: string;
+  message: string;
+  created_at: string;
+}
+
 export interface SocketEvents {
   // Client to Server
   'authenticate': (data: { userId: number }) => void;
@@ -214,6 +237,14 @@ export interface SocketEvents {
   'reset-survival-state': () => void;  
   'surrender-game': () => void;
   'return-to-lobby': () => void;
+  
+  // Friends system events
+  'get-online-players': () => void;
+  'send-friend-request': (data: { username: string }) => void;
+  'respond-friend-request': (data: { requesterId: number; accept: boolean }) => void;
+  'get-friend-requests': () => void;
+  'send-message': (data: { targetUserId: number; message: string }) => void;
+  'get-messages': (data: { targetUserId: number; limit?: number }) => void;
 
   // Server to Client
   'authentication-success': (data: { userId: number }) => void;
@@ -222,6 +253,7 @@ export interface SocketEvents {
   'join-result': (data: { success: boolean; gameId: string; playerId: string; players: Player[]; gameReady: boolean; draftCards?: any; mode?: 'draft' | 'random' | 'friendly' | 'survival'; roomName?: string }) => void;
   'survival-match-found': (data: { success: boolean; gameId: string; playerId: string; players: Player[]; gameReady: boolean }) => void;
   'survival-search-cancelled': (data: { success: boolean }) => void;
+  'search-cancelled': (data: { success: boolean }) => void;
   'friendly-room-created': (data: { success: boolean; roomName: string; gameId: string; playerId: string; message?: string }) => void;
   'friendly-room-joined': (data: { success: boolean; roomName: string; gameId: string; playerId: string; players: Player[]; message?: string }) => void;
   'game-start': (data: { players: Player[]; draftCards?: any; gameState?: GameState }) => void;
@@ -241,8 +273,20 @@ export interface SocketEvents {
   'survival-state-response': (data: { state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean } }) => void;
   'survival-state-update': (data: { type: 'win' | 'loss' | 'reset'; state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean }; message: string; victoryPoints?: number }) => void;
   'victory-points-update': (data: { type: string; pointsAwarded: number; totalVictoryPoints: number; gameMode?: string; message: string }) => void;
+  'xp-update': (data: { xpGained: number; newXP: number; newLevel: number; leveledUp: boolean; message: string }) => void;
   'game-surrendered': (data: { success: boolean; gameId: string; winner: string; surrenderedBy: string; gameState: GameState }) => void;
   'returned-to-lobby': (data: { success: boolean; error?: string; preservedSurvivalState?: any }) => void;
+  
+  // Friends system server responses
+  'online-players-response': (data: { success: boolean; onlinePlayers?: OnlinePlayer[]; totalOnline?: number; friendIds?: number[]; error?: string }) => void;
+  'friend-request-response': (data: { success: boolean; message?: string; error?: string }) => void;
+  'friend-request-received': (data: { from: string; fromId: number }) => void;
+  'friend-response-result': (data: { success: boolean; message?: string; error?: string }) => void;
+  'friend-request-accepted': (data: { from: string; fromId: number }) => void;
+  'friend-requests-response': (data: { success: boolean; requests?: FriendRequest[]; error?: string }) => void;
+  'message-response': (data: { success: boolean; message?: Message; error?: string }) => void;
+  'message-received': (data: Message) => void;
+  'messages-response': (data: { success: boolean; messages?: Message[]; error?: string }) => void;
 }
 
 export type GamePhase = GameState['phase'];

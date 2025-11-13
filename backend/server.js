@@ -38,6 +38,9 @@ app.use(express.static(path.join(__dirname, '../frontend/dist')));
 // Serve hero images
 app.use('/hero-images', express.static(path.join(__dirname, '../frontend/hero-images')));
 
+// Serve login images
+app.use('/login-images', express.static(path.join(__dirname, '../frontend/public/login-images')));
+
 // Load heroes data dynamically to avoid caching issues
 const getHeroes = () => {
   // Clear require cache for heroes.json to always get fresh data
@@ -58,6 +61,7 @@ setTimeout(() => {
 // Session management for authentication
 const userSessions = new Map(); // socketId -> userId
 const loggedInUsers = new Map(); // userId -> socketId (to track who is logged in)
+const onlinePlayersCache = new Map(); // socketId -> last request time (for rate limiting)
 
 // Test endpoint first
 app.get('/api/test', (req, res) => {
@@ -144,7 +148,9 @@ app.post('/api/login', async (req, res) => {
         survival_wins: user.survival_wins,
         survival_losses: user.survival_losses,
         survival_used_heroes: user.survival_used_heroes,
-        available_heroes: user.available_heroes
+        available_heroes: user.available_heroes,
+        xp: user.xp,
+        level: user.level
       }
     });
   } catch (error) {
@@ -166,6 +172,11 @@ app.post('/api/logout', (req, res) => {
         message: 'User ID is required' 
       });
     }
+
+    // Delete all chat history for this user
+    database.deleteAllUserMessages(parseInt(userId)).catch(err => {
+      console.error('Error deleting user messages on logout:', err);
+    });
 
     // Find and disconnect the user's socket
     const socketId = loggedInUsers.get(parseInt(userId));
@@ -213,6 +224,50 @@ app.get('/api/user/:userId', async (req, res) => {
     res.status(404).json({ 
       success: false, 
       message: error.message || 'User not found' 
+    });
+  }
+});
+
+// API endpoint to get player stats
+app.get('/api/player-stats/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const stats = await database.getPlayerStats(userId);
+    res.json({ 
+      success: true, 
+      stats
+    });
+  } catch (error) {
+    console.error('Get player stats error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to get player stats' 
+    });
+  }
+});
+
+// API endpoint to update profile icon
+app.post('/api/update-profile-icon', async (req, res) => {
+  try {
+    const { userId, heroName } = req.body;
+    
+    if (!userId || !heroName) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID and hero name are required' 
+      });
+    }
+
+    await database.updateProfileIcon(userId, heroName);
+    res.json({ 
+      success: true, 
+      message: 'Profile icon updated successfully' 
+    });
+  } catch (error) {
+    console.error('Update profile icon error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to update profile icon' 
     });
   }
 });
@@ -270,24 +325,79 @@ async function handleRegularGameCompletion(result) {
     console.log(`🏆 Regular game (${result.gameState.mode}) completed! Winner: ${result.gameState.winner}`);
     
     try {
-      // Get updated victory points for the winner
-      const winnerUserId = userSessions.get(result.gameState.winner);
-      if (winnerUserId) {
-        const winnerUser = await database.getUserById(winnerUserId);
+      // Find winner and loser players
+      const winnerPlayer = result.gameState.players.find(p => p.id === result.gameState.winner);
+      const loserPlayer = result.gameState.players.find(p => p.id !== result.gameState.winner);
+      
+      if (winnerPlayer && loserPlayer) {
+        // Update stats for both players
+        const winnerUserId = userSessions.get(winnerPlayer.id);
+        const loserUserId = userSessions.get(loserPlayer.id);
         
-        // Emit victory points update to the winner
-        io.to(result.gameState.winner).emit('victory-points-update', {
-          type: 'game_win',
-          pointsAwarded: 1,
-          totalVictoryPoints: winnerUser.victory_points,
-          gameMode: result.gameState.mode,
-          message: `Victory! You earned 1 victory point. Total: ${winnerUser.victory_points}`
-        });
+        if (winnerUserId) {
+          // Update winner stats and XP
+          const winnerStatsUpdate = await database.updatePlayerStats(winnerUserId, true, result.gameState.mode);
+          const winnerXPUpdate = await database.updatePlayerXP(winnerUserId, winnerStatsUpdate.xpGain);
+          
+          // Track hero usage for winner's team
+          for (const hero of winnerPlayer.team) {
+            await database.updateHeroUsage(winnerUserId, hero.name);
+          }
+          
+          // Get updated victory points and user data
+          const winnerUser = await database.getUserById(winnerUserId);
+          
+          // Emit victory points update to the winner
+          io.to(result.gameState.winner).emit('victory-points-update', {
+            type: 'game_win',
+            pointsAwarded: 1,
+            totalVictoryPoints: winnerUser.victory_points,
+            gameMode: result.gameState.mode,
+            message: `Victory! You earned 1 victory point. Total: ${winnerUser.victory_points}`
+          });
+          
+          // Emit XP update to winner
+          io.to(result.gameState.winner).emit('xp-update', {
+            xpGained: winnerXPUpdate.xpGained,
+            newXP: winnerXPUpdate.xp,
+            newLevel: winnerXPUpdate.level,
+            leveledUp: winnerXPUpdate.leveledUp,
+            message: winnerXPUpdate.leveledUp ? 
+              `Level up! You're now level ${winnerXPUpdate.level}! (+${winnerXPUpdate.xpGained} XP)` :
+              `+${winnerXPUpdate.xpGained} XP! (${winnerXPUpdate.xp} total)`
+          });
+          
+          console.log(`📡 Updated winner stats: +${winnerStatsUpdate.xpGain} XP, level ${winnerXPUpdate.level}`);
+        }
         
-        console.log(`📡 Sent victory points update to winner ${result.gameState.winner}`);
+        if (loserUserId) {
+          // Update loser stats and XP
+          const loserStatsUpdate = await database.updatePlayerStats(loserUserId, false, result.gameState.mode);
+          const loserXPUpdate = await database.updatePlayerXP(loserUserId, loserStatsUpdate.xpGain);
+          
+          // Track hero usage for loser's team
+          for (const hero of loserPlayer.team) {
+            await database.updateHeroUsage(loserUserId, hero.name);
+          }
+          
+          // Emit XP update to loser
+          if (loserStatsUpdate.xpGain > 0) {
+            io.to(loserPlayer.id).emit('xp-update', {
+              xpGained: loserXPUpdate.xpGained,
+              newXP: loserXPUpdate.xp,
+              newLevel: loserXPUpdate.level,
+              leveledUp: loserXPUpdate.leveledUp,
+              message: loserXPUpdate.leveledUp ? 
+                `Level up! You're now level ${loserXPUpdate.level}! (+${loserXPUpdate.xpGained} XP)` :
+                `+${loserXPUpdate.xpGained} XP! (${loserXPUpdate.xp} total)`
+            });
+          }
+          
+          console.log(`📡 Updated loser stats: +${loserStatsUpdate.xpGain} XP, level ${loserXPUpdate.level}`);
+        }
       }
     } catch (error) {
-      console.error('❌ Error sending victory points update for regular game:', error);
+      console.error('❌ Error updating player stats for regular game:', error);
     }
   }
 }
@@ -310,18 +420,54 @@ async function checkSurvivalGameCompletion(result) {
     console.log('🔍 Loser player found:', !!loserPlayer, loserPlayer?.name);
     
     if (winnerPlayer && loserPlayer) {
-      // Update survival states
-      const winnerState = gameManager.updateSurvivalWin(winnerPlayer.id, winnerPlayer.team);
-      const loserState = gameManager.updateSurvivalLoss(loserPlayer.id, loserPlayer.team);
+      // Update survival states (now async)
+      const winnerState = await gameManager.updateSurvivalWin(winnerPlayer.id, winnerPlayer.team);
+      const loserState = await gameManager.updateSurvivalLoss(loserPlayer.id, loserPlayer.team);
       
       console.log('🏆 Winner new state:', winnerState);
       console.log('💀 Loser new state:', loserState);
       
-      // The victory points for the loser's run end are handled automatically by updateSurvivalLoss
-      // Get updated user data to include victory points in the response
+      // Update player stats for both players
       try {
-        // Get updated victory points for the loser (whose run just ended)
+        const winnerUserId = userSessions.get(winnerPlayer.id);
         const loserUserId = userSessions.get(loserPlayer.id);
+        
+        // Track hero usage for both players
+        if (winnerUserId) {
+          for (const hero of winnerPlayer.team) {
+            await database.updateHeroUsage(winnerUserId, hero.name);
+          }
+        }
+        
+        if (loserUserId) {
+          // Update survival stats for the loser (whose run just ended)
+          const survivalStats = await database.updateSurvivalStats(loserUserId, loserState.wins);
+          
+          // Update XP for the survival run
+          if (survivalStats.xpGain > 0) {
+            const xpUpdate = await database.updatePlayerXP(loserUserId, survivalStats.xpGain);
+            
+            // Emit XP update to loser
+            io.to(loserPlayer.id).emit('xp-update', {
+              xpGained: xpUpdate.xpGained,
+              newXP: xpUpdate.xp,
+              newLevel: xpUpdate.level,
+              leveledUp: xpUpdate.leveledUp,
+              message: xpUpdate.leveledUp ? 
+                `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP from survival run)` :
+                `+${xpUpdate.xpGained} XP from your ${loserState.wins}-win survival run! (${xpUpdate.xp} total)`
+            });
+          }
+          
+          // Track hero usage for loser's team
+          for (const hero of loserPlayer.team) {
+            await database.updateHeroUsage(loserUserId, hero.name);
+          }
+          
+          console.log(`📡 Updated survival stats: ${loserState.wins} wins, +${survivalStats.xpGain} XP, highest: ${survivalStats.newHighest}`);
+        }
+        
+        // Get updated victory points for the loser (whose run just ended)
         let loserVictoryPoints = null;
         if (loserUserId) {
           const loserUser = await database.getUserById(loserUserId);
@@ -382,14 +528,16 @@ io.on('connection', (socket) => {
         const existingSocketId = loggedInUsers.get(userId);
         const existingSocket = io.sockets.sockets.get(existingSocketId);
         
-        // If the existing socket is still connected, reject the new authentication
+        // If the existing socket is still connected, allow takeover but disconnect old session
         if (existingSocket && existingSocket.connected) {
-          console.log('User', userId, 'attempted duplicate login - rejecting new session');
-          socket.emit('authentication-failed', { 
-            message: 'Account already logged in from another session. Please close the other session first.' 
+          console.log('User', userId, 'logging in from new session - disconnecting old session');
+          existingSocket.emit('force-logout', { 
+            message: 'Your account has been logged in from another session.' 
           });
-          socket.disconnect();
-          return;
+          existingSocket.disconnect();
+          // Clean up old session
+          userSessions.delete(existingSocketId);
+          loggedInUsers.delete(userId);
         } else {
           // Clean up stale session data if the socket is no longer connected
           console.log('Cleaning up stale session for user', userId);
@@ -413,9 +561,25 @@ io.on('connection', (socket) => {
   });
 
   // Handle player joining game
-  socket.on('join-game', (playerData) => {
+  socket.on('join-game', async (playerData) => {
     const mode = playerData.mode || 'draft';
-    const result = gameManager.addPlayer(socket.id, playerData.name || 'Anonymous', mode);
+    console.log(`🎮 Server received join-game: name="${playerData.name}", mode="${mode}", socketId="${socket.id}"`);
+    
+    // Get user profile icon if user is authenticated
+    let profileIcon = 'Sorcerer'; // Default profile icon
+    const userId = userSessions.get(socket.id);
+    if (userId) {
+      try {
+        const playerStats = await database.getPlayerStats(userId);
+        if (playerStats && playerStats.profile_icon) {
+          profileIcon = playerStats.profile_icon;
+        }
+      } catch (error) {
+        console.log('Failed to fetch profile icon for user:', userId, error);
+      }
+    }
+    
+    const result = gameManager.addPlayer(socket.id, playerData.name || 'Anonymous', mode, profileIcon);
     
     socket.emit('join-result', result);
     
@@ -445,10 +609,24 @@ io.on('connection', (socket) => {
   });
 
   // Handle survival mode matchmaking
-  socket.on('join-survival-game', (data) => {
+  socket.on('join-survival-game', async (data) => {
     console.log('Player joining survival game:', data.name, 'with team:', data.team.map(h => h.name));
     
-    const result = gameManager.addSurvivalPlayer(socket.id, data.name, data.team);
+    // Get user profile icon if user is authenticated
+    let profileIcon = 'Sorcerer'; // Default profile icon
+    const userId = userSessions.get(socket.id);
+    if (userId) {
+      try {
+        const playerStats = await database.getPlayerStats(userId);
+        if (playerStats && playerStats.profile_icon) {
+          profileIcon = playerStats.profile_icon;
+        }
+      } catch (error) {
+        console.log('Failed to fetch profile icon for survival user:', userId, error);
+      }
+    }
+    
+    const result = gameManager.addSurvivalPlayer(socket.id, data.name, data.team, profileIcon);
     
     if (result.success) {
       socket.join(result.gameId);
@@ -497,6 +675,12 @@ io.on('connection', (socket) => {
   socket.on('cancel-survival-search', () => {
     const result = gameManager.cancelSurvivalSearch(socket.id);
     socket.emit('survival-search-cancelled', { success: result.success });
+  });
+
+  // Handle general search cancellation (draft/random modes)
+  socket.on('cancel-search', () => {
+    const result = gameManager.cancelSearch(socket.id);
+    socket.emit('search-cancelled', { success: result.success });
   });
 
   // Handle friendly battle room creation
@@ -768,25 +952,50 @@ io.on('connection', (socket) => {
   });
 
   // Handle survival state requests
-  socket.on('get-survival-state', () => {
-    const state = gameManager.getSurvivalState(socket.id);
+  socket.on('get-survival-state', async () => {
+    const state = await gameManager.getSurvivalState(socket.id);
     socket.emit('survival-state-response', { state });
   });
 
-  socket.on('reset-survival-state', () => {
-    const state = gameManager.resetSurvivalState(socket.id);
+  socket.on('reset-survival-state', async () => {
+    const result = await gameManager.resetSurvivalState(socket.id);
+    const victoryPointsAwarded = result.victoryPointsAwarded || 0;
+    
+    // Create appropriate message based on whether victory points were awarded
+    let message = 'Survival run reset successfully!';
+    if (victoryPointsAwarded > 0) {
+      message = `Survival run abandoned! You earned ${victoryPointsAwarded} victory points for your wins.`;
+      
+      // Also send a victory points update with the new total
+      const userId = userSessions.get(socket.id);
+      if (userId) {
+        try {
+          const user = await database.getUserById(userId);
+          socket.emit('victory-points-update', {
+            type: 'survival_abandon',
+            pointsAwarded: victoryPointsAwarded,
+            totalVictoryPoints: user.victory_points,
+            message: `Survival run abandoned! You earned ${victoryPointsAwarded} victory points. Total: ${user.victory_points}`
+          });
+        } catch (error) {
+          console.error('❌ Error sending victory points update for survival abandon:', error);
+        }
+      }
+    }
+    
     socket.emit('survival-state-update', {
       type: 'reset',
-      state,
-      message: 'Survival run reset successfully!'
+      state: result,
+      message,
+      victoryPoints: victoryPointsAwarded
     });
   });
 
-  socket.on('return-to-lobby', () => {
+  socket.on('return-to-lobby', async () => {
     console.log('🏠 Player returning to lobby:', socket.id);
     
     // Remove player from any active game but preserve survival state
-    const result = gameManager.returnToLobby(socket.id);
+    const result = await gameManager.returnToLobby(socket.id);
     
     if (result.success) {
       socket.emit('returned-to-lobby', {
@@ -803,6 +1012,213 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Friends system socket events
+  socket.on('get-online-players', async () => {
+    try {
+      const currentUserId = userSessions.get(socket.id);
+      console.log('🟢 get-online-players request from socket:', socket.id, 'userId:', currentUserId);
+      console.log('🟢 Current loggedInUsers:', Array.from(loggedInUsers.entries()));
+      
+      if (!currentUserId) {
+        console.log('❌ User not authenticated for socket:', socket.id);
+        socket.emit('online-players-response', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      // Rate limiting: allow one request per 2 seconds per socket
+      const now = Date.now();
+      const lastRequest = onlinePlayersCache.get(socket.id) || 0;
+      if (now - lastRequest < 2000) {
+        console.log('🟡 Rate limited get-online-players request from socket:', socket.id);
+        socket.emit('online-players-response', { success: false, error: 'Rate limited. Please wait before requesting again.' });
+        return;
+      }
+      onlinePlayersCache.set(socket.id, now);
+
+      // Get list of online players
+      const onlinePlayers = [];
+      for (const [userId, socketId] of loggedInUsers.entries()) {
+        if (userId !== currentUserId) {
+          const user = await database.getUserById(userId);
+          if (user) {
+            onlinePlayers.push({
+              id: user.id,
+              username: user.username,
+              isInGame: gameManager.isPlayerInActiveGame(socketId)
+            });
+          }
+        }
+      }
+
+      console.log('🟢 Found online players:', onlinePlayers);
+
+      // Get user's friends list
+      const friends = await database.getFriends(currentUserId);
+      const friendIds = friends.map(f => f.id);
+
+      const response = {
+        success: true,
+        onlinePlayers,
+        totalOnline: onlinePlayers.length + 1, // +1 for current user
+        friendIds
+      };
+      
+      console.log('🟢 Sending online-players-response:', response);
+      socket.emit('online-players-response', response);
+    } catch (error) {
+      console.error('❌ Error getting online players:', error);
+      socket.emit('online-players-response', { success: false, error: 'Failed to get online players' });
+    }
+  });
+
+  socket.on('send-friend-request', async (data) => {
+    try {
+      const senderId = userSessions.get(socket.id);
+      if (!senderId) {
+        socket.emit('friend-request-response', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const targetUser = await database.getUserByUsername(data.username);
+      if (!targetUser) {
+        socket.emit('friend-request-response', { success: false, error: 'User not found' });
+        return;
+      }
+
+      const result = await database.sendFriendRequest(senderId, targetUser.id);
+      socket.emit('friend-request-response', { success: true, message: 'Friend request sent!' });
+
+      // Notify the target user if they're online
+      const targetSocketId = loggedInUsers.get(targetUser.id);
+      if (targetSocketId) {
+        const sender = await database.getUserById(senderId);
+        io.to(targetSocketId).emit('friend-request-received', {
+          from: sender.username,
+          fromId: senderId
+        });
+      }
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      socket.emit('friend-request-response', { success: false, error: error.message });
+    }
+  });
+
+  socket.on('respond-friend-request', async (data) => {
+    try {
+      const userId = userSessions.get(socket.id);
+      if (!userId) {
+        socket.emit('friend-response-result', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      if (data.accept) {
+        await database.acceptFriendRequest(userId, data.requesterId);
+        socket.emit('friend-response-result', { success: true, message: 'Friend request accepted!' });
+        
+        // Notify the requester if they're online
+        const requesterSocketId = loggedInUsers.get(data.requesterId);
+        if (requesterSocketId) {
+          const user = await database.getUserById(userId);
+          io.to(requesterSocketId).emit('friend-request-accepted', {
+            from: user.username,
+            fromId: userId
+          });
+        }
+      } else {
+        await database.rejectFriendRequest(userId, data.requesterId);
+        socket.emit('friend-response-result', { success: true, message: 'Friend request rejected.' });
+      }
+    } catch (error) {
+      console.error('Error responding to friend request:', error);
+      socket.emit('friend-response-result', { success: false, error: error.message });
+    }
+  });
+
+  socket.on('get-friend-requests', async () => {
+    try {
+      const userId = userSessions.get(socket.id);
+      if (!userId) {
+        socket.emit('friend-requests-response', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const requests = await database.getFriendRequests(userId);
+      socket.emit('friend-requests-response', { success: true, requests });
+    } catch (error) {
+      console.error('Error getting friend requests:', error);
+      socket.emit('friend-requests-response', { success: false, error: 'Failed to get friend requests' });
+    }
+  });
+
+  socket.on('remove-friend', async (data) => {
+    try {
+      const userId = userSessions.get(socket.id);
+      if (!userId) {
+        socket.emit('remove-friend-response', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      await database.removeFriend(userId, data.friendId);
+      socket.emit('remove-friend-response', { success: true, message: 'Friend removed successfully' });
+      
+      // Notify the removed friend if they're online
+      const friendSocketId = loggedInUsers.get(data.friendId);
+      if (friendSocketId) {
+        const user = await database.getUserById(userId);
+        io.to(friendSocketId).emit('friend-removed', {
+          from: user.username,
+          fromId: userId
+        });
+      }
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      socket.emit('remove-friend-response', { success: false, error: error.message });
+    }
+  });
+
+  socket.on('send-message', async (data) => {
+    try {
+      const senderId = userSessions.get(socket.id);
+      if (!senderId) {
+        socket.emit('message-response', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const message = await database.sendMessage(senderId, data.targetUserId, data.message);
+      const sender = await database.getUserById(senderId);
+      
+      socket.emit('message-response', { success: true, message });
+
+      // Send message to target user if they're online
+      const targetSocketId = loggedInUsers.get(data.targetUserId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('message-received', {
+          ...message,
+          sender_username: sender.username
+        });
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      socket.emit('message-response', { success: false, error: 'Failed to send message' });
+    }
+  });
+
+  socket.on('get-messages', async (data) => {
+    try {
+      const userId = userSessions.get(socket.id);
+      if (!userId) {
+        socket.emit('messages-response', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const messages = await database.getMessages(userId, data.targetUserId, data.limit || 50);
+      socket.emit('messages-response', { success: true, messages });
+    } catch (error) {
+      console.error('Error getting messages:', error);
+      socket.emit('messages-response', { success: false, error: 'Failed to get messages' });
+    }
+  });
+
   // Handle disconnection
   socket.on('disconnect', (reason) => {
     console.log('Player disconnected:', socket.id, 'Reason:', reason);
@@ -811,10 +1227,18 @@ io.on('connection', (socket) => {
     // Clean up user session
     const userId = userSessions.get(socket.id);
     if (userId) {
+      // Delete all chat history for this user
+      database.deleteAllUserMessages(userId).catch(err => {
+        console.error('Error deleting user messages on disconnect:', err);
+      });
+      
       loggedInUsers.delete(userId);
       userSessions.delete(socket.id);
       console.log('User logged out:', userId);
     }
+    
+    // Clean up rate limiting cache
+    onlinePlayersCache.delete(socket.id);
     
     // Clean up game manager user session mapping
     gameManager.userSessions.delete(socket.id);

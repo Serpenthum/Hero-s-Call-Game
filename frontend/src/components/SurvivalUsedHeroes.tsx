@@ -26,7 +26,7 @@ const SurvivalUsedHeroes: React.FC<SurvivalUsedHeroesProps> = ({ usedHeroes }) =
           {uniqueUsedHeroes.map((heroName, index) => (
             <div key={index} className="used-hero-item">
               <img 
-                src={`http://localhost:3001/hero-images/${heroName}.png`}
+                src={`http://localhost:3001/hero-images/${heroName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                 alt={heroName}
                 className="used-hero-image"
                 onError={(e) => {

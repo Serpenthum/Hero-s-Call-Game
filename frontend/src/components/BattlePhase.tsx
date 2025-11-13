@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
@@ -37,6 +37,22 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
   const [initiativeChoice, setInitiativeChoice] = useState<boolean | null>(null);
   const [selectingAllyForAbility, setSelectingAllyForAbility] = useState<{ abilityIndex: number; targetId: string } | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState<boolean>(false);
+
+  // Debug effect to log player data
+  useEffect(() => {
+    console.log('🎮 BattlePhase render - Player data:', {
+      currentPlayer: {
+        name: currentPlayer.name,
+        profile_icon: currentPlayer.profile_icon,
+        id: currentPlayer.id
+      },
+      opponent: opponent ? {
+        name: opponent.name,
+        profile_icon: opponent.profile_icon,
+        id: opponent.id
+      } : null
+    });
+  }, [currentPlayer, opponent]);
 
   // Helper function to check if current ability selection is Timekeeper's Chrono Shift
   const isTimekeeperChronoShift = () => {
@@ -305,12 +321,32 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
   const renderBattlePhase = () => {
     const targetableEnemies = getTargetableEnemies();
 
+    // Debug logging for profile icons
+    console.log('Current player profile_icon:', currentPlayer.profile_icon);
+    console.log('Opponent profile_icon:', opponent?.profile_icon);
+
     return (
       <div className="battle-layout">
         <div className="game-board">
           <div className="opponent-area">
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <h3>Opponent's{'\n'}Team</h3>
+            <div className="team-label-container">
+              <h3 className="team-label opponent-label">{opponent?.name || 'Opponent Player'}</h3>
+              <div className="player-profile-icon">
+                <img 
+                  src={`http://localhost:3001/hero-images/${(opponent?.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                  alt={opponent?.profile_icon || 'Default'}
+                  className="profile-icon-small"
+                  onError={(e) => {
+                    console.log('Opponent profile icon failed to load:', opponent?.profile_icon);
+                    (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
+                      <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="100%" height="100%" fill="#333"/>
+                        <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="6" fill="#999" text-anchor="middle" dy=".3em">No Image</text>
+                      </svg>
+                    `)}`;
+                  }}
+                />
+              </div>
             </div>
 
             <div className="team-display">
@@ -340,8 +376,24 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
           </div>
 
           <div className="player-area">
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <h3>Your{'\n'}Team</h3>
+            <div className="team-label-container">
+              <h3 className="team-label player-label">{currentPlayer.name || 'Your Team'}</h3>
+              <div className="player-profile-icon">
+                <img 
+                  src={`http://localhost:3001/hero-images/${(currentPlayer.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                  alt={currentPlayer.profile_icon || 'Default'}
+                  className="profile-icon-small"
+                  onError={(e) => {
+                    console.log('Current player profile icon failed to load:', currentPlayer.profile_icon);
+                    (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
+                      <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+                          <rect width="100%" height="100%" fill="#333"/>
+                          <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="6" fill="#999" text-anchor="middle" dy=".3em">No Image</text>
+                        </svg>
+                      `)}`;
+                  }}
+                />
+              </div>
             </div>
             <div className="team-display">
               {currentPlayer.team.map((hero, heroIndex) => (
@@ -468,7 +520,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                   <strong>{activeHero.hero.name}</strong>
                   <div style={{ fontSize: '12px', color: '#ccc' }}>
                     HP: {activeHero.hero.currentHP || activeHero.hero.HP} | 
-                    AC: {(activeHero.hero as any).modifiedAC || activeHero.hero.AC} | 
+                    Defense: {(activeHero.hero as any).modifiedDefense || activeHero.hero.Defense} | 
                     Attack: {formatDamageWithStacks(activeHero.hero, activeHero.hero.BasicAttack)}
                   </div>
                 </div>

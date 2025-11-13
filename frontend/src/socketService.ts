@@ -63,10 +63,12 @@ class SocketService {
 
   // Game-specific methods
   joinGame(playerName: string, mode: 'draft' | 'random' = 'draft') {
+    console.log(`📡 SocketService joining game with name: "${playerName}", mode: ${mode}`);
     this.socket?.emit('join-game', { name: playerName, mode });
   }
 
   joinSurvivalGame(playerName: string, team: any[]) {
+    console.log(`📡 SocketService joining survival game with name: "${playerName}", team: ${team.map(h => h.name).join(', ')}`);
     this.socket?.emit('join-survival-game', { name: playerName, team });
   }
 
@@ -79,10 +81,12 @@ class SocketService {
   }
 
   createFriendlyRoom(roomName: string, playerName: string) {
+    console.log(`📡 SocketService creating friendly room "${roomName}" with name: "${playerName}"`);
     this.socket?.emit('create-friendly-room', { roomName, playerName });
   }
 
   joinFriendlyRoom(roomName: string, playerName: string) {
+    console.log(`📡 SocketService joining friendly room "${roomName}" with name: "${playerName}"`);
     this.socket?.emit('join-friendly-room', { roomName, playerName });
   }
 
@@ -155,6 +159,35 @@ class SocketService {
   returnToLobby() {
     console.log('📡 SocketService sending return-to-lobby');
     this.socket?.emit('return-to-lobby');
+  }
+
+  // Friends system methods
+  getOnlinePlayers() {
+    this.socket?.emit('get-online-players');
+  }
+
+  sendFriendRequest(username: string) {
+    this.socket?.emit('send-friend-request', { username });
+  }
+
+  respondToFriendRequest(requesterId: number, accept: boolean) {
+    this.socket?.emit('respond-friend-request', { requesterId, accept });
+  }
+
+  getFriendRequests() {
+    this.socket?.emit('get-friend-requests');
+  }
+
+  removeFriend(friendId: number) {
+    this.socket?.emit('remove-friend', { friendId });
+  }
+
+  sendMessage(targetUserId: number, message: string) {
+    this.socket?.emit('send-message', { targetUserId, message });
+  }
+
+  getMessages(targetUserId: number, limit?: number) {
+    this.socket?.emit('get-messages', { targetUserId, limit });
   }
 }
 

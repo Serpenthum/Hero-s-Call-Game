@@ -191,9 +191,8 @@
       {
         "category": "single_target_damage",
         "name": "Divine Smite",
-        "description": "Deal 1D4 damage and heal an ally for 1D4.",
+        "description": "Deal 1D4 damage and heal the lowest health ally 1D4.",
         "target_type": "single_target",
-        "requires_ally_target": true,
         "primary_effects": [
           {
             "type": "damage",
@@ -206,7 +205,7 @@
             "category": "heal_others",
             "type": "heal",
             "value": "1D4",
-            "target": "selected_ally"
+            "target": "lowest_health_ally"
           }
         ]
       }
@@ -1167,7 +1166,7 @@
     "Special": {
       "category": "team_aura",
       "name": "Aura of Dread",
-      "description": "All enemies lose 1 AC while Reaper is alive.",
+      "description": "All enemies lose 1 Defense while Reaper is alive.",
       "effects": [
         {
           "type": "apply_debuff",
@@ -1643,7 +1642,7 @@
     "Special": {
       "category": "conditional",
       "name": "Tank Buster",
-      "description": "When battling an enemy with more AC than Knight, gain advantage.",
+      "description": "When battling an enemy with more Defense than Knight, gain advantage.",
       "effects": [
         {
           "type": "grant_advantage",
@@ -1847,7 +1846,7 @@
       {
         "category": "apply_buff",
         "name": "Reinforce",
-        "description": "Target one ally to gain +2 AC.",
+        "description": "Target one ally to gain +2 Defense.",
         "target_type": "single_ally",
         "primary_effects": [
           {
@@ -2054,7 +2053,7 @@
       {
         "category": "single_target_damage",
         "name": "Smoke Shot",
-        "description": "Deal 1D4 damage and give Sniper +5 AC until the start of his turn.",
+        "description": "Deal 1D4 damage and give Sniper +5 Defense until the start of his turn.",
         "target_type": "single_target",
         "primary_effects": [
           {

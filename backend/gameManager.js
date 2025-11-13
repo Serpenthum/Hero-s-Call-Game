@@ -9,7 +9,7 @@ const {
   applyStatusEffect,
   hasSpecialEffect,
   processEndOfTurn,
-  calculateEffectiveAC
+  calculateEffectiveDefense
 } = require('./utils');
 
 class GameManager {
@@ -56,7 +56,7 @@ class GameManager {
     resetHero.passiveBuffs = [];
     resetHero.modifiedAccuracy = resetHero.Accuracy;
     resetHero.modifiedBasicAttack = resetHero.BasicAttack;
-    resetHero.modifiedAC = resetHero.AC;
+    resetHero.modifiedDefense = resetHero.Defense !== undefined ? resetHero.Defense : resetHero.AC;
     
     // Clear scaling buffs (Champion's Last Stand, etc.)
     delete resetHero.scalingBuffs;
@@ -83,7 +83,7 @@ class GameManager {
     return resetHero;
   }
 
-  addPlayer(playerId, playerName, mode = 'draft') {
+  addPlayer(playerId, playerName, mode = 'draft', profileIcon = 'Sorcerer') {
     // Find or create a game for this player with matching mode
     let gameId = null;
     let game = null;
@@ -105,6 +105,7 @@ class GameManager {
     }
 
     // Add player to game
+    console.log(`🎮 GameManager adding player: id="${playerId}", name="${playerName}", profileIcon="${profileIcon}"`);
     const player = {
       id: playerId,
       name: playerName,
@@ -122,6 +123,7 @@ class GameManager {
       oneTwoPunchUsed: false, // Track if One-Two Punch has been used this round
       monkAttacksRemaining: 1, // Monk starts with 1 attack, ability grants +1 more (max 2 total)
       oneTwoPunchAttacksRemaining: 0, // Legacy field kept for compatibility
+      profile_icon: profileIcon,
       monkDeflectUsed: false // Track if Monk's Deflect has been used this round
     };
 
@@ -225,7 +227,7 @@ class GameManager {
   }
 
   // Survival mode methods
-  addSurvivalPlayer(playerId, playerName, selectedTeam) {
+  addSurvivalPlayer(playerId, playerName, selectedTeam, profileIcon = 'Sorcerer') {
     console.log(`🔍 Looking for survival games to match player ${playerName}...`);
     console.log(`Current games:`, Array.from(this.games.entries()).map(([id, game]) => ({
       id,
@@ -281,7 +283,8 @@ class GameManager {
       monkAttacksRemaining: 1,
       oneTwoPunchAttacksRemaining: 0,
       monkDeflectUsed: false,
-      isSurvivalPlayer: true // Mark as survival mode player
+      isSurvivalPlayer: true, // Mark as survival mode player
+      profile_icon: profileIcon
     };
 
     game.players.push(player);
@@ -427,6 +430,35 @@ class GameManager {
     }
 
     console.log(`❌ Player ${playerId} cancelled survival search`);
+    return { success: true };
+  }
+
+  cancelSearch(playerId) {
+    const gameId = this.playerGameMap.get(playerId);
+    if (!gameId) {
+      return { success: false, message: 'No active search found' };
+    }
+
+    const game = this.games.get(gameId);
+    if (!game) {
+      return { success: false, message: 'Game not found' };
+    }
+
+    // Only allow cancellation if game is still in waiting phase
+    if (game.phase !== 'waiting') {
+      return { success: false, message: 'Cannot cancel search - game already started' };
+    }
+
+    // Remove player from game
+    game.players = game.players.filter(p => p.id !== playerId);
+    this.playerGameMap.delete(playerId);
+
+    // If no players left, delete the game
+    if (game.players.length === 0) {
+      this.games.delete(gameId);
+    }
+
+    console.log(`❌ Player ${playerId} cancelled ${game.mode} search`);
     return { success: true };
   }
 
@@ -875,12 +907,12 @@ class GameManager {
         hero.passiveBuffs = [];
         hero.modifiedAccuracy = hero.Accuracy;
         hero.modifiedBasicAttack = hero.BasicAttack;
-        hero.modifiedAC = hero.AC; // Reset AC to base value
+        hero.modifiedDefense = hero.Defense !== undefined ? hero.Defense : hero.AC; // Reset Defense to base value
       });
     });
 
     // Apply passive effects from each hero's special abilities
-    // Process in two passes: first regular buffs/debuffs, then AC sharing effects
+    // Process in two passes: first regular buffs/debuffs, then Defense sharing effects
     
     // Pass 1: Apply regular stat modifiers and battle start buffs
     game.players.forEach(player => {
@@ -902,8 +934,8 @@ class GameManager {
               this.applyAuraEffect(game, sourceHero, special, effect);
             } else if (effect.type === 'apply_buff' && special.trigger === 'battle_start') {
               this.applyBattleStartBuff(game, sourceHero, special, effect);
-            } else if (effect.type === 'apply_buff' && effect.aura === true && effect.effect !== 'set_ac_to_self') {
-              // Handle regular aura buffs (excluding AC sharing)
+            } else if (effect.type === 'apply_buff' && effect.aura === true && effect.effect !== 'set_defense_to_self') {
+              // Handle regular aura buffs (excluding Defense sharing)
               this.applyAuraEffect(game, sourceHero, special, effect);
             } else if (effect.type === 'apply_debuff' && effect.aura === true) {
               this.applyAuraDebuff(game, sourceHero, special, effect);
@@ -913,14 +945,14 @@ class GameManager {
       });
     });
 
-    // Update display stats after first pass to ensure modifiedAC values are calculated
+    // Update display stats after first pass to ensure modifiedDefense values are calculated
     game.players.forEach(player => {
       player.team.forEach(hero => {
         this.updateHeroDisplayStats(hero);
       });
     });
 
-    // Pass 2: Apply AC sharing effects (these need to happen after all AC modifiers are applied)
+    // Pass 2: Apply Defense sharing effects (these need to happen after all Defense modifiers are applied)
     game.players.forEach(player => {
       player.team.forEach(sourceHero => {
         if (sourceHero.currentHP <= 0) return; // Dead heroes don't provide buffs
@@ -931,8 +963,8 @@ class GameManager {
           if (!special || !special.effects) return;
           
           special.effects.forEach(effect => {
-            if (effect.type === 'apply_buff' && effect.aura === true && effect.effect === 'set_ac_to_self') {
-              console.log(`🔍 Processing AC sharing: ${sourceHero.name}'s ${special.name}`);
+            if (effect.type === 'apply_buff' && effect.aura === true && effect.effect === 'set_defense_to_self') {
+              console.log(`🔍 Processing Defense sharing: ${sourceHero.name}'s ${special.name}`);
               this.applyAuraEffect(game, sourceHero, special, effect);
             }
           });
@@ -1014,7 +1046,7 @@ class GameManager {
     
     targets.forEach(target => {
       // Handle special effect types
-      if (effect.effect === 'set_ac_to_self') {
+      if (effect.effect === 'set_defense_to_self') {
         // Dual Defender's Defense sharing - copy the Dual Defender's BASE Defense (not modified Defense) as the ally's new base Defense
         if (!target.originalDefense && !target.sharedDefense) {
           target.originalDefense = target.Defense !== undefined ? target.Defense : target.AC; // Store original Defense for restoration when Dual Defender dies
@@ -1032,6 +1064,17 @@ class GameManager {
           originalDefense: target.originalDefense,
           sharedValue: sourceBaseDefense
         };
+        
+        // Add a passive buff entry for visual display (blue glow effect)
+        if (!target.passiveBuffs) target.passiveBuffs = [];
+        target.passiveBuffs.push({
+          sourceHero: sourceHero.name,
+          sourceName: special.name,
+          stat: 'Defense',
+          value: sourceBaseDefense - target.originalDefense, // Show the difference
+          permanent: false // Aura effect, not permanent
+        });
+        
         console.log(`🛡️ ${sourceHero.name}'s ${special.name}: ${target.name}'s base Defense changed from ${target.originalDefense} to ${sourceBaseDefense} (copied from ${sourceHero.name}'s original Defense)`);
         this.updateHeroDisplayStats(target);
       } else {
@@ -1103,7 +1146,7 @@ class GameManager {
       target.passiveBuffs.push({
         sourceHero: sourceHero.name,
         sourceName: special.name,
-        stat: effect.effect === 'ac_modifier' ? 'AC' : effect.stat,
+        stat: effect.effect === 'defense_modifier' ? 'Defense' : effect.stat,
         value: effect.value, // Should be negative for debuffs
         permanent: false // Aura debuffs are not permanent
       });
@@ -1216,16 +1259,24 @@ class GameManager {
     // Reset to base values first
     hero.modifiedAccuracy = hero.Accuracy;
     hero.modifiedBasicAttack = hero.BasicAttack;
-    hero.modifiedDefense = hero.Defense !== undefined ? hero.Defense : hero.AC; // Add Defense display
+    
+    // For Defense, handle shared defense correctly
+    if (hero.sharedDefense) {
+      // Hero has shared defense - use the shared value as the base, not the original
+      hero.modifiedDefense = hero.sharedDefense.sharedValue;
+    } else {
+      // Normal case - use the hero's own Defense
+      hero.modifiedDefense = hero.Defense !== undefined ? hero.Defense : hero.AC;
+    }
 
     // Apply permanent stat modifiers first (like Dragon Rider's Dismount)
     if (hero.permanentBuffs) {
       Object.values(hero.permanentBuffs).forEach(buffArray => {
         if (Array.isArray(buffArray)) {
           buffArray.forEach(buff => {
-            if (buff.stat === 'Defense' || buff.stat === 'AC') {
+            if (buff.stat === 'Defense') {
               hero.modifiedDefense += buff.value; // buff.value should be negative for debuffs
-              console.log(`🔒 ${hero.name} permanent Defense: ${hero.Defense || hero.AC} → ${hero.modifiedDefense} (${buff.source}: ${buff.value})`);
+              console.log(`🔒 ${hero.name} permanent Defense: ${hero.Defense !== undefined ? hero.Defense : hero.AC} → ${hero.modifiedDefense} (${buff.source}: ${buff.value})`);
             }
           });
         }
@@ -1238,16 +1289,16 @@ class GameManager {
       console.log(`🛡️ ${hero.name} Defense: ${hero.modifiedDefense - hero.statusEffects.statModifiers.Defense} → ${hero.modifiedDefense} (debuff: ${hero.statusEffects.statModifiers.Defense})`);
     } else if (hero.statusEffects?.statModifiers?.AC) {
       hero.modifiedDefense = hero.modifiedDefense + hero.statusEffects.statModifiers.AC;
-      console.log(`🛡️ ${hero.name} Defense: ${hero.modifiedDefense - hero.statusEffects.statModifiers.AC} → ${hero.modifiedDefense} (debuff: ${hero.statusEffects.statModifiers.AC})`);
+      console.log(`🛡️ ${hero.name} Defense: ${hero.modifiedDefense - hero.statusEffects.statModifiers.AC} → ${hero.modifiedDefense} (legacy AC debuff: ${hero.statusEffects.statModifiers.AC})`);
     }
 
     // Update Defense display for scaling buffs (Champion's Last Stand)
     if (hero.scalingBuffs && hero.scalingBuffs.defense) {
       hero.modifiedDefense = hero.modifiedDefense + hero.scalingBuffs.defense;
       console.log(`🛡️ ${hero.name} Defense scaling: ${hero.modifiedDefense - hero.scalingBuffs.defense} → ${hero.modifiedDefense} (scaling: +${hero.scalingBuffs.defense})`);
-    } else if (hero.scalingBuffs && hero.scalingBuffs.ac) {
-      hero.modifiedDefense = hero.modifiedDefense + hero.scalingBuffs.ac;
-      console.log(`🛡️ ${hero.name} Defense scaling: ${hero.modifiedDefense - hero.scalingBuffs.ac} → ${hero.modifiedDefense} (scaling: +${hero.scalingBuffs.ac})`);
+    } else if (hero.scalingBuffs && hero.scalingBuffs.defense) {
+      hero.modifiedDefense = hero.modifiedDefense + hero.scalingBuffs.defense;
+      console.log(`🛡️ ${hero.name} Defense scaling: ${hero.modifiedDefense - hero.scalingBuffs.defense} → ${hero.modifiedDefense} (scaling: +${hero.scalingBuffs.defense})`);
     }
 
     // Apply Wind Wall Defense bonus (Elementalist's special)
@@ -1265,7 +1316,7 @@ class GameManager {
     }
 
     // Apply Defense buffs/debuffs from passive effects (like Reaper's Aura of Dread)
-    const defenseBuffs = hero.passiveBuffs?.filter(b => b.stat === 'Defense' || b.stat === 'AC') || [];
+    const defenseBuffs = hero.passiveBuffs?.filter(b => b.stat === 'Defense') || [];
     if (defenseBuffs.length > 0) {
       const totalDefenseModifier = defenseBuffs.reduce((sum, buff) => sum + buff.value, 0);
       hero.modifiedDefense += totalDefenseModifier;
@@ -1277,7 +1328,7 @@ class GameManager {
       }
     }
 
-    // If no other buffs, return early after AC processing
+    // If no other buffs, return early after Defense processing
     if (!hero.passiveBuffs || hero.passiveBuffs.length === 0) return;
 
     // Update accuracy display
@@ -1414,9 +1465,9 @@ class GameManager {
         });
       }
       
-      // Piercer's Armor Breaker: Against high AC targets, gain advantage
-      if ((special.condition === 'target_ac_gte_9' && target && calculateEffectiveAC(target) >= 9) ||
-          (special.condition === 'target_ac_gt_8' && target && calculateEffectiveAC(target) > 8)) {
+      // Piercer's Armor Breaker: Against high Defense targets, gain advantage
+      if ((special.condition === 'target_defense_gte_9' && target && calculateEffectiveDefense(target) >= 9) ||
+          (special.condition === 'target_defense_gt_8' && target && calculateEffectiveDefense(target) > 8)) {
         special.effects.forEach(effect => {
           if (effect.type === 'grant_advantage') {
             advantageCount++;
@@ -1730,11 +1781,19 @@ class GameManager {
           if (hero.Defense !== undefined) {
             hero.Defense = hero.sharedDefense.originalDefense;
           } else {
-            hero.AC = hero.sharedDefense.originalDefense; // Fallback for legacy AC
+            hero.AC = hero.sharedDefense.originalDefense; // Fallback for legacy AC field
           }
           hero.modifiedDefense = hero.sharedDefense.originalDefense; // Reset modified Defense to base
+          
+          // Remove the passive buff entry for visual display
+          if (hero.passiveBuffs) {
+            hero.passiveBuffs = hero.passiveBuffs.filter(buff => 
+              !(buff.sourceHero === deadHero.name && buff.sourceName === 'Defend' && buff.stat === 'Defense')
+            );
+          }
+          
           delete hero.sharedDefense;
-          delete hero.originalAC;
+          // Clean up any legacy properties - originalAC is not used anymore
           this.updateHeroDisplayStats(hero);
         }
       });
@@ -1831,7 +1890,7 @@ class GameManager {
       attackRoll.crit = true;
     }
     
-    const hit = attackRoll.total >= calculateEffectiveAC(target);
+    const hit = attackRoll.total >= calculateEffectiveDefense(target);
     
     // Check for Monk's Deflect protection before damage is dealt
     let monkDeflected = false;
@@ -1843,7 +1902,7 @@ class GameManager {
       if (targetPlayer) {
         // Look for Monk ally who can deflect this attack
         const monk = targetPlayer.team.find(h => h.name === 'Monk' && h.currentHP > 0);
-        if (monk && attackRoll.total < calculateEffectiveAC(monk) && !targetPlayer.monkDeflectUsed) {
+        if (monk && attackRoll.total < calculateEffectiveDefense(monk) && !targetPlayer.monkDeflectUsed) {
           // Monk deflects the attack
           monkDeflected = true;
           deflectingMonk = monk;
@@ -1854,7 +1913,7 @@ class GameManager {
           deflectCounterDamage = counterDamageRoll.total;
           currentHero.currentHP = Math.max(0, currentHero.currentHP - deflectCounterDamage);
           
-          console.log(`🛡️ ${monk.name} deflects attack on ${target.name} (${attackRoll.total} < ${calculateEffectiveAC(monk)}) and counters for ${deflectCounterDamage} damage`);
+          console.log(`🛡️ ${monk.name} deflects attack on ${target.name} (${attackRoll.total} < ${calculateEffectiveDefense(monk)}) and counters for ${deflectCounterDamage} damage`);
           
           // Add comprehensive special log entry for Monk Deflect
           const deflectSpecialLogEntry = this.createSpecialLogEntry(
@@ -2625,12 +2684,12 @@ class GameManager {
           attackRoll.crit = true;
         }
         
-        abilityHit = attackRoll.total >= calculateEffectiveAC(targetForRoll);
+        abilityHit = attackRoll.total >= calculateEffectiveDefense(targetForRoll);
         
         const rollText = attackRoll.advantageInfo 
           ? `${attackRoll.advantageInfo.roll1} and ${attackRoll.advantageInfo.roll2} (${attackRoll.advantageInfo.type}, chose ${attackRoll.advantageInfo.chosen})`
           : attackRoll.roll;
-        console.log(`🎯 ${caster.name} uses ${ability.name}: Roll ${rollText}+${caster.modifiedAccuracy} = ${attackRoll.total} vs Defense ${calculateEffectiveAC(targetForRoll)} → ${abilityHit ? 'HIT' : 'MISS'}${attackRoll.crit ? ' (CRITICAL!)' : ''}`);
+        console.log(`🎯 ${caster.name} uses ${ability.name}: Roll ${rollText}+${caster.modifiedAccuracy} = ${attackRoll.total} vs Defense ${calculateEffectiveDefense(targetForRoll)} → ${abilityHit ? 'HIT' : 'MISS'}${attackRoll.crit ? ' (CRITICAL!)' : ''}`);
       }
       
       // Check for Monk's Deflect protection before ability damage is dealt
@@ -2640,7 +2699,7 @@ class GameManager {
         if (targetPlayer) {
           // Look for Monk ally who can deflect this ability
           const monk = targetPlayer.team.find(h => h.name === 'Monk' && h.currentHP > 0);
-          if (monk && attackRoll.total < calculateEffectiveAC(monk) && !targetPlayer.monkDeflectUsed) {
+          if (monk && attackRoll.total < calculateEffectiveDefense(monk) && !targetPlayer.monkDeflectUsed) {
             // Monk deflects the ability
             monkDeflected = true;
             abilityHit = false; // Prevent ability effects from happening
@@ -2651,7 +2710,7 @@ class GameManager {
             const counterDamage = counterDamageRoll.total;
             caster.currentHP = Math.max(0, caster.currentHP - counterDamage);
             
-            console.log(`🛡️ ${monk.name} deflects ability ${ability.name} on ${targetForRoll.name} (${attackRoll.total} < ${calculateEffectiveAC(monk)}) and counters for ${counterDamage} damage`);
+            console.log(`🛡️ ${monk.name} deflects ability ${ability.name} on ${targetForRoll.name} (${attackRoll.total} < ${calculateEffectiveDefense(monk)}) and counters for ${counterDamage} damage`);
             
             // Add comprehensive special log entry for Monk deflect during ability
             const deflectSpecialLogEntry = this.createSpecialLogEntry(
@@ -2677,7 +2736,7 @@ class GameManager {
         }
       }
       
-      console.log(`🎯 Ability ${ability.name} by ${caster.name}: Roll ${attackRoll.roll}+${caster.modifiedAccuracy} = ${attackRoll.total} vs AC ${calculateEffectiveAC(targetForRoll)} → ${abilityHit ? 'HIT' : (monkDeflected ? 'DEFLECTED' : 'MISS')}`);
+      console.log(`🎯 Ability ${ability.name} by ${caster.name}: Roll ${attackRoll.roll}+${caster.modifiedAccuracy} = ${attackRoll.total} vs Defense ${calculateEffectiveDefense(targetForRoll)} → ${abilityHit ? 'HIT' : (monkDeflected ? 'DEFLECTED' : 'MISS')}`);
       
       // Consume advantage effects after the attack roll
       this.consumeAdvantageEffects(caster, targetForRoll);
@@ -2703,8 +2762,8 @@ class GameManager {
             
             // Check for conditional additional damage (like Piercer's +1D6 vs AC > 8)
             if (effect.conditional_damage && 
-                ((effect.condition === 'target_ac_gte_9' && calculateEffectiveAC(target) >= 9) ||
-                 (effect.condition === 'target_ac_gt_8' && calculateEffectiveAC(target) > 8))) {
+                ((effect.condition === 'target_ac_gte_9' && calculateEffectiveDefense(target) >= 9) ||
+                 (effect.condition === 'target_ac_gt_8' && calculateEffectiveDefense(target) > 8))) {
               const bonusDamageRoll = calculateDamage(effect.conditional_damage, attackRoll?.isCritical || false, false, caster);
               damage += bonusDamageRoll.total;
               const conditionText = effect.condition === 'target_ac_gt_8' ? 'AC > 8' : 'AC >= 9';
@@ -4437,6 +4496,17 @@ class GameManager {
     return game ? this.getFullGameState(game) : null;
   }
 
+  isPlayerInActiveGame(playerId) {
+    const gameId = this.playerGameMap.get(playerId);
+    if (!gameId) return false;
+    
+    const game = this.games.get(gameId);
+    if (!game) return false;
+    
+    // Player is in an active game if the game exists and is in a meaningful phase
+    return game.phase !== 'waiting' && game.phase !== 'ended';
+  }
+
   getFullGameState(game) {
     const currentTurnInfo = this.getCurrentTurnInfo(game);
     const expectedCurrentTurn = currentTurnInfo ? currentTurnInfo.playerIndex : 0;
@@ -4722,7 +4792,7 @@ class GameManager {
       // Command beast to attack
       const advantageDisadvantageForAbility = this.hasAdvantageDisadvantage(caster, primaryTarget, true, game);
       const attackRoll = calculateAttackRoll(caster.Accuracy, advantageDisadvantageForAbility.advantage, advantageDisadvantageForAbility.disadvantage, caster);
-      const abilityHit = attackRoll.total >= calculateEffectiveAC(primaryTarget);
+      const abilityHit = attackRoll.total >= calculateEffectiveDefense(primaryTarget);
       
       // Add comprehensive special log entry for beast command attack  
       console.log('🔍 Beast Tamer debug - caster:', caster?.name, 'type:', typeof caster);
@@ -4748,7 +4818,7 @@ class GameManager {
         target: primaryTarget.name,
         roll: attackRoll,
         accuracy: caster.Accuracy,
-        targetAC: calculateEffectiveAC(primaryTarget),
+        targetAC: calculateEffectiveDefense(primaryTarget),
         hit: abilityHit,
         hasAdvantage: advantageDisadvantageForAbility.advantage,
         isCritical: attackRoll.isCritical
@@ -4797,19 +4867,19 @@ class GameManager {
     // Use Timekeeper's modified accuracy to include the +2 accuracy bonus
     const advantageDisadvantageForAbility = this.hasAdvantageDisadvantage(caster, primaryTarget, true, game);
     const chronoShiftAttackRoll = calculateAttackRoll(caster.modifiedAccuracy, advantageDisadvantageForAbility.advantage, advantageDisadvantageForAbility.disadvantage, caster);
-    const abilityHit = chronoShiftAttackRoll.total >= calculateEffectiveAC(primaryTarget);
+    const abilityHit = chronoShiftAttackRoll.total >= calculateEffectiveDefense(primaryTarget);
     
     const rollText = chronoShiftAttackRoll.advantageInfo 
       ? `${chronoShiftAttackRoll.advantageInfo.roll1} and ${chronoShiftAttackRoll.advantageInfo.roll2} (${chronoShiftAttackRoll.advantageInfo.type}, chose ${chronoShiftAttackRoll.advantageInfo.chosen})`
       : chronoShiftAttackRoll.roll;
-    console.log(`🎯 Timekeeper Chrono Shift attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs Defense ${calculateEffectiveAC(primaryTarget)} → ${abilityHit ? 'HIT' : 'MISS'}`);
+    console.log(`🎯 Timekeeper Chrono Shift attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs Defense ${calculateEffectiveDefense(primaryTarget)} → ${abilityHit ? 'HIT' : 'MISS'}`);
     
     // Log the Chrono Shift activation with attack roll details
     results.push({
       type: 'ability_activation',
       caster: caster.name,
       abilityName: ability.name,
-      message: `${caster.name} used ${ability.name}! Attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs AC ${calculateEffectiveAC(primaryTarget)}`,
+      message: `${caster.name} used ${ability.name}! Attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs AC ${calculateEffectiveDefense(primaryTarget)}`,
       roll: chronoShiftAttackRoll,
       hasAdvantage: advantageDisadvantageForAbility.advantage,
       target: primaryTarget.name,
@@ -5016,19 +5086,19 @@ class GameManager {
     // Step 1: Timekeeper must first hit with Chrono Shift before commanding an ally
     const advantageDisadvantageForAbility = this.hasAdvantageDisadvantage(caster, primaryTarget, true, game);
     const chronoShiftAttackRoll = calculateAttackRoll(caster.modifiedAccuracy, advantageDisadvantageForAbility.advantage, advantageDisadvantageForAbility.disadvantage, caster);
-    const abilityHit = chronoShiftAttackRoll.total >= calculateEffectiveAC(primaryTarget);
+    const abilityHit = chronoShiftAttackRoll.total >= calculateEffectiveDefense(primaryTarget);
     
     const rollText = chronoShiftAttackRoll.advantageInfo 
       ? `${chronoShiftAttackRoll.advantageInfo.roll1} and ${chronoShiftAttackRoll.advantageInfo.roll2} (${chronoShiftAttackRoll.advantageInfo.type}, chose ${chronoShiftAttackRoll.advantageInfo.chosen})`
       : chronoShiftAttackRoll.roll;
-    console.log(`🎯 Timekeeper Selected Chrono Shift attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs Defense ${calculateEffectiveAC(primaryTarget)} → ${abilityHit ? 'HIT' : 'MISS'}`);
+    console.log(`🎯 Timekeeper Selected Chrono Shift attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs Defense ${calculateEffectiveDefense(primaryTarget)} → ${abilityHit ? 'HIT' : 'MISS'}`);
     
     // Log the Chrono Shift activation with attack roll details
     results.push({
       type: 'ability_activation',
       caster: caster.name,
       abilityName: ability.name,
-      message: `${caster.name} used ${ability.name}! Attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs AC ${calculateEffectiveAC(primaryTarget)}`,
+      message: `${caster.name} used ${ability.name}! Attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs AC ${calculateEffectiveDefense(primaryTarget)}`,
       roll: chronoShiftAttackRoll,
       hasAdvantage: advantageDisadvantageForAbility.advantage,
       target: primaryTarget.name,
@@ -5251,7 +5321,7 @@ class GameManager {
     // First, make the attack roll to see if ability hits
     const advantageDisadvantageForAbility = this.hasAdvantageDisadvantage(caster, primaryTarget, true, game);
     const attackRoll = calculateAttackRoll(caster.Accuracy, advantageDisadvantageForAbility.advantage, advantageDisadvantageForAbility.disadvantage, caster);
-    const abilityHit = attackRoll.total >= calculateEffectiveAC(primaryTarget);
+    const abilityHit = attackRoll.total >= calculateEffectiveDefense(primaryTarget);
     
     // Always show the attack roll
     results.push({
@@ -5260,7 +5330,7 @@ class GameManager {
       target: primaryTarget.name,
       roll: attackRoll,
       accuracy: caster.Accuracy,
-      targetAC: calculateEffectiveAC(primaryTarget),
+      targetAC: calculateEffectiveDefense(primaryTarget),
       hit: abilityHit,
       hasAdvantage: advantageDisadvantageForAbility.advantage,
       hasDisadvantage: advantageDisadvantageForAbility.disadvantage,
@@ -5338,37 +5408,91 @@ class GameManager {
   }
 
   // Survival State Management Methods
-  getSurvivalState(playerId) {
-    if (!this.survivalStates.has(playerId)) {
-      this.survivalStates.set(playerId, {
-        wins: 0,
-        losses: 0,
-        usedHeroes: [],
-        isActive: true
-      });
+  async getSurvivalState(playerId) {
+    // Check if we have it in memory first
+    if (this.survivalStates.has(playerId)) {
+      return this.survivalStates.get(playerId);
     }
-    return this.survivalStates.get(playerId);
+
+    // If not in memory, try to load from database
+    const userId = this.userSessions.get(playerId);
+    if (userId && this.database) {
+      try {
+        const user = await this.database.getUserById(userId);
+        const state = {
+          wins: user.survival_wins || 0,
+          losses: user.survival_losses || 0,
+          usedHeroes: user.survival_used_heroes || [],
+          isActive: true
+        };
+        
+        // Store in memory for future access
+        this.survivalStates.set(playerId, state);
+        console.log(`📥 Loaded survival state from database for player ${playerId}:`, state);
+        return state;
+      } catch (error) {
+        console.error(`❌ Error loading survival state from database for player ${playerId}:`, error);
+      }
+    }
+
+    // Fallback to default state if database load fails
+    const defaultState = {
+      wins: 0,
+      losses: 0,
+      usedHeroes: [],
+      isActive: true
+    };
+    this.survivalStates.set(playerId, defaultState);
+    return defaultState;
   }
 
-  updateSurvivalWin(playerId, teamHeroes) {
-    const state = this.getSurvivalState(playerId);
+  async updateSurvivalWin(playerId, teamHeroes) {
+    const state = await this.getSurvivalState(playerId);
     const heroNames = teamHeroes.map(h => h.name);
     
     state.wins += 1;
     state.usedHeroes = [...new Set([...state.usedHeroes, ...heroNames])]; // Remove duplicates
     
+    // Update in memory
+    this.survivalStates.set(playerId, state);
+    
+    // Save to database
+    const userId = this.userSessions.get(playerId);
+    if (userId && this.database) {
+      try {
+        await this.database.updateSurvivalState(userId, state.wins, state.losses, state.usedHeroes);
+        console.log(`💾 Survival win saved to database for user ${userId}`);
+      } catch (error) {
+        console.error(`❌ Error saving survival win to database for user ${userId}:`, error);
+      }
+    }
+    
     console.log(`🏆 Survival win recorded for player ${playerId}: ${state.wins} wins, used heroes: ${state.usedHeroes.join(', ')}`);
     return state;
   }
 
-  updateSurvivalLoss(playerId, teamHeroes) {
-    const state = this.getSurvivalState(playerId);
+  async updateSurvivalLoss(playerId, teamHeroes) {
+    const state = await this.getSurvivalState(playerId);
     // NOTE: Heroes are NOT banned when losing - only winners ban their heroes
     
     const finalWins = state.wins; // Capture wins before updating
     
     state.losses += 1;
     // Do NOT add heroes to usedHeroes on loss - players can reuse heroes after losing
+    
+    // Update in memory
+    this.survivalStates.set(playerId, state);
+    
+    // Save to database
+    const userId = this.userSessions.get(playerId);
+    if (userId && this.database) {
+      try {
+        await this.database.updateSurvivalState(userId, state.wins, state.losses, state.usedHeroes);
+        console.log(`💾 Survival loss saved to database for user ${userId}`);
+      } catch (error) {
+        console.error(`❌ Error saving survival loss to database for user ${userId}:`, error);
+      }
+    }
     
     console.log(`💀 Survival loss recorded for player ${playerId}: ${state.wins} final wins, ${state.losses} losses, used heroes remain: ${state.usedHeroes.join(', ')}`);
     
@@ -5380,16 +5504,41 @@ class GameManager {
     return state;
   }
 
-  resetSurvivalState(playerId) {
+  async resetSurvivalState(playerId) {
+    // Get current state to check for existing wins
+    const currentState = await this.getSurvivalState(playerId);
+    
+    // Award victory points for any current wins before resetting
+    let victoryPointsAwarded = 0;
+    if (currentState.wins > 0) {
+      console.log(`🏆 Player ${playerId} abandoning survival run with ${currentState.wins} wins - awarding victory points`);
+      const result = await this.handleSurvivalRunEnd(playerId, currentState.wins);
+      victoryPointsAwarded = result.pointsAwarded || currentState.wins;
+    }
+    
     const state = {
       wins: 0,
       losses: 0,
       usedHeroes: [],
       isActive: true
     };
+    
+    // Update in memory
     this.survivalStates.set(playerId, state);
-    console.log(`🔄 Survival state reset for player ${playerId}`);
-    return state;
+    
+    // Reset in database
+    const userId = this.userSessions.get(playerId);
+    if (userId && this.database) {
+      try {
+        await this.database.resetSurvivalState(userId);
+        console.log(`💾 Survival state reset in database for user ${userId}`);
+      } catch (error) {
+        console.error(`❌ Error resetting survival state in database for user ${userId}:`, error);
+      }
+    }
+    
+    console.log(`🔄 Survival state reset for player ${playerId}${victoryPointsAwarded > 0 ? ` (awarded ${victoryPointsAwarded} victory points)` : ''}`);
+    return { ...state, victoryPointsAwarded };
   }
 
   // Victory Points Management Methods
@@ -5475,7 +5624,7 @@ class GameManager {
     return result;
   }
 
-  returnToLobby(playerId) {
+  async returnToLobby(playerId) {
     console.log(`🏠 Processing return to lobby for player ${playerId}`);
     
     const gameId = this.playerGameMap.get(playerId);
@@ -5483,7 +5632,7 @@ class GameManager {
       console.log(`📝 Player ${playerId} not in any game - returning success`);
       return { 
         success: true, 
-        preservedSurvivalState: this.getSurvivalState(playerId) 
+        preservedSurvivalState: await this.getSurvivalState(playerId) 
       };
     }
 
@@ -5493,7 +5642,7 @@ class GameManager {
       this.playerGameMap.delete(playerId);
       return { 
         success: true, 
-        preservedSurvivalState: this.getSurvivalState(playerId) 
+        preservedSurvivalState: await this.getSurvivalState(playerId) 
       };
     }
 
@@ -5507,7 +5656,7 @@ class GameManager {
       // If game is ongoing and not ended, treat as forfeit/loss
       if (game.phase !== 'ended' && game.winner === null) {
         console.log(`💀 Player ${playerId} forfeiting ongoing survival battle - recording as loss`);
-        this.updateSurvivalLoss(playerId, player.team);
+        await this.updateSurvivalLoss(playerId, player.team);
       }
     }
 
@@ -5521,7 +5670,7 @@ class GameManager {
       console.log(`🗑️ Deleted empty game ${gameId}`);
     }
 
-    const preservedState = isSurvivalMode ? this.getSurvivalState(playerId) : null;
+    const preservedState = isSurvivalMode ? await this.getSurvivalState(playerId) : null;
     
     console.log(`✅ Player ${playerId} successfully returned to lobby${isSurvivalMode ? ' with survival state preserved' : ''}`);
     

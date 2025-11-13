@@ -43,9 +43,9 @@ interface SurvivalModeProps {
 
 const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBattle, onCancelSearch, isSearchingForMatch = false, user }) => {
   const [survivalState, setSurvivalState] = useState<SurvivalState>({
-    wins: 0,
-    losses: 0,
-    usedHeroes: [],
+    wins: user?.survival_wins || 0,
+    losses: user?.survival_losses || 0,
+    usedHeroes: user?.survival_used_heroes || [],
     currentTeam: [],
     isActive: true
   });
@@ -53,6 +53,24 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
   const [showEndModal, setShowEndModal] = useState(false);
   const [endMessage, setEndMessage] = useState('');
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+
+  // Update survival state when user data changes
+  useEffect(() => {
+    if (user) {
+      console.log('🔄 SurvivalMode: Updating state from user data:', {
+        wins: user.survival_wins,
+        losses: user.survival_losses,
+        usedHeroes: user.survival_used_heroes
+      });
+      
+      setSurvivalState(prev => ({
+        ...prev,
+        wins: user.survival_wins || 0,
+        losses: user.survival_losses || 0,
+        usedHeroes: user.survival_used_heroes || []
+      }));
+    }
+  }, [user]);
 
   // Load survival state from server on component mount
   useEffect(() => {
@@ -188,6 +206,11 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
         <div className="survival-end-content">
           <h2>Abandon Survival Run?</h2>
           <p>Are you sure you want to abandon your current survival run? This will reset your wins ({survivalState.wins}), losses ({survivalState.losses}), and used heroes.</p>
+          {survivalState.wins > 0 && (
+            <p className="survival-victory-points-info">
+              <strong>You will receive {survivalState.wins} victory point{survivalState.wins !== 1 ? 's' : ''} for your current wins!</strong>
+            </p>
+          )}
           <div className="survival-end-buttons">
             <button className="survival-btn danger" onClick={handleConfirmAbandon}>
               Yes, Abandon Run

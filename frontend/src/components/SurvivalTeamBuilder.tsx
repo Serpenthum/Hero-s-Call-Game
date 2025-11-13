@@ -422,7 +422,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                       onMouseLeave={() => setHoveredHero(null)}
                     >
                       <img 
-                        src={`http://localhost:3001/hero-images/${hero.name}.png`}
+                        src={`http://localhost:3001/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                         alt={hero.name}
                         className="hero-image"
                         onError={(e) => {
@@ -531,7 +531,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                 {selectedTeam[index] ? (
                   <div className="selected-hero" onClick={() => handleHeroRemove(selectedTeam[index])}>
                     <img 
-                      src={`http://localhost:3001/hero-images/${selectedTeam[index].name}.png`}
+                      src={`http://localhost:3001/hero-images/${selectedTeam[index].name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                       alt={selectedTeam[index].name}
                       className="selected-hero-image"
                       onError={(e) => {

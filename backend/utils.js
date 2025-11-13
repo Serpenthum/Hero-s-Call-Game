@@ -278,7 +278,7 @@ function applyStatusEffect(hero, effect, value, duration = null, stat = null, ca
       if (!hero.statusEffects.statModifiers) {
         hero.statusEffects.statModifiers = {};
       }
-      const statToModify = stat || 'AC'; // Default to AC if no stat specified
+      const statToModify = stat || 'Defense'; // Default to Defense if no stat specified
       if (!hero.statusEffects.statModifiers[statToModify]) {
         hero.statusEffects.statModifiers[statToModify] = 0;
       }
@@ -423,52 +423,54 @@ function hasSpecialEffect(hero, effectName) {
   );
 }
 
-function calculateEffectiveAC(hero) {
+function calculateEffectiveDefense(hero) {
   // Use modifiedDefense if it exists (from effects like Dual Defender's Defense sharing), otherwise use base Defense
-  let effectiveAC = hero.modifiedDefense !== undefined ? hero.modifiedDefense : (hero.Defense !== undefined ? hero.Defense : hero.AC);
+  let effectiveDefense = hero.modifiedDefense !== undefined ? hero.modifiedDefense : (hero.Defense !== undefined ? hero.Defense : hero.AC);
   
   // Ensure we have a valid number
-  if (effectiveAC === undefined || effectiveAC === null) {
-    console.error(`⚠️ calculateEffectiveAC: No Defense/AC found for ${hero.name}`, { hero });
-    effectiveAC = 0;
+  if (effectiveDefense === undefined || effectiveDefense === null) {
+    console.error(`⚠️ calculateEffectiveDefense: No Defense found for ${hero.name}`, { hero });
+    effectiveDefense = 0;
   }
   
   // Apply stat modifiers if they exist
   if (hero.statusEffects?.statModifiers?.Defense) {
-    effectiveAC += hero.statusEffects.statModifiers.Defense;
+    effectiveDefense += hero.statusEffects.statModifiers.Defense;
   } else if (hero.statusEffects?.statModifiers?.AC) {
-    effectiveAC += hero.statusEffects.statModifiers.AC;
+    effectiveDefense += hero.statusEffects.statModifiers.AC;
   }
   
-  // Apply scaling AC buffs if they exist (Champion's Last Stand)
-  if (hero.scalingBuffs && hero.scalingBuffs.ac) {
-    effectiveAC += hero.scalingBuffs.ac;
+  // Apply scaling Defense buffs if they exist (Champion's Last Stand)
+  if (hero.scalingBuffs && hero.scalingBuffs.defense) {
+    effectiveDefense += hero.scalingBuffs.defense;
+  } else if (hero.scalingBuffs && hero.scalingBuffs.ac) {
+    effectiveDefense += hero.scalingBuffs.ac; // Legacy support
   }
   
   // Apply permanent stat modifiers if they exist (Dragon Rider's Dismount)
   if (hero.permanentBuffs) {
     Object.values(hero.permanentBuffs).forEach(buffGroup => {
       buffGroup.forEach(buff => {
-        if (buff.stat === 'Defense' || buff.stat === 'AC') {
-          effectiveAC += buff.value;
+        if (buff.stat === 'Defense') {
+          effectiveDefense += buff.value;
         }
       });
     });
   }
   
-  // Apply Wind Wall AC bonus (Elementalist's special)
+  // Apply Wind Wall Defense bonus (Elementalist's special)
   if (hero.statusEffects?.windWallAC && hero.statusEffects.windWallAC.bonus > 0) {
-    effectiveAC += hero.statusEffects.windWallAC.bonus;
+    effectiveDefense += hero.statusEffects.windWallAC.bonus;
   }
   
-  // Apply passive Defense/AC buffs/debuffs from auras (like Reaper's Aura of Dread)
+  // Apply passive Defense buffs/debuffs from auras (like Reaper's Aura of Dread)
   if (hero.passiveBuffs) {
-    const defenseBuffs = hero.passiveBuffs.filter(b => b.stat === 'Defense' || b.stat === 'AC');
+    const defenseBuffs = hero.passiveBuffs.filter(b => b.stat === 'Defense');
     const totalDefenseModifier = defenseBuffs.reduce((sum, buff) => sum + buff.value, 0);
-    effectiveAC += totalDefenseModifier;
+    effectiveDefense += totalDefenseModifier;
   }
   
-  return Math.max(0, effectiveAC); // AC can't go below 0
+  return Math.max(0, effectiveDefense); // Defense can't go below 0
 }
 
 module.exports = {
@@ -485,5 +487,5 @@ module.exports = {
   getTargetableEnemies,
   canUseBasicAttack,
   hasSpecialEffect,
-  calculateEffectiveAC
+  calculateEffectiveDefense
 };

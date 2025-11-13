@@ -247,7 +247,7 @@ body, html {
 
 .hero-card:hover {
   transform: scale(1.1);
-  z-index: 10;
+  z-index: 15;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
   border-color: #007bff;
   /* Maintain flexbox layout on hover */
@@ -325,7 +325,15 @@ body, html {
 .hero-card.selectable:hover {
   border-color: #007bff;
   transform: scale(1.1);
+  z-index: 15;
   /* Maintain flexbox layout for selectable hover */
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card.hovered {
+  z-index: 15;
+  /* Maintain flexbox layout for hovered cards */
   display: flex;
   flex-direction: column;
 }
@@ -519,10 +527,12 @@ body, html {
 .status-effect {
   background: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 2px 6px;
-  border-radius: 12px;
-  font-size: 0.7rem;
+  padding: 3px 8px; /* Increased from 2px 6px (30% bigger) */
+  border-radius: 15px; /* Increased from 12px (30% bigger) */
+  font-size: 0.91rem; /* Increased from 0.7rem (30% bigger) */
   font-weight: bold;
+  cursor: pointer; /* Add cursor pointer for interaction */
+  transition: all 0.2s ease; /* Smooth transition for hover effects */
 }
 
 /* Buff Effects (positive - green/blue/yellow tones) */
@@ -662,6 +672,62 @@ body, html {
 .tooltip:hover .tooltiptext {
   visibility: visible;
   opacity: 1;
+}
+
+/* Status Effect Custom Tooltips */
+.status-effect-tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.status-effect-tooltip .status-tooltip-text {
+  visibility: hidden;
+  position: absolute;
+  bottom: 125%;
+  right: 0;
+  background: linear-gradient(135deg, rgba(30, 45, 70, 0.98) 0%, rgba(20, 35, 60, 0.99) 100%);
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.2s ease-out, visibility 0.2s ease-out;
+  pointer-events: none;
+  min-width: 200px;
+  max-width: 300px;
+  word-wrap: break-word;
+  white-space: normal;
+  text-align: left;
+}
+
+.status-effect-tooltip .status-tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 20px;
+  margin-top: -1px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: rgba(30, 45, 70, 0.98) transparent transparent transparent;
+}
+
+.status-effect-tooltip:hover .status-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Status effect hover effects */
+.status-effect:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
 }
 
 /* Keyword highlighting */
@@ -1252,38 +1318,102 @@ body, html {
   box-sizing: border-box; /* Include padding in height calculation */
 }
 
-.opponent-area h3,
-.player-area h3 {
-  text-align: center; /* Center the text */
-  margin: 0; /* Remove bottom margin */
-  position: absolute; /* Position absolutely */
-  top: 50%; /* Center vertically */
-  left: 20px; /* Simple left positioning */
-  transform: translateY(-50%); /* Center vertically only */
-  z-index: 10; /* Ensure it appears above cards */
-  background: rgba(0, 0, 0, 0.9); /* Stronger background for better readability */
-  padding: 10px 20px; /* More padding for better visibility */
-  border-radius: 8px; /* Larger border radius */
-  color: white; /* Ensure text is visible */
-  font-size: 1.4rem; /* Larger text for better visibility */
-  font-weight: bold; /* Make text bold */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); /* Add shadow for depth */
-  white-space: pre-line; /* Allow line breaks in text */
-  line-height: 1.2; /* Tighter line spacing for multi-line text */
+/* Removed old h3 positioning styles - now using team-label-container structure */
+
+/* Team Label Container */
+.team-label-container {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-70%);
+  z-index: 10;
+  text-align: center;
 }
 
-/* Style opponent's team label with dark red border */
-.opponent-area h3 {
-  border: 2px solid rgba(139, 0, 0, 0.9); /* Dark red border for opponent */
-  background: rgba(139, 0, 0, 0.2); /* Subtle dark red background */
-  backdrop-filter: blur(5px); /* Blur effect for modern look */
+/* Base Team Label Styles */
+.team-label {
+  text-align: center;
+  margin: 0;
+  padding: 12px 24px;
+  border-radius: 12px;
+  color: white;
+  font-size: 1.4rem;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+  line-height: 1.2;
+  backdrop-filter: blur(8px);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+  overflow: hidden;
+  min-width: 200px;
 }
 
-/* Style player's team label with light blue border */
-.player-area h3 {
-  border: 2px solid rgba(100, 181, 246, 0.8); /* Light blue border for player */
-  background: rgba(100, 181, 246, 0.15); /* Subtle light blue background */
-  backdrop-filter: blur(5px); /* Blur effect for modern look */
+/* Opponent Team Label */
+.opponent-label {
+  background: linear-gradient(135deg, rgba(139, 0, 0, 0.85) 0%, rgba(180, 0, 0, 0.9) 100%);
+  border-color: rgba(220, 53, 69, 0.8);
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.opponent-label::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  animation: shimmer 3s infinite;
+}
+
+/* Player Team Label */
+.player-label {
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.85) 0%, rgba(0, 86, 179, 0.9) 100%);
+  border-color: rgba(100, 181, 246, 0.8);
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.player-label::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  animation: shimmer 3s infinite 1.5s;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Hover effects for team labels */
+.team-label:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+.opponent-label:hover {
+  border-color: rgba(220, 53, 69, 1);
+  box-shadow: 0 6px 18px rgba(220, 53, 69, 0.4);
+}
+
+.player-label:hover {
+  border-color: rgba(100, 181, 246, 1);
+  box-shadow: 0 6px 18px rgba(100, 181, 246, 0.4);
+}
+
+/* Legacy styles for compatibility - now pointing to new classes */
+.opponent-area h3:not(.team-label),
+.player-area h3:not(.team-label) {
+  /* Hide old h3 elements but allow new team-label h3 elements to show */
+  display: none;
 }
 
 .player-area {
@@ -2226,4 +2356,934 @@ body, html {
   font-size: 0.85rem;
   margin-top: 4px;
   text-align: center;
+}
+
+/* ============================================================================
+   FRIENDS SYSTEM STYLES
+   ============================================================================ */
+
+/* Friends Icon - positioned at bottom left */
+.friends-icon {
+  position: fixed;
+  bottom: 20px;
+  left: 30px;
+  z-index: 1500;
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.9) 0%, rgba(0, 86, 179, 0.95) 100%);
+  border: 2px solid rgba(0, 123, 255, 0.7);
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.friends-icon:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 123, 255, 0.5);
+  border-color: rgba(0, 123, 255, 0.9);
+}
+
+.friends-icon-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.friends-icon-svg {
+  width: 28px;
+  height: 28px;
+  color: white;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Notification badge */
+.notification-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
+  animation: pulse-notification 2s infinite;
+}
+
+@keyframes pulse-notification {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Glow animation for notifications */
+.friends-icon.has-notifications {
+  animation: friends-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes friends-glow {
+  from { 
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+    border-color: rgba(0, 123, 255, 0.7);
+  }
+  to { 
+    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.6);
+    border-color: rgba(0, 123, 255, 1);
+  }
+}
+
+/* Tooltip */
+.friends-icon-tooltip {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 2000;
+}
+
+.friends-icon:hover .friends-icon-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Message Icon */
+.message-icon {
+  position: fixed;
+  bottom: 20px;
+  left: 110px; /* Position next to friends icon */
+  width: 60px;
+  height: 60px;
+  background: rgba(30, 30, 30, 0.95);
+  border: 2px solid rgba(100, 100, 100, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 1500;
+  backdrop-filter: blur(10px);
+}
+
+.message-icon:hover {
+  background: rgba(40, 40, 40, 0.98);
+  transform: scale(1.05);
+  border-color: rgba(150, 150, 150, 0.5);
+}
+
+.message-icon-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-icon-svg {
+  width: 24px;
+  height: 24px;
+  color: #fff;
+  transition: color 0.3s ease;
+}
+
+.message-icon:hover .message-icon-svg {
+  color: #28a745; /* Green color for messages */
+}
+
+.message-icon .notification-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #dc3545;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(30, 30, 30, 0.95);
+}
+
+.message-icon.has-notifications {
+  animation: message-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes message-glow {
+  from { 
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    border-color: rgba(40, 167, 69, 0.7);
+  }
+  to { 
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.6);
+    border-color: rgba(40, 167, 69, 1);
+  }
+}
+
+/* Tooltip */
+.message-icon-tooltip {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 2000;
+}
+
+.message-icon:hover .message-icon-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Friends Window */
+.friends-overlay-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.friends-overlay {
+  position: fixed;
+  bottom: 100px;
+  left: 30px;
+  background: linear-gradient(135deg, rgba(20, 30, 60, 0.98) 0%, rgba(30, 45, 70, 0.98) 100%);
+  border: 2px solid rgba(0, 123, 255, 0.7);
+  border-radius: 16px;
+  width: 300px;
+  overflow: visible;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+}
+
+.friends-overlay-content {
+  flex: 1;
+  overflow: visible;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.friends-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.friends-overlay-header h3 {
+  margin: 0;
+  color: #007bff;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.close-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.friends-overlay-content {
+  padding: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* Friend Requests Section */
+.friend-requests-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.friend-requests-section h4 {
+  margin: 0 0 15px 0;
+  color: #ffc107;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.friend-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.friend-request-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.request-username {
+  font-weight: bold;
+  color: white;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.accept-button, .reject-button {
+  width: 36px;
+  height: 36px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.accept-button {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 50%, #17a2b8 100%);
+  color: white;
+  border-color: rgba(40, 167, 69, 0.5);
+}
+
+.accept-button:hover {
+  background: linear-gradient(135deg, #218838 0%, #1ea085 50%, #138496 100%);
+  transform: scale(1.15) translateY(-2px);
+  box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4);
+  border-color: rgba(40, 167, 69, 0.8);
+}
+
+.reject-button {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 50%, #bd2130 100%);
+  color: white;
+  border-color: rgba(220, 53, 69, 0.5);
+}
+
+.reject-button:hover {
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 50%, #b21e2f 100%);
+  transform: scale(1.15) translateY(-2px);
+  box-shadow: 0 8px 20px rgba(220, 53, 69, 0.4);
+  border-color: rgba(220, 53, 69, 0.8);
+}
+
+/* Add Friend Section */
+.add-friend-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.add-friend-button {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.add-friend-button:hover {
+  background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.add-friend-input-section {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.add-friend-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 0.9rem;
+}
+
+.add-friend-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.add-friend-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+}
+
+.send-request-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.send-request-button:hover {
+  background: #0056b3;
+}
+
+.cancel-button {
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.cancel-button:hover {
+  background: #545b62;
+}
+
+/* Online Players Section */
+.online-players-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.online-players-section h4 {
+  margin: 0;
+  color: #007bff;
+  font-size: 1rem;
+}
+
+.refresh-button {
+  background: none;
+  border: 1px solid rgba(0, 123, 255, 0.3);
+  color: #007bff;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background: rgba(0, 123, 255, 0.1);
+  border-color: rgba(0, 123, 255, 0.5);
+  transform: rotate(90deg);
+}
+
+.refresh-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 20px;
+  color: #ccc;
+  font-style: italic;
+}
+
+.error {
+  color: #dc3545;
+}
+
+.online-players-section {
+  flex: 1;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+  overflow: visible;
+}
+
+.player-item {
+  border-radius: 8px;
+  overflow: visible;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border-radius: 8px;
+}
+
+.player-info:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 123, 255, 0.5);
+}
+
+.player-info.friend {
+  border-color: rgba(0, 123, 255, 0.3);
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.player-username {
+  font-weight: bold;
+  color: white;
+}
+
+.friend-badge {
+  background: #007bff;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.in-game-badge {
+  background: #28a745;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.player-tooltip {
+  position: fixed;
+  left: 370px;
+  top: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: rgba(10, 15, 30, 0.95);
+  border: 2px solid rgba(0, 150, 255, 0.6);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(20px);
+  z-index: 9999;
+  min-width: 140px;
+  animation: tooltipFadeIn 0.2s ease-out;
+  white-space: nowrap;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+.tooltip-action {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+  white-space: nowrap;
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-friend-action {
+  background: #28a745;
+  color: white;
+}
+
+.add-friend-action:hover:not(:disabled) {
+  background: #218838;
+}
+
+.remove-friend-action {
+  background: #dc3545;
+  color: white;
+}
+
+.remove-friend-action:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.message-action {
+  background: #007bff;
+  color: white;
+}
+
+.message-action:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.watch-action {
+  background: #6c757d;
+  color: white;
+}
+
+.watch-action:hover:not(:disabled) {
+  background: #545b62;
+}
+
+.online-count {
+  text-align: center;
+  padding: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: #ccc;
+  margin: 0 -20px -20px -20px;
+}
+
+.online-count .count {
+  color: #28a745;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+/* Message Chat Window */
+.message-chat-window {
+  position: fixed;
+  width: 350px;
+  height: 400px;
+  background: linear-gradient(135deg, rgba(20, 30, 60, 0.98) 0%, rgba(30, 45, 70, 0.98) 100%);
+  border: 2px solid rgba(0, 123, 255, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  z-index: 2100;
+  display: flex;
+  flex-direction: column;
+  resize: both;
+  overflow: hidden;
+  min-width: 300px;
+  min-height: 250px;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(0, 123, 255, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  user-select: none;
+}
+
+.chat-title {
+  font-weight: bold;
+  color: white;
+  font-size: 1rem;
+}
+
+.chat-close-button {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.chat-close-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.chat-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.messages-container {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-loading, .no-messages {
+  text-align: center;
+  color: #ccc;
+  font-style: italic;
+  padding: 20px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+
+.message.sent {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.message.received {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.message-content {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  border-radius: 12px;
+  color: white;
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+
+.message.sent .message-content {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  border-bottom-right-radius: 4px;
+}
+
+.message.received .message-content {
+  background: rgba(255, 255, 255, 0.15);
+  border-bottom-left-radius: 4px;
+}
+
+.message-time {
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 4px;
+}
+
+.message-input-container {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.message-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 0.9rem;
+  resize: none;
+  font-family: inherit;
+}
+
+.message-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+}
+
+.send-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.send-button:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.send-button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Scrollbar styling for chat */
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .friends-overlay {
+    width: 95vw;
+    max-height: 90vh;
+    left: 2.5vw;
+    bottom: 80px;
+  }
+  
+  .message-chat-window {
+    width: 90vw;
+    max-width: 350px;
+    height: 50vh;
+    max-height: 400px;
+  }
+  
+  .friends-icon {
+    width: 50px;
+    height: 50px;
+    bottom: 15px;
+    left: 25px;
+  }
+  
+  .friends-icon-svg {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .message-icon {
+    width: 50px;
+    height: 50px;
+    bottom: 15px;
+    left: 85px;
+  }
+}
+
+/* Player profile icon styles for Battle Phase */
+.player-profile-icon {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.profile-icon-small {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 2px solid #007bff;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.opponent-area .profile-icon-small {
+  border-color: #dc3545;
+}
+
+.player-area .profile-icon-small {
+  border-color: #28a745;
 }

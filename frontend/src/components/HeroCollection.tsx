@@ -369,7 +369,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                   onClick={() => handleHeroClick(actualIndex)}
                 >
                   <img 
-                    src={`http://localhost:3001/hero-images/${hero.name}.png`}
+                    src={`http://localhost:3001/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                     alt={hero.name}
                     className="hero-image"
                     onError={(e) => {

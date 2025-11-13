@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import HeroCollection from './HeroCollection';
 import HeroCard from './HeroCard';
+import ProfileModal from './ProfileModal';
+import XPBar from './XPBar';
 import { Hero, GameState } from '../types';
 import '../styles/GameLobby.css';
 
@@ -12,6 +14,8 @@ interface User {
   survival_losses: number;
   survival_used_heroes: string[];
   available_heroes: string[];
+  xp: number;
+  level: number;
 }
 
 interface GameLobbyProps {
@@ -25,11 +29,13 @@ interface GameLobbyProps {
   searchMode?: 'draft' | 'random' | null;
   onCancelSearch?: () => void;
   gameState?: GameState | null;
+  onCollectionStateChange?: (isOpen: boolean) => void;
 }
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch }) => {
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange }) => {
   const [showCollection, setShowCollection] = useState(false);
   const [showFriendlyModal, setShowFriendlyModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [friendlyAction, setFriendlyAction] = useState<'create' | 'join'>('create');
   const [roomName, setRoomName] = useState('');
   const [allHeroes, setAllHeroes] = useState<Hero[]>([]);
@@ -71,10 +77,12 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
       onCancelSearch();
     }
     setShowCollection(true);
+    onCollectionStateChange?.(true);
   };
 
   const handleCloseCollection = () => {
     setShowCollection(false);
+    onCollectionStateChange?.(false);
   };
 
   const handleSurvivalClick = () => {
@@ -215,13 +223,23 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
             </div>
           </div>
           <div className="user-stats">
-            <div className="user-info">
-              <span className="username">Welcome, {user.username}!</span>
-              <button className="logout-button" onClick={onLogout}>Logout</button>
-            </div>
-            <div className="victory-points">
-              <span className="trophy-icon">🏆</span>
-              <span className="points-text">Victory Points: {victoryPoints}</span>
+            <div className="stats-row">
+              <div className="victory-points">
+                <span className="trophy-icon">🏆</span>
+                <span className="points-text">Victory Points: {victoryPoints}</span>
+              </div>
+              <div className="xp-section">
+                <span className="level-text">Level {user.level || 1}</span>
+                <XPBar 
+                  currentXP={user.xp || 0} 
+                  level={user.level || 1} 
+                  animated={false}
+                />
+              </div>
+              <button className="logout-button" onClick={onLogout}>
+                <span className="logout-icon">🚪</span>
+                <span className="logout-text">Logout</span>
+              </button>
             </div>
           </div>
         </div>
@@ -231,29 +249,35 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
       <main className="lobby-dashboard">
         <div className="dashboard-grid">
           
-          {/* How to Play Panel */}
-          <div className="info-panel">
+          {/* Player Info Panel */}
+          <div className="player-info-panel">
             <div className="panel-header">
-              <h2>Battle Guide</h2>
+              <h2>{user.username}</h2>
               <div className="header-accent"></div>
             </div>
             <div className="panel-content">
-              <div className="guide-steps">
-                <div className="step-item">
-                  <div className="step-bullet"></div>
-                  <div className="step-text">Choose 3 heroes for your team</div>
-                </div>
-                <div className="step-item">
-                  <div className="step-bullet"></div>
-                  <div className="step-text">Each hero has unique abilities and stats</div>
-                </div>
-                <div className="step-item">
-                  <div className="step-bullet"></div>
-                  <div className="step-text">Use attacks and abilities strategically</div>
-                </div>
-                <div className="step-item">
-                  <div className="step-bullet"></div>
-                  <div className="step-text">Defeat all enemy heroes to win</div>
+              <button 
+                className="profile-btn"
+                onClick={() => setShowProfileModal(true)}
+              >
+                Profile
+              </button>
+              
+              <div className="quests-section">
+                <h3>Quests</h3>
+                <div className="daily-quests">
+                  <div className="quest-item">
+                    <div className="quest-text">Win 1 battle in survival mode</div>
+                    <div className="quest-progress">0/1</div>
+                  </div>
+                  <div className="quest-item">
+                    <div className="quest-text">Win 1 battle with Ninja</div>
+                    <div className="quest-progress">0/1</div>
+                  </div>
+                  <div className="quest-item">
+                    <div className="quest-text">Win 1 battle going 2nd</div>
+                    <div className="quest-progress">0/1</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -265,94 +289,116 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
               <h2>Game Modes</h2>
               <div className="header-accent"></div>
             </div>
-            <div className="modes-grid">
+            <div className="modes-container">
               
-              <div className={`game-mode draft-mode ${isSearching && searchMode === 'draft' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'draft' ? undefined : () => handleModeSelect('draft')}>
-                <div className="mode-overlay"></div>
-                <div className="mode-icon">⚔️</div>
-                {isSearching && searchMode === 'draft' ? (
-                  <div className="mode-info searching-info">
-                    <h3>Finding Opponent...</h3>
-                    <div className="searching-dots">
-                      <span className="dot"></span>
-                      <span className="dot"></span>
-                      <span className="dot"></span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mode-info">
-                    <h3>Draft Mode</h3>
-                    <p>Strategic hero selection</p>
-                  </div>
-                )}
-                {isSearching && searchMode === 'draft' ? (
-                  <button className="mode-cancel-btn" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
-                    <span>Leave Queue</span>
-                    <div className="btn-glow"></div>
-                  </button>
-                ) : (
-                  <button className="mode-play-btn">
-                    <span>Play Draft</span>
-                    <div className="btn-glow"></div>
-                  </button>
-                )}
-              </div>
-
-              <div className={`game-mode random-mode ${isSearching && searchMode === 'random' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'random' ? undefined : () => handleModeSelect('random')}>
-                <div className="mode-overlay"></div>
-                <div className="mode-icon">🎲</div>
-                {isSearching && searchMode === 'random' ? (
-                  <div className="mode-info searching-info">
-                    <h3>Finding Opponent...</h3>
-                    <div className="searching-dots">
-                      <span className="dot"></span>
-                      <span className="dot"></span>
-                      <span className="dot"></span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mode-info">
-                    <h3>Random Mode</h3>
-                    <p>Quick battle start</p>
-                  </div>
-                )}
-                {isSearching && searchMode === 'random' ? (
-                  <button className="mode-cancel-btn" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
-                    <span>Leave Queue</span>
-                    <div className="btn-glow"></div>
-                  </button>
-                ) : (
-                  <button className="mode-play-btn">
-                    <span>Play Random</span>
-                    <div className="btn-glow"></div>
-                  </button>
-                )}
-              </div>
-
-              <div className="game-mode friendly-mode" onClick={handleFriendlyBattleClick}>
-                <div className="mode-overlay"></div>
-                <div className="mode-icon">🤝</div>
-                <div className="mode-info">
-                  <h3>Friendly Battle</h3>
-                  <p>Play with friends</p>
+              {/* Ranked Section */}
+              <div className="mode-category">
+                <div className="category-header">
+                  <h3>Ranked</h3>
+                  <div className="category-divider"></div>
                 </div>
-                <button className="mode-play-btn">
-                  <span>Create/Join</span>
-                  <div className="btn-glow"></div>
-                </button>
+                <div className="category-modes">
+                  
+                  <div className={`game-mode draft-mode ${isSearching && searchMode === 'draft' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'draft' ? undefined : () => handleModeSelect('draft')}>
+                    <div className="mode-overlay"></div>
+                    <div className="mode-icon">⚔️</div>
+                    {isSearching && searchMode === 'draft' ? (
+                      <div className="mode-info searching-info">
+                        <h3>Finding Opponent...</h3>
+                        <div className="searching-dots">
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mode-info">
+                        <h3>Draft Mode</h3>
+                        <p>Strategic hero selection</p>
+                      </div>
+                    )}
+                    {isSearching && searchMode === 'draft' ? (
+                      <button className="mode-cancel-btn" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
+                        <span>Leave Queue</span>
+                        <div className="btn-glow"></div>
+                      </button>
+                    ) : (
+                      <button className="mode-play-btn">
+                        <span>Play Draft</span>
+                        <div className="btn-glow"></div>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="game-mode survival-mode" onClick={handleSurvivalClick}>
+                    <div className="mode-overlay"></div>
+                    <div className="mode-icon">🔥</div>
+                    <div className="mode-info">
+                      <h3>Survival Mode</h3>
+                      <p>Test your endurance</p>
+                    </div>
+                    <button className="mode-play-btn">
+                      <span>Enter Survival</span>
+                      <div className="btn-glow"></div>
+                    </button>
+                  </div>
+
+                </div>
               </div>
 
-              <div className="game-mode survival-mode" onClick={handleSurvivalClick}>
-                <div className="mode-overlay"></div>
-                <div className="mode-icon">🔥</div>
-                <div className="mode-info">
-                  <h3>Survival Mode</h3>
-                  <p>Test your endurance</p>
+              {/* Casual Section */}
+              <div className="mode-category">
+                <div className="category-header">
+                  <h3>Casual</h3>
+                  <div className="category-divider"></div>
                 </div>
-                <button className="mode-play-btn">
-                  <span>Enter Survival</span>
-                  <div className="btn-glow"></div>
-                </button>
+                <div className="category-modes">
+                  
+                  <div className="game-mode friendly-mode" onClick={handleFriendlyBattleClick}>
+                    <div className="mode-overlay"></div>
+                    <div className="mode-icon">🤝</div>
+                    <div className="mode-info">
+                      <h3>Friendly Battle</h3>
+                      <p>Play with friends</p>
+                    </div>
+                    <button className="mode-play-btn">
+                      <span>Create/Join</span>
+                      <div className="btn-glow"></div>
+                    </button>
+                  </div>
+
+                  <div className={`game-mode random-mode ${isSearching && searchMode === 'random' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'random' ? undefined : () => handleModeSelect('random')}>
+                    <div className="mode-overlay"></div>
+                    <div className="mode-icon">🎲</div>
+                    {isSearching && searchMode === 'random' ? (
+                      <div className="mode-info searching-info">
+                        <h3>Finding Opponent...</h3>
+                        <div className="searching-dots">
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mode-info">
+                        <h3>Random Mode</h3>
+                        <p>Quick battle start</p>
+                      </div>
+                    )}
+                    {isSearching && searchMode === 'random' ? (
+                      <button className="mode-cancel-btn" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
+                        <span>Leave Queue</span>
+                        <div className="btn-glow"></div>
+                      </button>
+                    ) : (
+                      <button className="mode-play-btn">
+                        <span>Play Random</span>
+                        <div className="btn-glow"></div>
+                      </button>
+                    )}
+                  </div>
+
+                </div>
               </div>
 
             </div>
@@ -466,6 +512,14 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
           </div>
         </div>
       )}
+
+      {/* Profile Modal */}
+      <ProfileModal
+        user={user}
+        allHeroes={allHeroes}
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
 
     </div>
   );

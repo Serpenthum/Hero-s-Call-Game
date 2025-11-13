@@ -182,72 +182,78 @@ const HeroCard: React.FC<HeroCardProps> = ({
     // Buffs (positive effects - top left)
     if (hero.statusEffects.beast_active) {
       buffs.push(
-        <span
-          key="beast-active"
-          className="status-effect beast-active"
-          title="Beast Active: Beast Tamer's pet is summoned and can attack."
-        >
-          🐾
+        <span key="beast-active" className="status-effect-tooltip">
+          <span className="status-effect beast-active">
+            🐾
+          </span>
+          <span className="status-tooltip-text">
+            Beast Active: Beast Tamer's pet is summoned and can attack.
+          </span>
         </span>
       );
     }
     
     if (hero.statusEffects.totem_count && hero.statusEffects.totem_count > 0) {
       buffs.push(
-        <span
-          key="totem-count"
-          className="status-effect totem-count"
-          title={`Totems: ${hero.statusEffects.totem_count}/3 active - next ability deals ${hero.statusEffects.totem_count}D4 damage`}
-        >
-          🗿 {hero.statusEffects.totem_count}
+        <span key="totem-count" className="status-effect-tooltip">
+          <span className="status-effect totem-count">
+            🗿 {hero.statusEffects.totem_count}
+          </span>
+          <span className="status-tooltip-text">
+            Totems: {hero.statusEffects.totem_count}/3 active - next ability deals {hero.statusEffects.totem_count}D4 damage
+          </span>
         </span>
       );
     }
     
     if (hero.statusEffects.inspiration > 0) {
       buffs.push(
-        <span 
-          key="inspiration" 
-          className="status-effect inspiration"
-          title={`Inspired: +${hero.statusEffects.inspiration} to damage on next attack`}
-        >
-          ✨ {hero.statusEffects.inspiration}
+        <span key="inspiration" className="status-effect-tooltip">
+          <span className="status-effect inspiration">
+            ✨ {hero.statusEffects.inspiration}
+          </span>
+          <span className="status-tooltip-text">
+            Inspired: +{hero.statusEffects.inspiration} to damage on next attack
+          </span>
         </span>
       );
     }
     
     if (hero.statusEffects.damageStacks && hero.statusEffects.damageStacks > 0) {
       buffs.push(
-        <span 
-          key="damage-stacks"
-          className="status-effect damage-stacks"
-          title={`Damage Stacks: +${hero.statusEffects.damageStacks} damage to all attacks`}
-        >
-          ⚔️ {hero.statusEffects.damageStacks}
+        <span key="damage-stacks" className="status-effect-tooltip">
+          <span className="status-effect damage-stacks">
+            ⚔️ {hero.statusEffects.damageStacks}
+          </span>
+          <span className="status-tooltip-text">
+            Damage Stacks: +{hero.statusEffects.damageStacks} damage to all attacks
+          </span>
         </span>
       );
     }
     
     if (hero.statusEffects.untargetable) {
       buffs.push(
-        <span 
-          key="untargetable" 
-          className="status-effect untargetable"
-          title="Untargetable: Cannot be targeted by attacks or abilities"
-        >
-          👻
+        <span key="untargetable" className="status-effect-tooltip">
+          <span className="status-effect untargetable">
+            👻
+          </span>
+          <span className="status-tooltip-text">
+            Untargetable: Cannot be targeted by attacks or abilities
+          </span>
         </span>
       );
     }
     
     if (hero.statusEffects.arcaneShieldAvailable) {
       buffs.push(
-        <span 
-          key="arcane-shield" 
-          className="status-effect arcane-shield"
-          title="Arcane Shield: Will negate the first damage instance greater than 6"
-        >
-          🛡️
+        <span key="arcane-shield" className="status-effect-tooltip">
+          <span className="status-effect arcane-shield">
+            🛡️
+          </span>
+          <span className="status-tooltip-text">
+            Arcane Shield: Will negate the first damage instance greater than 6
+          </span>
         </span>
       );
     }
@@ -255,12 +261,13 @@ const HeroCard: React.FC<HeroCardProps> = ({
     // Debuffs (negative effects - top right)
     if (hero.statusEffects.poison > 0) {
       debuffs.push(
-        <span 
-          key="poison" 
-          className="status-effect poison"
-          title={`Poisoned: Takes ${hero.statusEffects.poison} damage at turn end`}
-        >
-          ☠ {hero.statusEffects.poison}
+        <span key="poison" className="status-effect-tooltip">
+          <span className="status-effect poison">
+            ☠ {hero.statusEffects.poison}
+          </span>
+          <span className="status-tooltip-text">
+            Poisoned: Takes {hero.statusEffects.poison} damage at turn end
+          </span>
         </span>
       );
     }
@@ -429,9 +436,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const getImagePath = () => {
     // Show dismounted version when Dragon Rider's special triggers
     if (hero.name === 'Dragon Rider' && isDismounted) {
-      return `http://localhost:3001/hero-images/Dragon Rider (Dismounted).png`;
+      return `http://localhost:3001/hero-images/dragonriderdismounted.png`;
     }
-    return `http://localhost:3001/hero-images/${hero.name}.png`;
+    return `http://localhost:3001/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
   };
 
   const formatAccuracy = (accuracy: string) => {

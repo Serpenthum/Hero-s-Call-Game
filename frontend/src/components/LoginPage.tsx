@@ -9,6 +9,8 @@ interface User {
   survival_losses: number;
   survival_used_heroes: string[];
   available_heroes: string[];
+  xp: number;
+  level: number;
 }
 
 interface LoginPageProps {

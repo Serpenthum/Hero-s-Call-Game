@@ -8,6 +8,10 @@ import SurvivalMode from './components/SurvivalMode';
 import SurvivalBattleTransition from './components/SurvivalBattleTransition';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
+import FriendsIcon from './components/FriendsIcon';
+import FriendsOverlay from './components/FriendsOverlay';
+import MessageIcon from './components/MessageIcon';
+import MessageChat from './components/MessageChat';
 import './App.css';
 
 
@@ -53,6 +57,8 @@ interface User {
   survival_losses: number;
   survival_used_heroes: string[];
   available_heroes: string[];
+  xp: number;
+  level: number;
 }
 
 interface AppState {
@@ -88,6 +94,17 @@ interface AppState {
       category?: string;
     }>;
   };
+
+  // Friends system state
+  showFriendsOverlay: boolean;
+  friendsNotificationCount: number;
+  messageNotificationCount: number;
+  unreadMessageChats: Map<number, string>; // Map of user ID to username with unread messages
+  openMessageChats: Array<{
+    targetUserId: number;
+    targetUsername: string;
+  }>;
+  showCollection: boolean;
 }
 
 function App() {
@@ -120,6 +137,14 @@ function App() {
     user: null,
     showLogin: true, // Start with login page
     showRegister: false,
+
+    // Friends system state
+    showFriendsOverlay: false,
+    friendsNotificationCount: 0,
+    messageNotificationCount: 0,
+    unreadMessageChats: new Map(),
+    openMessageChats: [],
+    showCollection: false,
 
   });
 
@@ -225,6 +250,21 @@ function App() {
           isSurvivalMode: false,
           survivalTeam: [],
           gameState: null,
+          error: null
+        }));
+      }
+    });
+
+    socket.on('search-cancelled', (data) => {
+      if (data.success) {
+        setIsSearchingForMatch(false);
+        setSearchMode(null);
+        // Reset game state when search is cancelled
+        setState(prev => ({
+          ...prev,
+          gameState: null,
+          playerId: null,
+          playerName: '',
           error: null
         }));
       }
@@ -987,6 +1027,7 @@ function App() {
         ...prev,
         survivalWins: data.state.wins,
         survivalLosses: data.state.losses
+        // Don't update user object to prevent socket reconnection loop
       }));
     });
 
@@ -1011,6 +1052,10 @@ function App() {
       // Show notification to user
       if (data.message) {
         console.log('🎊 Victory Points:', data.message);
+        // Show alert for important victory point updates like survival abandon
+        if (data.type === 'survival_abandon') {
+          alert(`🏆 ${data.message}`);
+        }
       }
     });
 
@@ -1037,18 +1082,48 @@ function App() {
       handleLogout();
     });
 
+    // Friends system socket listeners
+    socket.on('friend-request-received', (data) => {
+      console.log('Friend request received from:', data.from);
+      setState(prev => ({
+        ...prev,
+        friendsNotificationCount: prev.friendsNotificationCount + 1
+      }));
+    });
+
+    socket.on('message-received', (message) => {
+      console.log('Message received from:', message.sender_username);
+      setState(prev => {
+        const newUnreadChats = new Map(prev.unreadMessageChats);
+        newUnreadChats.set(message.sender_id, message.sender_username);
+        
+        return {
+          ...prev,
+          messageNotificationCount: prev.messageNotificationCount + 1,
+          unreadMessageChats: newUnreadChats
+        };
+      });
+    });
+
     return () => {
       socketService.disconnect();
     };
-  }, [state.user]); // Re-run when user changes
+  }, [state.user?.id]); // Re-run only when user ID changes, not the entire user object
 
 
 
   const handleJoinGame = (mode: 'draft' | 'random') => {
-    // Use the actual username instead of generating a random name
-    const playerName = state.user?.username || 'Anonymous';
+    // Ensure user is properly authenticated before joining
+    if (!state.user || !state.user.username) {
+      console.error('❌ Cannot join game: User not authenticated or username missing', state.user);
+      setState(prev => ({ ...prev, error: 'Please login first to join a game.' }));
+      return;
+    }
+
+    const playerName = state.user.username;
     
     console.log(`🎮 Starting ${mode} mode search for player: ${playerName}`);
+    console.log(`🎮 User state:`, state.user);
     setState(prev => ({ ...prev, playerName }));
     setIsSearchingForMatch(true);
     setSearchMode(mode);
@@ -1056,8 +1131,14 @@ function App() {
   };
 
   const handleFriendlyGame = (action: 'create' | 'join', roomName: string) => {
-    // Use the actual username instead of generating a random name
-    const playerName = state.user?.username || 'Anonymous';
+    // Ensure user is properly authenticated before joining
+    if (!state.user || !state.user.username) {
+      console.error('❌ Cannot join friendly game: User not authenticated or username missing', state.user);
+      setState(prev => ({ ...prev, error: 'Please login first to join a game.' }));
+      return;
+    }
+
+    const playerName = state.user.username;
     
     setState(prev => ({ ...prev, playerName }));
     
@@ -1117,8 +1198,14 @@ function App() {
     // Store selected team for future use
     console.log('Survival team selected:', team.map(h => h.name));
     
-    // Use the actual username instead of generating a random name
-    const playerName = state.user?.username || 'Anonymous';
+    // Ensure user is properly authenticated before joining
+    if (!state.user || !state.user.username) {
+      console.error('❌ Cannot join survival game: User not authenticated or username missing', state.user);
+      setState(prev => ({ ...prev, error: 'Please login first to join a game.' }));
+      return;
+    }
+
+    const playerName = state.user.username;
     
     setState(prev => ({ 
       ...prev, 
@@ -1204,7 +1291,12 @@ function App() {
       showSurvival: false,
       isSurvivalMode: false,
       survivalTeam: [],
-      victoryPoints: 0
+      victoryPoints: 0,
+      showFriendsOverlay: false,
+      friendsNotificationCount: 0,
+      messageNotificationCount: 0,
+      unreadMessageChats: new Map(),
+      openMessageChats: []
     }));
     
     // Call logout API to clean up server-side session
@@ -1225,6 +1317,71 @@ function App() {
     // Disconnect socket
     socketService.disconnect();
     setIsSearchingForSurvivalMatch(false);
+  };
+
+  // Friends system handlers
+  const handleToggleFriendsOverlay = () => {
+    setState(prev => ({
+      ...prev,
+      showFriendsOverlay: !prev.showFriendsOverlay,
+      friendsNotificationCount: prev.showFriendsOverlay ? prev.friendsNotificationCount : 0
+    }));
+  };
+
+  const handleOpenMessageChat = (playerId: number, playerName: string) => {
+    setState(prev => {
+      // Check if chat is already open
+      const existingChat = prev.openMessageChats.find(chat => chat.targetUserId === playerId);
+      if (existingChat) {
+        return prev; // Chat already open
+      }
+
+      // Clear notifications for this user if they have unread messages
+      const newUnreadChats = new Map(prev.unreadMessageChats);
+      const hadUnreadFromThisUser = newUnreadChats.has(playerId);
+      newUnreadChats.delete(playerId);
+
+      return {
+        ...prev,
+        openMessageChats: [...prev.openMessageChats, {
+          targetUserId: playerId,
+          targetUsername: playerName
+        }],
+        showFriendsOverlay: false, // Close overlay when opening chat
+        unreadMessageChats: newUnreadChats,
+        // Decrease notification count if this user had unread messages
+        messageNotificationCount: hadUnreadFromThisUser 
+          ? Math.max(0, prev.messageNotificationCount - 1)
+          : prev.messageNotificationCount
+      };
+    });
+  };
+
+  const handleCloseMessageChat = (playerId: number) => {
+    setState(prev => ({
+      ...prev,
+      openMessageChats: prev.openMessageChats.filter(chat => chat.targetUserId !== playerId)
+    }));
+  };
+
+  const handleMessageIconClick = () => {
+    // If there are unread messages, open the most recent one
+    if (state.unreadMessageChats.size > 0) {
+      // Get the first unread chat (user ID and username)
+      const [firstUnreadUserId, firstUnreadUsername] = Array.from(state.unreadMessageChats)[0];
+      
+      // Open the chat with this user
+      handleOpenMessageChat(firstUnreadUserId, firstUnreadUsername);
+      
+      console.log('Opening message chat for:', firstUnreadUsername, '(ID:', firstUnreadUserId, ')');
+    }
+  };
+
+  const handleCollectionStateChange = (isOpen: boolean) => {
+    setState(prev => ({
+      ...prev,
+      showCollection: isOpen
+    }));
   };
 
   const getCurrentPlayer = (): Player | null => {
@@ -1260,11 +1417,6 @@ function App() {
         );
       }
     }
-
-    console.log('🎯 renderGameContent called with:');
-    console.log('  - showSurvival:', state.showSurvival);
-    console.log('  - gameState?.phase:', state.gameState?.phase);
-    console.log('  - isTransitioningToBattle:', state.isTransitioningToBattle);
     
     if (state.showSurvival) {
       return (
@@ -1292,6 +1444,7 @@ function App() {
           searchMode={searchMode}
           onCancelSearch={handleCancelSearch}
           gameState={state.gameState}
+          onCollectionStateChange={handleCollectionStateChange}
         />
       );
     }
@@ -1442,9 +1595,9 @@ function App() {
                     // Use the backend's activeHero information for accurate display
                     if (!state.gameState?.activeHero) return null;
                     
-                    const activePlayerIndex = state.gameState.activeHero.playerIndex;
-                    const activePlayer = state.gameState.players[activePlayerIndex];
-                    const activeHero = activePlayer?.team?.find(h => h.name === state.gameState.activeHero!.name);
+                    const activePlayerIndex = state.gameState?.activeHero?.playerIndex;
+                    const activePlayer = activePlayerIndex !== undefined ? state.gameState?.players?.[activePlayerIndex] : undefined;
+                    const activeHero = activePlayer?.team?.find(h => h.name === state.gameState?.activeHero?.name);
                     
                     if (!activeHero) return null;
                     
@@ -1581,6 +1734,45 @@ function App() {
             });
           }}
         />
+      )}
+
+      {/* Friends System - show everywhere except in collection */}
+      {state.user && !state.showCollection && (
+        <>
+          {/* Friends Icon */}
+          <FriendsIcon
+            onClick={handleToggleFriendsOverlay}
+            hasNotifications={state.friendsNotificationCount > 0}
+            notificationCount={state.friendsNotificationCount}
+          />
+          
+          {/* Message Icon */}
+          <MessageIcon
+            onClick={handleMessageIconClick}
+            hasNotifications={state.messageNotificationCount > 0}
+            notificationCount={state.messageNotificationCount}
+          />
+
+          {/* Friends Overlay */}
+          {state.showFriendsOverlay && (
+            <FriendsOverlay
+              onClose={handleToggleFriendsOverlay}
+              onOpenMessage={handleOpenMessageChat}
+              currentUserId={state.user!.id}
+            />
+          )}
+
+          {/* Message Chat Windows */}
+          {state.openMessageChats.map((chat) => (
+            <MessageChat
+              key={chat.targetUserId}
+              targetUserId={chat.targetUserId}
+              targetUsername={chat.targetUsername}
+              currentUserId={state.user!.id}
+              onClose={() => handleCloseMessageChat(chat.targetUserId)}
+            />
+          ))}
+        </>
       )}
     </div>
   );

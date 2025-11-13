@@ -139,35 +139,12 @@
 .user-stats {
   display: flex;
   align-items: center;
-  gap: 20px;
 }
 
-.user-info {
+.stats-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.username {
-  color: #fff;
-  font-weight: 500;
-  font-size: 0.95rem;
-}
-
-.logout-button {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.logout-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+  gap: 20px;
 }
 
 .victory-points {
@@ -191,11 +168,69 @@
   color: var(--accent-gold);
 }
 
+.xp-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass-bg);
+  padding: 12px 20px;
+  border-radius: 25px;
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  backdrop-filter: blur(10px);
+  min-width: 180px;
+  min-height: 60px;
+}
+
+.level-text {
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  color: var(--primary-blue);
+  font-size: 0.9rem;
+  text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
+  margin: 0;
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(255, 71, 87, 0.8) 0%, rgba(204, 58, 74, 0.8) 100%);
+  border: 1px solid rgba(255, 71, 87, 0.5);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 25px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 15px rgba(255, 71, 87, 0.2);
+}
+
+.logout-button:hover {
+  background: linear-gradient(135deg, rgba(255, 71, 87, 1) 0%, rgba(204, 58, 74, 1) 100%);
+  border-color: rgba(255, 71, 87, 0.8);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+}
+
+.logout-icon {
+  font-size: 1rem;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.3));
+}
+
+.logout-text {
+  font-family: 'Orbitron', monospace;
+}
+
 
 
 /* Main Dashboard */
 .lobby-dashboard {
-  padding: 40px;
+  padding: 30px 40px 40px;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -203,12 +238,12 @@
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1fr 1.2fr 1fr;
-  gap: 30px;
+  gap: 25px;
   min-height: 80vh;
 }
 
 /* Panel Base Styles */
-.info-panel,
+.player-info-panel,
 .modes-panel,
 .collection-panel {
   background: var(--card-bg);
@@ -220,7 +255,7 @@
   position: relative;
 }
 
-.info-panel:hover,
+.player-info-panel:hover,
 .modes-panel:hover,
 .collection-panel:hover {
   transform: translateY(-5px);
@@ -254,58 +289,156 @@
 }
 
 .panel-content {
-  padding: 0 30px 30px;
+  padding: 20px 30px 30px;
 }
 
-/* Info Panel */
-.guide-steps {
-  margin-bottom: 25px;
+/* Player Info Panel */
+.profile-btn {
+  background: linear-gradient(135deg, var(--primary-blue) 0%, #0ea5e9 100%);
+  border: none;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 15px;
+  font-family: 'Orbitron', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  margin-top: 15px;
+  margin-bottom: 35px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
 }
 
-.step-item {
+.profile-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+  background: linear-gradient(135deg, #0ea5e9 0%, var(--primary-blue) 100%);
+}
+
+.quests-section h3 {
+  color: var(--accent-gold);
+  font-family: 'Orbitron', monospace;
+  font-size: 1.2rem;
+  margin: 0 0 20px 0;
+  text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+  text-align: center;
+}
+
+.daily-quests {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.quest-item {
   display: flex;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 15px;
-  padding: 10px 0;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.step-bullet {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-purple) 100%);
-  flex-shrink: 0;
+.quest-item:hover {
+  background: rgba(255, 215, 0, 0.15);
+  transform: translateX(5px);
+  border-color: var(--accent-gold);
 }
 
-.step-text {
+.quest-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent-gold) 0%, transparent 100%);
+}
+
+.quest-text {
   color: var(--text-secondary);
-  font-size: 1rem;
+  font-size: 0.9rem;
+  flex: 1;
   line-height: 1.4;
+}
+
+.quest-progress {
+  color: var(--accent-gold);
+  font-family: 'Orbitron', monospace;
+  font-size: 0.8rem;
+  font-weight: bold;
+  background: rgba(255, 215, 0, 0.2);
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  flex-shrink: 0;
 }
 
 
 
 /* Game Modes Panel */
-.modes-grid {
+.modes-container {
+  padding: 20px 30px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.mode-category {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  padding: 0 30px 30px;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.category-header h3 {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.category-divider {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent-gold) 0%, transparent 100%);
+}
+
+.category-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .game-mode {
   position: relative;
   background: var(--glass-bg);
-  border-radius: 15px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 25px;
+  padding: 18px 20px;
   cursor: pointer;
   transition: all 0.3s ease;
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
 }
 
 .game-mode:hover {
@@ -339,7 +472,7 @@
 }
 
 .mode-icon {
-  font-size: 2.5rem;
+  font-size: 2rem;
   transition: all 0.3s ease;
   filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.4));
   flex-shrink: 0;
@@ -350,15 +483,15 @@
 }
 
 .mode-info h3 {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  margin: 0 0 5px 0;
+  margin: 0 0 3px 0;
   color: var(--text-primary);
 }
 
 .mode-info p {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   margin: 0;
 }
 
@@ -366,11 +499,11 @@
   position: relative;
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-purple) 100%);
   border: none;
-  border-radius: 25px;
-  padding: 12px 25px;
+  border-radius: 20px;
+  padding: 10px 20px;
   color: white;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   cursor: pointer;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -539,6 +672,16 @@
     font-size: 1.8rem;
   }
   
+  .stats-row {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+  
+  .xp-section {
+    min-width: 160px;
+  }
+  
   .lobby-dashboard {
     padding: 20px;
   }
@@ -549,16 +692,28 @@
   
   .panel-header,
   .panel-content,
-  .modes-grid {
+  .modes-container {
     padding-left: 20px;
     padding-right: 20px;
+  }
+  
+  .mode-category {
+    gap: 8px;
+  }
+  
+  .category-modes {
+    gap: 10px;
   }
   
   .game-mode {
     flex-direction: column;
     text-align: center;
-    gap: 15px;
-    padding: 20px;
+    gap: 12px;
+    padding: 16px;
+  }
+  
+  .category-header h3 {
+    font-size: 1rem;
   }
   
   .mode-info {
@@ -586,6 +741,19 @@
   
   .logo-text h1 {
     font-size: 1.5rem;
+  }
+  
+  .victory-points, .xp-section, .logout-button {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+  }
+  
+  .xp-section {
+    min-width: 140px;
+  }
+  
+  .logout-button {
+    padding: 8px 14px;
   }
   
   .lobby-dashboard {
@@ -1019,10 +1187,10 @@
   background: linear-gradient(135deg, var(--accent-red) 0%, #cc3a4a 100%);
   border: none;
   color: white;
-  padding: 8px 20px;
-  border-radius: 25px;
+  padding: 8px 18px;
+  border-radius: 20px;
   font-family: 'Orbitron', monospace;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
