@@ -138,6 +138,12 @@ app.post('/api/login', async (req, res) => {
       });
     }
     
+    // Get complete player stats
+    const playerStats = await database.getPlayerStats(user.id);
+    
+    // Get favorite heroes
+    const favoriteHeroes = await database.getFavoriteHeroes(user.id);
+    
     res.json({ 
       success: true, 
       message: 'Login successful',
@@ -149,8 +155,12 @@ app.post('/api/login', async (req, res) => {
         survival_losses: user.survival_losses,
         survival_used_heroes: user.survival_used_heroes,
         available_heroes: user.available_heroes,
-        xp: user.xp,
-        level: user.level
+        favorite_heroes: favoriteHeroes,
+        xp: playerStats.xp || 0,
+        level: playerStats.level || 1,
+        total_wins: playerStats.total_wins || 0,
+        total_losses: playerStats.total_losses || 0,
+        highest_survival_run: playerStats.highest_survival_run || 0
       }
     });
   } catch (error) {
@@ -207,6 +217,10 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/user/:userId', async (req, res) => {
   try {
     const user = await database.getUserById(parseInt(req.params.userId));
+    
+    // Get player stats (XP, level, wins, losses, etc.)
+    const playerStats = await database.getPlayerStats(user.id);
+    
     res.json({ 
       success: true, 
       user: {
@@ -216,7 +230,12 @@ app.get('/api/user/:userId', async (req, res) => {
         survival_wins: user.survival_wins,
         survival_losses: user.survival_losses,
         survival_used_heroes: user.survival_used_heroes,
-        available_heroes: user.available_heroes
+        available_heroes: user.available_heroes,
+        xp: playerStats.xp,
+        level: playerStats.level,
+        total_wins: playerStats.total_wins,
+        total_losses: playerStats.total_losses,
+        highest_survival_run: playerStats.highest_survival_run
       }
     });
   } catch (error) {
@@ -268,6 +287,52 @@ app.post('/api/update-profile-icon', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: error.message || 'Failed to update profile icon' 
+    });
+  }
+});
+
+// API endpoint to toggle favorite hero
+app.post('/api/toggle-favorite-hero', async (req, res) => {
+  try {
+    const { userId, heroName } = req.body;
+    
+    if (!userId || !heroName) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID and hero name are required' 
+      });
+    }
+
+    const result = await database.toggleFavoriteHero(userId, heroName);
+    res.json(result);
+  } catch (error) {
+    console.error('Toggle favorite hero error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to toggle favorite hero' 
+    });
+  }
+});
+
+// API endpoint to get favorite heroes
+app.get('/api/favorite-heroes/:userId', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
+
+    const favoriteHeroes = await database.getFavoriteHeroes(userId);
+    res.json({ success: true, favoriteHeroes });
+  } catch (error) {
+    console.error('Get favorite heroes error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to get favorite heroes' 
     });
   }
 });
@@ -334,7 +399,11 @@ async function handleRegularGameCompletion(result) {
         const winnerUserId = userSessions.get(winnerPlayer.id);
         const loserUserId = userSessions.get(loserPlayer.id);
         
-        if (winnerUserId) {
+        // Ensure these are actual players, not spectators
+        const winnerIsSpectator = result.gameState.spectators?.some(s => s.socketId === winnerPlayer.id);
+        const loserIsSpectator = result.gameState.spectators?.some(s => s.socketId === loserPlayer.id);
+        
+        if (winnerUserId && !winnerIsSpectator) {
           // Update winner stats and XP
           const winnerStatsUpdate = await database.updatePlayerStats(winnerUserId, true, result.gameState.mode);
           const winnerXPUpdate = await database.updatePlayerXP(winnerUserId, winnerStatsUpdate.xpGain);
@@ -370,7 +439,7 @@ async function handleRegularGameCompletion(result) {
           console.log(`📡 Updated winner stats: +${winnerStatsUpdate.xpGain} XP, level ${winnerXPUpdate.level}`);
         }
         
-        if (loserUserId) {
+        if (loserUserId && !loserIsSpectator) {
           // Update loser stats and XP
           const loserStatsUpdate = await database.updatePlayerStats(loserUserId, false, result.gameState.mode);
           const loserXPUpdate = await database.updatePlayerXP(loserUserId, loserStatsUpdate.xpGain);
@@ -432,14 +501,18 @@ async function checkSurvivalGameCompletion(result) {
         const winnerUserId = userSessions.get(winnerPlayer.id);
         const loserUserId = userSessions.get(loserPlayer.id);
         
+        // Ensure these are actual players, not spectators
+        const winnerIsSpectator = result.gameState.spectators?.some(s => s.socketId === winnerPlayer.id);
+        const loserIsSpectator = result.gameState.spectators?.some(s => s.socketId === loserPlayer.id);
+        
         // Track hero usage for both players
-        if (winnerUserId) {
+        if (winnerUserId && !winnerIsSpectator) {
           for (const hero of winnerPlayer.team) {
             await database.updateHeroUsage(winnerUserId, hero.name);
           }
         }
         
-        if (loserUserId) {
+        if (loserUserId && !loserIsSpectator) {
           // Update survival stats for the loser (whose run just ended)
           const survivalStats = await database.updateSurvivalStats(loserUserId, loserState.wins);
           
@@ -700,6 +773,12 @@ io.on('connection', (socket) => {
     const result = gameManager.addPlayer(socket.id, data.playerName, 'draft');
     
     if (result.success) {
+      // Store the room name in the game object for spectator visibility
+      const game = gameManager.games.get(result.gameId);
+      if (game) {
+        game.roomName = data.roomName;
+      }
+
       // Store the friendly room information
       friendlyRooms.set(data.roomName, {
         gameId: result.gameId,
@@ -919,6 +998,22 @@ io.on('connection', (socket) => {
     const result = gameManager.endTurn(socket.id);
     if (result.success) {
       io.to(result.gameId).emit('turn-ended', result);
+    } else {
+      socket.emit('error', { message: result.error });
+    }
+  });
+
+  socket.on('activate-special', async (data) => {
+    const result = gameManager.activateSpecial(socket.id);
+    if (result.success) {
+      io.to(result.gameId).emit('special-activated', result);
+      
+      // Handle game completion for both regular and survival modes
+      if (result.gameState && result.gameState.mode === 'survival') {
+        await checkSurvivalGameCompletion(result);
+      } else {
+        await handleRegularGameCompletion(result);
+      }
     } else {
       socket.emit('error', { message: result.error });
     }
@@ -1219,10 +1314,169 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ==================== SPECTATOR SOCKET EVENTS ====================
+
+  socket.on('get-spectatable-games', () => {
+    const spectatableGames = gameManager.getSpectatableGames();
+    socket.emit('spectatable-games-list', { success: true, games: spectatableGames });
+  });
+
+  socket.on('check-player-spectatable', (data) => {
+    // data.playerId is actually the user ID from the database
+    // We need to find the socket ID for this user
+    let targetSocketId = null;
+    for (const [socketId, userId] of userSessions.entries()) {
+      if (userId === parseInt(data.playerId)) {
+        targetSocketId = socketId;
+        break;
+      }
+    }
+
+    if (!targetSocketId) {
+      socket.emit('player-spectatable-result', { 
+        success: true, 
+        canSpectate: false 
+      });
+      return;
+    }
+
+    const gameInfo = gameManager.getPlayerSpectatableGame(targetSocketId);
+    if (gameInfo) {
+      socket.emit('player-spectatable-result', { 
+        success: true, 
+        canSpectate: true,
+        gameInfo: {
+          ...gameInfo,
+          playerId: targetSocketId // Send the socket ID for spectating
+        }
+      });
+    } else {
+      socket.emit('player-spectatable-result', { 
+        success: true, 
+        canSpectate: false 
+      });
+    }
+  });
+
+  socket.on('spectate-game', async (data) => {
+    try {
+      const userId = userSessions.get(socket.id);
+      if (!userId) {
+        socket.emit('spectate-result', { success: false, error: 'Not authenticated' });
+        return;
+      }
+
+      const user = await database.getUserById(userId);
+      const result = gameManager.addSpectator(
+        socket.id, 
+        user.username, 
+        data.gameId, 
+        data.spectatingPlayerId
+      );
+
+      if (result.success) {
+        // Join the socket room for this game
+        socket.join(result.gameId);
+        
+        // Send the game state to the spectator
+        socket.emit('spectate-result', {
+          success: true,
+          gameId: result.gameId,
+          gameState: result.gameState,
+          spectatingPlayerId: result.spectatingPlayerId
+        });
+
+        // Notify all players in the game about the new spectator
+        io.to(result.gameId).emit('spectator-update', {
+          type: 'joined',
+          spectatorUsername: user.username,
+          spectatorCount: result.spectatorCount,
+          spectatorList: result.spectatorList
+        });
+
+        console.log(`👁️ ${user.username} is now spectating game ${result.gameId}`);
+      } else {
+        socket.emit('spectate-result', { success: false, error: result.error });
+      }
+    } catch (error) {
+      console.error('Error spectating game:', error);
+      socket.emit('spectate-result', { success: false, error: 'Failed to join as spectator' });
+    }
+  });
+
+  socket.on('leave-spectate', () => {
+    const result = gameManager.removeSpectator(socket.id);
+    
+    if (result.success) {
+      // Leave the socket room
+      socket.leave(result.gameId);
+      
+      // Notify the spectator
+      socket.emit('spectate-left', { success: true });
+
+      // Notify all players in the game about the spectator leaving
+      io.to(result.gameId).emit('spectator-update', {
+        type: 'left',
+        spectatorCount: result.spectatorCount,
+        spectatorList: result.spectatorList
+      });
+
+      console.log(`👁️ Spectator left game ${result.gameId}`);
+    } else {
+      socket.emit('spectate-left', { success: false, error: result.error });
+    }
+  });
+
+  socket.on('get-spectator-info', (data) => {
+    const info = gameManager.getSpectatorInfo(data.gameId);
+    socket.emit('spectator-info-response', { success: true, ...info });
+  });
+
+  // ==================== END SPECTATOR SOCKET EVENTS ====================
+
   // Handle disconnection
   socket.on('disconnect', (reason) => {
     console.log('Player disconnected:', socket.id, 'Reason:', reason);
-    gameManager.handleDisconnect(socket.id);
+    
+    // IMPORTANT: Spectators must never receive XP or victory points
+    // Check if user was spectating and clean up (spectators are NOT in playerGameMap)
+    const spectatorInfo = gameManager.isSpectating(socket.id);
+    if (spectatorInfo) {
+      const result = gameManager.removeSpectator(socket.id);
+      if (result.success) {
+        // Notify players in the game about spectator leaving
+        io.to(result.gameId).emit('spectator-update', {
+          type: 'left',
+          spectatorCount: result.spectatorCount,
+          spectatorList: result.spectatorList
+        });
+        console.log(`👁️ Spectator ${spectatorInfo.username} disconnected from game ${result.gameId}`);
+      }
+      // Important: Don't call handleDisconnect for spectators since they're not in playerGameMap
+      // Continue to clean up user session below
+    } else {
+      // Only call handleDisconnect if they're not a spectator (i.e., they might be a player)
+      gameManager.handleDisconnect(socket.id);
+    }
+    
+    // Check if user was a player in a game and notify spectators
+    const gameId = gameManager.playerGameMap.get(socket.id);
+    if (gameId) {
+      const game = gameManager.games.get(gameId);
+      if (game && game.spectators && game.spectators.length > 0) {
+        const disconnectedPlayer = game.players.find(p => p.id === socket.id);
+        if (disconnectedPlayer) {
+          // Notify all spectators that a player disconnected
+          game.spectators.forEach(spectator => {
+            io.to(spectator.socketId).emit('spectated-player-disconnected', {
+              playerId: socket.id,
+              playerName: disconnectedPlayer.name
+            });
+          });
+          console.log(`👁️ Notified ${game.spectators.length} spectators about ${disconnectedPlayer.name}'s disconnection`);
+        }
+      }
+    }
     
     // Clean up user session
     const userId = userSessions.get(socket.id);

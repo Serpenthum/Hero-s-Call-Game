@@ -79,6 +79,7 @@ export interface StatusEffects {
   poison: number;
   beast_active?: boolean;
   totem_count?: number;
+  turret_count?: number;
   taunt: {
     target: string;
     duration: number;
@@ -86,6 +87,12 @@ export interface StatusEffects {
   inspiration: number;
   silenced: boolean | { active: boolean; duration: number; source?: string; description?: string; tooltip?: string };
   disableAttack: boolean | { active: boolean; duration: number };
+  cannotTargetWithAbility?: {
+    owner: string;
+    duration: number;
+    duration_unit: string;
+    source: string;
+  };
   untargetable: boolean;
   damageStacks?: number;
   defenseReduction?: number;
@@ -128,6 +135,7 @@ export interface Player {
   currentHeroIndex: number;
   hasUsedAttack: boolean;
   hasUsedAbility: boolean;
+  hasUsedSpecial?: boolean;
   usedAbilities?: string[];
   usedAttacks?: number;
   selectedTarget?: string | null;
@@ -135,6 +143,7 @@ export interface Player {
   monkAttacksRemaining?: number;
   oneTwoPunchAttacksRemaining?: number;
   profile_icon?: string;
+  isReady?: boolean;
 }
 
 export interface GameState {
@@ -155,6 +164,7 @@ export interface GameState {
     player1: string[];
     player2: string[];
   };
+  battleLog?: any[]; // Backend battle log entries
 }
 
 export interface AttackResult {
@@ -230,6 +240,7 @@ export interface SocketEvents {
   'basic-attack': (data: { targetId: string }) => void;
   'use-ability': (data: { abilityIndex: number; targetId: string; allyTargetId?: string }) => void;
   'use-timekeeper-selected-ability': (data: { timekeeperTargetId: string; allyTargetId: string; selectedAbilityIndex: number }) => void;
+  'activate-special': () => void;
   'end-turn': () => void;
   'auto-draft': () => void;
   'reconnect-game': (data: { gameId: string; playerName: string }) => void;
@@ -243,8 +254,16 @@ export interface SocketEvents {
   'send-friend-request': (data: { username: string }) => void;
   'respond-friend-request': (data: { requesterId: number; accept: boolean }) => void;
   'get-friend-requests': () => void;
+  'remove-friend': (data: { friendId: number }) => void;
   'send-message': (data: { targetUserId: number; message: string }) => void;
   'get-messages': (data: { targetUserId: number; limit?: number }) => void;
+
+  // Spectator events
+  'get-spectatable-games': () => void;
+  'check-player-spectatable': (data: { playerId: string }) => void;
+  'spectate-game': (data: { gameId: string; spectatingPlayerId: string }) => void;
+  'leave-spectate': () => void;
+  'get-spectator-info': (data: { gameId: string }) => void;
 
   // Server to Client
   'authentication-success': (data: { userId: number }) => void;
@@ -265,6 +284,7 @@ export interface SocketEvents {
   'target-selected': (data: any) => void;
   'attack-result': (data: AttackResult) => void;
   'ability-result': (data: any) => void;
+  'special-activated': (data: any) => void;
   'turn-ended': (data: any) => void;
   'auto-draft-complete': (data: any) => void;
   'reconnect-success': (data: GameState) => void;
@@ -287,6 +307,37 @@ export interface SocketEvents {
   'message-response': (data: { success: boolean; message?: Message; error?: string }) => void;
   'message-received': (data: Message) => void;
   'messages-response': (data: { success: boolean; messages?: Message[]; error?: string }) => void;
+  'remove-friend-response': (data: { success: boolean; message?: string; error?: string }) => void;
+  'friend-removed': (data: { from: string; fromId: number }) => void;
+
+  // Spectator server responses
+  'spectatable-games-list': (data: { success: boolean; games: Array<{
+    gameId: string;
+    mode: string;
+    phase: string;
+    roomName: string | null;
+    players: Array<{ id: string; name: string }>;
+    spectatorCount: number;
+    maxSpectators: number;
+  }> }) => void;
+  'player-spectatable-result': (data: { success: boolean; canSpectate: boolean; gameInfo?: any }) => void;
+  'spectate-result': (data: { 
+    success: boolean; 
+    gameId?: string; 
+    gameState?: GameState; 
+    spectatingPlayerId?: string; 
+    spectators?: Array<{ socketId: string; username: string; spectatingPlayerId: string }>; 
+    error?: string 
+  }) => void;
+  'spectate-left': (data: { success: boolean; error?: string }) => void;
+  'spectator-update': (data: { 
+    type: 'joined' | 'left'; 
+    spectatorUsername?: string; 
+    spectatorCount: number; 
+    spectatorList: Array<{ socketId: string; username: string; spectatingPlayerId: string }> 
+  }) => void;
+  'spectator-info-response': (data: { success: boolean; count: number; list: string[] }) => void;
+  'spectated-player-disconnected': (data: { playerId: string; playerName: string }) => void;
 }
 
 export type GamePhase = GameState['phase'];

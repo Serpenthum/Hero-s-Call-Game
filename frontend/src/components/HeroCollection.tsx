@@ -30,18 +30,20 @@ interface HeroCollectionProps {
   onClose: () => void;
   userId?: number; // Optional user ID for authenticated users
   victoryPoints?: number; // Victory points to display
+  onFavoritesChange?: (favoriteHeroes: string[]) => void; // Callback when favorites change
 }
 
 type SortOption = 'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage';
-type FilterOption = 'available' | 'all';
+type FilterOption = 'available' | 'all' | 'favorites';
 
 // Memoized HeroCard component to prevent unnecessary re-renders
 const HeroCard = React.memo<{
   hero: Hero;
   actualIndex: number;
   isSelected: boolean;
+  isFavorite: boolean;
   onClick: (index: number) => void;
-}>(({ hero, actualIndex, isSelected, onClick }) => {
+}>(({ hero, actualIndex, isSelected, isFavorite, onClick }) => {
   const handleClick = useCallback(() => {
     onClick(actualIndex);
   }, [actualIndex, onClick]);
@@ -51,6 +53,9 @@ const HeroCard = React.memo<{
       className={`hero-card selectable collection-card ${isSelected ? 'enlarged' : ''} ${hero.disabled ? 'disabled-hero' : ''}`}
       onClick={handleClick}
     >
+      {isFavorite && (
+        <div className="favorite-star">⭐</div>
+      )}
       <img 
         src={`http://localhost:3001/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
         alt={hero.name}
@@ -90,7 +95,7 @@ const HeroCard = React.memo<{
 
 HeroCard.displayName = 'HeroCard';
 
-const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victoryPoints = 0 }) => {
+const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victoryPoints = 0, onFavoritesChange }) => {
   const [heroes, setHeroes] = useState<Hero[]>([]);
   const [sortedHeroes, setSortedHeroes] = useState<Hero[]>([]);
   const [selectedHeroIndex, setSelectedHeroIndex] = useState<number | null>(null);
@@ -99,20 +104,31 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
   const [filterOption, setFilterOption] = useState<FilterOption>('available');
   const [currentPage, setCurrentPage] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [favoriteHeroes, setFavoriteHeroes] = useState<string[]>([]);
   
   const HEROES_PER_PAGE = 14; // 2 rows of 7 heroes each
 
   useEffect(() => {
     fetchHeroes();
-  }, [filterOption]); // Refetch when filter changes
+    if (userId) {
+      fetchFavoriteHeroes();
+    }
+  }, [filterOption, userId]); // Refetch when filter changes or userId changes
 
   useEffect(() => {
     if (heroes.length > 0) {
-      const sorted = sortHeroes(heroes, sortOption);
+      let filtered = heroes;
+      
+      // Apply favorites filter if selected
+      if (filterOption === 'favorites') {
+        filtered = heroes.filter(hero => favoriteHeroes.includes(hero.name));
+      }
+      
+      const sorted = sortHeroes(filtered, sortOption);
       setSortedHeroes(sorted);
       setCurrentPage(0); // Reset to first page when sorting or filtering changes
     }
-  }, [heroes, sortOption, filterOption]);
+  }, [heroes, sortOption, filterOption, favoriteHeroes]);
 
   const parseAttackValue = useCallback((attack: string): number => {
     // Extract numeric value from attack string (e.g., "1D6" -> 6, "2D4" -> 8)
@@ -257,6 +273,46 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     }
   };
 
+  const fetchFavoriteHeroes = async () => {
+    if (!userId) return;
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/favorite-heroes/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setFavoriteHeroes(data.favoriteHeroes || []);
+      }
+    } catch (error) {
+      console.error('Error fetching favorite heroes:', error);
+    }
+  };
+
+  const toggleFavoriteHero = async (heroName: string) => {
+    if (!userId) return;
+    
+    try {
+      const response = await fetch('http://localhost:3001/api/toggle-favorite-hero', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, heroName }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFavoriteHeroes(data.favoriteHeroes || []);
+        
+        // Notify parent component of the change
+        if (onFavoritesChange) {
+          onFavoritesChange(data.favoriteHeroes || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite hero:', error);
+    }
+  };
+
   const handleHeroClick = useCallback((heroIndex: number) => {
     if (selectedHeroIndex === heroIndex) {
       setSelectedHeroIndex(null); // Deselect if already selected
@@ -354,6 +410,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
               >
                 <option value="available">Available Heroes</option>
                 <option value="all">All Heroes</option>
+                {userId && <option value="favorites">Favorite Heroes</option>}
               </select>
             </div>
             <div className="control-group">
@@ -418,6 +475,20 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
               </div>
             )}
           </div>
+          
+          {userId && (
+            <div className="favorite-button-container">
+              <button 
+                className={`favorite-button ${favoriteHeroes.includes(sortedHeroes[selectedHeroIndex].name) ? 'favorited' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFavoriteHero(sortedHeroes[selectedHeroIndex].name);
+                }}
+              >
+                {favoriteHeroes.includes(sortedHeroes[selectedHeroIndex].name) ? '⭐ Remove from Favorites' : '☆ Add to Favorites'}
+              </button>
+            </div>
+          )}
         </div>
       )}
       
@@ -432,6 +503,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                   hero={hero}
                   actualIndex={actualIndex}
                   isSelected={selectedHeroIndex === actualIndex}
+                  isFavorite={favoriteHeroes.includes(hero.name)}
                   onClick={handleHeroClick}
                 />
               );

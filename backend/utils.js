@@ -119,7 +119,7 @@ function calculateAttackRoll(accuracy, advantage = false, disadvantage = false, 
   };
 }
 
-function calculateDamage(damageStr, isCritical = false, advantage = false, caster = null) {
+function calculateDamage(damageStr, isCritical = false, advantage = false, caster = null, isBasicAttack = false) {
   const parsed = parseDiceString(damageStr);
   if (!parsed) return { total: 0, rolls: [] };
 
@@ -157,6 +157,27 @@ function calculateDamage(damageStr, isCritical = false, advantage = false, caste
       const extraDamage = isCritical ? 6 : rollDice(6); // Max damage on crit
       baseDamage.total += extraDamage;
       baseDamage.rolls.push(extraDamage);
+    }
+  }
+  
+  // Apply Hoarder's collected dice ONLY for basic attacks
+  if (isBasicAttack && caster && caster.scalingBuffs && caster.scalingBuffs.collectedDice && caster.scalingBuffs.collectedDice.length > 0) {
+    for (const collected of caster.scalingBuffs.collectedDice) {
+      const collectedDamage = rollDiceString(collected.dice);
+      if (isCritical) {
+        // For critical hits, maximize the collected dice too
+        const parsed = parseDiceString(collected.dice);
+        if (parsed) {
+          baseDamage.total += (parsed.count * parsed.sides) + parsed.modifier;
+          baseDamage.rolls.push(...Array(parsed.count).fill(parsed.sides));
+        } else {
+          baseDamage.total += collectedDamage.total;
+          baseDamage.rolls.push(...collectedDamage.rolls);
+        }
+      } else {
+        baseDamage.total += collectedDamage.total;
+        baseDamage.rolls.push(...collectedDamage.rolls);
+      }
     }
   }
 

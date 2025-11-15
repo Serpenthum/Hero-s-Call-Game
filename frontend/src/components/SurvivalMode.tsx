@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SurvivalTeamBuilder from './SurvivalTeamBuilder';
 import SurvivalProgress from './SurvivalProgress';
 import SurvivalUsedHeroes from './SurvivalUsedHeroes';
+import RewardsDisplay from './RewardsDisplay';
 import '../styles/SurvivalMode.css';
 
 interface Hero {
@@ -31,6 +32,7 @@ interface User {
   survival_losses: number;
   survival_used_heroes: string[];
   available_heroes: string[];
+  favorite_heroes: string[];
 }
 
 interface SurvivalModeProps {
@@ -39,9 +41,20 @@ interface SurvivalModeProps {
   onCancelSearch?: () => void;
   isSearchingForMatch?: boolean;
   user?: User;
+  rewardsData?: {
+    oldXP: number;
+    newXP: number;
+    xpGained: number;
+    oldLevel: number;
+    newLevel: number;
+    oldVictoryPoints: number;
+    newVictoryPoints: number;
+    victoryPointsGained: number;
+    leveledUp: boolean;
+  };
 }
 
-const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBattle, onCancelSearch, isSearchingForMatch = false, user }) => {
+const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBattle, onCancelSearch, isSearchingForMatch = false, user, rewardsData }) => {
   const [survivalState, setSurvivalState] = useState<SurvivalState>({
     wins: user?.survival_wins || 0,
     losses: user?.survival_losses || 0,
@@ -230,6 +243,22 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
         <div className="survival-end-content">
           <h2>Survival Run Complete</h2>
           <p>{endMessage}</p>
+          
+          {/* Rewards Display */}
+          {rewardsData && (
+            <RewardsDisplay
+              oldXP={rewardsData.oldXP}
+              newXP={rewardsData.newXP}
+              xpGained={rewardsData.xpGained}
+              oldLevel={rewardsData.oldLevel}
+              newLevel={rewardsData.newLevel}
+              oldVictoryPoints={rewardsData.oldVictoryPoints}
+              newVictoryPoints={rewardsData.newVictoryPoints}
+              victoryPointsGained={rewardsData.victoryPointsGained}
+              leveledUp={rewardsData.leveledUp}
+            />
+          )}
+          
           <div className="survival-end-buttons">
             <button className="survival-btn primary" onClick={handleEndModalClose}>
               Start New Run

@@ -561,19 +561,15 @@
       }
     ],
     "Special": {
-      "category": "active",
+      "category": "reaction",
       "name": "Arcane Shield",
-      "description": "Once per round, shield an ally; the next damage taken is reduced by 1D6.",
-      "trigger": "player_choice",
-      "frequency": "once_per_round",
+      "description": "The first time Wizard would take damage more than 5 damage, reduce it to 0",
+      "trigger": "on_take_damage_gt_5",
+      "frequency": "once_per_battle",
       "effects": [
         {
-          "type": "apply_buff",
-          "effect": "damage_reduction",
-          "value": "1D6",
-          "duration": 1,
-          "duration_unit": "hit",
-          "target": "chosen_ally"
+          "type": "negate_damage",
+          "target": "self"
         }
       ]
     }

@@ -17,12 +17,29 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   allHeroes 
 }) => {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
-  const [attackOrder, setAttackOrder] = useState<string[]>([]);
+  const [teamOrder, setTeamOrder] = useState<string[]>([]);
+  const [draggedHero, setDraggedHero] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Reset selected card when draft phase or turn changes
   useEffect(() => {
     setSelectedCard(null);
   }, [gameState.currentDraftPhase, gameState.draftTurn]);
+
+  // Initialize team order when entering setup phase
+  useEffect(() => {
+    if (gameState.phase === 'setup' && currentPlayer.team && teamOrder.length === 0) {
+      setTeamOrder(currentPlayer.team.map(h => h.name));
+    }
+  }, [gameState.phase, currentPlayer.team]);
+
+  // Reset ready state when opponent's ready state changes
+  useEffect(() => {
+    if (opponent?.isReady !== undefined) {
+      // This will help update UI when opponent becomes ready
+    }
+  }, [opponent?.isReady]);
 
   const getHeroByName = (name: string): Hero | undefined => {
     return allHeroes.find(h => h.name === name);
@@ -95,8 +112,43 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   */
 
   const handleSetAttackOrder = () => {
-    if (attackOrder.length === 3) {
-      socketService.setAttackOrder(attackOrder);
+    if (teamOrder.length === 3) {
+      socketService.setAttackOrder(teamOrder);
+      setIsReady(true);
+    }
+  };
+
+  const handleDragStart = (heroName: string, e: React.DragEvent) => {
+    setDraggedHero(heroName);
+    // Create a transparent drag image to hide the default ghost
+    const img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(img, 0, 0);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    if (e.clientX !== 0 && e.clientY !== 0) {
+      setDragPosition({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragPosition(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (targetIndex: number) => {
+    if (draggedHero) {
+      const currentIndex = teamOrder.indexOf(draggedHero);
+      const newOrder = [...teamOrder];
+      newOrder.splice(currentIndex, 1);
+      newOrder.splice(targetIndex, 0, draggedHero);
+      setTeamOrder(newOrder);
+      setDraggedHero(null);
+      setDragPosition(null);
     }
   };
 
@@ -110,37 +162,38 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const renderBanPhase = () => {
     const draftCards = getDraftCards();
     
-    // Split cards into rows for better layout (3 in first row, 2 in second row)
-    const firstRowCards = draftCards.slice(0, 3);
-    const secondRowCards = draftCards.slice(3, 5);
-    
     return (
       <div className="draft-phase">
-        <div className="draft-cards ban-phase">
-          <div className="ban-row-1">
-            {firstRowCards.map((hero) => (
-              <HeroCard
-                key={hero.name}
-                hero={hero}
-                isSelectable={!currentPlayer.bannedCard}
-                isSelected={selectedCard === hero.name}
-                onClick={() => setSelectedCard(hero.name)}
-              />
-            ))}
+        {/* Show teams display for consistency */}
+        <div className="teams-display">
+          <div className="current-team">
+            <h3>Your Team (0/3)</h3>
+            <div className="team-cards">
+              {/* Empty during ban phase */}
+            </div>
           </div>
-          {secondRowCards.length > 0 && (
-            <div className="ban-row-2">
-              {secondRowCards.map((hero) => (
-                <HeroCard
-                  key={hero.name}
-                  hero={hero}
-                  isSelectable={!currentPlayer.bannedCard}
-                  isSelected={selectedCard === hero.name}
-                  onClick={() => setSelectedCard(hero.name)}
-                />
-              ))}
+          
+          {opponent && (
+            <div className="opponent-team">
+              <h3>Opponent's Team (0/3)</h3>
+              <div className="team-cards">
+                {/* Empty during ban phase */}
+              </div>
             </div>
           )}
+        </div>
+
+        <div className="draft-cards ban-phase">
+          {draftCards.map((hero, index) => (
+            <HeroCard
+              key={hero.name}
+              hero={hero}
+              isSelectable={!currentPlayer.bannedCard}
+              isSelected={selectedCard === hero.name}
+              onClick={() => setSelectedCard(hero.name)}
+              tooltipPosition={index >= draftCards.length - 1 ? 'left' : 'right'}
+            />
+          ))}
         </div>
 
         <div className="draft-actions">
@@ -186,11 +239,12 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
             <div className="opponent-team">
               <h3>Opponent's Team ({opponent.team?.length || 0}/3)</h3>
               <div className="team-cards">
-                {(opponent.team || []).map((hero) => (
+                {(opponent.team || []).map((hero, index) => (
                   <HeroCard
                     key={hero.name}
                     hero={hero}
                     isEnemy={true}
+                    tooltipPosition={index === 2 ? 'left' : 'right'}
                   />
                 ))}
               </div>
@@ -199,13 +253,14 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         </div>
 
         <div className="draft-cards">
-          {draftCards.map((hero) => (
+          {draftCards.map((hero, index) => (
             <HeroCard
               key={hero.name}
               hero={hero}
               isSelectable={canPick()}
               isSelected={selectedCard === hero.name}
               onClick={() => canPick() && setSelectedCard(hero.name)}
+              tooltipPosition={index >= draftCards.length - 1 ? 'left' : 'right'}
             />
           ))}
         </div>
@@ -224,61 +279,85 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   };
 
   const renderSetupPhase = () => {
-    const availableHeroes = currentPlayer.team.filter(h => !attackOrder.includes(h.name));
-    
     return (
       <div className="setup-phase">
-        <h2>Set Attack Order</h2>
-        <p>Arrange your heroes from left to right (leftmost attacks first):</p>
+        <h2>Team Setup</h2>
+        <p>Drag and drop to arrange your heroes' attack order (left to right):</p>
         
-        <div className="attack-order-setup">
-          <div className="available-heroes">
-            <h3>Available Heroes</h3>
-            {availableHeroes.map(hero => (
-              <HeroCard
-                key={hero.name}
-                hero={hero}
-                isSelectable={true}
-                onClick={() => {
-                  if (attackOrder.length < 3) {
-                    setAttackOrder([...attackOrder, hero.name]);
-                  }
-                }}
-                showFullInfo={false}
-              />
-            ))}
+        {opponent && opponent.isReady && (
+          <div className="opponent-ready-indicator">
+            <span>✓ Opponent is ready</span>
           </div>
-          
-          <div className="attack-order">
-            <h3>Attack Order</h3>
-            <div className="ordered-heroes">
-              {attackOrder.map((heroName, index) => {
-                const hero = getHeroByName(heroName);
-                return hero ? (
-                  <div key={heroName} className="ordered-hero">
-                    <span className="position-number">{index + 1}</span>
-                    <HeroCard
-                      hero={hero}
-                      onClick={() => {
-                        setAttackOrder(attackOrder.filter(h => h !== heroName));
-                      }}
-                      showFullInfo={false}
-                    />
-                  </div>
-                ) : null;
-              })}
-            </div>
+        )}
+        
+        <div className="team-order-setup">
+          <div className="draggable-team">
+            {teamOrder.map((heroName, index) => {
+              const hero = getHeroByName(heroName);
+              const isDragging = draggedHero === heroName;
+              return hero ? (
+                <div
+                  key={heroName}
+                  className={`draggable-hero-slot ${isDragging ? 'dragging' : ''}`}
+                  draggable={!isReady}
+                  onDragStart={(e) => !isReady && handleDragStart(heroName, e)}
+                  onDrag={handleDrag}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={handleDragOver}
+                  onDrop={() => !isReady && handleDrop(index)}
+                  style={{
+                    opacity: isDragging ? 0.3 : 1,
+                    transition: 'opacity 0.2s ease'
+                  }}
+                >
+                  <div className="position-badge">{index + 1}</div>
+                  <HeroCard
+                    hero={hero}
+                    isSelectable={false}
+                    hideAbilities={true}
+                  />
+                </div>
+              ) : null;
+            })}
           </div>
         </div>
 
-        <div className="setup-actions">
-          <button
-            onClick={handleSetAttackOrder}
-            disabled={attackOrder.length !== 3}
-            className="action-button"
+        {/* Floating card that follows cursor during drag */}
+        {draggedHero && dragPosition && (
+          <div
+            style={{
+              position: 'fixed',
+              left: dragPosition.x - 100,
+              top: dragPosition.y - 150,
+              pointerEvents: 'none',
+              zIndex: 9999,
+              opacity: 0.9,
+              transform: 'rotate(-5deg)',
+              transition: 'left 0.05s ease, top 0.05s ease'
+            }}
           >
-            Confirm Attack Order
-          </button>
+            <HeroCard
+              hero={getHeroByName(draggedHero)!}
+              isSelectable={false}
+              hideAbilities={true}
+            />
+          </div>
+        )}
+
+        <div className="setup-actions">
+          {!isReady ? (
+            <button
+              onClick={handleSetAttackOrder}
+              disabled={teamOrder.length !== 3}
+              className="action-button ready-button"
+            >
+              Ready
+            </button>
+          ) : (
+            <div className="ready-status">
+              <span className="ready-indicator">✓ You are ready - Waiting for opponent...</span>
+            </div>
+          )}
         </div>
       </div>
     );

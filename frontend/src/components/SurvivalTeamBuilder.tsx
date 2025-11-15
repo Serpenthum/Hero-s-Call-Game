@@ -34,6 +34,7 @@ interface User {
   survival_losses: number;
   survival_used_heroes: string[];
   available_heroes: string[];
+  favorite_heroes: string[];
 }
 
 interface SurvivalTeamBuilderProps {
@@ -153,21 +154,35 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
 
   const sortHeroes = (heroList: Hero[], option: typeof sortOption): Hero[] => {
     const sorted = [...heroList];
+    const favoriteHeroes = user?.favorite_heroes || [];
     
-    switch (option) {
-      case 'alphabetical':
-        return sorted.sort((a, b) => a.name.localeCompare(b.name));
-      case 'hp':
-        return sorted.sort((a, b) => b.HP - a.HP);
-      case 'ac':
-        return sorted.sort((a, b) => b.Defense - a.Defense);
-      case 'accuracy':
-        return sorted.sort((a, b) => parseAccuracyValue(b.Accuracy) - parseAccuracyValue(a.Accuracy));
-      case 'damage':
-        return sorted.sort((a, b) => parseAttackValue(b.BasicAttack) - parseAttackValue(a.BasicAttack));
-      default:
-        return sorted;
-    }
+    // First, separate favorites and non-favorites
+    const favorites = sorted.filter(hero => favoriteHeroes.includes(hero.name));
+    const nonFavorites = sorted.filter(hero => !favoriteHeroes.includes(hero.name));
+    
+    // Sort each group according to the selected option
+    const sortFunction = (a: Hero, b: Hero) => {
+      switch (option) {
+        case 'alphabetical':
+          return a.name.localeCompare(b.name);
+        case 'hp':
+          return b.HP - a.HP;
+        case 'ac':
+          return b.Defense - a.Defense;
+        case 'accuracy':
+          return parseAccuracyValue(b.Accuracy) - parseAccuracyValue(a.Accuracy);
+        case 'damage':
+          return parseAttackValue(b.BasicAttack) - parseAttackValue(a.BasicAttack);
+        default:
+          return 0;
+      }
+    };
+    
+    favorites.sort(sortFunction);
+    nonFavorites.sort(sortFunction);
+    
+    // Return favorites first, then non-favorites
+    return [...favorites, ...nonFavorites];
   };
 
   useEffect(() => {
@@ -336,7 +351,14 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
   };
 
   const handleHeroSelect = (hero: Hero) => {
-    if (selectedTeam.length < TEAM_SIZE && !selectedTeam.find(h => h.name === hero.name)) {
+    // Check if hero is already selected
+    const isAlreadySelected = selectedTeam.find(h => h.name === hero.name);
+    
+    if (isAlreadySelected) {
+      // Remove hero from team if already selected
+      setSelectedTeam(selectedTeam.filter(h => h.name !== hero.name));
+    } else if (selectedTeam.length < TEAM_SIZE) {
+      // Add hero to team if not at max capacity
       setSelectedTeam([...selectedTeam, hero]);
     }
   };
@@ -421,6 +443,9 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                       onMouseEnter={() => setHoveredHero(hero.name)}
                       onMouseLeave={() => setHoveredHero(null)}
                     >
+                      {user?.favorite_heroes?.includes(hero.name) && (
+                        <div className="favorite-star">⭐</div>
+                      )}
                       <img 
                         src={`http://localhost:3001/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                         alt={hero.name}

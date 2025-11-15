@@ -1,3 +1,28 @@
+/* Root font size for responsive scaling */
+html {
+  font-size: 16px; /* Base size */
+}
+
+/* Adjust base font size based on viewport width */
+@media (max-width: 1920px) {
+  html { font-size: 16px; }
+}
+@media (max-width: 1600px) {
+  html { font-size: 15px; }
+}
+@media (max-width: 1366px) {
+  html { font-size: 14px; }
+}
+@media (max-width: 1024px) {
+  html { font-size: 13px; }
+}
+@media (max-width: 768px) {
+  html { font-size: 12px; }
+}
+@media (max-width: 480px) {
+  html { font-size: 11px; }
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

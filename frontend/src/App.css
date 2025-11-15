@@ -19,7 +19,7 @@ body, html {
 }
 
 .game-sidebar {
-  width: 300px;
+  width: clamp(200px, 18vw, 300px); /* Responsive width */
   background: rgba(0, 0, 0, 0.8);
   border-right: 2px solid #007bff;
   padding: 0; /* Remove padding to reach edge */
@@ -29,13 +29,13 @@ body, html {
 }
 
 .game-sidebar > * {
-  padding: 20px; /* Add padding to individual children instead */
+  padding: clamp(10px, 1.5vw, 20px); /* Responsive padding */
 }
 
 .sidebar-header h2 {
-  margin: 0 0 20px 0;
-  padding: 20px 20px 0px 20px; /* Custom padding for header */
-  font-size: 1.8rem;
+  margin: 0 0 clamp(10px, 1.5vw, 20px) 0;
+  padding: clamp(10px, 1.5vw, 20px) clamp(10px, 1.5vw, 20px) 0px clamp(10px, 1.5vw, 20px);
+  font-size: clamp(1.2rem, 2vw, 1.8rem); /* Fluid typography */
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   color: #007bff;
   text-align: center;
@@ -102,9 +102,9 @@ body, html {
 .game-over-modal {
   background: linear-gradient(135deg, rgba(30, 45, 70, 0.95) 0%, rgba(20, 35, 60, 0.98) 100%);
   border: 3px solid rgba(0, 123, 255, 0.7);
-  border-radius: 20px;
+  border-radius: clamp(12px, 1.5vw, 20px);
   padding: 0;
-  max-width: 500px;
+  max-width: clamp(350px, 40vw, 500px);
   width: 90%;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(10px);
@@ -113,13 +113,13 @@ body, html {
 }
 
 .game-over-content {
-  padding: 40px 30px;
+  padding: clamp(25px, 3vw, 40px) clamp(20px, 2.5vw, 30px);
 }
 
 .game-over-title {
-  font-size: 3rem;
+  font-size: clamp(2rem, 3vw, 3rem);
   font-weight: bold;
-  margin: 0 0 20px 0;
+  margin: 0 0 clamp(12px, 1.5vw, 20px) 0;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
   animation: titleGlow 2s ease-in-out infinite alternate;
 }
@@ -143,22 +143,22 @@ body, html {
 
 .game-over-message {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 1.2rem;
+  font-size: clamp(1rem, 1.2vw, 1.2rem);
   line-height: 1.5;
-  margin: 20px 0 30px 0;
+  margin: clamp(12px, 1.5vw, 20px) 0 clamp(20px, 2.5vw, 30px) 0;
 }
 
 .return-to-lobby-button {
   background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
   color: white;
   border: none;
-  border-radius: 12px;
-  padding: 15px 30px;
+  border-radius: clamp(8px, 1vw, 12px);
+  padding: clamp(10px, 1.2vw, 15px) clamp(20px, 2.5vw, 30px);
   font-weight: bold;
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 1vw, 1.1rem);
   cursor: pointer;
   transition: all 0.3s ease;
-  min-width: 180px;
+  min-width: clamp(140px, 15vw, 180px);
   box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
 }
 
@@ -197,11 +197,11 @@ body, html {
 }
 
 .turn-indicator {
-  font-size: 1.2rem;
+  font-size: clamp(0.9rem, 1.1vw, 1.2rem);
   font-weight: bold;
-  padding: 12px 20px;
-  border-radius: 8px;
-  margin: 16px 0;
+  padding: clamp(8px, 0.8vw, 12px) clamp(12px, 1.2vw, 20px);
+  border-radius: clamp(5px, 0.5vw, 8px);
+  margin: clamp(10px, 1vw, 16px) 0;
   text-align: center;
   animation: pulse 2s infinite;
 }
@@ -227,14 +227,14 @@ body, html {
 .hero-card {
   background: linear-gradient(145deg, #ffffff 0%, #f0f0f0 100%);
   border: 2px solid #ddd;
-  border-radius: 12px;
+  border-radius: clamp(8px, 0.8vw, 12px);
   padding: 0;
-  margin: 6px;
+  margin: clamp(3px, 0.4vw, 6px);
   cursor: pointer;
   transition: all 0.3s ease;
   color: #333;
-  width: 234px; /* Increased from 180px to 234px (30% bigger) */
-  height: 360px; /* Increased from 320px to 360px to show attack value */
+  width: clamp(156px, 12vw, 234px); /* Responsive width: 66% at smallest, 234px at largest */
+  height: clamp(240px, 18.5vw, 360px); /* Responsive height maintaining aspect ratio */
   position: relative;
   overflow: hidden;
   display: flex; /* Use flexbox for perfect alignment */
@@ -342,9 +342,9 @@ body, html {
 
 .hero-image {
   width: 100%;
-  height: 182px; /* Increased from 140px to 182px (30% bigger) */
+  height: clamp(121px, 9.3vw, 182px); /* Responsive height */
   object-fit: cover;
-  border-radius: 10px 10px 0 0;
+  border-radius: clamp(7px, 0.65vw, 10px) clamp(7px, 0.65vw, 10px) 0 0;
   margin: 0; /* Remove all margins */
   padding: 0; /* Remove all padding */
   display: block; /* Ensure no spacing */
@@ -383,9 +383,9 @@ body, html {
 .hero-stats {
   background: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 12px;
-  border-radius: 0 0 10px 10px; /* Only round bottom corners */
-  font-size: 0.9rem;
+  padding: clamp(8px, 0.8vw, 12px);
+  border-radius: 0 0 clamp(7px, 0.65vw, 10px) clamp(7px, 0.65vw, 10px); /* Only round bottom corners */
+  font-size: clamp(0.7rem, 0.8vw, 0.9rem);
   margin: 0; /* Remove all margins */
   position: relative;
   width: 100%; /* Ensure full width */
@@ -400,19 +400,19 @@ body, html {
 
 .hero-stats .hero-name {
   font-weight: bold;
-  font-size: 1.1rem;
-  margin-bottom: 8px;
+  font-size: clamp(0.85rem, 1vw, 1.1rem);
+  margin-bottom: clamp(5px, 0.5vw, 8px);
   text-align: center; /* Center the hero name */
   color: white; /* Ensure name is white in the dark box */
-  padding-bottom: 8px;
+  padding-bottom: clamp(5px, 0.5vw, 8px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.3); /* Add subtle separator */
 }
 
 .hero-stats-row {
   display: flex;
   align-items: center;
-  margin-bottom: 6px;
-  font-size: 0.85rem;
+  margin-bottom: clamp(4px, 0.4vw, 6px);
+  font-size: clamp(0.65rem, 0.75vw, 0.85rem);
   font-weight: bold;
 }
 
@@ -421,9 +421,9 @@ body, html {
 }
 
 .stat-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 8px;
+  width: clamp(12px, 1vw, 16px);
+  height: clamp(12px, 1vw, 16px);
+  margin-right: clamp(5px, 0.5vw, 8px);
   flex-shrink: 0;
 }
 
@@ -431,20 +431,36 @@ body, html {
   position: absolute;
   top: 0;
   left: 100%;
-  margin-left: 10px;
+  margin-left: clamp(5px, 0.7vw, 10px);
   background: rgba(0, 0, 0, 0.95);
   border: 2px solid #007bff;
-  border-radius: 8px;
-  padding: 12px;
-  min-width: 230px; /* Reduced by 20px from 250px */
-  max-width: 270px; /* Reduced by 20px from 290px */
+  border-radius: clamp(5px, 0.5vw, 8px);
+  padding: clamp(8px, 0.8vw, 12px);
+  min-width: clamp(180px, 15vw, 230px);
+  max-width: clamp(210px, 18vw, 270px);
   z-index: 1000;
   text-align: left;
-  font-size: 0.85rem; /* Slightly smaller font to fit more content */
+  font-size: clamp(0.65rem, 0.75vw, 0.85rem);
   line-height: 1.4; /* Better line spacing for readability */
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
   /* Remove scrollbar - let content flow naturally */
   overflow: visible;
+}
+
+/* Left-positioned tooltip for right-side cards in draft */
+.hero-tooltip.tooltip-left {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: clamp(5px, 0.7vw, 10px);
+}
+
+/* Default right-positioned tooltip */
+.hero-tooltip.tooltip-right {
+  left: 100%;
+  right: auto;
+  margin-left: clamp(5px, 0.7vw, 10px);
+  margin-right: 0;
 }
 
 .tooltip-section {
@@ -506,30 +522,30 @@ body, html {
 /* Status Effects - Buffs (top-left) and Debuffs (top-right) */
 .status-effects-buffs {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: clamp(5px, 0.5vw, 8px);
+  left: clamp(5px, 0.5vw, 8px);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: clamp(2px, 0.3vw, 4px);
   align-items: flex-start;
 }
 
 .status-effects-debuffs {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: clamp(5px, 0.5vw, 8px);
+  right: clamp(5px, 0.5vw, 8px);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: clamp(2px, 0.3vw, 4px);
   align-items: flex-end;
 }
 
 .status-effect {
   background: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 3px 8px; /* Increased from 2px 6px (30% bigger) */
-  border-radius: 15px; /* Increased from 12px (30% bigger) */
-  font-size: 0.91rem; /* Increased from 0.7rem (30% bigger) */
+  padding: clamp(2px, 0.25vw, 3px) clamp(5px, 0.5vw, 8px);
+  border-radius: clamp(10px, 1vw, 15px);
+  font-size: clamp(0.6rem, 0.8vw, 0.91rem);
   font-weight: bold;
   cursor: pointer; /* Add cursor pointer for interaction */
   transition: all 0.2s ease; /* Smooth transition for hover effects */
@@ -581,6 +597,11 @@ body, html {
   background: #dc3545;
 }
 
+.status-effect.bribed {
+  background: #ffc107;
+  color: #000;
+}
+
 .status-effect.grant-advantage {
   background: #dc3545;
 }
@@ -596,19 +617,19 @@ body, html {
 /* Companions - stay with buffs on the left, positioned below status effects */
 .companions {
   position: absolute;
-  top: 40px; /* Position below status effects */
-  left: 8px;
+  top: clamp(26px, 2.5vw, 40px); /* Position below status effects */
+  left: clamp(5px, 0.5vw, 8px);
   display: flex;
-  gap: 4px;
+  gap: clamp(2px, 0.3vw, 4px);
   z-index: 5;
 }
 
 .companion {
   background: rgba(0, 150, 0, 0.9);
   color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  padding: clamp(1px, 0.15vw, 2px) clamp(4px, 0.4vw, 6px);
+  border-radius: clamp(3px, 0.3vw, 4px);
+  font-size: clamp(0.6rem, 0.7vw, 0.8rem);
   font-weight: bold;
   border: 1px solid #006600;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -617,17 +638,17 @@ body, html {
 /* Shaman Totems - positioned on top-left corner */
 .shaman-totems {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: clamp(5px, 0.5vw, 8px);
+  left: clamp(5px, 0.5vw, 8px);
   z-index: 10;
 }
 
 .totem-counter {
   background: rgba(139, 69, 19, 0.9); /* Brown background for totems */
   color: white;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  padding: clamp(3px, 0.3vw, 4px) clamp(5px, 0.5vw, 8px);
+  border-radius: clamp(4px, 0.4vw, 6px);
+  font-size: clamp(0.7rem, 0.8vw, 0.9rem);
   font-weight: bold;
   border: 2px solid #8B4513;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
@@ -683,7 +704,7 @@ body, html {
 .status-effect-tooltip .status-tooltip-text {
   visibility: hidden;
   position: absolute;
-  bottom: 125%;
+  top: 125%;
   right: 0;
   background: linear-gradient(135deg, rgba(30, 45, 70, 0.98) 0%, rgba(20, 35, 60, 0.99) 100%);
   color: #ffffff;
@@ -710,12 +731,12 @@ body, html {
 .status-effect-tooltip .status-tooltip-text::after {
   content: "";
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   right: 20px;
-  margin-top: -1px;
+  margin-bottom: -1px;
   border-width: 6px;
   border-style: solid;
-  border-color: rgba(30, 45, 70, 0.98) transparent transparent transparent;
+  border-color: transparent transparent rgba(30, 45, 70, 0.98) transparent;
 }
 
 .status-effect-tooltip:hover .status-tooltip-text {
@@ -893,45 +914,39 @@ body, html {
 
 /* Draft Phase Styles */
 .draft-phase {
-  padding: 15px;
+  padding: clamp(10px, 1.2vw, 15px);
   max-height: 100vh;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 .draft-cards {
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: clamp(10px, 1.2vw, 16px);
   flex-wrap: wrap;
-  margin: 1.5rem 0;
+  margin: clamp(0.5rem, 1vw, 1rem) 0 clamp(1rem, 1.2vw, 1.5rem) 0;
+  padding-top: 0.5rem;
+  padding-left: 5%;  /* Shift left to give room for rightmost card tooltip */
+  padding-right: 15%; /* Create asymmetric spacing */
 }
 
-/* Special layout for ban phase with 5 cards - 2 rows */
+/* Special layout for ban phase with 5 cards - single row */
 .draft-phase .draft-cards.ban-phase {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-direction: row;
+  gap: clamp(8px, 1vw, 12px);
   justify-content: center;
   align-items: center;
-  max-width: 800px;
-  margin: 1rem auto;
-  padding: 0 20px;
+  max-width: 100%;
+  margin: clamp(0.5rem, 1vw, 1rem) auto 1.5rem auto;
+  padding: 0.5rem 20px 0 20px;
+  flex-wrap: nowrap;
 }
 
-/* First row: 3 cards centered */
-.draft-phase .draft-cards.ban-phase .ban-row-1 {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  width: 100%;
-}
-
-/* Second row: 2 cards centered */
+/* Remove the separate row styling since we're using a single row now */
+.draft-phase .draft-cards.ban-phase .ban-row-1,
 .draft-phase .draft-cards.ban-phase .ban-row-2 {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  width: 100%;
+  display: contents;
 }
 
 .draft-actions {
@@ -944,36 +959,42 @@ body, html {
 .teams-display {
   display: flex;
   justify-content: space-around;
-  margin: 1rem 0;
+  margin: 0.5rem 0 0.5rem 0;
   gap: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 .current-team,
 .opponent-team {
   flex: 1;
   background: rgba(255, 255, 255, 0.1);
-  padding: 0.75rem;
+  padding: 1rem;
   border-radius: 8px;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
 }
 
 .current-team h3,
 .opponent-team h3 {
   margin-top: 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   font-size: 1.1rem;
+  text-align: center;
 }
 
 .team-cards {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
   flex-wrap: wrap;
 }
 
-/* Team display cards slightly smaller to fit */
+/* Team display cards - larger to show all info */
 .draft-phase .teams-display .hero-card {
-  width: 160px;
-  height: 240px;
+  width: 210px;
+  height: 335px;
   margin: 3px;
 }
 
@@ -1001,6 +1022,73 @@ body, html {
 /* Setup Phase Styles */
 .setup-phase {
   padding: 20px;
+  text-align: center;
+}
+
+.setup-phase h2 {
+  margin-bottom: 0.5rem;
+}
+
+.setup-phase p {
+  margin-bottom: 2rem;
+  color: #aaa;
+}
+
+.opponent-ready-indicator {
+  background: rgba(40, 167, 69, 0.2);
+  border: 2px solid #28a745;
+  color: #28a745;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  font-weight: bold;
+}
+
+.team-order-setup {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.draggable-team {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 900px;
+}
+
+.draggable-hero-slot {
+  position: relative;
+  cursor: grab;
+  transition: transform 0.2s;
+}
+
+.draggable-hero-slot:active {
+  cursor: grabbing;
+}
+
+.draggable-hero-slot:hover {
+  transform: translateY(-5px);
+}
+
+.position-badge {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  background: #007bff;
+  color: white;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.1rem;
+  z-index: 10;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .attack-order-setup {
@@ -1051,7 +1139,33 @@ body, html {
 .setup-actions {
   display: flex;
   justify-content: center;
-  margin: 2rem 0;
+  margin-top: 2rem;
+}
+
+.ready-button {
+  background: #28a745;
+  font-size: 1.2rem;
+  padding: 1rem 3rem;
+  font-weight: bold;
+}
+
+.ready-button:hover:not(:disabled) {
+  background: #218838;
+}
+
+.ready-status {
+  background: rgba(40, 167, 69, 0.2);
+  border: 2px solid #28a745;
+  color: #28a745;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+.ready-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* Battle Phase Styles */
@@ -1107,10 +1221,10 @@ body, html {
 .initiative-choice {
   background: rgba(20, 30, 60, 0.95);
   border: 2px solid #4CAF50;
-  border-radius: 16px;
-  padding: 2rem;
+  border-radius: clamp(10px, 1.2vw, 16px);
+  padding: clamp(1.5rem, 2vw, 2rem);
   text-align: center;
-  max-width: 500px;
+  max-width: clamp(350px, 40vw, 500px);
   width: 90%;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
@@ -1118,7 +1232,7 @@ body, html {
 .initiative-choice h2 {
   color: #4CAF50;
   margin-top: 0;
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 2vw, 2rem);
   text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
 }
 
@@ -1225,10 +1339,10 @@ body, html {
 
 .team-display {
   display: flex;
-  gap: 16px;
+  gap: clamp(10px, 1vw, 16px);
   justify-content: center; /* Center the cards */
   flex-wrap: wrap;
-  padding: 20px; /* Add padding for card spacing from edges */
+  padding: clamp(12px, 1.5vw, 20px); /* Add padding for card spacing from edges */
   width: 100%; /* Full width for proper centering */
   margin: 0 auto; /* Center the container */
   box-sizing: border-box; /* Include padding in width calculation */
@@ -1240,7 +1354,7 @@ body, html {
 
 /* Adjust opponent team cards positioning to fit on screen */
 .opponent-area .team-display {
-  transform: translate(-50%, calc(-50% + 20px)); /* Move top cards down 20px to fit on screen */
+  transform: translate(-50%, calc(-50% + clamp(12px, 1.5vw, 20px))); /* Move top cards down to fit on screen */
 }
 
 .action-panel {
@@ -1323,7 +1437,7 @@ body, html {
 /* Team Label Container */
 .team-label-container {
   position: absolute;
-  left: 20px;
+  left: clamp(10px, 1.2vw, 20px);
   top: 50%;
   transform: translateY(-70%);
   z-index: 10;
@@ -1334,10 +1448,10 @@ body, html {
 .team-label {
   text-align: center;
   margin: 0;
-  padding: 12px 24px;
-  border-radius: 12px;
+  padding: clamp(8px, 0.8vw, 12px) clamp(15px, 1.5vw, 24px);
+  border-radius: clamp(8px, 0.8vw, 12px);
   color: white;
-  font-size: 1.4rem;
+  font-size: clamp(1rem, 1.3vw, 1.4rem);
   font-weight: bold;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
@@ -1347,7 +1461,7 @@ body, html {
   background-clip: padding-box;
   position: relative;
   overflow: hidden;
-  min-width: 200px;
+  min-width: clamp(140px, 15vw, 200px);
 }
 
 /* Opponent Team Label */
@@ -1459,8 +1573,8 @@ body, html {
 .action-button {
   background: #007bff;
   color: white;
-  padding: 10px 20px;
-  font-size: 1rem;
+  padding: clamp(6px, 0.7vw, 10px) clamp(12px, 1.2vw, 20px);
+  font-size: clamp(0.8rem, 0.9vw, 1rem);
 }
 
 .action-button:hover {
@@ -1902,11 +2016,11 @@ body, html {
   display: flex;
   gap: 0;
   height: 100vh; /* Fixed height to match viewport */
-  margin-right: 300px; /* Leave space for fixed action bar */
+  margin-right: clamp(200px, 18vw, 300px); /* Leave space for fixed action bar */
   overflow: hidden; /* Prevent scrollbars */
   /* Ensure it extends to all edges except right (for action bar) */
   margin: 0;
-  margin-right: 300px; /* Only right margin for action bar */
+  margin-right: clamp(200px, 18vw, 300px); /* Only right margin for action bar */
 }
 
 .game-board {
@@ -1921,7 +2035,7 @@ body, html {
 }
 
 .action-bar {
-  width: 300px;
+  width: clamp(200px, 18vw, 300px); /* Responsive width */
   background: rgba(0, 0, 0, 0.8);
   border-left: 2px solid #007bff;
   padding: 0; /* Remove padding to reach edge */
@@ -1940,13 +2054,13 @@ body, html {
 }
 
 .action-bar > * {
-  padding: 20px; /* Add padding to individual children instead */
+  padding: clamp(10px, 1.5vw, 20px); /* Responsive padding */
 }
 
 .action-bar h3 {
   margin: 0 0 0 0; /* Remove bottom margin */
-  padding: 20px 20px 10px 20px; /* Custom padding for header */
-  font-size: 1.8rem;
+  padding: clamp(10px, 1.5vw, 20px) clamp(10px, 1.5vw, 20px) clamp(5px, 0.7vw, 10px) clamp(10px, 1.5vw, 20px);
+  font-size: clamp(1.2rem, 2vw, 1.8rem);
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   color: #007bff;
   text-align: center;
@@ -2235,7 +2349,7 @@ body, html {
   padding: 8px;
   position: absolute;
   z-index: 1000;
-  bottom: 125%;
+  top: -80px; /* Position above the stat, not below */
   left: 50%;
   margin-left: -90px;
   opacity: 0;
@@ -2243,12 +2357,13 @@ body, html {
   font-size: 0.8rem;
   border: 1px solid #66b3ff;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: none; /* Prevent interference with clicking */
 }
 
 .buff-tooltiptext::after {
   content: "";
   position: absolute;
-  top: 100%;
+  bottom: -10px; /* Arrow now points down */
   left: 50%;
   margin-left: -5px;
   border-width: 5px;

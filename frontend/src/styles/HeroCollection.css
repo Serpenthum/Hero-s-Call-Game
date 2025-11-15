@@ -603,3 +603,54 @@
     padding: 5px 10px;
   }
 }
+
+/* Favorite Hero Styles */
+.favorite-star {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 24px;
+  z-index: 10;
+  filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.8));
+  pointer-events: none;
+}
+
+.favorite-button-container {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(0, 123, 255, 0.3);
+  display: flex;
+  justify-content: center;
+}
+
+.favorite-button {
+  padding: 10px 20px;
+  background: rgba(0, 123, 255, 0.2);
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.favorite-button:hover {
+  background: rgba(0, 123, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
+.favorite-button.favorited {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: #ffd700;
+  color: #ffd700;
+}
+
+.favorite-button.favorited:hover {
+  background: rgba(255, 215, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+}

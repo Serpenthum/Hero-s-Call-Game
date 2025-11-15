@@ -119,6 +119,15 @@ class Database {
         console.log('Player stats table created or already exists');
       }
     });
+
+    // Add favorite_heroes column to users table if it doesn't exist
+    this.db.run(`ALTER TABLE users ADD COLUMN favorite_heroes TEXT DEFAULT '[]'`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('Error adding favorite_heroes column:', err.message);
+      } else if (!err) {
+        console.log('Added favorite_heroes column to users table');
+      }
+    });
   }
 
   async initializeAvailableHeroes() {
@@ -928,6 +937,88 @@ class Database {
         }
 
         resolve({ success: true });
+      });
+    });
+  }
+
+  async toggleFavoriteHero(userId, heroName) {
+    return new Promise((resolve, reject) => {
+      // First get current favorite heroes
+      const getQuery = `SELECT favorite_heroes FROM users WHERE id = ?`;
+      
+      this.db.get(getQuery, [userId], (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (!row) {
+          reject(new Error('User not found'));
+          return;
+        }
+
+        let favoriteHeroes = [];
+        try {
+          favoriteHeroes = JSON.parse(row.favorite_heroes || '[]');
+        } catch (e) {
+          favoriteHeroes = [];
+        }
+
+        // Toggle hero in favorites
+        const index = favoriteHeroes.indexOf(heroName);
+        let isFavorited = false;
+        
+        if (index > -1) {
+          // Remove from favorites
+          favoriteHeroes.splice(index, 1);
+          isFavorited = false;
+        } else {
+          // Add to favorites
+          favoriteHeroes.push(heroName);
+          isFavorited = true;
+        }
+
+        // Update database
+        const updateQuery = `UPDATE users SET favorite_heroes = ? WHERE id = ?`;
+        
+        this.db.run(updateQuery, [JSON.stringify(favoriteHeroes), userId], function(err) {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          resolve({ 
+            success: true, 
+            favoriteHeroes, 
+            isFavorited,
+            heroName 
+          });
+        });
+      });
+    });
+  }
+
+  async getFavoriteHeroes(userId) {
+    return new Promise((resolve, reject) => {
+      const query = `SELECT favorite_heroes FROM users WHERE id = ?`;
+      
+      this.db.get(query, [userId], (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (!row) {
+          resolve([]);
+          return;
+        }
+
+        try {
+          const favoriteHeroes = JSON.parse(row.favorite_heroes || '[]');
+          resolve(favoriteHeroes);
+        } catch (e) {
+          resolve([]);
+        }
       });
     });
   }

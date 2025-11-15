@@ -47,7 +47,6 @@
   },
   {
     "name": "Engineer",
-    "disabled": true,
     "HP": 15,
     "Defense": 6,
     "Accuracy": "+1",
@@ -562,8 +561,8 @@
     "Special": {
       "category": "reaction",
       "name": "Arcane Shield",
-      "description": "The first time Wizard would take damage more than 6 damage, reduce it to 0",
-      "trigger": "on_take_damage_gt_6",
+      "description": "The first time Wizard would take damage more than 5 damage, reduce it to 0",
+      "trigger": "on_take_damage_gt_5",
       "frequency": "once_per_battle",
       "effects": [
         {
@@ -1310,7 +1309,7 @@
       {
         "category": "single_target_damage",
         "name": "Stacked Deck",
-        "description": "Deal 2D4 damage.",
+        "description": "Deal 2D4 damage. If you crit, deal an additional 1D6 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1318,7 +1317,12 @@
             "value": "2D4",
             "target": "target"
           }
-        ]
+        ],
+        "crit_bonus": {
+          "type": "damage",
+          "value": "1D6",
+          "target": "target"
+        }
       }
     ],
     "Special": {
@@ -1452,7 +1456,7 @@
     "Special": {
       "category": "activated_aoe",
       "name": "Self Destruct",
-      "description": "Mech can choose to Self Destruct and deal 2D6 damage to ALL characters.",
+      "description": "Mech can choose to Self Destruct and deal 2D6 damage to ALL heroes.",
       "effects": [
         {
           "type": "damage",
@@ -1464,7 +1468,6 @@
         }
       ]
     },
-    "disabled": true,
     "Immunities": [
       "poison"
     ]
@@ -2280,27 +2283,30 @@
         ],
         "secondary_effects": [
           {
+            "category": "apply_debuff",
             "type": "apply_debuff",
             "effect": "cannot_target_owner_with_ability",
             "target": "target",
-            "until": "start_of_owner_next_turn"
+            "duration": 1,
+            "duration_unit": "caster_turn",
+            "owner": "Hoarder"
           }
         ]
       }
     ],
     "Special": {
-      "category": "persistent",
+      "category": "scaling",
       "name": "Collect Weapons",
-      "description": "When a character dies, add their attack dice to Hoarder\u2019s.",
+      "description": "When any hero dies, gain their basic attack dice.",
       "trigger": "on_any_death",
+      "scale_with": "fallen_heroes",
       "effects": [
         {
           "type": "inherit_attack_dice_from_fallen",
-          "target": "fallen_character"
+          "target": "fallen_hero"
         }
       ]
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Gambler",

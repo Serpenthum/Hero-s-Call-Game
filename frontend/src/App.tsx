@@ -57,6 +57,7 @@ interface User {
   survival_losses: number;
   survival_used_heroes: string[];
   available_heroes: string[];
+  favorite_heroes: string[];
   xp: number;
   level: number;
 }
@@ -83,6 +84,11 @@ interface AppState {
   user: User | null;
   showLogin: boolean;
   showRegister: boolean;
+
+  // Spectator state
+  isSpectating: boolean;
+  spectatingPlayerId: string | null;
+  spectators: Array<{ socketId: string; username: string; spectatingPlayerId: string }>;
 
   timekeeperAbilitySelection?: {
     ally: string;
@@ -138,6 +144,11 @@ function App() {
     showLogin: true, // Start with login page
     showRegister: false,
 
+    // Spectator state
+    isSpectating: false,
+    spectatingPlayerId: null,
+    spectators: [],
+
     // Friends system state
     showFriendsOverlay: false,
     friendsNotificationCount: 0,
@@ -154,6 +165,19 @@ function App() {
   
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
+
+  // Rewards data state for displaying XP and VP gains
+  const [rewardsData, setRewardsData] = useState<{
+    oldXP: number;
+    newXP: number;
+    xpGained: number;
+    oldLevel: number;
+    newLevel: number;
+    oldVictoryPoints: number;
+    newVictoryPoints: number;
+    victoryPointsGained: number;
+    leveledUp: boolean;
+  } | null>(null);
 
   // Save Victory Points to localStorage whenever it changes
   useEffect(() => {
@@ -406,10 +430,18 @@ function App() {
     });
 
     socket.on('attack-order-set', (data) => {
-      setState(prev => ({
-        ...prev,
-        gameState: data.gameState || prev.gameState
-      }));
+      console.log('Attack order set data:', data);
+      setState(prev => {
+        const newState = {
+          ...prev,
+          gameState: data.gameState || prev.gameState
+        };
+        // If initiative data is included, log it for the initiative modal to pick up
+        if (data.initiative) {
+          console.log('Initiative data received from setup:', data.initiative);
+        }
+        return newState;
+      });
     });
 
     socket.on('initiative-rolled', (data) => {
@@ -530,6 +562,64 @@ function App() {
           ...prev,
           gameState: data.gameState || prev.gameState,
           battleLog: [...newLogEntries, ...prev.battleLog.slice(0, 10 - newLogEntries.length)] // Keep last 10 entries
+        };
+      });
+    });
+
+    socket.on('special-activated', (data) => {
+      setState(prev => {
+        const newLogEntries: BattleLogEntry[] = [];
+        
+        // Add activation log entry
+        const activationEntry: BattleLogEntry = {
+          id: `${Date.now()}-special-activation`,
+          timestamp: Date.now(),
+          action: `${data.results[0]?.source || 'Hero'} used ${data.results[0]?.message?.split(' used ')[1]?.split(' on')[0] || 'Self Destruct'}`,
+          hit: true,
+          crit: false,
+          attacker: data.results[0]?.source,
+          target: 'all heroes'
+        };
+        newLogEntries.push(activationEntry);
+        
+        // Process each result (hit/miss for each hero)
+        if (data.results && data.results.length > 0) {
+          data.results.forEach((result: any, index: number) => {
+            if (result.type === 'damage' || result.type === 'miss') {
+              const logEntry: BattleLogEntry = {
+                id: `${Date.now()}-special-${index}`,
+                timestamp: Date.now() + index + 1,
+                action: result.message || `${result.source} ${result.hit ? 'hits' : 'misses'} ${result.target}`,
+                damage: result.damage || 0,
+                hit: result.hit,
+                crit: result.isCritical || false,
+                attacker: result.source,
+                target: result.target,
+                attackRoll: result.attackRoll,
+                attackTotal: result.attackTotal,
+                damageRoll: result.damageRoll?.rolls,
+                damageTotal: result.damage
+              };
+              newLogEntries.push(logEntry);
+            } else if (result.type === 'self_destruct') {
+              const logEntry: BattleLogEntry = {
+                id: `${Date.now()}-self-destruct`,
+                timestamp: Date.now() + 999,
+                action: `${result.caster} self-destructs!`,
+                hit: true,
+                crit: false,
+                attacker: result.caster,
+                target: result.caster
+              };
+              newLogEntries.push(logEntry);
+            }
+          });
+        }
+        
+        return {
+          ...prev,
+          gameState: data.gameState || prev.gameState,
+          battleLog: [...newLogEntries, ...prev.battleLog.slice(0, 10 - newLogEntries.length)]
         };
       });
     });
@@ -858,8 +948,23 @@ function App() {
                 target = effect.target;
                 damage = effect.damage;
                 break;
+              case 'silence_expired':
+              case 'attack_disable_expired':
+              case 'taunt_expired':
+              case 'stat_modifier_expired':
+                // Don't log these - they're just internal status updates
+                action = '';
+                break;
               default:
-                action = `${effect.caster || 'Unknown'} used special ability`;
+                // If there's a message property, use it directly without prefix
+                if (effect.message) {
+                  action = effect.message;
+                } else if (effect.caster && effect.specialName) {
+                  action = `${effect.caster}'s ${effect.specialName}`;
+                } else {
+                  // Skip logging if we don't have enough info
+                  action = '';
+                }
                 target = effect.target || '';
             }
             
@@ -893,7 +998,15 @@ function App() {
                 damage = effect.damage;
                 break;
               default:
-                action = `${effect.caster || 'Unknown'} used ${effect.specialName || 'special ability'}`;
+                // If there's a message property, use it directly
+                if (effect.message) {
+                  action = effect.message;
+                } else if (effect.caster && effect.specialName) {
+                  action = `${effect.caster}'s ${effect.specialName}`;
+                } else {
+                  // Skip if we don't have enough info
+                  action = '';
+                }
             }
             
             if (action) {
@@ -1008,6 +1121,63 @@ function App() {
       setState(prev => ({ ...prev, isConnected: false }));
     });
 
+    // Spectator mode listeners
+    socket.on('spectate-result', (data) => {
+      console.log('👁️ Spectate result:', data);
+      if (data.success && data.gameState) {
+        // Convert backend battleLog to frontend format
+        const backendLog = data.gameState.battleLog || [];
+        const convertedLog: BattleLogEntry[] = backendLog.map((entry: any, index: number) => ({
+          id: entry.id || `backend-${Date.now()}-${index}`,
+          timestamp: entry.timestamp || Date.now(),
+          action: entry.message || entry.action || 'Unknown action',
+          damage: entry.damage,
+          healing: entry.healing,
+          hit: entry.hit,
+          crit: entry.isCritical || entry.crit,
+          attacker: entry.source || entry.caster || entry.attacker,
+          target: entry.target,
+          attackRoll: entry.attackRoll,
+          attackTotal: entry.attackTotal,
+          advantageInfo: entry.advantageInfo,
+          damageRoll: entry.damageRoll?.rolls || entry.damageRoll,
+          damageTotal: entry.damageTotal || entry.damage,
+          abilityName: entry.specialName || entry.abilityName,
+          isSpecial: entry.type?.includes('special')
+        }));
+
+        setState(prev => ({
+          ...prev,
+          gameState: data.gameState || null,
+          isSpectating: true,
+          spectatingPlayerId: data.spectatingPlayerId || null,
+          spectators: data.spectators || [],
+          playerId: prev.playerId, // Keep our own player ID
+          battleLog: convertedLog // Initialize battle log from backend
+        }));
+      } else {
+        console.error('❌ Failed to spectate:', data.error);
+        alert(data.error || 'Failed to join as spectator');
+      }
+    });
+
+    socket.on('spectator-update', (data) => {
+      console.log('👁️ Spectator update:', data.spectatorList);
+      setState(prev => ({
+        ...prev,
+        spectators: data.spectatorList || []
+      }));
+    });
+
+    socket.on('spectated-player-disconnected', (data) => {
+      console.log('⚠️ Spectated player disconnected:', data.playerName);
+      // If we're spectating, show an alert and stop spectating
+      if (state.isSpectating) {
+        alert(`${data.playerName} has disconnected from the game.`);
+        handleStopSpectating();
+      }
+    });
+
     socket.on('returned-to-lobby', (data) => {
       console.log('🏠 Returned to lobby response:', data);
       if (data.success) {
@@ -1044,10 +1214,29 @@ function App() {
 
     socket.on('victory-points-update', (data) => {
       console.log('🏆 Received victory points update:', data);
-      setState(prev => ({
-        ...prev,
-        victoryPoints: data.totalVictoryPoints
-      }));
+      setState(prev => {
+        const oldVP = prev.victoryPoints;
+        const newVP = data.totalVictoryPoints;
+        const vpGained = data.pointsAwarded || (newVP - oldVP);
+        
+        // Update rewards data with VP information
+        setRewardsData(prevRewards => ({
+          oldXP: prevRewards?.oldXP || prev.user?.xp || 0,
+          newXP: prevRewards?.newXP || prev.user?.xp || 0,
+          xpGained: prevRewards?.xpGained || 0,
+          oldLevel: prevRewards?.oldLevel || prev.user?.level || 1,
+          newLevel: prevRewards?.newLevel || prev.user?.level || 1,
+          oldVictoryPoints: oldVP,
+          newVictoryPoints: newVP,
+          victoryPointsGained: vpGained,
+          leveledUp: prevRewards?.leveledUp || false
+        }));
+        
+        return {
+          ...prev,
+          victoryPoints: newVP
+        };
+      });
       
       // Show notification to user
       if (data.message) {
@@ -1055,6 +1244,44 @@ function App() {
         // Show alert for important victory point updates like survival abandon
         if (data.type === 'survival_abandon') {
           alert(`🏆 ${data.message}`);
+        }
+      }
+    });
+
+    socket.on('xp-update', (data) => {
+      console.log('⭐ Received XP update:', data);
+      setState(prev => {
+        const oldXP = prev.user?.xp || 0;
+        const oldLevel = prev.user?.level || 1;
+        
+        // Update rewards data with XP information
+        setRewardsData(prevRewards => ({
+          oldXP: oldXP,
+          newXP: data.newXP,
+          xpGained: data.xpGained,
+          oldLevel: oldLevel,
+          newLevel: data.newLevel,
+          oldVictoryPoints: prevRewards?.oldVictoryPoints || prev.victoryPoints,
+          newVictoryPoints: prevRewards?.newVictoryPoints || prev.victoryPoints,
+          victoryPointsGained: prevRewards?.victoryPointsGained || 0,
+          leveledUp: data.leveledUp || false
+        }));
+        
+        return {
+          ...prev,
+          user: prev.user ? {
+            ...prev.user,
+            xp: data.newXP,
+            level: data.newLevel
+          } : prev.user
+        };
+      });
+      
+      // Log XP gain for user visibility
+      if (data.xpGained) {
+        console.log(`✨ +${data.xpGained} XP! New total: ${data.newXP} XP (Level ${data.newLevel})`);
+        if (data.leveledUp) {
+          console.log(`🎉 LEVEL UP! You are now Level ${data.newLevel}!`);
         }
       }
     });
@@ -1163,6 +1390,9 @@ function App() {
     }
     
     console.log('🏠 Return to lobby requested, forceMainLobby:', forceMainLobby);
+    
+    // Clear rewards data when returning to lobby
+    setRewardsData(null);
     
     // Use the socket service to properly handle return to lobby
     socketService.returnToLobby();
@@ -1384,6 +1614,45 @@ function App() {
     }));
   };
 
+  const handleFavoritesChange = (favoriteHeroes: string[]) => {
+    setState(prev => {
+      if (!prev.user) return prev;
+      
+      return {
+        ...prev,
+        user: {
+          ...prev.user,
+          favorite_heroes: favoriteHeroes
+        }
+      };
+    });
+  };
+
+  // Spectator handlers
+  const handleSpectateGame = (gameId: string, spectatingPlayerId: string) => {
+    console.log('👁️ Attempting to spectate game:', gameId, 'player:', spectatingPlayerId);
+    socketService.spectateGame(gameId, spectatingPlayerId);
+  };
+
+  const handleSpectatePlayer = (_playerName: string) => {
+    // This is handled directly by FriendsOverlay calling socketService.spectateGame
+    // after receiving player-spectatable-result
+    // This function is kept for interface compatibility
+  };
+
+  const handleStopSpectating = () => {
+    console.log('👁️ Stopping spectation');
+    socketService.leaveSpectate();
+    setState(prev => ({
+      ...prev,
+      gameState: null,
+      isSpectating: false,
+      spectatingPlayerId: null,
+      spectators: [],
+      battleLog: []
+    }));
+  };
+
   const getCurrentPlayer = (): Player | null => {
     if (!state.gameState || !state.playerId) {
       return null;
@@ -1426,6 +1695,7 @@ function App() {
           onCancelSearch={handleCancelSurvivalSearch}
           isSearchingForMatch={isSearchingForSurvivalMatch}
           user={state.user}
+          rewardsData={rewardsData || undefined}
         />
       );
     }
@@ -1437,6 +1707,7 @@ function App() {
           onStartGame={handleJoinGame}
           onStartFriendlyGame={handleFriendlyGame}
           onStartSurvival={handleStartSurvival}
+          onSpectateGame={handleSpectateGame}
           victoryPoints={state.victoryPoints}
           user={state.user}
           onLogout={handleLogout}
@@ -1445,8 +1716,46 @@ function App() {
           onCancelSearch={handleCancelSearch}
           gameState={state.gameState}
           onCollectionStateChange={handleCollectionStateChange}
+          onFavoritesChange={handleFavoritesChange}
         />
       );
+    }
+
+    // Special handling for spectators
+    if (state.isSpectating && state.spectatingPlayerId) {
+      const spectatedPlayer = state.gameState.players.find(p => p.id === state.spectatingPlayerId);
+      const otherPlayer = state.gameState.players.find(p => p.id !== state.spectatingPlayerId) || null;
+      
+      if (!spectatedPlayer) {
+        return <div>Error: Could not find spectated player</div>;
+      }
+
+      // Route spectators directly to battle phase with the spectated player's perspective
+      if (state.gameState.phase === 'draft' || state.gameState.phase === 'setup') {
+        return <div>Waiting for battle to start...</div>;
+      }
+
+      if (state.gameState.phase === 'initiative' || state.gameState.phase === 'battle' || state.gameState.phase === 'ended') {
+        return (
+          <BattlePhase
+            gameState={state.gameState}
+            currentPlayer={spectatedPlayer}
+            opponent={otherPlayer}
+            playerId={state.spectatingPlayerId}
+            onReturnToLobby={handleReturnToLobby}
+            isSurvivalMode={state.isSurvivalMode}
+            isSpectating={true}
+            spectatingPlayerId={state.spectatingPlayerId}
+            onStopSpectating={handleStopSpectating}
+            spectators={state.spectators}
+            timekeeperAbilitySelection={state.timekeeperAbilitySelection}
+            onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
+            rewardsData={rewardsData || undefined}
+          />
+        );
+      }
+
+      return <div>Unknown game phase</div>;
     }
 
     const currentPlayer = getCurrentPlayer();
@@ -1479,8 +1788,13 @@ function App() {
             playerId={state.playerId!}
             onReturnToLobby={handleReturnToLobby}
             isSurvivalMode={state.isSurvivalMode}
+            isSpectating={state.isSpectating}
+            spectatingPlayerId={state.spectatingPlayerId || undefined}
+            onStopSpectating={handleStopSpectating}
+            spectators={state.spectators}
             timekeeperAbilitySelection={state.timekeeperAbilitySelection}
             onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
+            rewardsData={rewardsData || undefined}
           />
         );
 
@@ -1575,10 +1889,19 @@ function App() {
           {state.gameState.phase === 'battle' && (
             <div className="battle-combined-info">
               <h3>Battle</h3>
-              {currentPlayer && opponent && (
+              {((currentPlayer && opponent) || state.isSpectating) ? (
                 <>
                   <div className="turn-info">
                     {(() => {
+                      if (state.isSpectating) {
+                        // For spectators, show which player's turn it is
+                        const activePlayerIndex = state.gameState.currentTurn;
+                        const activePlayer = state.gameState.players[activePlayerIndex];
+                        return activePlayer ? (
+                          <div className="spectator-turn">👁️ Watching: {activePlayer.name}'s Turn</div>
+                        ) : null;
+                      }
+                      
                       const playerIndex = state.gameState.players.findIndex(p => p.id === state.playerId);
                       return state.gameState.currentTurn === playerIndex ? (
                         <div className="current-turn">🔥 Your Turn</div>
@@ -1663,7 +1986,7 @@ function App() {
                               ) : entry.action?.includes('stack') ? (
                                 // Buff/stack abilities
                                 <span className="buff">Effect applied successfully</span>
-                              ) : entry.action?.includes('applies') || entry.action?.includes('grants') ? (
+                              ) : (entry.action?.includes('applies') || entry.action?.includes('grants')) ? (
                                 // Other buffs/debuffs
                                 <span className="status">Status effect applied</span>
                               ) : entry.hit ? (
@@ -1695,7 +2018,7 @@ function App() {
                     </div>
                   </div>
                 </>
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -1758,6 +2081,7 @@ function App() {
             <FriendsOverlay
               onClose={handleToggleFriendsOverlay}
               onOpenMessage={handleOpenMessageChat}
+              onSpectatePlayer={handleSpectatePlayer}
               currentUserId={state.user!.id}
             />
           )}

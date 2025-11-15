@@ -216,13 +216,15 @@ class GameManager {
       mode: mode, // 'draft' or 'random'
       phase: 'waiting', // waiting, draft, battle, ended
       players: [],
+      spectators: [], // Array of { socketId, username, spectatingPlayerId }
       draftCards: null,
       currentDraftPhase: 0, // 0: ban, 1-3: pick rounds
       draftTurn: 0, // whose turn to draft
       currentTurn: 0, // whose turn in battle
       currentHeroTurn: 0, // which hero is acting
       winner: null,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      roomName: null // For friendly battles
     };
   }
 
@@ -508,13 +510,13 @@ class GameManager {
       return { success: false, error: 'Game not found' };
     }
 
-    // Randomly assign heroes with weighted selection favoring newer heroes
-    const shuffledHeroes = weightedShuffle([...this.heroes], ['Silencer', 'Brawler', 'Reaper', 'Plague Spreader', 'Dual Defender', 'Swordsman', 'Ace', 'Elementalist']);
+    // Randomly assign heroes with equal probability
+    const shuffledHeroes = shuffle([...this.heroes]);
     
     // Select 6 heroes for both players (no additional shuffling needed)
     const selectedHeroes = shuffledHeroes.slice(0, 6);
     
-    // Give each player 3 heroes with weighted selection - properly reset each hero
+    // Give each player 3 heroes - properly reset each hero
     game.players[0].team = selectedHeroes.slice(0, 3).map(hero => this.resetHeroToOriginalState(hero));
     game.players[1].team = selectedHeroes.slice(3, 6).map(hero => this.resetHeroToOriginalState(hero));
 
@@ -578,8 +580,8 @@ class GameManager {
     const firstHero = firstPlayer.team[0];
     this.processTurnStartEffects(game, firstHero, firstPlayer);
 
-    console.log('Random mode started with weighted selection (favoring 7 new heroes + Silencer) - Player 1 heroes:', game.players[0].team.map(h => h.name));
-    console.log('Random mode started with weighted selection (favoring 7 new heroes + Silencer) - Player 2 heroes:', game.players[1].team.map(h => h.name));
+    console.log('Random mode started - Player 1 heroes:', game.players[0].team.map(h => h.name));
+    console.log('Random mode started - Player 2 heroes:', game.players[1].team.map(h => h.name));
     console.log('Initiative rolls - Player 1:', player1Roll, 'Player 2:', player2Roll);
     console.log('First player:', firstPlayerIndex, 'Battle phase ready!');
 
@@ -679,16 +681,12 @@ class GameManager {
     let newHands = null;
     if (bothPicked) {
       if (game.currentDraftPhase === 3) {
-        // Draft complete - auto roll initiative
-        game.phase = 'initiative';
-        console.log('Draft complete! Auto-rolling initiative...');
+        // Draft complete - transition to setup phase for hero reordering
+        game.phase = 'setup';
+        console.log('Draft complete! Moving to Setup Phase for hero reordering...');
         
-        // Auto-roll initiative for both players
-        const { rollDice } = require('./utils');
-        game.players[0].initiativeRoll = rollDice(20);
-        game.players[1].initiativeRoll = rollDice(20);
-        
-        console.log(`Initiative rolls: Player 1: ${game.players[0].initiativeRoll}, Player 2: ${game.players[1].initiativeRoll}`);
+        // Initialize isReady flag for both players
+        game.players.forEach(p => p.isReady = false);
       } else {
         // Switch hands and continue to next round
         const temp = game.players[0].draftCards;
@@ -778,11 +776,48 @@ class GameManager {
 
     player.team = orderedTeam;
     player.attackOrder = heroOrder;
+    player.isReady = true; // Mark player as ready
 
-    // Check if both players set order
-    const bothReady = game.players.every(p => p.attackOrder.length === 3);
+    // Check if both players are ready
+    const bothReady = game.players.every(p => p.isReady === true);
+    
+    let initiativeData = null;
     if (bothReady) {
+      // Both players have set their order - transition to initiative phase
       game.phase = 'initiative';
+      
+      // Auto-roll initiative for both players
+      game.players[0].initiativeRoll = rollDice(20);
+      game.players[1].initiativeRoll = rollDice(20);
+      
+      console.log('Both players ready! Auto-rolling initiative...');
+      console.log(`Initiative rolls: Player 1: ${game.players[0].initiativeRoll}, Player 2: ${game.players[1].initiativeRoll}`);
+      
+      // Prepare initiative data
+      const player1Roll = game.players[0].initiativeRoll;
+      const player2Roll = game.players[1].initiativeRoll;
+      
+      if (player1Roll !== player2Roll) {
+        const winner = player1Roll > player2Roll ? game.players[0] : game.players[1];
+        initiativeData = {
+          rolls: { player1: player1Roll, player2: player2Roll },
+          winner: winner.id,
+          needsChoice: true
+        };
+      } else {
+        // Tie - reroll automatically
+        game.players[0].initiativeRoll = rollDice(20);
+        game.players[1].initiativeRoll = rollDice(20);
+        console.log('Initiative tie! Rerolling...');
+        const newPlayer1Roll = game.players[0].initiativeRoll;
+        const newPlayer2Roll = game.players[1].initiativeRoll;
+        const newWinner = newPlayer1Roll > newPlayer2Roll ? game.players[0] : game.players[1];
+        initiativeData = {
+          rolls: { player1: newPlayer1Roll, player2: newPlayer2Roll },
+          winner: newWinner.id,
+          needsChoice: true
+        };
+      }
     }
 
     return {
@@ -790,6 +825,8 @@ class GameManager {
       gameId,
       bothReady,
       phase: game.phase,
+      isReady: player.isReady,
+      initiative: initiativeData,
       gameState: this.getFullGameState(game)
     };
   }
@@ -1047,35 +1084,28 @@ class GameManager {
     targets.forEach(target => {
       // Handle special effect types
       if (effect.effect === 'set_defense_to_self') {
-        // Dual Defender's Defense sharing - copy the Dual Defender's BASE Defense (not modified Defense) as the ally's new base Defense
+        // Dual Defender's Defense sharing - copy the Dual Defender's CURRENT Defense (including any buffs) to the ally
         if (!target.originalDefense && !target.sharedDefense) {
           target.originalDefense = target.Defense !== undefined ? target.Defense : target.AC; // Store original Defense for restoration when Dual Defender dies
         }
-        // Use the Dual Defender's original base Defense, not the modified Defense (to avoid double-applying debuffs)
-        const sourceBaseDefense = sourceHero.originalDefense || sourceHero.Defense || sourceHero.AC;
+        // Use the Dual Defender's current modified Defense (includes buffs from other sources like Shaman)
+        const sourceDefense = sourceHero.modifiedDefense || sourceHero.Defense || sourceHero.AC;
         if (target.Defense !== undefined) {
-          target.Defense = sourceBaseDefense; // Set as new base Defense
+          target.Defense = sourceDefense; // Set as new base Defense
         } else {
-          target.AC = sourceBaseDefense; // Fallback for legacy AC
+          target.AC = sourceDefense; // Fallback for legacy AC
         }
-        target.modifiedDefense = sourceBaseDefense; // Also update display (will be modified by other effects later)
+        target.modifiedDefense = sourceDefense; // Also update display (will be modified by other effects later)
         target.sharedDefense = {
           source: sourceHero.name,
           originalDefense: target.originalDefense,
-          sharedValue: sourceBaseDefense
+          sharedValue: sourceDefense
         };
         
-        // Add a passive buff entry for visual display (blue glow effect)
-        if (!target.passiveBuffs) target.passiveBuffs = [];
-        target.passiveBuffs.push({
-          sourceHero: sourceHero.name,
-          sourceName: special.name,
-          stat: 'Defense',
-          value: sourceBaseDefense - target.originalDefense, // Show the difference
-          permanent: false // Aura effect, not permanent
-        });
+        // NOTE: Do NOT add a passive buff entry for defense sharing
+        // The defense replacement is already handled in updateHeroDisplayStats by checking sharedDefense
         
-        console.log(`🛡️ ${sourceHero.name}'s ${special.name}: ${target.name}'s base Defense changed from ${target.originalDefense} to ${sourceBaseDefense} (copied from ${sourceHero.name}'s original Defense)`);
+        console.log(`🛡️ ${sourceHero.name}'s ${special.name}: ${target.name}'s base Defense changed from ${target.originalDefense} to ${sourceDefense} (copied from ${sourceHero.name}'s Defense)`);
         this.updateHeroDisplayStats(target);
       } else {
         // Regular aura buff
@@ -1308,11 +1338,24 @@ class GameManager {
       console.log(`🌪️ ${hero.name} Defense from Wind Wall: ${hero.modifiedDefense - windWallBonus} → ${hero.modifiedDefense} (Wind Wall: +${windWallBonus})`);
     }
 
-    // Update damage display for scaling buffs (Champion's Last Stand)
+    // Update damage display for scaling buffs (Champion's Last Stand and Hoarder's Collect Weapons)
     if (hero.scalingBuffs && hero.scalingBuffs.damage) {
       const scalingDamageBonus = hero.scalingBuffs.damage;
       hero.modifiedBasicAttack = `${hero.BasicAttack} +${scalingDamageBonus}D6`;
       console.log(`⚔️ ${hero.name} damage: ${hero.BasicAttack} → ${hero.modifiedBasicAttack} (scaling: +${scalingDamageBonus}D6)`);
+    }
+    
+    // Update damage display for Hoarder's collected dice
+    if (hero.scalingBuffs && hero.scalingBuffs.collectedDice && hero.scalingBuffs.collectedDice.length > 0) {
+      const collectedDiceString = hero.scalingBuffs.collectedDice.map(c => c.dice).join(' +');
+      if (hero.modifiedBasicAttack) {
+        // Already has scaling damage, append collected dice
+        hero.modifiedBasicAttack = `${hero.modifiedBasicAttack} +${collectedDiceString}`;
+      } else {
+        hero.modifiedBasicAttack = `${hero.BasicAttack} +${collectedDiceString}`;
+      }
+      console.log(`💰 ${hero.name} collected weapons: ${hero.scalingBuffs.collectedDice.length} sets of dice from fallen heroes`);
+      console.log(`⚔️ ${hero.name} total damage: ${hero.modifiedBasicAttack}`);
     }
 
     // Apply Defense buffs/debuffs from passive effects (like Reaper's Aura of Dread)
@@ -1735,7 +1778,99 @@ class GameManager {
           }
         }
       });
+      
+      // Check for Hoarder's Collect Weapons - copy attack dice from any fallen hero (not just allies)
+      deadHeroTeam.forEach(hero => {
+        if (hero.currentHP > 0 && hero.name === 'Hoarder' && hero.Special) {
+          const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
+          const collectWeaponsSpecial = specials.find(special => 
+            special.name === 'Collect Weapons' && special.trigger === 'on_any_death'
+          );
+          
+          if (collectWeaponsSpecial && deadHero.name !== 'Hoarder') {
+            console.log(`💰 ${hero.name}'s Collect Weapons: ${deadHero.name} has fallen!`);
+            
+            // Initialize scaling buffs if not present
+            if (!hero.scalingBuffs) {
+              hero.scalingBuffs = {};
+            }
+            if (!hero.scalingBuffs.collectedDice) {
+              hero.scalingBuffs.collectedDice = [];
+            }
+            
+            // Get the dead hero's current attack dice (including any buffs like Champion's stacks)
+            let attackDice = deadHero.BasicAttack;
+            
+            // If the dead hero has scaling damage buffs (like Champion with Last Stand), include them
+            if (deadHero.scalingBuffs && deadHero.scalingBuffs.damage) {
+              const bonusDice = deadHero.scalingBuffs.damage;
+              console.log(`  💎 ${deadHero.name} had +${bonusDice}D6 from scaling buffs - Hoarder copies all dice!`);
+              // Add the bonus dice to the base attack
+              attackDice = `${attackDice}+${bonusDice}D6`;
+            }
+            
+            // Store the collected dice
+            hero.scalingBuffs.collectedDice.push({
+              from: deadHero.name,
+              dice: attackDice,
+              timestamp: Date.now()
+            });
+            
+            console.log(`  ⚔️ ${hero.name} collects ${attackDice} from ${deadHero.name}! Total collected: ${hero.scalingBuffs.collectedDice.length}`);
+            
+            // Update hero's display stats to show the new damage
+            this.updateHeroDisplayStats(hero);
+          }
+        }
+      });
     }
+    
+    // Also check opponent's team for Hoarder (cross-team collection)
+    game.players.forEach(player => {
+      player.team.forEach(hero => {
+        if (hero.currentHP > 0 && hero.name === 'Hoarder' && hero.Special) {
+          const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
+          const collectWeaponsSpecial = specials.find(special => 
+            special.name === 'Collect Weapons' && special.trigger === 'on_any_death'
+          );
+          
+          if (collectWeaponsSpecial && deadHero.name !== 'Hoarder' && hero !== deadHero && !deadHeroTeam.includes(hero)) {
+            console.log(`💰 ${hero.name}'s Collect Weapons: Enemy ${deadHero.name} has fallen!`);
+            
+            // Initialize scaling buffs if not present
+            if (!hero.scalingBuffs) {
+              hero.scalingBuffs = {};
+            }
+            if (!hero.scalingBuffs.collectedDice) {
+              hero.scalingBuffs.collectedDice = [];
+            }
+            
+            // Get the dead hero's current attack dice (including any buffs like Champion's stacks)
+            let attackDice = deadHero.BasicAttack;
+            
+            // If the dead hero has scaling damage buffs (like Champion with Last Stand), include them
+            if (deadHero.scalingBuffs && deadHero.scalingBuffs.damage) {
+              const bonusDice = deadHero.scalingBuffs.damage;
+              console.log(`  💎 ${deadHero.name} had +${bonusDice}D6 from scaling buffs - Hoarder copies all dice!`);
+              // Add the bonus dice to the base attack
+              attackDice = `${attackDice}+${bonusDice}D6`;
+            }
+            
+            // Store the collected dice
+            hero.scalingBuffs.collectedDice.push({
+              from: deadHero.name,
+              dice: attackDice,
+              timestamp: Date.now()
+            });
+            
+            console.log(`  ⚔️ ${hero.name} collects ${attackDice} from ${deadHero.name}! Total collected: ${hero.scalingBuffs.collectedDice.length}`);
+            
+            // Update hero's display stats to show the new damage
+            this.updateHeroDisplayStats(hero);
+          }
+        }
+      });
+    });
     
     game.players.forEach(player => {
       player.team.forEach(hero => {
@@ -1892,6 +2027,9 @@ class GameManager {
     
     const hit = attackRoll.total >= calculateEffectiveDefense(target);
     
+    // Initialize statusEffects array early to collect all special effects
+    let statusEffects = [];
+    
     // Check for Monk's Deflect protection before damage is dealt
     let monkDeflected = false;
     let deflectCounterDamage = 0;
@@ -1944,10 +2082,9 @@ class GameManager {
     
     let damage = 0;
     let damageRollResult = null;
-    let statusEffects = [];
     
     if (hit && !monkDeflected) {
-      damageRollResult = calculateDamage(currentHero.BasicAttack, attackRoll.isCritical, false, currentHero);
+      damageRollResult = calculateDamage(currentHero.BasicAttack, attackRoll.isCritical, false, currentHero, true);
       damage = damageRollResult.total;
       
       // Process damage reduction specials (like Wizard's Arcane Shield)
@@ -2116,6 +2253,19 @@ class GameManager {
 
     // Get the ability first
     const ability = currentHero.Ability[abilityIndex];
+    
+    // Check Hoarder's custom silence - prevent using abilities against Hoarder if debuffed
+    if (currentHero.statusEffects?.cannotTargetWithAbility) {
+      const debuff = currentHero.statusEffects.cannotTargetWithAbility;
+      // Check if trying to target the Hoarder who applied the debuff
+      const opponent = game.players[1 - currentTurnInfo.playerIndex];
+      const targetHero = opponent.team.find(h => h.name === targetId) || 
+                        player.team.find(h => h.name === targetId);
+      
+      if (targetHero && targetHero.name === debuff.owner) {
+        return { success: false, error: `Cannot use abilities against ${debuff.owner} (Bribed)` };
+      }
+    }
     
     // Check if already used ability (unless hero can use multiple)
     const canUseTwice = hasSpecialEffect(currentHero, 'use_ability_twice') || 
@@ -2770,6 +2920,13 @@ class GameManager {
               console.log(`⚔️ Conditional damage bonus: +${bonusDamageRoll.total} (${conditionText})${attackRoll?.isCritical ? ' [CRIT]' : ''}`);
             }
             
+            // Check for crit bonus damage (like Ace's Stacked Deck +1D6 on crit)
+            if (attackRoll?.isCritical && ability.crit_bonus) {
+              const critBonusDamageRoll = calculateDamage(ability.crit_bonus.value, true, false, caster);
+              damage += critBonusDamageRoll.total;
+              console.log(`🎲 Crit bonus damage: +${critBonusDamageRoll.total} [CRIT]`);
+            }
+            
             const oldHP = target.currentHP;
             
             // Process damage reduction specials (like Wizard's Arcane Shield)
@@ -3143,7 +3300,18 @@ class GameManager {
               }
               console.log(`💀 Applying ${damageDealt} poison stacks to ${target.name} (matching damage dealt)`);
               applyStatusEffect(target, effect.effect, damageDealt, effect.duration);
-            } else {
+            }
+            // Special handling for Hoarder's custom silence - prevent abilities against owner
+            else if (effect.effect === 'cannot_target_owner_with_ability') {
+              target.statusEffects.cannotTargetWithAbility = {
+                owner: effect.owner || caster.name,
+                duration: effect.duration || 1,
+                duration_unit: effect.duration_unit || 'caster_turn',
+                source: caster.name
+              };
+              console.log(`🤐 ${target.name} cannot use abilities against ${effect.owner || caster.name} (Bribed until start of their next turn)`);
+            }
+            else {
               applyStatusEffect(target, effect.effect, effectValue, effect.duration);
             }
             
@@ -3630,6 +3798,19 @@ class GameManager {
       this.updateHeroDisplayStats(hero);
     }
     
+    // Clean up Hoarder's custom silence debuff at the start of Hoarder's turn
+    if (hero.name === 'Hoarder') {
+      game.players.forEach(p => {
+        p.team.forEach(h => {
+          if (h.statusEffects?.cannotTargetWithAbility && 
+              h.statusEffects.cannotTargetWithAbility.owner === 'Hoarder') {
+            console.log(`🤐 ${h.name} can now use abilities against Hoarder (Bribe expired)`);
+            delete h.statusEffects.cannotTargetWithAbility;
+          }
+        });
+      });
+    }
+    
     if (!hero || !hero.Special) return;
     
     const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
@@ -3688,10 +3869,10 @@ class GameManager {
             // Add comprehensive special log entry for turn start effect
             if (damageResults.length > 0) {
               const turnStartLogEntry = this.createSpecialLogEntry(
-                special.name, 
                 hero, 
-                null, // Multi-target ability
-                'activated at turn start', 
+                special.name, 
+                { triggeredBy: 'turn start' }, // Multi-target ability
+                null, // No attack roll for automatic damage
                 damageResults
               );
               
@@ -4106,6 +4287,215 @@ class GameManager {
     return { valid: true };
   }
 
+  activateSpecial(playerId) {
+    const gameId = this.playerGameMap.get(playerId);
+    const game = this.games.get(gameId);
+    
+    if (!game || game.phase !== 'battle') {
+      return { success: false, error: 'Invalid game state for special activation' };
+    }
+
+    const currentTurnInfo = this.getCurrentTurnInfo(game);
+    if (!currentTurnInfo || currentTurnInfo.player.id !== playerId) {
+      return { success: false, error: 'Not your turn' };
+    }
+
+    const player = currentTurnInfo.player;
+    const currentHero = currentTurnInfo.hero;
+    
+    if (!currentHero || !currentHero.Special) {
+      return { success: false, error: 'Hero has no special ability' };
+    }
+
+    // Check if the special is an activated type
+    const special = Array.isArray(currentHero.Special) 
+      ? currentHero.Special.find(s => s.category === 'activated_aoe')
+      : (currentHero.Special.category === 'activated_aoe' ? currentHero.Special : null);
+    
+    if (!special) {
+      return { success: false, error: 'Special ability is not manually activatable' };
+    }
+
+    // Check if already used (at hero level, persists through resurrection)
+    if (!currentHero.permanentDisables) {
+      currentHero.permanentDisables = {};
+    }
+    
+    if (currentHero.permanentDisables.special) {
+      return { success: false, error: 'Special ability already used this battle' };
+    }
+
+    console.log(`💥 ${currentHero.name} activating ${special.name}!`);
+
+    const opponent = game.players[1 - currentTurnInfo.playerIndex];
+    const results = [];
+
+    // Initialize battle log if it doesn't exist
+    if (!game.battleLog) {
+      game.battleLog = [];
+    }
+
+    // Process the special ability effects
+    for (const effect of special.effects || []) {
+      if (effect.type === 'damage' && effect.target === 'all_heroes') {
+        // Mech's Self Destruct - deal damage to ALL heroes (both teams)
+        const { rollDiceString } = require('./utils');
+        
+        console.log(`💥 ${special.name}: Rolling damage for all heroes`);
+        
+        // Add initial activation log entry with source field for frontend
+        game.battleLog.push({
+          type: 'special_activation',
+          caster: currentHero.name,
+          source: currentHero.name,
+          specialName: special.name,
+          message: `${currentHero.name} used ${special.name}!`
+        });
+        
+        // Deal damage to all heroes on both teams
+        game.players.forEach((targetPlayer, playerIndex) => {
+          targetPlayer.team.forEach(target => {
+            if (target.currentHP > 0) {
+              // Roll attack for this target (each hero gets their own attack roll)
+              const advantageDisadvantage = this.hasAdvantageDisadvantage(currentHero, target, false, game);
+              const attackRoll = calculateAttackRoll(currentHero.modifiedAccuracy, advantageDisadvantage.advantage, advantageDisadvantage.disadvantage, currentHero);
+              const hit = attackRoll.total >= calculateEffectiveDefense(target);
+              
+              console.log(`💥 ${special.name} targeting ${target.name}: Roll ${attackRoll.roll}+${currentHero.modifiedAccuracy} = ${attackRoll.total} vs AC ${calculateEffectiveDefense(target)} → ${hit ? 'HIT' : 'MISS'}`);
+              
+              let finalDamage = 0;
+              let damageRoll = null;
+              
+              if (hit) {
+                damageRoll = rollDiceString(effect.value);
+                const damage = damageRoll.total;
+                const oldHP = target.currentHP;
+                
+                // Process damage reduction specials (like Wizard's Arcane Shield)
+                const damageReductionResult = this.processDamageReductionSpecials(game, target, currentHero, damage);
+                finalDamage = damageReductionResult.finalDamage;
+                
+                target.currentHP = Math.max(0, target.currentHP - finalDamage);
+                
+                console.log(`💥 ${target.name} takes ${finalDamage} damage from ${special.name}: ${oldHP} → ${target.currentHP} HP`);
+                
+                // Add individual damage log entry for this hero
+                game.battleLog.push({
+                  type: 'damage',
+                  source: currentHero.name,
+                  target: target.name,
+                  damage: finalDamage,
+                  damageRoll: damageRoll,
+                  attackRoll: attackRoll.roll,
+                  attackTotal: attackRoll.total,
+                  targetDefense: calculateEffectiveDefense(target),
+                  accuracy: currentHero.modifiedAccuracy,
+                  hit: true,
+                  isCritical: attackRoll.isCritical || false,
+                  newHP: target.currentHP,
+                  maxHP: target.HP,
+                  message: `${special.name} deals ${finalDamage} damage to ${target.name}`
+                });
+                
+                results.push({
+                  type: 'damage',
+                  target: target.name,
+                  damage: finalDamage,
+                  damageRoll: damageRoll,
+                  attackRoll: attackRoll.roll,
+                  attackTotal: attackRoll.total,
+                  newHP: target.currentHP,
+                  maxHP: target.HP,
+                  hit: true,
+                  isCritical: attackRoll.isCritical || false,
+                  message: `${special.name} deals ${finalDamage} damage to ${target.name}`
+                });
+                
+                // Check if target died
+                if (target.currentHP === 0) {
+                  console.log(`💀 ${target.name} died from ${special.name}!`);
+                  this.updatePassiveEffectsOnDeath(game, target, currentHero, 'special_damage');
+                }
+              } else {
+                // Miss - add log entry
+                console.log(`💥 ${special.name} missed ${target.name}`);
+                
+                game.battleLog.push({
+                  type: 'miss',
+                  source: currentHero.name,
+                  target: target.name,
+                  attackRoll: attackRoll.roll,
+                  attackTotal: attackRoll.total,
+                  targetDefense: calculateEffectiveDefense(target),
+                  accuracy: currentHero.modifiedAccuracy,
+                  hit: false,
+                  message: `${special.name} missed ${target.name}`
+                });
+                
+                results.push({
+                  type: 'miss',
+                  target: target.name,
+                  attackRoll: attackRoll.roll,
+                  attackTotal: attackRoll.total,
+                  hit: false,
+                  message: `${special.name} missed ${target.name}`
+                });
+              }
+            }
+          });
+        });
+
+        // If the special has a self-destruct cost, kill the caster
+        if (effect.cost?.type === 'self_destruct') {
+          console.log(`💥 ${currentHero.name} self-destructs!`);
+          currentHero.currentHP = 0;
+          
+          this.updatePassiveEffectsOnDeath(game, currentHero, null, 'self_destruct');
+        }
+      }
+    }
+
+    // Mark special as permanently used (persists through resurrection)
+    currentHero.permanentDisables.special = true;
+    player.hasUsedSpecial = true;
+
+    // Check if the current hero died from self-destruct
+    if (currentHero.currentHP === 0) {
+      // Check for game over condition first
+      const winner = this.checkWinCondition(game);
+      if (winner) {
+        game.phase = 'ended';
+        game.winner = winner;
+        return {
+          success: true,
+          gameId,
+          results,
+          gameState: this.getFullGameState(game)
+        };
+      }
+      
+      // Advance to next player's turn since current hero died
+      const nextTurnInfo = this.advanceToNextValidTurn(game);
+      if (nextTurnInfo) {
+        game.currentTurn = nextTurnInfo.playerIndex;
+      }
+    } else {
+      // Check for game over condition
+      const winner = this.checkWinCondition(game);
+      if (winner) {
+        game.phase = 'ended';
+        game.winner = winner;
+      }
+    }
+
+    return {
+      success: true,
+      gameId,
+      results,
+      gameState: this.getFullGameState(game)
+    };
+  }
+
   endTurn(playerId) {
     const gameId = this.playerGameMap.get(playerId);
     const game = this.games.get(gameId);
@@ -4463,8 +4853,8 @@ class GameManager {
     const bannedCards = game.players.map(p => p.bannedCard).filter(Boolean);
     const availableHeroes = this.heroes.filter(hero => !bannedCards.includes(hero.name));
     
-    // Use weighted shuffle to favor newer heroes (for random mode)
-    const shuffled = weightedShuffle(availableHeroes, ['Silencer', 'Brawler', 'Reaper', 'Plague Spreader', 'Dual Defender', 'Swordsman', 'Ace', 'Elementalist']);
+    // Use regular shuffle for equal probability
+    const shuffled = shuffle(availableHeroes);
     
     // Assign 3 random heroes to each player - properly reset each hero
     game.players[0].team = shuffled.slice(0, 3).map(hero => this.resetHeroToOriginalState(hero));
@@ -4478,7 +4868,7 @@ class GameManager {
     game.phase = 'initiative';
     game.currentDraftPhase = 3;
     
-    console.log('Auto-draft completed with weighted selection (favoring 7 new heroes + Silencer):', {
+    console.log('Auto-draft completed:', {
       player1Team: game.players[0].team.map(h => h.name),
       player2Team: game.players[1].team.map(h => h.name)
     });
@@ -4487,7 +4877,7 @@ class GameManager {
       success: true,
       gameId,
       gameState: this.getFullGameState(game),
-      message: 'Auto-draft completed! Teams assigned with weighted selection favoring newer heroes.'
+      message: 'Auto-draft completed! Teams assigned randomly.'
     };
   }
 
@@ -4540,7 +4930,8 @@ class GameManager {
         attackOrder: p.attackOrder || [],
         initiativeRoll: p.initiativeRoll,
         monkAttacksRemaining: p.monkAttacksRemaining || 0,
-        oneTwoPunchAttacksRemaining: p.oneTwoPunchAttacksRemaining || 0
+        oneTwoPunchAttacksRemaining: p.oneTwoPunchAttacksRemaining || 0,
+        profile_icon: p.profile_icon || 'Sorcerer'
       })),
       currentTurn: game.currentTurn,
       currentHeroTurn: game.currentHeroTurn || 0,
@@ -4552,7 +4943,8 @@ class GameManager {
       currentDraftPhase: game.currentDraftPhase || 0,
       draftTurn: game.draftTurn || 0,
       winner: game.winner,
-      draftCards: game.draftCards
+      draftCards: game.draftCards,
+      battleLog: game.battleLog || [] // Include battle log for spectators and reconnection
     };
   }
 
@@ -4627,9 +5019,9 @@ class GameManager {
     
     for (const special of specials) {
       // Check for Wizard's Arcane Shield
-      if (special.trigger === 'on_take_damage_gt_6' && special.name === 'Arcane Shield') {
-        // Check if damage is greater than 6 and shield hasn't been used
-        if (damage > 6 && !target.statusEffects?.arcaneShieldUsed) {
+      if (special.trigger === 'on_take_damage_gt_5' && special.name === 'Arcane Shield') {
+        // Check if damage is greater than 5 and shield hasn't been used
+        if (damage > 5 && !target.statusEffects?.arcaneShieldUsed) {
           console.log(`🛡️ ${target.name}'s ${special.name} activated! Damage ${damage} reduced to 0`);
           
           // Mark shield as used for the battle
@@ -5678,6 +6070,194 @@ class GameManager {
       success: true, 
       preservedSurvivalState: preservedState 
     };
+  }
+
+  // ==================== SPECTATOR METHODS ====================
+
+  /**
+   * Add a spectator to a game
+   * @param {string} spectatorSocketId - The socket ID of the spectator
+   * @param {string} spectatorUsername - The username of the spectator
+   * @param {string} gameId - The game ID to spectate
+   * @param {string} spectatingPlayerId - The player ID whose perspective to view
+   * @returns {Object} - Result with success flag and game state or error message
+   */
+  addSpectator(spectatorSocketId, spectatorUsername, gameId, spectatingPlayerId) {
+    const game = this.games.get(gameId);
+    
+    if (!game) {
+      return { success: false, error: 'Game not found' };
+    }
+
+    // Check if game is in a spectatable phase (battle or ended, not draft/waiting)
+    if (game.phase === 'draft' || game.phase === 'waiting' || game.phase === 'setup' || game.phase === 'initiative') {
+      return { success: false, error: 'Cannot spectate games during draft phase' };
+    }
+
+    // Check spectator limit
+    if (!game.spectators) {
+      game.spectators = [];
+    }
+
+    if (game.spectators.length >= 20) {
+      return { success: false, error: 'Spectator limit reached (20 max)' };
+    }
+
+    // Check if player being spectated exists in the game
+    const playerExists = game.players.some(p => p.id === spectatingPlayerId);
+    if (!playerExists) {
+      return { success: false, error: 'Player not found in this game' };
+    }
+
+    // Check if already spectating
+    const alreadySpectating = game.spectators.some(s => s.socketId === spectatorSocketId);
+    if (alreadySpectating) {
+      return { success: false, error: 'Already spectating this game' };
+    }
+
+    // Add spectator
+    game.spectators.push({
+      socketId: spectatorSocketId,
+      username: spectatorUsername,
+      spectatingPlayerId: spectatingPlayerId
+    });
+
+    console.log(`👁️ ${spectatorUsername} started spectating game ${gameId} (watching ${spectatingPlayerId}). Total spectators: ${game.spectators.length}`);
+
+    return {
+      success: true,
+      gameId: gameId,
+      gameState: this.getFullGameState(game),
+      spectatingPlayerId: spectatingPlayerId,
+      spectatorCount: game.spectators.length,
+      spectatorList: game.spectators // Send full spectator objects with socketId, username, spectatingPlayerId
+    };
+  }
+
+  /**
+   * Remove a spectator from a game
+   * @param {string} spectatorSocketId - The socket ID of the spectator to remove
+   * @returns {Object} - Result with success flag
+   */
+  removeSpectator(spectatorSocketId) {
+    // Find which game the spectator is in
+    for (const [gameId, game] of this.games.entries()) {
+      if (!game.spectators) continue;
+
+      const spectatorIndex = game.spectators.findIndex(s => s.socketId === spectatorSocketId);
+      if (spectatorIndex !== -1) {
+        const spectator = game.spectators[spectatorIndex];
+        game.spectators.splice(spectatorIndex, 1);
+        
+        console.log(`👁️ ${spectator.username} stopped spectating game ${gameId}. Remaining spectators: ${game.spectators.length}`);
+
+        return {
+          success: true,
+          gameId: gameId,
+          spectatorCount: game.spectators.length,
+          spectatorList: game.spectators // Send full spectator objects
+        };
+      }
+    }
+
+    return { success: false, error: 'Not currently spectating any game' };
+  }
+
+  /**
+   * Get list of all spectatable games
+   * @returns {Array} - Array of spectatable game info
+   */
+  getSpectatableGames() {
+    const spectatableGames = [];
+
+    for (const [gameId, game] of this.games.entries()) {
+      // Only include games that are in battle or ended phase (not draft/waiting)
+      if (game.phase === 'battle' || game.phase === 'ended') {
+        spectatableGames.push({
+          gameId: gameId,
+          mode: game.mode,
+          phase: game.phase,
+          roomName: game.roomName || null,
+          players: game.players.map(p => ({
+            id: p.id,
+            name: p.name
+          })),
+          spectatorCount: game.spectators ? game.spectators.length : 0,
+          maxSpectators: 20
+        });
+      }
+    }
+
+    return spectatableGames;
+  }
+
+  /**
+   * Check if a player is currently in a spectatable game
+   * @param {string} playerId - The player ID to check
+   * @returns {Object|null} - Game info if player is in a spectatable game, null otherwise
+   */
+  getPlayerSpectatableGame(playerId) {
+    const gameId = this.playerGameMap.get(playerId);
+    if (!gameId) return null;
+
+    const game = this.games.get(gameId);
+    if (!game) return null;
+
+    // Only return if game is spectatable (battle or ended phase)
+    if (game.phase !== 'battle' && game.phase !== 'ended') {
+      return null;
+    }
+
+    return {
+      gameId: gameId,
+      mode: game.mode,
+      phase: game.phase,
+      roomName: game.roomName || null,
+      players: game.players.map(p => ({
+        id: p.id,
+        name: p.name
+      })),
+      spectatorCount: game.spectators ? game.spectators.length : 0,
+      maxSpectators: 20
+    };
+  }
+
+  /**
+   * Get spectator count and list for a game
+   * @param {string} gameId - The game ID
+   * @returns {Object} - Spectator count and list
+   */
+  getSpectatorInfo(gameId) {
+    const game = this.games.get(gameId);
+    if (!game || !game.spectators) {
+      return { count: 0, list: [] };
+    }
+
+    return {
+      count: game.spectators.length,
+      list: game.spectators.map(s => s.username)
+    };
+  }
+
+  /**
+   * Check if a socket is spectating
+   * @param {string} socketId - The socket ID to check
+   * @returns {Object|null} - Spectator info if spectating, null otherwise
+   */
+  isSpectating(socketId) {
+    for (const [gameId, game] of this.games.entries()) {
+      if (!game.spectators) continue;
+
+      const spectator = game.spectators.find(s => s.socketId === socketId);
+      if (spectator) {
+        return {
+          gameId: gameId,
+          spectatingPlayerId: spectator.spectatingPlayerId,
+          username: spectator.username
+        };
+      }
+    }
+    return null;
   }
 }
 

@@ -1,0 +1,272 @@
+/* SpectatorView.css */
+
+.spectator-view {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.spectator-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.spectator-view-header h3 {
+  color: #fff;
+  font-size: 24px;
+  margin: 0;
+}
+
+.spectator-view-header .close-button {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 32px;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.spectator-view-header .close-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: rotate(90deg);
+}
+
+.spectator-view-loading {
+  text-align: center;
+  padding: 40px;
+  color: #aaa;
+}
+
+.spectator-view-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Search Filters */
+.spectator-filters {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.filter-input {
+  padding: 10px 15px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #4a90e2;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.filter-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Games List */
+.spectator-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+/* Custom scrollbar */
+.spectator-games-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.spectator-games-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.spectator-games-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.spectator-games-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.no-games-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #aaa;
+  font-size: 16px;
+}
+
+/* Game Card */
+.spectator-game-card {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 15px;
+  transition: all 0.2s ease;
+}
+
+.spectator-game-card:hover {
+  border-color: rgba(74, 144, 226, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
+}
+
+.game-card-header {
+  margin-bottom: 15px;
+}
+
+.game-info h4 {
+  color: #fff;
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+
+.game-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.game-mode,
+.game-phase,
+.spectator-count {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.game-mode {
+  background: rgba(74, 144, 226, 0.2);
+  color: #4a90e2;
+  border: 1px solid rgba(74, 144, 226, 0.4);
+}
+
+.game-phase {
+  background: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.4);
+}
+
+.spectator-count {
+  background: rgba(241, 196, 15, 0.2);
+  color: #f1c40f;
+  border: 1px solid rgba(241, 196, 15, 0.4);
+}
+
+/* Players */
+.game-players {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.player-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.player-name {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.spectate-player-button {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.spectate-player-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #357abd 0%, #2868a6 100%);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+}
+
+.spectate-player-button:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .spectator-view {
+    max-width: 95vw;
+    padding: 15px;
+  }
+
+  .spectator-filters {
+    flex-direction: column;
+  }
+
+  .filter-group {
+    min-width: 100%;
+  }
+
+  .player-option {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .spectate-player-button {
+    width: 100%;
+  }
+}

@@ -37,7 +37,7 @@ const XPBar: React.FC<XPBarProps> = ({ currentXP, level, animated = true, xpGain
       // Animate the XP increase
       const startXP = currentXP - xpGained;
       const endXP = currentXP;
-      const duration = 1000; // 1 second
+      const duration = 2500; // 2.5 seconds for slower animation
       const startTime = Date.now();
 
       const animateXP = () => {

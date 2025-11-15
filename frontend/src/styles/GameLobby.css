@@ -99,7 +99,7 @@
 .lobby-header {
   position: relative;
   z-index: 10;
-  padding: 20px 40px;
+  padding: clamp(15px, 2vw, 20px) clamp(25px, 3vw, 40px);
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(0, 212, 255, 0.2);
@@ -120,7 +120,7 @@
 
 .logo-text h1 {
   font-family: 'Orbitron', monospace;
-  font-size: 2.2rem;
+  font-size: clamp(1.5rem, 2.5vw, 2.2rem);
   font-weight: 900;
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-purple) 100%);
   background-clip: text;
@@ -130,7 +130,7 @@
 }
 
 .logo-text span {
-  font-size: 0.9rem;
+  font-size: clamp(0.7rem, 0.9vw, 0.9rem);
   color: var(--text-secondary);
   font-weight: 300;
   letter-spacing: 1px;
@@ -144,22 +144,22 @@
 .stats-row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: clamp(12px, 1.5vw, 20px);
 }
 
 .victory-points {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: clamp(5px, 0.6vw, 8px);
   background: var(--glass-bg);
-  padding: 10px 20px;
-  border-radius: 25px;
+  padding: clamp(7px, 0.8vw, 10px) clamp(12px, 1.5vw, 20px);
+  border-radius: clamp(18px, 2vw, 25px);
   border: 1px solid rgba(255, 215, 0, 0.3);
   backdrop-filter: blur(10px);
 }
 
 .trophy-icon {
-  font-size: 1.2rem;
+  font-size: clamp(1rem, 1.2vw, 1.2rem);
   filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
 }
 
@@ -172,21 +172,21 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: clamp(5px, 0.6vw, 8px);
   background: var(--glass-bg);
-  padding: 12px 20px;
-  border-radius: 25px;
+  padding: clamp(8px, 1vw, 12px) clamp(12px, 1.5vw, 20px);
+  border-radius: clamp(18px, 2vw, 25px);
   border: 1px solid rgba(0, 212, 255, 0.3);
   backdrop-filter: blur(10px);
-  min-width: 180px;
-  min-height: 60px;
+  min-width: clamp(140px, 15vw, 180px);
+  min-height: clamp(50px, 5vw, 60px);
 }
 
 .level-text {
   font-family: 'Orbitron', monospace;
   font-weight: 700;
   color: var(--primary-blue);
-  font-size: 0.9rem;
+  font-size: clamp(0.7rem, 0.9vw, 0.9rem);
   text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
   margin: 0;
 }
@@ -230,16 +230,16 @@
 
 /* Main Dashboard */
 .lobby-dashboard {
-  padding: 30px 40px 40px;
-  max-width: 1400px;
+  padding: clamp(20px, 2.5vw, 30px) clamp(25px, 3vw, 40px) clamp(30px, 3.5vw, 40px);
+  max-width: clamp(1000px, 90vw, 1400px);
   margin: 0 auto;
 }
 
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1fr 1.2fr 1fr;
-  gap: 25px;
-  min-height: 80vh;
+  gap: clamp(15px, 2vw, 25px);
+  min-height: clamp(600px, 70vh, 80vh);
 }
 
 /* Panel Base Styles */
@@ -247,7 +247,7 @@
 .modes-panel,
 .collection-panel {
   background: var(--card-bg);
-  border-radius: 20px;
+  border-radius: clamp(12px, 1.5vw, 20px);
   border: 1px solid var(--border-glow);
   backdrop-filter: blur(20px);
   overflow: hidden;
@@ -258,21 +258,21 @@
 .player-info-panel:hover,
 .modes-panel:hover,
 .collection-panel:hover {
-  transform: translateY(-5px);
+  transform: translateY(clamp(-3px, -0.4vw, -5px));
   border-color: var(--primary-blue);
   box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.3),
-    0 0 30px rgba(0, 212, 255, 0.2);
+    0 clamp(15px, 2vw, 20px) clamp(30px, 3.5vw, 40px) rgba(0, 0, 0, 0.3),
+    0 0 clamp(20px, 2.5vw, 30px) rgba(0, 212, 255, 0.2);
 }
 
 .panel-header {
-  padding: 25px 30px 20px;
+  padding: clamp(18px, 2vw, 25px) clamp(20px, 2.5vw, 30px) clamp(15px, 1.8vw, 20px);
   position: relative;
 }
 
 .panel-header h2 {
   font-family: 'Orbitron', monospace;
-  font-size: 1.4rem;
+  font-size: clamp(1.1rem, 1.4vw, 1.4rem);
   font-weight: 700;
   color: var(--primary-blue);
   margin: 0;
@@ -281,15 +281,15 @@
 .header-accent {
   position: absolute;
   bottom: 0;
-  left: 30px;
-  right: 30px;
+  left: clamp(20px, 2.5vw, 30px);
+  right: clamp(20px, 2.5vw, 30px);
   height: 2px;
   background: linear-gradient(90deg, var(--primary-blue) 0%, transparent 100%);
   border-radius: 1px;
 }
 
 .panel-content {
-  padding: 20px 30px 30px;
+  padding: clamp(15px, 1.8vw, 20px) clamp(20px, 2.5vw, 30px) clamp(20px, 2.5vw, 30px);
 }
 
 /* Player Info Panel */
@@ -386,28 +386,28 @@
 
 /* Game Modes Panel */
 .modes-container {
-  padding: 20px 30px 30px;
+  padding: clamp(15px, 1.8vw, 20px) clamp(20px, 2.5vw, 30px) clamp(20px, 2.5vw, 30px);
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: clamp(20px, 2.5vw, 30px);
 }
 
 .mode-category {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: clamp(10px, 1.2vw, 15px);
 }
 
 .category-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 5px;
+  gap: clamp(7px, 0.8vw, 10px);
+  margin-bottom: clamp(3px, 0.4vw, 5px);
 }
 
 .category-header h3 {
   font-family: 'Orbitron', monospace;
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 1.1vw, 1.1rem);
   font-weight: 700;
   color: var(--accent-gold);
   margin: 0;
@@ -424,27 +424,27 @@
 .category-modes {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: clamp(8px, 1vw, 12px);
 }
 
 .game-mode {
   position: relative;
   background: var(--glass-bg);
-  border-radius: 12px;
+  border-radius: clamp(8px, 1vw, 12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 18px 20px;
+  padding: clamp(12px, 1.5vw, 18px) clamp(15px, 1.8vw, 20px);
   cursor: pointer;
   transition: all 0.3s ease;
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: clamp(10px, 1.2vw, 15px);
 }
 
 .game-mode:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--primary-blue);
-  transform: translateX(5px);
+  transform: translateX(clamp(3px, 0.4vw, 5px));
 }
 
 .game-mode:hover .mode-overlay {
@@ -472,7 +472,7 @@
 }
 
 .mode-icon {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 2vw, 2rem);
   transition: all 0.3s ease;
   filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.4));
   flex-shrink: 0;
@@ -483,15 +483,15 @@
 }
 
 .mode-info h3 {
-  font-size: 1.1rem;
+  font-size: clamp(0.9rem, 1.1vw, 1.1rem);
   font-weight: 700;
-  margin: 0 0 3px 0;
+  margin: 0 0 clamp(2px, 0.3vw, 3px) 0;
   color: var(--text-primary);
 }
 
 .mode-info p {
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: clamp(0.7rem, 0.85vw, 0.85rem);
   margin: 0;
 }
 
@@ -499,11 +499,11 @@
   position: relative;
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-purple) 100%);
   border: none;
-  border-radius: 20px;
-  padding: 10px 20px;
+  border-radius: clamp(15px, 1.8vw, 20px);
+  padding: clamp(7px, 0.8vw, 10px) clamp(14px, 1.6vw, 20px);
   color: white;
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: clamp(0.65rem, 0.8vw, 0.8rem);
   cursor: pointer;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -1220,4 +1220,157 @@
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
   transition: left 0.5s;
+}
+
+/* Rules Modal Styling */
+.rules-modal {
+  background: var(--card-bg);
+  border: 2px solid var(--border-glow);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 700px;
+  width: 90%;
+  max-height: 85vh;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px);
+}
+
+.rules-modal-header {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.3) 0%, rgba(139, 92, 246, 0.4) 100%);
+  padding: 20px 30px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rules-modal-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'Orbitron', monospace;
+}
+
+.rules-modal-content {
+  padding: 25px 30px;
+  max-height: calc(85vh - 80px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-blue) rgba(255, 255, 255, 0.1);
+}
+
+.rules-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rules-modal-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.rules-modal-content::-webkit-scrollbar-thumb {
+  background: var(--primary-blue);
+  border-radius: 10px;
+}
+
+.rules-modal-content::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-purple);
+}
+
+.rules-category {
+  background: var(--glass-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+  transition: all 0.3s ease;
+}
+
+.rules-category:hover {
+  border-color: rgba(0, 212, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rules-category h4 {
+  margin: 0 0 15px 0;
+  color: var(--accent-gold);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: 'Orbitron', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.rule-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  align-items: flex-start;
+}
+
+.rule-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.rule-label {
+  color: var(--primary-blue);
+  font-weight: 700;
+  min-width: 140px;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.rule-value {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.rule-text {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 10px;
+  padding-left: 0;
+  font-size: 0.95rem;
+}
+
+.rule-text:last-child {
+  margin-bottom: 0;
+}
+
+.rule-text strong {
+  color: var(--primary-blue);
+  font-weight: 700;
+}
+
+/* Responsive adjustments for Rules Modal */
+@media (max-width: 768px) {
+  .rules-modal {
+    max-width: 95%;
+    max-height: 90vh;
+  }
+
+  .rules-modal-content {
+    padding: 20px;
+  }
+
+  .rules-category {
+    padding: 15px 18px;
+  }
+
+  .rule-item {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .rule-label {
+    min-width: auto;
+  }
 }

@@ -131,6 +131,10 @@ class SocketService {
     });
   }
 
+  activateSpecial() {
+    this.socket?.emit('activate-special');
+  }
+
   endTurn() {
     this.socket?.emit('end-turn');
   }
@@ -188,6 +192,29 @@ class SocketService {
 
   getMessages(targetUserId: number, limit?: number) {
     this.socket?.emit('get-messages', { targetUserId, limit });
+  }
+
+  // Spectator methods
+  getSpectatableGames() {
+    this.socket?.emit('get-spectatable-games');
+  }
+
+  checkPlayerSpectatable(playerId: string) {
+    this.socket?.emit('check-player-spectatable', { playerId });
+  }
+
+  spectateGame(gameId: string, spectatingPlayerId: string) {
+    console.log('📡 SocketService spectating game:', gameId, 'watching player:', spectatingPlayerId);
+    this.socket?.emit('spectate-game', { gameId, spectatingPlayerId });
+  }
+
+  leaveSpectate() {
+    console.log('📡 SocketService leaving spectate');
+    this.socket?.emit('leave-spectate');
+  }
+
+  getSpectatorInfo(gameId: string) {
+    this.socket?.emit('get-spectator-info', { gameId });
   }
 }
 

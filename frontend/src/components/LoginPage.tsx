@@ -9,6 +9,7 @@ interface User {
   survival_losses: number;
   survival_used_heroes: string[];
   available_heroes: string[];
+  favorite_heroes: string[];
   xp: number;
   level: number;
 }

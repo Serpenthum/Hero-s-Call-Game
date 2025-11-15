@@ -88,9 +88,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
   };
 
   const getAvailableHeroes = () => {
-    return allHeroes.filter(hero => 
-      user.available_heroes.includes(hero.name)
-    );
+    return allHeroes
+      .filter(hero => user.available_heroes.includes(hero.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
   };
 
   const getFavoriteHero = () => {

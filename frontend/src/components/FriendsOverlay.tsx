@@ -5,13 +5,15 @@ import { socketService } from '../socketService';
 interface FriendsOverlayProps {
   onClose: () => void;
   onOpenMessage: (playerId: number, playerName: string) => void;
+  onSpectatePlayer: (playerId: string) => void;
   currentUserId: number;
 }
 
 const FriendsOverlay: React.FC<FriendsOverlayProps> = ({ 
   onClose, 
   onOpenMessage,
-  currentUserId: _ 
+  onSpectatePlayer: _,
+  currentUserId: __ 
 }) => {
   const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
   const [friendIds, setFriendIds] = useState<number[]>([]);
@@ -22,6 +24,7 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
   const [addFriendUsername, setAddFriendUsername] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkingSpectatable, setCheckingSpectatable] = useState<number | null>(null);
 
   useEffect(() => {
     // Request fresh data when component mounts (friends window opens)
@@ -95,12 +98,28 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
       }
     };
 
+    const handlePlayerSpectatableResult = (data: any) => {
+      setCheckingSpectatable(null);
+      if (data.success && data.canSpectate && data.gameInfo) {
+        // Player is in a spectatable game - spectate them
+        // Call the socketService directly to spectate
+        const gameId = data.gameInfo.gameId;
+        const targetPlayerId = data.gameInfo.playerId;
+        console.log('👁️ Spectating game:', gameId, 'player:', targetPlayerId);
+        socketService.spectateGame(gameId, targetPlayerId);
+      } else {
+        setError('This player is not currently in a spectatable game');
+        setTimeout(() => setError(null), 3000);
+      }
+    };
+
     socket.on('online-players-response', handleOnlinePlayersResponse);
     socket.on('friend-requests-response', handleFriendRequestsResponse);
     socket.on('friend-request-response', handleFriendRequestResponse);
     socket.on('friend-request-received', handleFriendRequestReceived);
     socket.on('friend-response-result', handleFriendResponseResult);
     socket.on('remove-friend-response', handleRemoveFriendResponse);
+    socket.on('player-spectatable-result', handlePlayerSpectatableResult);
 
     // Cleanup function to remove listeners when component unmounts (friends window closes)
     return () => {
@@ -111,6 +130,7 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
       socket.off('friend-request-received', handleFriendRequestReceived);
       socket.off('friend-response-result', handleFriendResponseResult);
       socket.off('remove-friend-response', handleRemoveFriendResponse);
+      socket.off('player-spectatable-result', handlePlayerSpectatableResult);
     };
   }, []); // Empty dependency array means this runs once when component mounts and cleanup when unmounts
 
@@ -129,8 +149,10 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
         setSelectedPlayer(null);
         break;
       case 'watchGame':
-        // TODO: Implement watch game functionality
-        console.log('Watch game for:', player.username);
+        // Check if player is in a spectatable game
+        setCheckingSpectatable(player.id);
+        setError(null);
+        socketService.checkPlayerSpectatable(player.id.toString());
         setSelectedPlayer(null);
         break;
     }

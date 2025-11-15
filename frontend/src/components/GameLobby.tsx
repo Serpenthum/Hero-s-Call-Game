@@ -3,6 +3,7 @@ import HeroCollection from './HeroCollection';
 import HeroCard from './HeroCard';
 import ProfileModal from './ProfileModal';
 import XPBar from './XPBar';
+import SpectatorView from './SpectatorView';
 import { Hero, GameState } from '../types';
 import '../styles/GameLobby.css';
 
@@ -14,6 +15,7 @@ interface User {
   survival_losses: number;
   survival_used_heroes: string[];
   available_heroes: string[];
+  favorite_heroes: string[];
   xp: number;
   level: number;
 }
@@ -22,6 +24,7 @@ interface GameLobbyProps {
   onStartGame: (gameMode: 'draft' | 'random') => void;
   onStartFriendlyGame: (action: 'create' | 'join', roomName: string) => void;
   onStartSurvival: () => void;
+  onSpectateGame: (gameId: string, spectatingPlayerId: string) => void;
   victoryPoints: number;
   user: User;
   onLogout: () => void;
@@ -30,17 +33,19 @@ interface GameLobbyProps {
   onCancelSearch?: () => void;
   gameState?: GameState | null;
   onCollectionStateChange?: (isOpen: boolean) => void;
+  onFavoritesChange?: (favoriteHeroes: string[]) => void;
 }
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange }) => {
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onSpectateGame, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange }) => {
   const [showCollection, setShowCollection] = useState(false);
   const [showFriendlyModal, setShowFriendlyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [friendlyAction, setFriendlyAction] = useState<'create' | 'join'>('create');
+  const [friendlyAction, setFriendlyAction] = useState<'create' | 'join' | 'spectate'>('create');
   const [roomName, setRoomName] = useState('');
   const [allHeroes, setAllHeroes] = useState<Hero[]>([]);
   const [currentRandomHero, setCurrentRandomHero] = useState<Hero | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   const handleModeSelect = (mode: 'draft' | 'random') => {
     // Cancel any existing search first
@@ -65,8 +70,13 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
   };
 
   const handleFriendlySubmit = () => {
+    if (friendlyAction === 'spectate') {
+      // Spectate mode doesn't need room name validation
+      return; // SpectatorView component handles its own actions
+    }
+    
     if (roomName.trim()) {
-      onStartFriendlyGame(friendlyAction, roomName.trim());
+      onStartFriendlyGame(friendlyAction as 'create' | 'join', roomName.trim());
       handleCloseFriendlyModal();
     }
   };
@@ -263,6 +273,13 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                 Profile
               </button>
               
+              <button 
+                className="profile-btn"
+                onClick={() => setShowRulesModal(true)}
+              >
+                Rules
+              </button>
+              
               <div className="quests-section">
                 <h3>Quests</h3>
                 <div className="daily-quests">
@@ -445,7 +462,12 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
 
       {/* Collection Modal */}
       {showCollection && (
-        <HeroCollection onClose={handleCloseCollection} userId={user.id} victoryPoints={victoryPoints} />
+        <HeroCollection 
+          onClose={handleCloseCollection} 
+          userId={user.id} 
+          victoryPoints={victoryPoints} 
+          onFavoritesChange={onFavoritesChange}
+        />
       )}
 
       {/* Friendly Battle Modal */}
@@ -458,56 +480,77 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
             </div>
             
             <div className="friendly-modal-content">
-              <div className="action-selection">
-                <div 
-                  className={`action-option ${friendlyAction === 'create' ? 'selected' : ''}`}
-                  onClick={() => setFriendlyAction('create')}
-                >
-                  <div className="action-icon">🏗️</div>
-                  <h4>Create Game</h4>
-                  <p>Create a new room and wait for a friend to join</p>
-                </div>
-                
-                <div 
-                  className={`action-option ${friendlyAction === 'join' ? 'selected' : ''}`}
-                  onClick={() => setFriendlyAction('join')}
-                >
-                  <div className="action-icon">🚪</div>
-                  <h4>Join Game</h4>
-                  <p>Enter a room name to join your friend's game</p>
-                </div>
-              </div>
-              
-              <div className="room-input-section">
-                <label htmlFor="room-name">
-                  {friendlyAction === 'create' ? 'Room Name:' : 'Enter Room Name:'}
-                </label>
-                <input
-                  id="room-name"
-                  type="text"
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  placeholder={friendlyAction === 'create' ? 'Choose a room name...' : 'Enter room name to join...'}
-                  className="room-input"
-                  maxLength={20}
+              {friendlyAction !== 'spectate' ? (
+                <>
+                  <div className="action-selection">
+                    <div 
+                      className={`action-option ${friendlyAction === 'create' ? 'selected' : ''}`}
+                      onClick={() => setFriendlyAction('create')}
+                    >
+                      <div className="action-icon">🏗️</div>
+                      <h4>Create Game</h4>
+                      <p>Create a new room and wait for a friend to join</p>
+                    </div>
+                    
+                    <div 
+                      className={`action-option ${friendlyAction === 'join' ? 'selected' : ''}`}
+                      onClick={() => setFriendlyAction('join')}
+                    >
+                      <div className="action-icon">🚪</div>
+                      <h4>Join Game</h4>
+                      <p>Enter a room name to join your friend's game</p>
+                    </div>
+                    
+                    <div 
+                      className={`action-option ${friendlyAction === 'spectate' ? 'selected' : ''}`}
+                      onClick={() => setFriendlyAction('spectate')}
+                    >
+                      <div className="action-icon">👁️</div>
+                      <h4>Spectate</h4>
+                      <p>Watch an ongoing game</p>
+                    </div>
+                  </div>
+                  
+                  <div className="room-input-section">
+                    <label htmlFor="room-name">
+                      {friendlyAction === 'create' ? 'Room Name:' : 'Enter Room Name:'}
+                    </label>
+                    <input
+                      id="room-name"
+                      type="text"
+                      value={roomName}
+                      onChange={(e) => setRoomName(e.target.value)}
+                      placeholder={friendlyAction === 'create' ? 'Choose a room name...' : 'Enter room name to join...'}
+                      className="room-input"
+                      maxLength={20}
+                    />
+                  </div>
+                  
+                  <div className="friendly-modal-actions">
+                    <button 
+                      className="friendly-submit-button"
+                      onClick={handleFriendlySubmit}
+                      disabled={!roomName.trim()}
+                    >
+                      {friendlyAction === 'create' ? 'Create Room' : 'Join Room'}
+                    </button>
+                    <button 
+                      className="friendly-cancel-button"
+                      onClick={handleCloseFriendlyModal}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <SpectatorView 
+                  onSpectate={(gameId, spectatingPlayerId) => {
+                    onSpectateGame(gameId, spectatingPlayerId);
+                    handleCloseFriendlyModal();
+                  }}
+                  onClose={handleCloseFriendlyModal}
                 />
-              </div>
-              
-              <div className="friendly-modal-actions">
-                <button 
-                  className="friendly-submit-button"
-                  onClick={handleFriendlySubmit}
-                  disabled={!roomName.trim()}
-                >
-                  {friendlyAction === 'create' ? 'Create Room' : 'Join Room'}
-                </button>
-                <button 
-                  className="friendly-cancel-button"
-                  onClick={handleCloseFriendlyModal}
-                >
-                  Cancel
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -520,6 +563,120 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
       />
+
+      {/* Rules Modal */}
+      {showRulesModal && (
+        <div className="modal-overlay">
+          <div className="rules-modal">
+            <div className="rules-modal-header">
+              <h3>📖 Game Rules</h3>
+              <button className="close-button" onClick={() => setShowRulesModal(false)}>×</button>
+            </div>
+            
+            <div className="rules-modal-content">
+              
+              <div className="rules-category">
+                <h4>🎯 Game Objective</h4>
+                <div className="rule-text">Defeat all enemy heroes to win the battle</div>
+                <div className="rule-text">Last team standing wins</div>
+              </div>
+
+              <div className="rules-category">
+                <h4>⚔️ Combat Basics</h4>
+                <div className="rule-item">
+                  <span className="rule-label">Turn Structure:</span>
+                  <span className="rule-value">Each turn you can use a Basic Attack OR an Ability, then End Turn</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">First Turn Restriction:</span>
+                  <span className="rule-value">The player who starts CANNOT use their first hero's ability on turn 1</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Attack Rolls:</span>
+                  <span className="rule-value">Roll 1D20 + Accuracy vs enemy Defense to hit</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Critical Hits:</span>
+                  <span className="rule-value">Natural 20 = Critical (max damage), Natural 1 = Auto-miss</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Damage:</span>
+                  <span className="rule-value">Roll dice for damage (e.g., 2D6 = roll two 6-sided dice)</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Defense:</span>
+                  <span className="rule-value">Higher Defense = harder to hit</span>
+                </div>
+              </div>
+
+              <div className="rules-category">
+                <h4>🎲 Special Mechanics</h4>
+                <div className="rule-item">
+                  <span className="rule-label">Advantage:</span>
+                  <span className="rule-value">Roll twice, take the higher result</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Disadvantage:</span>
+                  <span className="rule-value">Roll twice, take the lower result</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Taunt:</span>
+                  <span className="rule-value">Forces enemy to target a specific hero</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Poison:</span>
+                  <span className="rule-value">Takes damage at start of each turn</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Silence:</span>
+                  <span className="rule-value">Cannot use abilities</span>
+                </div>
+              </div>
+
+              <div className="rules-category">
+                <h4>🎮 Game Modes</h4>
+                <div className="rule-item">
+                  <span className="rule-label">Draft Mode:</span>
+                  <span className="rule-value">Take turns picking heroes (ban 1, pick 3)</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Random Mode:</span>
+                  <span className="rule-value">Both players get random teams instantly</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Survival Mode:</span>
+                  <span className="rule-value">Face increasingly difficult AI opponents. Cannot reuse heroes between battles</span>
+                </div>
+                <div className="rule-item">
+                  <span className="rule-label">Friendly Battle:</span>
+                  <span className="rule-value">Create/join custom rooms to play with friends</span>
+                </div>
+              </div>
+
+              <div className="rules-category">
+                <h4>🦸 Hero Abilities</h4>
+                <div className="rule-text">Each hero has a unique <strong>Ability</strong> and <strong>Special</strong></div>
+                <div className="rule-text">Abilities cost your action for the turn</div>
+                <div className="rule-text">Specials are passive or triggered automatically</div>
+                <div className="rule-text">Check the Hero Collection to learn each hero's abilities</div>
+              </div>
+
+              <div className="rules-category">
+                <h4>💡 Tips</h4>
+                <div className="rule-item">
+                  <span className="rule-label">Team Composition:</span>
+                  <span className="rule-value">Build your team carefully - synergy between heroes is crucial</span>
+                </div>
+                <div className="rule-text">Position matters - some abilities affect adjacent allies/enemies</div>
+                <div className="rule-text">Team synergy is key - combine hero abilities strategically</div>
+                <div className="rule-text">Pay attention to turn order - some heroes shine when going first/second</div>
+                <div className="rule-text">Read enemy abilities carefully to plan your strategy</div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

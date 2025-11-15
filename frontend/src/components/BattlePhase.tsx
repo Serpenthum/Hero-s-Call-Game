@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
+import RewardsDisplay from './RewardsDisplay';
 
 interface BattlePhaseProps {
   gameState: GameState;
@@ -10,6 +11,10 @@ interface BattlePhaseProps {
   playerId: string;
   onReturnToLobby?: (forceMainLobby?: boolean) => void;
   isSurvivalMode?: boolean;
+  isSpectating?: boolean;
+  spectatingPlayerId?: string;
+  onStopSpectating?: () => void;
+  spectators?: Array<{ socketId: string; username: string; spectatingPlayerId: string }>;
   timekeeperAbilitySelection?: {
     ally: string;
     target: string;
@@ -21,6 +26,17 @@ interface BattlePhaseProps {
     }>;
   };
   onClearTimekeeperSelection?: () => void;
+  rewardsData?: {
+    oldXP: number;
+    newXP: number;
+    xpGained: number;
+    oldLevel: number;
+    newLevel: number;
+    oldVictoryPoints: number;
+    newVictoryPoints: number;
+    victoryPointsGained: number;
+    leveledUp: boolean;
+  };
 }
 
 const BattlePhase: React.FC<BattlePhaseProps> = ({ 
@@ -30,13 +46,19 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
   playerId,
   onReturnToLobby,
   isSurvivalMode = false,
+  isSpectating = false,
+  spectatingPlayerId,
+  onStopSpectating,
+  spectators = [],
   timekeeperAbilitySelection,
-  onClearTimekeeperSelection
+  onClearTimekeeperSelection,
+  rewardsData
 }) => {
 
   const [initiativeChoice, setInitiativeChoice] = useState<boolean | null>(null);
   const [selectingAllyForAbility, setSelectingAllyForAbility] = useState<{ abilityIndex: number; targetId: string } | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState<boolean>(false);
+  const [showSpectatorList, setShowSpectatorList] = useState<boolean>(false);
 
   // Debug effect to log player data
   useEffect(() => {
@@ -185,6 +207,11 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
 
 
   const getTargetableEnemies = (): Hero[] => {
+    // Spectators cannot target anyone
+    if (isSpectating) {
+      return [];
+    }
+    
     // Only allow targeting if it's my turn AND I haven't selected a target yet
     if (!isMyTurn()) {
       console.log('🚫 Not my turn, no targetable enemies');
@@ -438,8 +465,45 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
 
         {/* Action Bar - always show for visual consistency */}
         <div className="action-bar">
-          <h3>Actions</h3>
-          {(() => {
+          <h3>{isSpectating ? 'Spectating' : 'Actions'}</h3>
+          {isSpectating ? (
+            // Spectator mode - show minimal UI with stop spectating button
+            <div className="spectator-controls">
+              <div className="spectator-info">
+                <div className="spectator-label">👁️ Watching {currentPlayer.name}'s perspective</div>
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '5px' }}>
+                  You cannot interact with the game
+                </div>
+              </div>
+              <button 
+                className="stop-spectating-button"
+                onClick={onStopSpectating}
+                style={{
+                  marginTop: '15px',
+                  padding: '12px 24px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  width: '100%',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#c82333';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#dc3545';
+                }}
+              >
+                Stop Spectating
+              </button>
+            </div>
+          ) : (
+            // Normal player mode
+            (() => {
             if (!isMyTurn()) {
               const activeHero = getCurrentActiveHero();
               if (activeHero) {
@@ -646,6 +710,20 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                     buttonText += ' (Silenced)';
                   }
                   
+                  // Disable if bribed and trying to target the briber
+                  const cannotTargetWith = activeHero.hero.statusEffects?.cannotTargetWithAbility;
+                  if (cannotTargetWith && myPlayerData.selectedTarget) {
+                    // Find the selected target to check if it's the owner
+                    const selectedTargetHero = gameState.players
+                      .flatMap(p => p.team)
+                      .find(h => h.name === myPlayerData.selectedTarget);
+                    
+                    if (selectedTargetHero && selectedTargetHero.name === cannotTargetWith.owner) {
+                      isDisabled = true;
+                      buttonText += ' (Bribed)';
+                    }
+                  }
+                  
                   // Disable if selected target is dead (but not if already disabled)
                   if (!isSelectedTargetAlive() && !isSilenced && !isDisabled) {
                     isDisabled = true;
@@ -709,6 +787,43 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                   </div>
                 )}
                 
+                {/* Special ability activation button for activated specials like Mech's Self Destruct */}
+                {(() => {
+                  // Check if hero has an activated special ability
+                  const hasActivatedSpecial = activeHero.hero.Special && 
+                    (Array.isArray(activeHero.hero.Special) 
+                      ? activeHero.hero.Special.some((s: any) => s.category === 'activated_aoe')
+                      : (activeHero.hero.Special as any).category === 'activated_aoe');
+                  
+                  if (!hasActivatedSpecial) return null;
+                  
+                  const special = Array.isArray(activeHero.hero.Special)
+                    ? activeHero.hero.Special.find((s: any) => s.category === 'activated_aoe')
+                    : activeHero.hero.Special;
+                  
+                  // Check if permanently disabled (persists through resurrection)
+                  const isPermanentlyDisabled = (activeHero.hero as any).permanentDisables?.special || false;
+                  const isDisabled = isPermanentlyDisabled || myPlayerData.hasUsedSpecial || false;
+                  const buttonText = isDisabled ? `${(special as any).name} (Used)` : (special as any).name;
+                  
+                  return (
+                    <button 
+                      className="action-button special-button"
+                      disabled={isDisabled}
+                      onClick={() => {
+                        socketService.activateSpecial();
+                      }}
+                      style={{
+                        backgroundColor: isDisabled ? '#666' : '#ff4444',
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {buttonText}
+                    </button>
+                  );
+                })()}
+                
                 <button 
                   className="action-button end-turn-button"
                   onClick={() => {
@@ -719,7 +834,8 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                 </button>
               </div>
             );
-          })()}
+          })()
+          )}
         </div>
 
       </div>
@@ -737,6 +853,32 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
   };
 
   const renderGameOverOverlay = () => {
+    if (isSpectating) {
+      // Spectator view - just show who won
+      const winnerPlayer = gameState.players.find(p => p.id === gameState.winner);
+      const winnerName = winnerPlayer?.name || 'Unknown';
+      
+      return (
+        <div className="game-over-overlay">
+          <div className="game-over-modal">
+            <div className="game-over-content">
+              <h2 className="game-over-title">{winnerName} Wins!</h2>
+              <p className="game-over-message">
+                The battle has ended.
+              </p>
+              <button 
+                className="return-to-lobby-button"
+                onClick={onStopSpectating}
+              >
+                Return to Lobby
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Normal player view
     const isWinner = gameState.winner === playerId;
     
     return (
@@ -751,6 +893,22 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                 ? 'Congratulations! You have defeated your opponent!' 
                 : 'Better luck next time! Your opponent was victorious.'}
             </p>
+            
+            {/* Rewards Display */}
+            {rewardsData && (
+              <RewardsDisplay
+                oldXP={rewardsData.oldXP}
+                newXP={rewardsData.newXP}
+                xpGained={rewardsData.xpGained}
+                oldLevel={rewardsData.oldLevel}
+                newLevel={rewardsData.newLevel}
+                oldVictoryPoints={rewardsData.oldVictoryPoints}
+                newVictoryPoints={rewardsData.newVictoryPoints}
+                victoryPointsGained={rewardsData.victoryPointsGained}
+                leveledUp={rewardsData.leveledUp}
+              />
+            )}
+            
             {isSurvivalMode ? (
               <button 
                 className="return-to-lobby-button"
@@ -798,37 +956,135 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
     <>
       {battleContent}
       
-      {/* Floating Surrender Button - Bottom Right */}
-      <button 
-        className="floating-surrender-button"
-        onClick={handleSurrenderClick}
-        style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          backgroundColor: '#dc3545',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          padding: '12px 20px',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          cursor: 'pointer',
-          boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
-          zIndex: 1000,
-          transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#c82333';
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#dc3545';
-            e.currentTarget.style.transform = 'scale(1)';
+      {/* Spectator Count Indicator - Bottom Right (only visible to players, not spectators) */}
+      {!isSpectating && spectators.length > 0 && (
+        <button 
+          className="spectator-count-button"
+          onClick={() => setShowSpectatorList(!showSpectatorList)}
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '220px',
+            backgroundColor: '#4a90e2',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: '56px',
+            height: '56px',
+            fontSize: '24px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
+            zIndex: 1000,
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#357abd';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#4a90e2';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <div>👁️</div>
+            <div style={{ fontSize: '14px', marginTop: '-4px' }}>{spectators.length}</div>
+          </button>
+      )}
+
+      {/* Spectator List Modal */}
+      {!isSpectating && showSpectatorList && spectators.length > 0 && (
+        <div 
+          className="spectator-list-modal"
+          style={{
+            position: 'fixed',
+            bottom: '90px',
+            right: '220px',
+            backgroundColor: 'rgba(30, 30, 30, 0.95)',
+            color: 'white',
+            border: '2px solid #4a90e2',
+            borderRadius: '8px',
+            padding: '16px',
+            minWidth: '220px',
+            maxWidth: '300px',
+            maxHeight: '300px',
+            overflowY: 'auto',
+            boxShadow: '0 6px 12px rgba(0, 0, 0, 0.5)',
+            zIndex: 1001,
           }}
         >
-          🏳️ Surrender
-        </button>
+          <h3 style={{ 
+            margin: '0 0 12px 0', 
+            fontSize: '18px', 
+            borderBottom: '1px solid #4a90e2',
+            paddingBottom: '8px'
+          }}>
+            Spectators ({spectators.length})
+          </h3>
+          <ul style={{ 
+            listStyle: 'none', 
+            padding: 0, 
+            margin: 0 
+          }}>
+            {spectators.map((spectator) => (
+              <li 
+                key={spectator.socketId}
+                style={{
+                  padding: '8px 12px',
+                  marginBottom: '4px',
+                  backgroundColor: 'rgba(74, 144, 226, 0.2)',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <span style={{ fontSize: '16px' }}>👤</span>
+                <span>{spectator.username}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {/* Floating Surrender Button - Bottom Right (only for players, not spectators) */}
+      {!isSpectating && (
+        <button 
+          className="floating-surrender-button"
+          onClick={handleSurrenderClick}
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            backgroundColor: '#dc3545',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
+            zIndex: 1000,
+            transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#c82333';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#dc3545';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            🏳️ Surrender
+          </button>
+      )}
         
         {showSurrenderConfirm && (
           <div className="game-over-overlay">

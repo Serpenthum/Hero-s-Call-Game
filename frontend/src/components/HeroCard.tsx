@@ -11,6 +11,8 @@ interface HeroCardProps {
   onClick?: () => void;
   showFullInfo?: boolean;
   disableHPAnimations?: boolean;
+  hideAbilities?: boolean;
+  tooltipPosition?: 'right' | 'left'; // Add tooltip position prop
 }
 
 const KEYWORD_TOOLTIPS: { [key: string]: string } = {
@@ -32,7 +34,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   isCurrentTurn = false,
   onClick,
   showFullInfo = true,
-  disableHPAnimations = false
+  disableHPAnimations = false,
+  hideAbilities = false,
+  tooltipPosition = 'right' // Default to right
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
@@ -206,6 +210,19 @@ const HeroCard: React.FC<HeroCardProps> = ({
       );
     }
     
+    if (hero.statusEffects.turret_count && hero.statusEffects.turret_count > 0) {
+      buffs.push(
+        <span key="turret-count" className="status-effect-tooltip">
+          <span className="status-effect turret-count">
+            ⚙️ {hero.statusEffects.turret_count}
+          </span>
+          <span className="status-tooltip-text">
+            Turrets: {hero.statusEffects.turret_count}/2 active - deal {hero.statusEffects.turret_count}D4 damage per turret at end of Engineer's turn
+          </span>
+        </span>
+      );
+    }
+    
     if (hero.statusEffects.inspiration > 0) {
       buffs.push(
         <span key="inspiration" className="status-effect-tooltip">
@@ -315,12 +332,28 @@ const HeroCard: React.FC<HeroCardProps> = ({
       const duration = typeof hero.statusEffects.disableAttack === 'object' ? 
                       hero.statusEffects.disableAttack.duration : '';
       debuffs.push(
+        <span key="disable-attack" className="status-effect-tooltip">
+          <span className="status-effect disable-attack">
+            ⚔️❌
+          </span>
+          <span className="status-tooltip-text">
+            Attack Disabled: Cannot make basic attacks{duration ? ` (${duration} turns left)` : ''}
+          </span>
+        </span>
+      );
+    }
+    
+    // Handle Hoarder's Bribe - cannot target owner with ability
+    if (hero.statusEffects.cannotTargetWithAbility) {
+      const owner = (hero.statusEffects.cannotTargetWithAbility as any).owner || 'unknown';
+      const duration = (hero.statusEffects.cannotTargetWithAbility as any).duration || '';
+      debuffs.push(
         <span 
-          key="disable-attack" 
-          className="status-effect disable-attack"
-          title={`Attack Disabled: Cannot make basic attacks${duration ? ` (${duration} turns left)` : ''}`}
+          key="bribed" 
+          className="status-effect bribed"
+          title={`Bribed: Cannot use abilities against ${owner}${duration ? ` (${duration} turns left)` : ''}`}
         >
-          ⚔️❌
+          💰
         </span>
       );
     }
@@ -673,8 +706,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
         </div>
       </div>
 
-      {showFullInfo && isHovered && (
-        <div className="hero-tooltip">
+      {showFullInfo && isHovered && !hideAbilities && (
+        <div className={`hero-tooltip ${tooltipPosition === 'left' ? 'tooltip-left' : 'tooltip-right'}`}>
           <div className="tooltip-section">
             <h4>Abilities</h4>
             {hero.Ability.map((ability, index) => (
