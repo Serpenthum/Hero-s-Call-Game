@@ -74,6 +74,7 @@ class GameManager {
     
     // Clear any battle-specific flags
     delete resetHero.diedFromBomberExplosion;
+    delete resetHero.diedFromCounterAttack;
     delete resetHero.untargetableAttacker;
     delete resetHero.untargetableUntil;
     delete resetHero.untargetableDuration;
@@ -1339,45 +1340,60 @@ class GameManager {
     }
 
     // Update damage display for scaling buffs (Champion's Last Stand and Hoarder's Collect Weapons)
-    if (hero.scalingBuffs && hero.scalingBuffs.damage) {
-      const scalingDamageBonus = hero.scalingBuffs.damage;
-      hero.modifiedBasicAttack = `${hero.BasicAttack} +${scalingDamageBonus}D6`;
-      console.log(`⚔️ ${hero.name} damage: ${hero.BasicAttack} → ${hero.modifiedBasicAttack} (scaling: +${scalingDamageBonus}D6)`);
+    // Parse and combine ALL dice properly
+    const diceGroups = {};
+    
+    // Start by parsing the base attack dice
+    const baseAttackString = hero.BasicAttack;
+    if (baseAttackString && baseAttackString !== '—' && baseAttackString !== '-') {
+      // Parse base attack - handle multiple dice groups like "1D6+1D4"
+      const diceMatches = baseAttackString.matchAll(/(\d+)D(\d+)/gi);
+      for (const match of diceMatches) {
+        const count = parseInt(match[1]);
+        const sides = match[2];
+        if (!diceGroups[sides]) {
+          diceGroups[sides] = 0;
+        }
+        diceGroups[sides] += count;
+      }
     }
     
-    // Update damage display for Hoarder's collected dice
+    // Add Champion's Last Stand scaling damage
+    if (hero.scalingBuffs && hero.scalingBuffs.damage) {
+      const scalingDamageBonus = hero.scalingBuffs.damage;
+      if (!diceGroups['6']) {
+        diceGroups['6'] = 0;
+      }
+      diceGroups['6'] += scalingDamageBonus;
+      console.log(`🔥 ${hero.name} gained +${scalingDamageBonus}D6 from Last Stand`);
+    }
+    
+    // Add Hoarder's collected dice
     if (hero.scalingBuffs && hero.scalingBuffs.collectedDice && hero.scalingBuffs.collectedDice.length > 0) {
-      // Group similar dice together for cleaner display
-      const diceGroups = {};
       hero.scalingBuffs.collectedDice.forEach(collected => {
         const dice = collected.dice;
-        // Parse dice string to group them (e.g., "1D6", "2D8", etc.)
-        const match = dice.match(/(\d+)D(\d+)/i);
-        if (match) {
-          const sides = match[2]; // The die size (6, 8, 10, etc.)
-          const count = parseInt(match[1]); // Number of dice
+        // Parse each collected dice string - handle multiple dice groups
+        const diceMatches = dice.matchAll(/(\d+)D(\d+)/gi);
+        for (const match of diceMatches) {
+          const count = parseInt(match[1]);
+          const sides = match[2];
           if (!diceGroups[sides]) {
             diceGroups[sides] = 0;
           }
           diceGroups[sides] += count;
         }
       });
-      
-      // Build the grouped dice string
+      console.log(`💰 ${hero.name} collected weapons: ${hero.scalingBuffs.collectedDice.length} sets of dice from fallen heroes`);
+    }
+    
+    // Build the final grouped dice string
+    if (Object.keys(diceGroups).length > 0) {
       const groupedDiceStrings = Object.keys(diceGroups)
         .sort((a, b) => parseInt(a) - parseInt(b)) // Sort by die size
         .map(sides => `${diceGroups[sides]}D${sides}`);
       
-      const collectedDiceString = groupedDiceStrings.join(' +');
-      
-      if (hero.modifiedBasicAttack) {
-        // Already has scaling damage, append collected dice
-        hero.modifiedBasicAttack = `${hero.modifiedBasicAttack} +${collectedDiceString}`;
-      } else {
-        hero.modifiedBasicAttack = `${hero.BasicAttack} +${collectedDiceString}`;
-      }
-      console.log(`💰 ${hero.name} collected weapons: ${hero.scalingBuffs.collectedDice.length} sets of dice from fallen heroes`);
-      console.log(`⚔️ ${hero.name} total damage: ${hero.modifiedBasicAttack}`);
+      hero.modifiedBasicAttack = groupedDiceStrings.join(' +');
+      console.log(`⚔️ ${hero.name} total damage: ${hero.BasicAttack} → ${hero.modifiedBasicAttack}`);
     }
 
     // Apply Defense buffs/debuffs from passive effects (like Reaper's Aura of Dread)
@@ -2116,6 +2132,8 @@ class GameManager {
           
           if (currentHero.currentHP <= 0 && !currentHero.statusEffects?.justResurrected) {
             this.updatePassiveEffectsOnDeath(game, currentHero, monk, 'counter_attack');
+            // Mark that the attacker died from Monk Deflect so we can auto-advance turn
+            currentHero.diedFromCounterAttack = true;
           }
         }
       }
@@ -2220,19 +2238,17 @@ class GameManager {
     // Check if current hero died from recoil and auto-advance turn
     let autoAdvanced = false;
     if (currentHero.currentHP <= 0) {
+      console.log(`💀 ${currentHero.name} died during their turn, auto-advancing to opponent`);
+      const endTurnResult = this.endTurn(playerId);
+      if (endTurnResult.success) {
+        autoAdvanced = true;
+      }
+      // Clear death flags if they exist
       if (currentHero.diedFromBomberExplosion) {
-        console.log(`💀 ${currentHero.name} died from Bomber explosion - keeping turn active but disabling actions`);
-        // Mark all actions as used so only End Turn is available
-        player.hasUsedAttack = true;
-        player.hasUsedAbility = true;
-        // Clear the flag
         currentHero.diedFromBomberExplosion = false;
-      } else {
-        console.log(`💀 ${currentHero.name} died from recoil, auto-advancing turn`);
-        const endTurnResult = this.endTurn(playerId);
-        if (endTurnResult.success) {
-          autoAdvanced = true;
-        }
+      }
+      if (currentHero.diedFromCounterAttack) {
+        currentHero.diedFromCounterAttack = false;
       }
     }
 
@@ -2493,19 +2509,17 @@ class GameManager {
     // Check if current hero died from recoil and auto-advance turn
     let autoAdvanced = false;
     if (currentHero.currentHP <= 0) {
+      console.log(`💀 ${currentHero.name} died during their turn, auto-advancing to opponent`);
+      const endTurnResult = this.endTurn(playerId);
+      if (endTurnResult.success) {
+        autoAdvanced = true;
+      }
+      // Clear death flags if they exist
       if (currentHero.diedFromBomberExplosion) {
-        console.log(`💀 ${currentHero.name} died from Bomber explosion - keeping turn active but disabling actions`);
-        // Mark all actions as used so only End Turn is available
-        player.hasUsedAttack = true;
-        player.hasUsedAbility = true;
-        // Clear the flag
         currentHero.diedFromBomberExplosion = false;
-      } else {
-        console.log(`💀 ${currentHero.name} died from recoil, auto-advancing turn`);
-        const endTurnResult = this.endTurn(playerId);
-        if (endTurnResult.success) {
-          autoAdvanced = true;
-        }
+      }
+      if (currentHero.diedFromCounterAttack) {
+        currentHero.diedFromCounterAttack = false;
       }
     }
 
@@ -5368,21 +5382,27 @@ class GameManager {
     // Add resurrection animation flag
     dyingHero.resurrected = true;
 
-    // Add to battle log
-    if (game.battleLog) {
-      game.battleLog.push({
-        type: 'resurrection',
-        caster: angelHero.name,
-        target: dyingHero.name,
-        healAmount: halfHealth,
-        newHP: dyingHero.currentHP,
-        maxHP: dyingHero.HP,
-        message: `${dyingHero.name} was Resurrected by ${angelHero.name}`,
-        description: `Restored to ${halfHealth} HP`,
-        isSpecial: true,
-        timestamp: Date.now()
-      });
+    // Add to battle log - ensure it's visible
+    const resurrectionEntry = {
+      type: 'special_comprehensive',
+      caster: angelHero.name,
+      specialName: 'Resurrection',
+      target: dyingHero.name,
+      message: `${angelHero.name} used Resurrection and restored ${dyingHero.name} to ${halfHealth} HP`,
+      hit: true,
+      healing: halfHealth,
+      newHP: dyingHero.currentHP,
+      maxHP: dyingHero.HP,
+      isSpecial: true,
+      timestamp: Date.now()
+    };
+    
+    if (!game.battleLog) {
+      game.battleLog = [];
     }
+    game.battleLog.push(resurrectionEntry);
+    
+    console.log(`📜 Added resurrection entry to battle log:`, resurrectionEntry);
 
     return true; // Resurrection successful, prevent death
   }
@@ -5499,35 +5519,19 @@ class GameManager {
       : chronoShiftAttackRoll.roll;
     console.log(`🎯 Timekeeper Chrono Shift attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs Defense ${calculateEffectiveDefense(primaryTarget)} → ${abilityHit ? 'HIT' : 'MISS'}`);
     
-    // Log the Chrono Shift activation with attack roll details
-    results.push({
-      type: 'ability_activation',
-      caster: caster.name,
-      abilityName: ability.name,
-      message: `${caster.name} used ${ability.name}! Attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs AC ${calculateEffectiveDefense(primaryTarget)}`,
-      roll: chronoShiftAttackRoll,
-      hasAdvantage: advantageDisadvantageForAbility.advantage,
-      target: primaryTarget.name,
-      hit: abilityHit,
-      isCritical: chronoShiftAttackRoll.isCritical
-    });
+    // Create a single comprehensive log entry for Chrono Shift
+    const chronoShiftLogEntry = this.createSpecialLogEntry(
+      caster,
+      ability.name,
+      { target: primaryTarget.name, initialRoll: true },
+      chronoShiftAttackRoll,
+      [] // No effects yet, just the initial roll
+    );
+    results.push(chronoShiftLogEntry);
     
     // Step 2: Only proceed with ally command if Chrono Shift hit the target
     if (!abilityHit) {
-      // Show more detailed miss message with roll information
-      const allyInfo = allyTarget ? ` while trying to command ${allyTarget}` : ' - unable to command an ally';
-      results.push({
-        type: 'miss',
-        caster: caster.name,
-        ability: ability.name,
-        message: `${caster.name}'s ${ability.name} missed ${primaryTarget.name}${allyInfo}!`,
-        target: primaryTarget.name,
-        attackRoll: chronoShiftAttackRoll.roll,
-        attackTotal: chronoShiftAttackRoll.total,
-        accuracy: caster.modifiedAccuracy,
-        roll: chronoShiftAttackRoll,
-        advantageInfo: chronoShiftAttackRoll.advantageInfo
-      });
+      // Chrono Shift missed - no command happens
       return results;
     }
     
@@ -5585,14 +5589,6 @@ class GameManager {
 
     // Single ability - use existing logic
     const allyAbility = allyAbilities[0];
-    
-    results.push({
-      type: 'command',
-      caster: caster.name,
-      ally: allyToCommand.name,
-      copiedAbility: allyAbility.name,
-      message: `${caster.name} commands ${allyToCommand.name} to use ${allyAbility.name}!`
-    });
     
     // Execute the ally's ability 
     // Check if the ally's ability is multi-target and handle accordingly
@@ -5670,11 +5666,18 @@ class GameManager {
       commandResults = this.processAbilityEffects(allyAbility, allyToCommand, primaryTarget, casterPlayer, opponent, game, null, null, caster, commandContext);
     }
     
-    // Modify the results to show they came from the ally but were triggered by Timekeeper
+    // Modify the results to show they came from the ally but were commanded by Timekeeper
     commandResults.forEach(result => {
       if (result.caster === allyToCommand.name) {
-        result.triggeredBy = caster.name;
-        result.triggeredByAbility = ability.name;
+        // Update the message to show it was commanded
+        if (result.message) {
+          result.message = result.message.replace(
+            `${allyToCommand.name} used ${allyAbility.name}`,
+            `${allyToCommand.name} used ${allyAbility.name} (Commanded by ${caster.name} - Auto-hit)`
+          );
+        }
+        result.commandedBy = caster.name;
+        result.wasCommanded = true;
       }
     });
     
