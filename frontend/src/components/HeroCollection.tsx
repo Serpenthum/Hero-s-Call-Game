@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import '../styles/HeroCollection.css';
+import config from '../config';
 
 interface HeroAbility {
   name: string;
@@ -178,10 +179,10 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
 
   const fetchHeroes = async () => {
     try {
-      console.log('Attempting to fetch heroes from:', 'http://localhost:3001/api/heroes');
+      console.log('Attempting to fetch heroes from:', config.API_BASE_URL);
       
       // Build URL with parameters for authenticated users in collection view
-      let url = 'http://localhost:3001/api/heroes';
+      let url = `${config.API_BASE_URL}/api/heroes`;
       const params = new URLSearchParams();
       
       if (userId) {

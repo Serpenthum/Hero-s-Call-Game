@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: ericellb/heros-call-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - API_BASE_URL=https://apiheroescall.8363742.xyz
+      - IMAGE_BASE_URL=https://heroescall.8363742.xyz
+      - SOCKET_URL=https://apiheroescall.8363742.xyz
+    restart: unless-stopped
+
+  backend:
+    image: ericellb/heros-call-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - backend-data:/app/data
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  backend-data:

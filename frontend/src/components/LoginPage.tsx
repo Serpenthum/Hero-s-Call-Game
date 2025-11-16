@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/LoginPage.css';
+import config from '../config';
 
 interface User {
   id: number;
@@ -71,7 +72,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/login', {
+      const response = await fetch(`${config.API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

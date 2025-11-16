@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../styles/RegisterPage.css';
+import config from '../config';
 
 interface RegisterPageProps {
   onRegisterSuccess: () => void;
@@ -60,7 +61,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBackTo
     setSuccess('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/register', {
+      const response = await fetch(`${config.API_BASE_URL}/api/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

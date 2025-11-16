@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Hero } from '../types';
+import config from '../config';
 
 interface HeroCardProps {
   hero: Hero;
@@ -532,9 +533,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const getImagePath = () => {
     // Show dismounted version when Dragon Rider's special triggers
     if (hero.name === 'Dragon Rider' && isDismounted) {
-      return `http://localhost:3001/hero-images/dragonriderdismounted.png`;
+      return `${config.IMAGE_BASE_URL}/hero-images/dragonriderdismounted.png`;
     }
-    return `http://localhost:3001/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
+    return `${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
   };
 
   const formatAccuracy = (accuracy: string) => {

@@ -12,6 +12,7 @@ import FriendsIcon from './components/FriendsIcon';
 import FriendsOverlay from './components/FriendsOverlay';
 import MessageIcon from './components/MessageIcon';
 import MessageChat from './components/MessageChat';
+import config from './config';
 import './App.css';
 
 
@@ -192,7 +193,7 @@ function App() {
   useEffect(() => {
     // Load heroes data - only load if user is authenticated
     if (state.user) {
-      const url = `http://localhost:3001/api/heroes?userId=${state.user.id}`;
+      const url = `${config.API_BASE_URL}/api/heroes?userId=${state.user.id}`;
       fetch(url)
         .then(res => res.json())
         .then(heroes => {
@@ -1554,7 +1555,7 @@ function App() {
     // Call logout API to clean up server-side session
     if (currentUser) {
       try {
-        await fetch('http://localhost:3001/api/logout', {
+        await fetch(`${config.API_BASE_URL}/api/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -9,20 +9,31 @@ class Database {
   }
 
   init() {
-    // Create database file in the backend directory
-    const dbPath = path.join(__dirname, 'game_database.sqlite');
+    // Create database file in a persistent data directory
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+    const dbPath = path.join(dataDir, 'game_database.sqlite');
     
-    this.db = new sqlite3.Database(dbPath, (err) => {
+    console.log('Attempting to connect to database at:', dbPath);
+    
+    this.db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
       if (err) {
         console.error('Error opening database:', err.message);
+        console.error('Database path was:', dbPath);
       } else {
-        console.log('Connected to SQLite database');
-        this.createTables();
+        console.log('Connected to SQLite database at:', dbPath);
+        // Use serialize to ensure operations run sequentially
+          this.createTables();
+  
       }
+    });
+    
+    this.db.on('error', (err) => {
+      console.error('Database error event:', err);
     });
   }
 
   createTables() {
+    
     // Users table
     const createUsersTable = `
       CREATE TABLE IF NOT EXISTS users (
@@ -67,13 +78,13 @@ class Database {
     `;
 
     this.db.run(createUsersTable, (err) => {
+      console.log('CREATE TABLE callback executed');
       if (err) {
         console.error('Error creating users table:', err.message);
+        console.error('Full error:', err);
       } else {
         console.log('Users table created or already exists');
-        
-        // Initialize available heroes for all users if they don't have any
-        this.initializeAvailableHeroes();
+        console.log('Database initialization complete');
       }
     });
 

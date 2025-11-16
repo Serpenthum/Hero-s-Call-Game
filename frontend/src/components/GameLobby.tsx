@@ -5,6 +5,7 @@ import ProfileModal from './ProfileModal';
 import XPBar from './XPBar';
 import SpectatorView from './SpectatorView';
 import { Hero, GameState } from '../types';
+import config from '../config';
 import '../styles/GameLobby.css';
 
 interface User {
@@ -108,7 +109,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
     const fetchHeroes = async () => {
       try {
         console.log('Fetching heroes from API...');
-        const response = await fetch('http://localhost:3001/api/heroes');
+        const response = await fetch(`${config.API_BASE_URL}/api/heroes`);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { SocketEvents } from './types';
+import config from './config';
 
 class SocketService {
   private socket: Socket<SocketEvents> | null = null;
@@ -11,7 +12,7 @@ class SocketService {
       return this.socket;
     }
 
-    this.socket = io('http://localhost:3001', {
+    this.socket = io(config.SOCKET_URL, {
       transports: ['websocket'],
       upgrade: false,
       reconnection: true,

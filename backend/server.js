@@ -9,6 +9,9 @@ const { v4: uuidv4 } = require('uuid');
 
 console.log('Basic modules loaded successfully');
 
+(async () => {
+
+
 // Import game logic
 console.log('Loading GameManager...');
 const GameManager = require('./gameManager');
@@ -22,13 +25,24 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"], // Multiple possible dev server ports
+    origin: [
+      "http://localhost:5173", 
+      "http://localhost:3000", 
+      "http://127.0.0.1:5173",
+      "https://heroescall.8363742.xyz"
+    ],
     methods: ["GET", "POST"]
   }
 });
 
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://localhost:4173"],
+  origin: [
+    "http://localhost:5173", 
+    "http://localhost:3000", 
+    "http://127.0.0.1:5173", 
+    "http://localhost:4173",
+    "https://heroescall.8363742.xyz"
+  ],
   methods: ["GET", "POST", "OPTIONS"],
   credentials: true
 }));
@@ -52,11 +66,12 @@ const heroes = getHeroes();
 
 // Initialize database
 const database = new Database();
+await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait a moment to ensure database is ready
 
 // Refresh available heroes for all users to include newly enabled heroes like Engineer
 setTimeout(() => {
   database.refreshAvailableHeroes();
-}, 1000); // Small delay to ensure database tables are created first
+}, 10000); // Small delay to ensure database tables are created first
 
 // Session management for authentication
 const userSessions = new Map(); // socketId -> userId
@@ -1578,3 +1593,5 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 module.exports = { app, server, io };
+
+})();
