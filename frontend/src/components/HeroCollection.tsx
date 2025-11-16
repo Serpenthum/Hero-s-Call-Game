@@ -34,7 +34,7 @@ interface HeroCollectionProps {
 }
 
 type SortOption = 'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage';
-type FilterOption = 'available' | 'all' | 'favorites';
+type FilterOption = 'available' | 'all' | 'favorites' | 'disabled';
 
 // Memoized HeroCard component to prevent unnecessary re-renders
 const HeroCard = React.memo<{
@@ -105,6 +105,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
   const [currentPage, setCurrentPage] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [favoriteHeroes, setFavoriteHeroes] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const HEROES_PER_PAGE = 14; // 2 rows of 7 heroes each
 
@@ -122,13 +123,22 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       // Apply favorites filter if selected
       if (filterOption === 'favorites') {
         filtered = heroes.filter(hero => favoriteHeroes.includes(hero.name));
+      } else if (filterOption === 'disabled') {
+        filtered = heroes.filter(hero => hero.disabled);
+      }
+      
+      // Apply search filter
+      if (searchQuery.trim() !== '') {
+        filtered = filtered.filter(hero => 
+          hero.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
       }
       
       const sorted = sortHeroes(filtered, sortOption);
       setSortedHeroes(sorted);
       setCurrentPage(0); // Reset to first page when sorting or filtering changes
     }
-  }, [heroes, sortOption, filterOption, favoriteHeroes]);
+  }, [heroes, sortOption, filterOption, favoriteHeroes, searchQuery]);
 
   const parseAttackValue = useCallback((attack: string): number => {
     // Extract numeric value from attack string (e.g., "1D6" -> 6, "2D4" -> 8)
@@ -411,6 +421,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                 <option value="available">Available Heroes</option>
                 <option value="all">All Heroes</option>
                 {userId && <option value="favorites">Favorite Heroes</option>}
+                <option value="disabled">Disabled Heroes</option>
               </select>
             </div>
             <div className="control-group">
@@ -427,6 +438,17 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                 <option value="accuracy">Most Accuracy</option>
                 <option value="damage">Highest Damage</option>
               </select>
+            </div>
+            <div className="control-group">
+              <label htmlFor="search-input">Search:</label>
+              <input
+                id="search-input"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Hero name..."
+                className="search-input"
+              />
             </div>
           </div>
           <div className="victory-points">

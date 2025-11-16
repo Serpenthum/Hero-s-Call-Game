@@ -47,6 +47,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const previousHP = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
   const wasDismountedRef = useRef(false);
+  const resurrectionProcessedRef = useRef(false); // Track if we've processed the current resurrection
 
   const currentHP = hero.currentHP !== undefined ? hero.currentHP : (typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP);
   const maxHP = typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP;
@@ -93,6 +94,55 @@ const HeroCard: React.FC<HeroCardProps> = ({
       return;
     }
 
+    // Special handling for resurrection
+    if (hero.resurrected && currentHP > 0 && !resurrectionProcessedRef.current) {
+      console.log(`👼 Resurrection detected for ${hero.name} - starting animation`);
+      resurrectionProcessedRef.current = true; // Mark as processed to prevent re-triggering
+      setIsAnimating(true);
+      
+      // Clear any existing animation
+      if (animationRef.current) {
+        clearTimeout(animationRef.current);
+      }
+      
+      // Step 1: Show HP at 0 with red color
+      setAnimatedHP(0);
+      setHpColor('#ff0000');
+      
+      // Step 2: After 500ms, start healing to current HP
+      animationRef.current = setTimeout(() => {
+        console.log(`👼 Starting heal animation for ${hero.name} to ${currentHP} HP`);
+        setHpColor('#00ff00'); // Change to green for healing
+        
+        // Animate from 0 to currentHP
+        let current = 0;
+        const healAnimate = () => {
+          if (current < currentHP) {
+            current += 1;
+            setAnimatedHP(current);
+            animationRef.current = setTimeout(healAnimate, 50); // Fast heal animation
+          } else {
+            setAnimatedHP(currentHP);
+            // Return to normal color after 1 second
+            animationRef.current = setTimeout(() => {
+              setHpColor('');
+              setIsAnimating(false);
+              previousHP.current = currentHP;
+            }, 1000);
+          }
+        };
+        healAnimate();
+      }, 500);
+      
+      return;
+    }
+    
+    // Reset the resurrection flag when the hero no longer has it
+    if (!hero.resurrected && resurrectionProcessedRef.current) {
+      resurrectionProcessedRef.current = false;
+      console.log(`✨ Resurrection flag cleared for ${hero.name}`);
+    }
+
     if (previousHP.current !== null && previousHP.current !== currentHP && !isAnimating) {
       const difference = currentHP - previousHP.current;
       const isHealing = difference > 0;
@@ -133,7 +183,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
 
       previousHP.current = currentHP;
     }
-  }, [currentHP, isAnimating, disableHPAnimations]);
+  }, [currentHP, isAnimating, disableHPAnimations, hero.resurrected, hero.name]);
 
   const getCardClasses = () => {
     let classes = 'hero-card';
@@ -380,6 +430,19 @@ const HeroCard: React.FC<HeroCardProps> = ({
           title={`Ride Down: All attacks against this hero have advantage (applied by ${source})`}
         >
           🏇⬇️
+        </span>
+      );
+    }
+    
+    if (hero.statusEffects.health_link) {
+      debuffs.push(
+        <span key="health-link" className="status-effect-tooltip">
+          <span className="status-effect health-link debuff">
+            🔗
+          </span>
+          <span className="status-tooltip-text">
+            Health Link: Damage dealt to Angel will be reflected to this hero
+          </span>
         </span>
       );
     }

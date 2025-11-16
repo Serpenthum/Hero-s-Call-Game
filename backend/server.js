@@ -507,8 +507,33 @@ async function checkSurvivalGameCompletion(result) {
         
         // Track hero usage for both players
         if (winnerUserId && !winnerIsSpectator) {
+          // Track hero usage
           for (const hero of winnerPlayer.team) {
             await database.updateHeroUsage(winnerUserId, hero.name);
+          }
+          
+          // If winner reached 7 wins (run complete), update their survival stats
+          if (winnerState.runEnded) {
+            console.log(`🏆 Winner reached 7 wins - updating survival stats for user ${winnerUserId}`);
+            const winnerSurvivalStats = await database.updateSurvivalStats(winnerUserId, winnerState.wins);
+            
+            // Update XP for the perfect survival run
+            if (winnerSurvivalStats.xpGain > 0) {
+              const xpUpdate = await database.updatePlayerXP(winnerUserId, winnerSurvivalStats.xpGain);
+              
+              // Emit XP update to winner
+              io.to(winnerPlayer.id).emit('xp-update', {
+                xpGained: xpUpdate.xpGained,
+                newXP: xpUpdate.xp,
+                newLevel: xpUpdate.level,
+                leveledUp: xpUpdate.leveledUp,
+                message: xpUpdate.leveledUp ? 
+                  `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP from perfect survival run!)` :
+                  `+${xpUpdate.xpGained} XP from your perfect 7-win survival run! (${xpUpdate.xp} total)`
+              });
+            }
+            
+            console.log(`📡 Updated survival stats for winner: ${winnerState.wins} wins, +${winnerSurvivalStats.xpGain} XP, highest: ${winnerSurvivalStats.newHighest}`);
           }
         }
         
@@ -540,25 +565,39 @@ async function checkSurvivalGameCompletion(result) {
           console.log(`📡 Updated survival stats: ${loserState.wins} wins, +${survivalStats.xpGain} XP, highest: ${survivalStats.newHighest}`);
         }
         
-        // Get updated victory points for the loser (whose run just ended)
+        // Get updated victory points for both players
         let loserVictoryPoints = null;
+        let winnerVictoryPoints = null;
+        
         if (loserUserId) {
           const loserUser = await database.getUserById(loserUserId);
           loserVictoryPoints = loserUser.victory_points;
+        }
+        
+        if (winnerUserId) {
+          const winnerUser = await database.getUserById(winnerUserId);
+          winnerVictoryPoints = winnerUser.victory_points;
         }
         
         // Emit survival state updates to both players
         io.to(winnerPlayer.id).emit('survival-state-update', {
           type: 'win',
           state: winnerState,
-          message: `Victory! You now have ${winnerState.wins} wins and ${winnerState.losses} losses.`
+          runEnded: winnerState.runEnded || false,
+          victoryPoints: winnerVictoryPoints,
+          message: winnerState.runEnded ? 
+            `Perfect run! You earned ${winnerState.wins} victory points for your 7 wins!` :
+            `Victory! You now have ${winnerState.wins} wins and ${winnerState.losses} losses.`
         });
         
         io.to(loserPlayer.id).emit('survival-state-update', {
           type: 'loss', 
           state: loserState,
+          runEnded: loserState.runEnded || false,
           victoryPoints: loserVictoryPoints,
-          message: `Run ended! You earned ${loserState.wins} victory points for your ${loserState.wins} wins. Total losses: ${loserState.losses}.`
+          message: loserState.runEnded ? 
+            `Run ended! You earned ${loserState.wins} victory points for your ${loserState.wins} wins.` :
+            `Defeat! You now have ${loserState.wins} wins and ${loserState.losses} losses.`
         });
         
         console.log('📡 Sent survival state updates to both players with victory points');
@@ -569,13 +608,17 @@ async function checkSurvivalGameCompletion(result) {
         io.to(winnerPlayer.id).emit('survival-state-update', {
           type: 'win',
           state: winnerState,
+          runEnded: winnerState.runEnded || false,
           message: `Victory! You now have ${winnerState.wins} wins and ${winnerState.losses} losses.`
         });
         
         io.to(loserPlayer.id).emit('survival-state-update', {
           type: 'loss', 
           state: loserState,
-          message: `Run ended! You now have ${loserState.wins} wins and ${loserState.losses} losses.`
+          runEnded: loserState.runEnded || false,
+          message: loserState.runEnded ? 
+            `Run ended! You earned ${loserState.wins} victory points for your ${loserState.wins} wins.` :
+            `Defeat! You now have ${loserState.wins} wins and ${loserState.losses} losses.`
         });
       }
     } else {

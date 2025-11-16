@@ -1347,7 +1347,29 @@ class GameManager {
     
     // Update damage display for Hoarder's collected dice
     if (hero.scalingBuffs && hero.scalingBuffs.collectedDice && hero.scalingBuffs.collectedDice.length > 0) {
-      const collectedDiceString = hero.scalingBuffs.collectedDice.map(c => c.dice).join(' +');
+      // Group similar dice together for cleaner display
+      const diceGroups = {};
+      hero.scalingBuffs.collectedDice.forEach(collected => {
+        const dice = collected.dice;
+        // Parse dice string to group them (e.g., "1D6", "2D8", etc.)
+        const match = dice.match(/(\d+)D(\d+)/i);
+        if (match) {
+          const sides = match[2]; // The die size (6, 8, 10, etc.)
+          const count = parseInt(match[1]); // Number of dice
+          if (!diceGroups[sides]) {
+            diceGroups[sides] = 0;
+          }
+          diceGroups[sides] += count;
+        }
+      });
+      
+      // Build the grouped dice string
+      const groupedDiceStrings = Object.keys(diceGroups)
+        .sort((a, b) => parseInt(a) - parseInt(b)) // Sort by die size
+        .map(sides => `${diceGroups[sides]}D${sides}`);
+      
+      const collectedDiceString = groupedDiceStrings.join(' +');
+      
       if (hero.modifiedBasicAttack) {
         // Already has scaling damage, append collected dice
         hero.modifiedBasicAttack = `${hero.modifiedBasicAttack} +${collectedDiceString}`;
@@ -1664,6 +1686,16 @@ class GameManager {
   updatePassiveEffectsOnDeath(game, deadHero, killer = null, deathCause = 'damage') {
     console.log(`💀 ${deadHero.name} died, checking for death triggers and buffs to remove...`);
     
+    // Check for Angel's Resurrection FIRST - before any death processing
+    // Don't resurrect Angel itself, and exclude certain death causes
+    if (deadHero.name !== 'Angel' && deathCause !== 'health_link_reflection') {
+      const wasResurrected = this.processAngelResurrection(game, deadHero, killer);
+      if (wasResurrected) {
+        console.log(`👼 ${deadHero.name} was resurrected by Angel - aborting death processing`);
+        return; // Hero was resurrected, don't process death
+      }
+    }
+    
     // Reset totem count if Shaman dies
     if (deadHero.name === 'Shaman' && deadHero.statusEffects && deadHero.statusEffects.totem_count > 0) {
       console.log(`🏺 ${deadHero.name} died - all ${deadHero.statusEffects.totem_count} totems are destroyed`);
@@ -1773,7 +1805,7 @@ class GameManager {
               }
             }
             
-            // Update hero's display stats
+            // Update hero's display stats to show the new damage
             this.updateHeroDisplayStats(hero);
           }
         }
@@ -1788,6 +1820,12 @@ class GameManager {
           );
           
           if (collectWeaponsSpecial && deadHero.name !== 'Hoarder') {
+            // Skip heroes without basic attacks (like Assassin with '—')
+            if (!deadHero.BasicAttack || deadHero.BasicAttack === '—' || deadHero.BasicAttack === '-') {
+              console.log(`💰 ${hero.name}'s Collect Weapons: ${deadHero.name} has no basic attack to collect`);
+              return;
+            }
+            
             console.log(`💰 ${hero.name}'s Collect Weapons: ${deadHero.name} has fallen!`);
             
             // Initialize scaling buffs if not present
@@ -1835,6 +1873,12 @@ class GameManager {
           );
           
           if (collectWeaponsSpecial && deadHero.name !== 'Hoarder' && hero !== deadHero && !deadHeroTeam.includes(hero)) {
+            // Skip heroes without basic attacks (like Assassin with '—')
+            if (!deadHero.BasicAttack || deadHero.BasicAttack === '—' || deadHero.BasicAttack === '-') {
+              console.log(`💰 ${hero.name}'s Collect Weapons: Enemy ${deadHero.name} has no basic attack to collect`);
+              return;
+            }
+            
             console.log(`💰 ${hero.name}'s Collect Weapons: Enemy ${deadHero.name} has fallen!`);
             
             // Initialize scaling buffs if not present
@@ -2070,7 +2114,7 @@ class GameManager {
           );
           statusEffects.push(deflectSpecialLogEntry);
           
-          if (currentHero.currentHP === 0) {
+          if (currentHero.currentHP <= 0 && !currentHero.statusEffects?.justResurrected) {
             this.updatePassiveEffectsOnDeath(game, currentHero, monk, 'counter_attack');
           }
         }
@@ -2093,6 +2137,11 @@ class GameManager {
       statusEffects.push(...damageReductionResult.specialEffects);
       
       target.currentHP = Math.max(0, target.currentHP - damage);
+      
+      // Process Angel's Health Link reflection if target is Angel
+      if (target.name === 'Angel' && damage > 0) {
+        this.processHealthLinkReflection(game, target, damage);
+      }
       
       // Check for Paladin Shield of Faith (basic attacks)
       this.checkPaladinShieldOfFaith(game, currentHero, target, damage);
@@ -2117,8 +2166,8 @@ class GameManager {
       // Check HP-based conditions after taking damage
       this.checkHPConditions(game, target);
       
-      // Check if target died
-      if (target.currentHP === 0) {
+      // Check if target died (but only if not just resurrected)
+      if (target.currentHP <= 0 && !target.statusEffects?.justResurrected) {
         statusEffects.push({ type: 'death', target: target.name });
         this.updatePassiveEffectsOnDeath(game, target, currentHero, 'damage');
       }
@@ -2655,21 +2704,14 @@ class GameManager {
       resultsCount: results.length
     });
     
-    let logMessage = `${hero.name}'s ${specialName} activated`;
-    
-    // Add trigger context for reactive specials
-    if (triggerContext) {
-      if (triggerContext.deflectedAttack) {
-        logMessage += ` → deflected ${triggerContext.attacker}'s ${triggerContext.attackName}`;
-      } else if (triggerContext.triggeredBy) {
-        logMessage += ` → triggered by ${triggerContext.triggeredBy}`;
-      }
-    }
+    let logMessage = `${hero.name} used ${specialName}`;
     
     // Collect all effects that occurred
     let totalDamage = 0;
     let totalHealing = 0;
     let specialEffects = [];
+    let damageTargets = [];
+    let firstDamageValue = null; // For multi-target attacks that deal same damage to all
     
     for (const result of results) {
       switch (result.type) {
@@ -2677,6 +2719,12 @@ class GameManager {
         case 'counter_attack':
           if (result.damage > 0) {
             totalDamage += result.damage;
+            if (firstDamageValue === null) {
+              firstDamageValue = result.damage;
+            }
+            if (result.target) {
+              damageTargets.push(result.target);
+            }
           }
           break;
         case 'heal':
@@ -2702,10 +2750,25 @@ class GameManager {
     // Build the complete message with effects
     let effectsText = [];
     
-    // Skip damage text as it's shown separately in UI
-    // if (totalDamage > 0) {
-    //   effectsText.push(`dealt ${totalDamage} damage`);
-    // }
+    // Add damage text if it affected multiple targets or all heroes
+    if (totalDamage > 0) {
+      if (damageTargets.length > 2) {
+        // Multi-target effect like Aura of Death (same damage to all)
+        // Check if all targets took the same damage (indicating AoE with single roll)
+        const allSameDamage = results.every(r => r.type === 'damage' && r.damage === firstDamageValue);
+        if (allSameDamage) {
+          effectsText.push(`dealt ${firstDamageValue} damage to all heroes`);
+        } else {
+          effectsText.push(`dealt damage to all heroes`);
+        }
+      } else if (damageTargets.length === 1) {
+        // Single target
+        effectsText.push(`dealt ${totalDamage} damage to ${damageTargets[0]}`);
+      } else if (damageTargets.length > 1) {
+        // Few targets
+        effectsText.push(`dealt damage to ${damageTargets.join(', ')}`);
+      }
+    }
     
     if (totalHealing > 0) {
       effectsText.push(`healed ${totalHealing} HP`);
@@ -2715,12 +2778,18 @@ class GameManager {
       effectsText.push(...specialEffects);
     }
     
-    if (effectsText.length > 0) {
-      if (triggerContext?.deflectedAttack) {
+    // Add trigger context for reactive specials after the main message
+    if (triggerContext) {
+      if (triggerContext.deflectedAttack) {
+        logMessage = `${hero.name}'s ${specialName} activated → deflected ${triggerContext.attacker}'s ${triggerContext.attackName}`;
+        if (effectsText.length > 0) {
+          logMessage += ` and ${effectsText.join(' and ')}`;
+        }
+      } else if (effectsText.length > 0) {
         logMessage += ` and ${effectsText.join(' and ')}`;
-      } else {
-        logMessage += ` → ${effectsText.join(' and ')}`;
       }
+    } else if (effectsText.length > 0) {
+      logMessage += ` and ${effectsText.join(' and ')}`;
     }
     
     // Add roll information if applicable
@@ -2802,24 +2871,27 @@ class GameManager {
     if (needsAttackRoll) {
       // Check if this is a commanded ability from Timekeeper
       if (commandContext && commandContext.isCommandedByTimekeeper) {
-        // Commanded abilities auto-hit and inherit crit status from Timekeeper
-        // Use the actual Timekeeper's current accuracy (could be modified by buffs/debuffs)
-        const timekeeperAccuracy = commandContext.timekeeperAccuracy || "+2"; // Default fallback
-        const accuracyBonus = parseInt(timekeeperAccuracy.replace('+', '')) || 2;
-        const displayRoll = commandContext.timekeeperCrit ? 20 : 15; // Show a reasonable roll that would hit
-        attackRoll = {
-          roll: displayRoll,
-          bonus: accuracyBonus, // Use Timekeeper's actual accuracy bonus
-          total: displayRoll + accuracyBonus, // Show proper calculation
-          isCritical: commandContext.timekeeperCrit,
-          crit: commandContext.timekeeperCrit,
-          isTimekeeperCommand: true, // Flag to identify this as a Timekeeper commanded ability
-          commandingHero: commandContext.commandingHero,
-          accuracy: timekeeperAccuracy // Use Timekeeper's actual accuracy for display
-        };
-        abilityHit = true;
+        // Commanded abilities use the ally's own accuracy and roll normally
+        const advantageDisadvantageForAbility = this.hasAdvantageDisadvantage(caster, targetForRoll, true, game, excludeAdvantageFrom);
+        attackRoll = calculateAttackRoll(caster.modifiedAccuracy, advantageDisadvantageForAbility.advantage, advantageDisadvantageForAbility.disadvantage, caster);
+        attackRoll.isTimekeeperCommand = true; // Flag to identify this as a Timekeeper commanded ability
+        attackRoll.commandingHero = commandContext.commandingHero;
         
-        console.log(`🎯 ${caster.name} uses ${ability.name} (commanded by ${commandContext.commandingHero}): Auto-hit${commandContext.timekeeperCrit ? ' with CRITICAL!' : ''}`);
+        // Check for Ace's "Ace Up The Sleeve" - convert roll of 1 to auto-hit crit
+        if (caster.name === 'Ace' && attackRoll.roll === 1) {
+          console.log(`🃏 ${caster.name}'s Ace Up The Sleeve activated on ${ability.name} (commanded by ${commandContext.commandingHero})! Auto-hit critical!`);
+          attackRoll.total = 999; // Guarantee hit
+          attackRoll.displayTotal = 20; // Show as natural 20 for display purposes
+          attackRoll.isCritical = true;
+          attackRoll.crit = true;
+        }
+        
+        abilityHit = attackRoll.total >= calculateEffectiveDefense(targetForRoll);
+        
+        const rollText = attackRoll.advantageInfo 
+          ? `${attackRoll.advantageInfo.roll1} and ${attackRoll.advantageInfo.roll2} (${attackRoll.advantageInfo.type}, chose ${attackRoll.advantageInfo.chosen})`
+          : attackRoll.roll;
+        console.log(`🎯 ${caster.name} uses ${ability.name} (commanded by ${commandContext.commandingHero}): Roll ${rollText}+${caster.modifiedAccuracy} = ${attackRoll.total} vs Defense ${calculateEffectiveDefense(targetForRoll)} → ${abilityHit ? 'HIT' : 'MISS'}${attackRoll.crit ? ' (CRITICAL!)' : ''}`);
       } else {
         // Normal ability roll calculation
         const advantageDisadvantageForAbility = this.hasAdvantageDisadvantage(caster, targetForRoll, true, game, excludeAdvantageFrom);
@@ -2879,7 +2951,7 @@ class GameManager {
             );
             results.push(deflectSpecialLogEntry);
             
-            if (caster.currentHP === 0) {
+            if (caster.currentHP <= 0 && !caster.statusEffects?.justResurrected) {
               this.updatePassiveEffectsOnDeath(game, caster, monk, 'counter_attack');
             }
           }
@@ -2936,6 +3008,11 @@ class GameManager {
             
             target.currentHP = Math.max(0, target.currentHP - damage);
             
+            // Process Angel's Health Link reflection if target is Angel
+            if (target.name === 'Angel' && damage > 0) {
+              this.processHealthLinkReflection(game, target, damage);
+            }
+            
             // Trigger after-damage effects (like Ninja's Vanish)
             const afterDamageSpecials = this.processAfterDamageEffects(game, target, caster, damage);
             results.push(...afterDamageSpecials);
@@ -2961,7 +3038,7 @@ class GameManager {
             // Process hit-confirmed triggers (like Elementalist's Wind Wall)
             this.processHitConfirmedTriggers(game, caster, target, 'ability');
             
-            if (target.currentHP === 0) {
+            if (target.currentHP <= 0 && !target.statusEffects?.justResurrected) {
               this.updatePassiveEffectsOnDeath(game, target, caster, 'damage');
             }
             
@@ -3010,6 +3087,11 @@ class GameManager {
             
             target.currentHP = Math.max(0, target.currentHP - damage);
             
+            // Process Angel's Health Link reflection if target is Angel
+            if (target.name === 'Angel' && damage > 0) {
+              this.processHealthLinkReflection(game, target, damage);
+            }
+            
             // Trigger after-damage effects (like Ninja's Vanish)
             const afterDamageSpecials = this.processAfterDamageEffects(game, target, caster, damage);
             results.push(...afterDamageSpecials);
@@ -3020,7 +3102,7 @@ class GameManager {
             // Check HP-based conditions after taking damage
             this.checkHPConditions(game, target);
             
-            if (target.currentHP === 0) {
+            if (target.currentHP <= 0 && !target.statusEffects?.justResurrected) {
               this.updatePassiveEffectsOnDeath(game, target, caster, 'damage');
             }
             
@@ -3311,6 +3393,14 @@ class GameManager {
               };
               console.log(`🤐 ${target.name} cannot use abilities against ${effect.owner || caster.name} (Bribed until start of their next turn)`);
             }
+            // Special handling for Angel's health_link
+            else if (effect.effect === 'health_link') {
+              target.statusEffects.health_link = {
+                source: caster.name,
+                duration: effect.duration || 999
+              };
+              console.log(`🔗 ${target.name} is linked to ${caster.name} via Health Link`);
+            }
             else {
               applyStatusEffect(target, effect.effect, effectValue, effect.duration);
             }
@@ -3366,7 +3456,7 @@ class GameManager {
             this.checkHPConditions(game, caster);
             
             // Check if caster died from recoil
-            if (caster.currentHP === 0) {
+            if (caster.currentHP <= 0 && !caster.statusEffects?.justResurrected) {
               this.updatePassiveEffectsOnDeath(game, caster, null, 'recoil');
             }
             
@@ -3858,7 +3948,7 @@ class GameManager {
                   });
                   
                   // Check if target died
-                  if (target.currentHP === 0) {
+                  if (target.currentHP <= 0 && !target.statusEffects?.justResurrected) {
                     console.log(`💀 ${target.name} died from ${special.name}!`);
                     this.updatePassiveEffectsOnDeath(game, target, null, 'aura_damage');
                   }
@@ -3907,7 +3997,7 @@ class GameManager {
       } else if (special.condition === 'self_hp_lt_11') {
         isActive = hero.currentHP < 11;
       } else if (special.condition === 'self_hp_lt_9') {
-        isActive = hero.currentHP < 9;
+        isActive = hero.currentHP <= 8; // Dragon Rider dismounts at 8 HP or below
       } else if (special.condition === 'beast_active') {
         isActive = hero.statusEffects && hero.statusEffects.beast_active;
       } else if (special.condition === 'beast_inactive') {
@@ -4069,6 +4159,21 @@ class GameManager {
     if (currentPlayer && currentPlayer.team && currentPlayer.team.length > 0) {
       game.playerHeroIndex[game.currentPlayerTurn] = (game.playerHeroIndex[game.currentPlayerTurn] + 1) % currentPlayer.team.length;
     }
+    
+    // Clear resurrection animation flags from all heroes (one-time flag)
+    game.players.forEach(player => {
+      player.team.forEach(hero => {
+        if (hero.resurrected) {
+          delete hero.resurrected;
+          console.log(`🧹 Cleared resurrection animation flag for ${hero.name}`);
+        }
+        // Clear the justResurrected flag that prevents infinite death loops
+        if (hero.statusEffects?.justResurrected) {
+          delete hero.statusEffects.justResurrected;
+          console.log(`✨ Cleared resurrection protection flag for ${hero.name}`);
+        }
+      });
+    });
     
     // Switch to the other player
     game.currentPlayerTurn = 1 - game.currentPlayerTurn;
@@ -4412,7 +4517,7 @@ class GameManager {
                 });
                 
                 // Check if target died
-                if (target.currentHP === 0) {
+                if (target.currentHP <= 0 && !target.statusEffects?.justResurrected) {
                   console.log(`💀 ${target.name} died from ${special.name}!`);
                   this.updatePassiveEffectsOnDeath(game, target, currentHero, 'special_damage');
                 }
@@ -4989,7 +5094,7 @@ class GameManager {
             results.push(counterAttackLogEntry);
             
             // Check if the attacker died from counter-attack
-            if (attacker.currentHP === 0) {
+            if (attacker.currentHP <= 0 && !attacker.statusEffects?.justResurrected) {
               this.updatePassiveEffectsOnDeath(game, attacker, defender, 'counter-attack');
               console.log(`💀 ${attacker.name} was killed by ${defender.name}'s counter-attack!`);
               results.push({
@@ -5155,6 +5260,133 @@ class GameManager {
     return specialLogEntries;
   }
 
+  processHealthLinkReflection(game, angel, actualDamageTaken) {
+    // Find all enemies with health_link debuff
+    if (!angel || !game || actualDamageTaken <= 0) return;
+
+    console.log(`🔗 Angel (${angel.name}) took ${actualDamageTaken} damage - checking for Health Link targets`);
+
+    const reflectionTargets = [];
+    
+    // Check all players and their teams for health_link debuff
+    game.players.forEach(player => {
+      player.team.forEach(hero => {
+        if (hero.currentHP > 0 && hero.statusEffects?.health_link) {
+          console.log(`🔗 Found Health Link target: ${hero.name}`);
+          reflectionTargets.push(hero);
+        }
+      });
+    });
+
+    if (reflectionTargets.length === 0) {
+      console.log(`🔗 No Health Link targets found`);
+      return;
+    }
+
+    // Reflect damage to all linked targets
+    reflectionTargets.forEach(target => {
+      const oldHP = target.currentHP;
+      target.currentHP = Math.max(0, target.currentHP - actualDamageTaken);
+      
+      console.log(`🔗 Health Link reflected ${actualDamageTaken} damage to ${target.name}: ${oldHP} → ${target.currentHP} HP`);
+      
+      // Remove the health_link debuff after reflection
+      delete target.statusEffects.health_link;
+      
+      // Add to battle log
+      if (game.battleLog) {
+        game.battleLog.push({
+          type: 'health_link_reflection',
+          source: angel.name,
+          target: target.name,
+          damage: actualDamageTaken,
+          newHP: target.currentHP,
+          maxHP: target.HP,
+          message: `Health Link reflected ${actualDamageTaken} damage from ${angel.name} to ${target.name}`,
+          timestamp: Date.now()
+        });
+      }
+      
+      // Check if target died from reflection
+      if (target.currentHP <= 0 && !target.statusEffects?.justResurrected) {
+        console.log(`💀 ${target.name} died from Health Link reflection`);
+        this.updatePassiveEffectsOnDeath(game, target, angel, 'health_link_reflection');
+      }
+    });
+  }
+
+  processAngelResurrection(game, dyingHero, killer) {
+    // Find Angel on the dying hero's team
+    if (!dyingHero || !game) return false;
+
+    // CRITICAL: Prevent resurrection if already resurrected this action
+    if (dyingHero.statusEffects?.justResurrected) {
+      console.log(`⚠️ ${dyingHero.name} already resurrected this turn - cannot resurrect again`);
+      return false; // Return false to allow death processing (Angel can't resurrect twice)
+    }
+
+    // Find which player owns the dying hero
+    let angelHero = null;
+    let angelOwner = null;
+
+    game.players.forEach(player => {
+      player.team.forEach(hero => {
+        // Check if this is Angel, is alive, on same team as dying hero, and hasn't used resurrect yet
+        if (hero.name === 'Angel' && 
+            hero.currentHP > 0 && 
+            hero !== dyingHero &&
+            player.team.includes(dyingHero) &&
+            !hero.statusEffects?.resurrectUsed) {
+          angelHero = hero;
+          angelOwner = player;
+        }
+      });
+    });
+
+    if (!angelHero) {
+      console.log(`👼 No Angel available to resurrect ${dyingHero.name}`);
+      return false;
+    }
+
+    console.log(`👼 Angel found! Resurrecting ${dyingHero.name}...`);
+
+    // Mark Angel's resurrect as used
+    if (!angelHero.statusEffects) angelHero.statusEffects = {};
+    angelHero.statusEffects.resurrectUsed = true;
+
+    // Clear all status effects from the dying hero EXCEPT the resurrection flag
+    dyingHero.statusEffects = {
+      justResurrected: true // Flag to prevent infinite loop - persists until end of turn
+    };
+
+    // Resurrect at half health (rounded up)
+    const halfHealth = Math.ceil(dyingHero.HP / 2);
+    dyingHero.currentHP = halfHealth;
+
+    console.log(`👼 ${dyingHero.name} resurrected at ${halfHealth} HP by Angel`);
+
+    // Add resurrection animation flag
+    dyingHero.resurrected = true;
+
+    // Add to battle log
+    if (game.battleLog) {
+      game.battleLog.push({
+        type: 'resurrection',
+        caster: angelHero.name,
+        target: dyingHero.name,
+        healAmount: halfHealth,
+        newHP: dyingHero.currentHP,
+        maxHP: dyingHero.HP,
+        message: `${dyingHero.name} was Resurrected by ${angelHero.name}`,
+        description: `Restored to ${halfHealth} HP`,
+        isSpecial: true,
+        timestamp: Date.now()
+      });
+    }
+
+    return true; // Resurrection successful, prevent death
+  }
+
   processBeastTamerAbility(ability, caster, primaryTarget, casterPlayer, opponent, game) {
     const results = [];
     
@@ -5188,17 +5420,18 @@ class GameManager {
       
       // Add comprehensive special log entry for beast command attack  
       console.log('🔍 Beast Tamer debug - caster:', caster?.name, 'type:', typeof caster);
+      const damageAmount = Math.max(0, calculateDamage('2D8', attackRoll.isCritical, advantageDisadvantageForAbility.advantage, caster).total);
       const commandSpecialLogEntry = this.createSpecialLogEntry(
         caster, 
         'Command Beast', 
-        null, // no trigger context for command
+        { target: primaryTarget.name }, // Include target in trigger context
         attackRoll,
         abilityHit ? [{
           type: 'damage',
           target: primaryTarget.name,
-          damage: Math.max(0, calculateDamage('2D8', attackRoll.isCritical, advantageDisadvantageForAbility.advantage, caster).total),
+          damage: damageAmount,
           damageRoll: calculateDamage('2D8', attackRoll.isCritical, advantageDisadvantageForAbility.advantage, caster),
-          newHP: primaryTarget.currentHP - Math.max(0, calculateDamage('2D8', attackRoll.isCritical, advantageDisadvantageForAbility.advantage, caster).total),
+          newHP: primaryTarget.currentHP - damageAmount,
           maxHP: primaryTarget.HP
         }] : []
       );
@@ -5466,77 +5699,30 @@ class GameManager {
     const results = [];
     console.log(`🕐 Processing Timekeeper selected ability: ${ability.name}, ally: ${allyToCommand.name}, selected ability index: ${selectedAbilityIndex}`);
     
+    // Get the selected ability
+    const selectedAbility = allyToCommand.Ability[selectedAbilityIndex];
+    
     // Add the initial Timekeeper ability use message
     results.push({
       type: 'ability_use',
-      message: `${caster.name} used Chronoshift activating ${allyToCommand.name}'s ${allyToCommand.Ability[selectedAbilityIndex].name}!`,
+      message: `${caster.name} used Chrono Shift, causing ${allyToCommand.name} to use ${selectedAbility.name}!`,
       caster: caster.name,
       ally: allyToCommand.name,
-      abilityName: allyToCommand.Ability[selectedAbilityIndex].name
+      abilityName: selectedAbility.name
     });
     
-    // Step 1: Timekeeper must first hit with Chrono Shift before commanding an ally
-    const advantageDisadvantageForAbility = this.hasAdvantageDisadvantage(caster, primaryTarget, true, game);
-    const chronoShiftAttackRoll = calculateAttackRoll(caster.modifiedAccuracy, advantageDisadvantageForAbility.advantage, advantageDisadvantageForAbility.disadvantage, caster);
-    const abilityHit = chronoShiftAttackRoll.total >= calculateEffectiveDefense(primaryTarget);
+    console.log(`🕐 ${caster.name} activates ${allyToCommand.name}'s ${selectedAbility.name} (ally will roll with their own accuracy)`);
     
-    const rollText = chronoShiftAttackRoll.advantageInfo 
-      ? `${chronoShiftAttackRoll.advantageInfo.roll1} and ${chronoShiftAttackRoll.advantageInfo.roll2} (${chronoShiftAttackRoll.advantageInfo.type}, chose ${chronoShiftAttackRoll.advantageInfo.chosen})`
-      : chronoShiftAttackRoll.roll;
-    console.log(`🎯 Timekeeper Selected Chrono Shift attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs Defense ${calculateEffectiveDefense(primaryTarget)} → ${abilityHit ? 'HIT' : 'MISS'}`);
-    
-    // Log the Chrono Shift activation with attack roll details
-    results.push({
-      type: 'ability_activation',
-      caster: caster.name,
-      abilityName: ability.name,
-      message: `${caster.name} used ${ability.name}! Attack roll: ${rollText}+${caster.modifiedAccuracy} = ${chronoShiftAttackRoll.total} vs AC ${calculateEffectiveDefense(primaryTarget)}`,
-      roll: chronoShiftAttackRoll,
-      hasAdvantage: advantageDisadvantageForAbility.advantage,
-      target: primaryTarget.name,
-      hit: abilityHit,
-      isCritical: chronoShiftAttackRoll.isCritical
-    });
-    
-    // Get the selected ability before checking if hit (so we can show what was being copied)
-    const selectedAbility = allyToCommand.Ability[selectedAbilityIndex];
-
-    // Only proceed with ally command if Chrono Shift hit the target
-    if (!abilityHit) {
-      results.push({
-        type: 'miss',
-        caster: caster.name,
-        ability: ability.name,
-        message: `${caster.name}'s ${ability.name} missed ${primaryTarget.name} while trying to copy ${allyToCommand.name}'s ${selectedAbility.name}!`,
-        target: primaryTarget.name,
-        copiedAbility: selectedAbility.name,
-        ally: allyToCommand.name,
-        attackRoll: chronoShiftAttackRoll.roll,
-        attackTotal: chronoShiftAttackRoll.total,
-        accuracy: caster.modifiedAccuracy,
-        roll: chronoShiftAttackRoll,
-        advantageInfo: chronoShiftAttackRoll.advantageInfo
-      });
-      return results;
-    }
-    
-    // Remove the ability activation message since it will be handled by comprehensive entries
-    
-    // Execute the selected ability
+    // Execute the selected ability - the ally uses their own accuracy and rolls normally
     const isAOEAbility = selectedAbility.target_type === 'all_enemies' || 
                         (selectedAbility.primary_effects && selectedAbility.primary_effects.some(effect => effect.target === 'all_enemies'));
     const isMultiTargetAbility = selectedAbility.target_type === 'multi_target' || selectedAbility.category === 'multi_target_damage';
     
-    // The ally automatically succeeds and inherits crit status from Timekeeper's roll
-    const timekeeperCrit = chronoShiftAttackRoll.isCritical;
-    
     // Create a special context for the commanded ability
+    // The ally uses their own stats and rolls normally
     const commandContext = {
       isCommandedByTimekeeper: true,
-      timekeeperCrit: timekeeperCrit,
-      autoHit: true,
       commandingHero: caster.name,
-      timekeeperAccuracy: caster.modifiedAccuracy, // Pass Timekeeper's current accuracy
       preventRecursion: true
     };
     
@@ -5585,34 +5771,27 @@ class GameManager {
     } else {
       // Single target ability - use existing logic
       console.log(`🎯 ${allyToCommand.name} uses ${selectedAbility.name} (commanded by ${caster.name}) against ${primaryTarget.name}`);
-      commandResults = this.processAbilityEffects(selectedAbility, allyToCommand, primaryTarget, casterPlayer, opponent, game, null, null, caster, commandContext);
+      commandResults = this.processAbilityEffects(selectedAbility, allyToCommand, primaryTarget, casterPlayer, opponent, game, null, null, null, commandContext);
     }
     
-    // Create the Chrono Shift entry showing hit/miss status
-    const chronoShiftEntry = {
-      type: 'ability_comprehensive',
-      caster: caster.name,
-      abilityName: ability.name,
-      target: primaryTarget.name,
-      message: `${caster.name} used ${ability.name}`,
-      hit: abilityHit,
-      isCritical: chronoShiftAttackRoll.isCritical,
-      attackRoll: chronoShiftAttackRoll.roll,
-      attackTotal: chronoShiftAttackRoll.total,
-      accuracy: caster.modifiedAccuracy,
-      advantageInfo: chronoShiftAttackRoll.advantageInfo
-    };
-    
-    // Filter command results to get comprehensive entries for the copied ability
+    // Filter command results to get comprehensive entries for the ally's ability
     const commandComprehensiveEntries = commandResults.filter(result => 
       result.type === 'ability_comprehensive'
     );
     
-    // Create final results array
-    const finalResults = [chronoShiftEntry];
+    // Create a comprehensive log entry for Timekeeper using Chrono Shift
+    const chronoShiftEntry = {
+      type: 'ability_comprehensive',
+      caster: caster.name,
+      abilityName: ability.name,
+      target: '', // Don't show a target for Chrono Shift activation
+      message: `${caster.name} used ${ability.name}`,
+      hit: true, // Chrono Shift always succeeds
+      isCritical: false
+    };
     
-    // Add the comprehensive entries for the copied ability
-    finalResults.push(...commandComprehensiveEntries);
+    // Return Timekeeper's log first, then the ally's ability results
+    const finalResults = [chronoShiftEntry, ...commandComprehensiveEntries];
     
     return finalResults;
   }
@@ -5845,6 +6024,39 @@ class GameManager {
     state.wins += 1;
     state.usedHeroes = [...new Set([...state.usedHeroes, ...heroNames])]; // Remove duplicates
     
+    // Check if this win completes the perfect run (7 wins = victory)
+    const runEnded = state.wins >= 7;
+    
+    if (runEnded) {
+      console.log(`🏆 Perfect run achieved with 7 wins! Final: 7 wins, ${state.losses} losses`);
+      
+      // Reset the survival state for next run
+      const resetState = {
+        wins: 0,
+        losses: 0,
+        usedHeroes: [],
+        isActive: true
+      };
+      
+      // Update in memory
+      this.survivalStates.set(playerId, resetState);
+      
+      // Save reset state to database
+      const userId = this.userSessions.get(playerId);
+      if (userId && this.database) {
+        try {
+          await this.database.updateSurvivalState(userId, 0, 0, []);
+          console.log(`💾 Survival state reset in database for user ${userId} after perfect run`);
+        } catch (error) {
+          console.error(`❌ Error resetting survival state in database:`, error);
+        }
+      }
+      
+      // Return the final state with runEnded flag
+      return { wins: 7, losses: state.losses, usedHeroes: state.usedHeroes, isActive: true, runEnded: true };
+    }
+    
+    // Run continues - update state normally
     // Update in memory
     this.survivalStates.set(playerId, state);
     
@@ -5860,7 +6072,9 @@ class GameManager {
     }
     
     console.log(`🏆 Survival win recorded for player ${playerId}: ${state.wins} wins, used heroes: ${state.usedHeroes.join(', ')}`);
-    return state;
+    
+    // Return current state without runEnded flag
+    return { ...state, runEnded: false };
   }
 
   async updateSurvivalLoss(playerId, teamHeroes) {
@@ -5872,6 +6086,44 @@ class GameManager {
     state.losses += 1;
     // Do NOT add heroes to usedHeroes on loss - players can reuse heroes after losing
     
+    // Check if this loss ends the run (3 or more losses = eliminated)
+    const runEnded = state.losses >= 3;
+    
+    if (runEnded) {
+      console.log(`💀 Run ended with 3 losses! Final: ${finalWins} wins, 3 losses`);
+      
+      // Award victory points and update stats BEFORE resetting
+      await this.handleSurvivalRunEnd(playerId, finalWins).catch(error => {
+        console.error('Error awarding survival victory points:', error);
+      });
+      
+      // Reset the survival state for next run
+      const resetState = {
+        wins: 0,
+        losses: 0,
+        usedHeroes: [],
+        isActive: true
+      };
+      
+      // Update in memory
+      this.survivalStates.set(playerId, resetState);
+      
+      // Save reset state to database
+      const userId = this.userSessions.get(playerId);
+      if (userId && this.database) {
+        try {
+          await this.database.updateSurvivalState(userId, 0, 0, []);
+          console.log(`💾 Survival state reset in database for user ${userId} after run ended`);
+        } catch (error) {
+          console.error(`❌ Error resetting survival state in database:`, error);
+        }
+      }
+      
+      // Return the final state with runEnded flag
+      return { wins: finalWins, losses: 3, usedHeroes: state.usedHeroes, isActive: true, runEnded: true };
+    }
+    
+    // Run continues - update state normally
     // Update in memory
     this.survivalStates.set(playerId, state);
     
@@ -5886,26 +6138,38 @@ class GameManager {
       }
     }
     
-    console.log(`💀 Survival loss recorded for player ${playerId}: ${state.wins} final wins, ${state.losses} losses, used heroes remain: ${state.usedHeroes.join(', ')}`);
+    console.log(`💀 Survival loss recorded for player ${playerId}: ${state.wins} wins, ${state.losses} losses, used heroes remain: ${state.usedHeroes.join(', ')}`);
     
-    // Award victory points for the completed run (async, but don't wait)
-    this.handleSurvivalRunEnd(playerId, finalWins).catch(error => {
-      console.error('Error awarding survival victory points:', error);
-    });
-    
-    return state;
+    // Return current state without runEnded flag
+    return { ...state, runEnded: false };
   }
 
   async resetSurvivalState(playerId) {
     // Get current state to check for existing wins
     const currentState = await this.getSurvivalState(playerId);
     
-    // Award victory points for any current wins before resetting
+    // Award victory points and update stats for any current wins before resetting
     let victoryPointsAwarded = 0;
+    let survivalStatsUpdated = false;
+    
     if (currentState.wins > 0) {
-      console.log(`🏆 Player ${playerId} abandoning survival run with ${currentState.wins} wins - awarding victory points`);
+      console.log(`🏆 Player ${playerId} abandoning survival run with ${currentState.wins} wins - awarding victory points and updating stats`);
+      
+      // Award victory points
       const result = await this.handleSurvivalRunEnd(playerId, currentState.wins);
       victoryPointsAwarded = result.pointsAwarded || currentState.wins;
+      
+      // Update survival stats in database
+      const userId = this.userSessions.get(playerId);
+      if (userId && this.database) {
+        try {
+          const survivalStats = await this.database.updateSurvivalStats(userId, currentState.wins);
+          console.log(`📊 Updated survival stats on abandon: ${currentState.wins} wins, highest: ${survivalStats.newHighest}`);
+          survivalStatsUpdated = true;
+        } catch (error) {
+          console.error(`❌ Error updating survival stats on abandon for user ${userId}:`, error);
+        }
+      }
     }
     
     const state = {
@@ -5929,7 +6193,7 @@ class GameManager {
       }
     }
     
-    console.log(`🔄 Survival state reset for player ${playerId}${victoryPointsAwarded > 0 ? ` (awarded ${victoryPointsAwarded} victory points)` : ''}`);
+    console.log(`🔄 Survival state reset for player ${playerId}${victoryPointsAwarded > 0 ? ` (awarded ${victoryPointsAwarded} victory points${survivalStatsUpdated ? ', stats updated' : ''})` : ''}`);
     return { ...state, victoryPointsAwarded };
   }
 

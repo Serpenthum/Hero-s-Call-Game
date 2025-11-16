@@ -63,6 +63,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
   const [hoveredHero, setHoveredHero] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage'>('alphabetical');
   const [isSearchingForMatch, setIsSearchingForMatch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Sync with external searching state
   useEffect(() => {
@@ -188,9 +189,17 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
   useEffect(() => {
     if (heroes.length > 0) {
       // Filter out used heroes and disabled heroes
-      const available = heroes.filter(hero => 
+      let available = heroes.filter(hero => 
         !hero.disabled && !usedHeroes.includes(hero.name)
       );
+      
+      // Apply search filter
+      if (searchQuery.trim() !== '') {
+        available = available.filter(hero => 
+          hero.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      }
+      
       console.log('Total heroes:', heroes.length);
       console.log('Used heroes:', usedHeroes);
       console.log('Available heroes:', available.length);
@@ -199,7 +208,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
       setAvailableHeroes(sorted);
       setCurrentPage(0); // Reset to first page when heroes change
     }
-  }, [heroes, usedHeroes, sortOption]);
+  }, [heroes, usedHeroes, sortOption, searchQuery]);
 
   const fetchHeroes = async () => {
     try {
@@ -408,20 +417,33 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
             <div className="page-indicator">
               {getTotalPages() > 1 ? `Page ${currentPage + 1} of ${getTotalPages()}` : `${availableHeroes.length} Heroes`}
             </div>
-            <div className="sort-controls">
-              <label htmlFor="survival-sort-select">Sort by:</label>
-              <select 
-                id="survival-sort-select"
-                value={sortOption} 
-                onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
-                className="survival-sort-dropdown"
-              >
-                <option value="alphabetical">Alphabetical</option>
-                <option value="hp">Most HP</option>
-                <option value="ac">Most AC</option>
-                <option value="accuracy">Most Accuracy</option>
-                <option value="damage">Highest Damage</option>
-              </select>
+            <div className="survival-header-controls">
+              <div className="sort-controls">
+                <label htmlFor="survival-sort-select">Sort by:</label>
+                <select 
+                  id="survival-sort-select"
+                  value={sortOption} 
+                  onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
+                  className="survival-sort-dropdown"
+                >
+                  <option value="alphabetical">Alphabetical</option>
+                  <option value="hp">Most HP</option>
+                  <option value="ac">Most AC</option>
+                  <option value="accuracy">Most Accuracy</option>
+                  <option value="damage">Highest Damage</option>
+                </select>
+              </div>
+              <div className="search-controls">
+                <label htmlFor="survival-search-input">Search:</label>
+                <input
+                  id="survival-search-input"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Hero name..."
+                  className="survival-search-input"
+                />
+              </div>
             </div>
           </div>
 

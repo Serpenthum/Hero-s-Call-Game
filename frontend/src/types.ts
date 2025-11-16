@@ -73,6 +73,7 @@ export interface Hero {
   modifiedBasicAttack?: string; // Display version with damage buffs
   companions?: Array<{ type: string; hp: number }>; // For summoner heroes like Beast Tamer
   id?: string;
+  resurrected?: boolean; // Flag for resurrection animation
 }
 
 export interface StatusEffects {
@@ -122,6 +123,8 @@ export interface StatusEffects {
     maxHP: number; // Store max HP to detect full healing
   };
   arcaneShieldAvailable?: boolean;
+  health_link?: boolean; // Applied by Angel's Health Link ability
+  resurrectUsed?: boolean; // Track if Angel has used resurrection
 }
 
 export interface Player {

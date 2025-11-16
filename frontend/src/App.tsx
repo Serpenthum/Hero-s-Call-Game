@@ -47,6 +47,11 @@ interface BattleLogEntry {
   specialName?: string;
   triggerContext?: string;
   isSpecial?: boolean;
+  // Resurrection properties
+  type?: string;
+  caster?: string;
+  message?: string;
+  description?: string;
 }
 
 interface User {
@@ -829,6 +834,25 @@ function App() {
           newLogEntries.push(fallbackEntry);
         }
 
+        // Process resurrection effects (like Angel's Resurrection)
+        if (data.gameState && data.gameState.battleLog) {
+          const resurrections = data.gameState.battleLog.filter((entry: any) => entry.type === 'resurrection');
+          resurrections.forEach((resurrection: any, index: number) => {
+            const resurrectionEntry: BattleLogEntry = {
+              id: `${Date.now()}-resurrection-${index}`,
+              timestamp: Date.now() + index,
+              action: resurrection.message,
+              healing: resurrection.healAmount,
+              hit: true,
+              crit: false,
+              attacker: resurrection.caster,
+              target: resurrection.target,
+              type: 'resurrection'
+            };
+            newLogEntries.push(resurrectionEntry);
+          });
+        }
+
         // Process death trigger effects (like Bomber's Self Destruct)
         if (data.deathTriggerEffects && data.deathTriggerEffects.length > 0) {
           data.deathTriggerEffects.forEach((effect: any, index: number) => {
@@ -935,7 +959,7 @@ function App() {
                 target = effect.target;
                 break;
               case 'poison_damage':
-                action = `${effect.target} is poisoned for ${effect.damage} damage`;
+                action = `${effect.target} is poisoned`;
                 target = effect.target;
                 damage = effect.damage;
                 break;
@@ -1241,10 +1265,8 @@ function App() {
       // Show notification to user
       if (data.message) {
         console.log('🎊 Victory Points:', data.message);
-        // Show alert for important victory point updates like survival abandon
-        if (data.type === 'survival_abandon') {
-          alert(`🏆 ${data.message}`);
-        }
+        // For survival abandon, the rewards are shown in the SurvivalMode component's end modal
+        // No need for additional alert here
       }
     });
 
@@ -1975,6 +1997,12 @@ function App() {
                               {entry.action?.includes('Twin Spell') ? (
                                 // Twin Spell activation
                                 <span className="special-ability">🔮 Twin Spell activated! Casting again...</span>
+                              ) : entry.type === 'resurrection' ? (
+                                // Angel Resurrection
+                                <span className="heal">
+                                  👼 {entry.message || `${entry.target} was Resurrected by ${entry.caster}`}
+                                  {entry.description && <span className="heal-info"> - {entry.description}</span>}
+                                </span>
                               ) : entry.action?.includes('heals') ? (
                                 // Healing abilities
                                 <>

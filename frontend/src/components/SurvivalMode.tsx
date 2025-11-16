@@ -126,8 +126,16 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
         };
 
         // Listen for survival state updates (win/loss/reset)
-        const handleStateUpdate = (data: { type: 'win' | 'loss' | 'reset'; state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean }; message: string }) => {
-          console.log('🏆 SurvivalMode: Received state update:', data.type, data.state);
+        const handleStateUpdate = (data: { type: 'win' | 'loss' | 'reset'; state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean }; runEnded?: boolean; message: string; victoryPoints?: number }) => {
+          console.log('🏆 SurvivalMode: Received state update:', data.type, data.state, 'runEnded:', data.runEnded);
+          
+          // For resets (abandoned runs) with victory points, show the end modal with rewards
+          if (data.type === 'reset' && data.victoryPoints && data.victoryPoints > 0) {
+            // Show end modal for abandoned run
+            setEndMessage(`Survival run abandoned! You earned ${data.victoryPoints} victory point${data.victoryPoints !== 1 ? 's' : ''} for your wins.`);
+            setShowEndModal(true);
+          }
+          
           setSurvivalState(prev => ({
             ...prev,
             wins: data.state.wins,
@@ -135,6 +143,17 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
             usedHeroes: data.state.usedHeroes,
             isActive: data.state.isActive
           }));
+          
+          // Check for end conditions based on the runEnded flag from server
+          if (data.runEnded) {
+            if (data.type === 'loss') {
+              setEndMessage(`Your survival run has ended with ${data.state.wins} wins. Better luck next time!`);
+              setShowEndModal(true);
+            } else if (data.type === 'win') {
+              setEndMessage(`Congratulations! You achieved 7 wins in Survival mode!`);
+              setShowEndModal(true);
+            }
+          }
         };
 
         socket.on('survival-state-response', handleStateResponse);
@@ -156,18 +175,8 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
     };
   }, []);
 
-  // No longer needed - state is managed by server via WebSocket
-
-  // Check for end conditions
-  useEffect(() => {
-    if (survivalState.wins >= 7) {
-      setEndMessage(`Congratulations! You achieved 7 wins in Survival mode!`);
-      setShowEndModal(true);
-    } else if (survivalState.losses >= 3) {
-      setEndMessage(`Your survival run has ended with ${survivalState.wins} wins. Better luck next time!`);
-      setShowEndModal(true);
-    }
-  }, [survivalState.wins, survivalState.losses]);
+  // End condition checks are now handled in the handleStateUpdate callback above
+  // to ensure they only trigger on actual win/loss updates, not on every state change
 
   const handleTeamSelected = (team: Hero[]) => {
     setSurvivalState(prev => ({
@@ -202,14 +211,13 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
   };
 
   const handleEndModalClose = () => {
-    // Reset survival data when closing end modal
-    setSurvivalState({
-      wins: 0,
-      losses: 0,
-      usedHeroes: [],
-      currentTeam: [],
-      isActive: true
+    // Request server to reset survival state
+    console.log('🔄 Closing end modal - requesting server to reset survival state');
+    import('../socketService').then(({ socketService }) => {
+      socketService.resetSurvivalState();
     });
+    
+    // Close the modal
     setShowEndModal(false);
   };
 

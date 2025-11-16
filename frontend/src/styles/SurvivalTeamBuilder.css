@@ -44,35 +44,57 @@
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-.sort-controls {
+.survival-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.sort-controls,
+.search-controls {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.sort-controls label {
+.sort-controls label,
+.search-controls label {
   color: #ffffff;
   font-weight: bold;
   font-size: 12px;
 }
 
-.survival-sort-dropdown {
+.survival-sort-dropdown,
+.survival-search-input {
   background: rgba(255, 102, 0, 0.2);
   border: 1px solid #ff6600;
   border-radius: 4px;
   color: #ffffff;
   padding: 6px 10px;
   font-size: 12px;
-  cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.survival-sort-dropdown:hover {
+.survival-sort-dropdown {
+  cursor: pointer;
+}
+
+.survival-search-input {
+  min-width: 140px;
+}
+
+.survival-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.survival-sort-dropdown:hover,
+.survival-search-input:hover {
   background: rgba(255, 102, 0, 0.3);
   box-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
 }
 
-.survival-sort-dropdown:focus {
+.survival-sort-dropdown:focus,
+.survival-search-input:focus {
   outline: none;
   box-shadow: 0 0 15px rgba(255, 102, 0, 0.7);
 }

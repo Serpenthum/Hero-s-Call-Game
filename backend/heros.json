@@ -145,12 +145,12 @@
       {
         "category": "single_target_damage",
         "name": "Poison Strike",
-        "description": "Deal 1D4 damage and give the target 1 Poison stack.",
+        "description": "Deal 1D6 damage and give the target 1 Poison stack.",
         "target_type": "single_target",
         "primary_effects": [
           {
             "type": "damage",
-            "value": "1D4",
+            "value": "1D6",
             "target": "target"
           }
         ],
@@ -2016,16 +2016,11 @@
         ],
         "secondary_effects": [
           {
-            "type": "apply_status",
-            "status": "health_link",
+            "type": "apply_debuff",
+            "effect": "health_link",
             "target": "target",
-            "until_trigger": "owner_next_takes_damage",
-            "effect_on_trigger": {
-              "type": "mirror_damage",
-              "source": "owner",
-              "target": "linked_target",
-              "one_shot": true
-            }
+            "duration": 999,
+            "duration_unit": "until_triggered"
           }
         ]
       }
@@ -2039,12 +2034,11 @@
       "effects": [
         {
           "type": "revive",
-          "target": "last_dead_ally",
+          "target": "dying_ally",
           "health_fraction": 0.5
         }
       ]
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Sniper",
@@ -2266,7 +2260,7 @@
     "name": "Hoarder",
     "HP": 16,
     "Defense": 6,
-    "Accuracy": "+0",
+    "Accuracy": "+1",
     "BasicAttack": "1D4",
     "Ability": [
       {
