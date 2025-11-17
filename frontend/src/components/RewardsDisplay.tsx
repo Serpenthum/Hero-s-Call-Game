@@ -15,10 +15,8 @@ interface RewardsDisplayProps {
 }
 
 const RewardsDisplay: React.FC<RewardsDisplayProps> = ({
-  oldXP,
   newXP,
   xpGained,
-  oldLevel,
   newLevel,
   oldVictoryPoints,
   newVictoryPoints,

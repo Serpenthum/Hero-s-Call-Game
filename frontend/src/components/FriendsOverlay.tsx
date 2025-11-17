@@ -24,7 +24,7 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
   const [addFriendUsername, setAddFriendUsername] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [checkingSpectatable, setCheckingSpectatable] = useState<number | null>(null);
+  const [_checkingSpectatable, setCheckingSpectatable] = useState<number | null>(null);
 
   useEffect(() => {
     // Request fresh data when component mounts (friends window opens)

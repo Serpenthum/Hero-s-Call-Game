@@ -47,7 +47,6 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
   onReturnToLobby,
   isSurvivalMode = false,
   isSpectating = false,
-  spectatingPlayerId,
   onStopSpectating,
   spectators = [],
   timekeeperAbilitySelection,

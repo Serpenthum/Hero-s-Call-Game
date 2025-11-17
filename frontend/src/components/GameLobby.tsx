@@ -77,7 +77,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
     }
     
     if (roomName.trim()) {
-      onStartFriendlyGame(friendlyAction as 'create' | 'join', roomName.trim());
+      onStartFriendlyGame(friendlyAction, roomName.trim());
       handleCloseFriendlyModal();
     }
   };
@@ -481,7 +481,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
             </div>
             
             <div className="friendly-modal-content">
-              {friendlyAction !== 'spectate' ? (
+              {friendlyAction ? (
                 <>
                   <div className="action-selection">
                     <div 
