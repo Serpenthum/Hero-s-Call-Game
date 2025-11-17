@@ -699,7 +699,7 @@ function App() {
                 ...(result.healing !== undefined && result.healing > 0 && { healing: result.healing }),
                 hit: result.hit ?? true,
                 crit: result.isCritical || false,
-                attacker: data.caster || result.caster,
+                attacker: result.caster || data.caster, // Prioritize result.caster for specials (reactive abilities)
                 target: result.target,
                 attackRoll: result.attackRoll,
                 attackTotal: result.attackTotal,
@@ -1130,6 +1130,19 @@ function App() {
       setState(prev => ({
         ...prev,
         gameState: data.gameState
+      }));
+    });
+
+    socket.on('draft-abandoned', (data) => {
+      console.log('🚫 Draft abandoned:', data);
+      alert(data.message || 'Draft has been abandoned. Returning to lobby...');
+      // Reset game state and return to lobby
+      setState(prev => ({
+        ...prev,
+        gameState: null,
+        currentView: 'lobby',
+        matchmakingMode: null,
+        gameId: null
       }));
     });
 
@@ -1888,6 +1901,13 @@ function App() {
           {state.gameState.phase === 'draft' && (
             <div className="draft-info">
               <h3>Draft - Round {state.gameState.currentDraftPhase}/3</h3>
+              {currentPlayer && opponent && (
+                <div className="matchup-display">
+                  <span className="player-name-sidebar">{currentPlayer.name}</span>
+                  <span className="vs-text-sidebar">VS</span>
+                  <span className="opponent-name-sidebar">{opponent.name}</span>
+                </div>
+              )}
               {currentPlayer && (
                 <div className="turn-status">
                   {(currentPlayer.team?.length || 0) < state.gameState.currentDraftPhase 

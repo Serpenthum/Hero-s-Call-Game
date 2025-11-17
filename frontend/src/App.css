@@ -943,20 +943,60 @@ body, html {
 
 /* Draft Phase Styles */
 .draft-phase {
-  padding: clamp(10px, 1.2vw, 15px);
+  padding: clamp(5px, 0.8vw, 10px);
   max-height: 100vh;
-  overflow-y: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Abandon Draft Button */
+.abandon-draft-button {
+  position: absolute;
+  top: clamp(8px, 1vw, 12px);
+  left: clamp(8px, 1vw, 12px);
+  padding: clamp(6px, 0.8vw, 8px) clamp(10px, 1.2vw, 14px);
+  background: rgba(255, 50, 50, 0.15);
+  border: 1.5px solid rgba(255, 70, 70, 0.4);
+  border-radius: 6px;
+  color: #ff6b6b;
+  font-size: clamp(0.75rem, 0.9vw, 0.9rem);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.abandon-draft-button:hover {
+  background: rgba(255, 50, 50, 0.25);
+  border-color: rgba(255, 70, 70, 0.6);
+  color: #ff8888;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 50, 50, 0.3);
+}
+
+.abandon-draft-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(255, 50, 50, 0.2);
+}
+
+/* Adjust setup-phase to also be relative for button positioning */
+.setup-phase {
+  position: relative;
 }
 
 .draft-cards {
   display: flex;
   justify-content: center;
-  gap: clamp(10px, 1.2vw, 16px);
+  gap: clamp(6px, 0.8vw, 12px);
   flex-wrap: wrap;
-  margin: clamp(0.5rem, 1vw, 1rem) 0 clamp(1rem, 1.2vw, 1.5rem) 0;
-  padding-top: 0.5rem;
-  padding-left: 5%;  /* Shift left to give room for rightmost card tooltip */
-  padding-right: 15%; /* Create asymmetric spacing */
+  margin: clamp(0.3rem, 0.6vw, 0.8rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
+  padding-top: 0.3rem;
+  padding-left: 2%;
+  padding-right: 8%;
 }
 
 /* Special layout for ban phase with 5 cards - single row */
@@ -981,26 +1021,57 @@ body, html {
 .draft-actions {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin: 1rem 0;
+  gap: clamp(6px, 0.8vw, 10px);
+  margin: clamp(0.4rem, 0.8vw, 0.8rem) 0;
+}
+
+.player-matchup {
+  text-align: center;
+  padding: clamp(0.3rem, 0.8vw, 0.6rem);
+  margin-bottom: clamp(0.2rem, 0.4vw, 0.4rem);
+  font-size: clamp(1rem, 1.2vw, 1.3rem);
+  font-weight: bold;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.8rem, 1vw, 1.2rem);
+}
+
+.player-matchup .player-name {
+  color: #4a9eff;
+  text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+}
+
+.player-matchup .opponent-name {
+  color: #ff6b6b;
+  text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+}
+
+.player-matchup .vs-text {
+  color: #ffd700;
+  font-size: 1.2rem;
+  font-weight: 900;
+  text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
 }
 
 .teams-display {
   display: flex;
   justify-content: space-around;
-  margin: 0.5rem 0 0.5rem 0;
-  gap: 1rem;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0;
+  gap: clamp(0.5rem, 0.8vw, 0.8rem);
+  padding-top: clamp(0.2rem, 0.4vw, 0.4rem);
+  padding-bottom: clamp(0.2rem, 0.4vw, 0.4rem);
 }
 
 .current-team,
 .opponent-team {
   flex: 1;
   background: rgba(255, 255, 255, 0.1);
-  padding: 1rem;
-  border-radius: 8px;
-  min-height: 380px;
+  padding: clamp(0.4rem, 0.8vw, 0.8rem);
+  border-radius: 6px;
+  min-height: clamp(200px, 25vh, 320px);
   display: flex;
   flex-direction: column;
 }
@@ -1008,23 +1079,32 @@ body, html {
 .current-team h3,
 .opponent-team h3 {
   margin-top: 0;
-  margin-bottom: 0.75rem;
-  font-size: 1.1rem;
+  margin-bottom: clamp(0.3rem, 0.5vw, 0.5rem);
+  font-size: clamp(0.85rem, 1vw, 1rem);
   text-align: center;
 }
 
 .team-cards {
   display: flex;
-  gap: 8px;
+  gap: clamp(4px, 0.6vw, 6px);
   justify-content: center;
   flex-wrap: wrap;
 }
 
-/* Team display cards - larger to show all info */
+/* Team display cards - responsive sizing for laptop screens */
 .draft-phase .teams-display .hero-card {
-  width: 210px;
-  height: 335px;
-  margin: 3px;
+  width: clamp(140px, 16vw, 180px);
+  height: clamp(220px, 26vw, 290px);
+  margin: 2px;
+  font-size: clamp(0.7rem, 0.85vw, 0.85rem);
+}
+
+.draft-phase .teams-display .hero-card .hero-name {
+  font-size: clamp(0.75rem, 0.9vw, 0.9rem);
+}
+
+.draft-phase .teams-display .hero-card .stat-row {
+  font-size: clamp(0.65rem, 0.75vw, 0.75rem);
 }
 
 /* Turn indicator styling improvements */
@@ -1095,6 +1175,101 @@ body, html {
 
 .draggable-hero-slot:active {
   cursor: grabbing;
+}
+
+/* Banned Cards Sidebar Styles */
+.banned-cards-sidebar {
+  position: fixed;
+  left: clamp(8px, 1vw, 15px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: clamp(120px, 14vw, 160px);
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid rgba(255, 107, 107, 0.3);
+  border-radius: 8px;
+  padding: clamp(8px, 1vw, 12px);
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.banned-cards-sidebar h3 {
+  color: #ff6b6b;
+  font-size: clamp(0.85rem, 1vw, 1rem);
+  margin: 0 0 6px 0;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+}
+
+.banned-cards-subtitle {
+  font-size: clamp(0.6rem, 0.7vw, 0.7rem);
+  color: #999;
+  text-align: center;
+  margin-bottom: clamp(8px, 1vw, 12px);
+}
+
+.banned-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 0.8vw, 8px);
+}
+
+.banned-card-item {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 0.6vw, 6px);
+  background: rgba(255, 255, 255, 0.05);
+  padding: clamp(4px, 0.6vw, 6px);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.banned-card-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.banned-card-image {
+  width: clamp(28px, 3.5vw, 35px);
+  height: clamp(28px, 3.5vw, 35px);
+  border-radius: 3px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  flex-shrink: 0;
+}
+
+.banned-card-name {
+  flex: 1;
+  font-size: clamp(0.65rem, 0.75vw, 0.75rem);
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.banned-by-label {
+  font-size: clamp(0.55rem, 0.65vw, 0.65rem);
+  color: #999;
+  font-style: italic;
+  flex-shrink: 0;
+}
+
+.banned-cards-count {
+  margin-top: clamp(8px, 1vw, 10px);
+  padding-top: clamp(8px, 1vw, 10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  font-size: clamp(0.65rem, 0.75vw, 0.75rem);
+  color: #999;
+}
+
+.draft-main-content {
+  transition: margin-left 0.3s ease;
+}
+
+.draft-main-content.with-sidebar {
+  margin-left: clamp(135px, 16vw, 180px);
 }
 
 .draggable-hero-slot:hover {
@@ -1787,6 +1962,37 @@ body, html {
   background: rgba(0, 0, 0, 0.3);
 }
 
+.matchup-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  margin: 8px 0;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.player-name-sidebar {
+  color: #4a9eff;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+}
+
+.opponent-name-sidebar {
+  color: #ff6b6b;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(255, 107, 107, 0.5);
+}
+
+.vs-text-sidebar {
+  color: #ffd700;
+  font-weight: 900;
+  font-size: 0.85rem;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+}
+
 .initiative-rolls {
   margin: 8px 0;
 }
@@ -1968,9 +2174,9 @@ body, html {
 }
 
 .special-name {
-  color: #ffb700;
+  color: #9d4edd;
   font-weight: bold;
-  text-shadow: 0 0 2px rgba(255, 183, 0, 0.4);
+  text-shadow: 0 0 2px rgba(157, 78, 221, 0.3);
 }
 
 .trigger-context {

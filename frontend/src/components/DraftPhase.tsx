@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
+import config from '../config';
 
 interface DraftPhaseProps {
   gameState: GameState;
@@ -159,11 +160,35 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
 
 
 
+  const handleAbandonDraft = () => {
+    if (window.confirm('Are you sure you want to abandon this draft? Both players will return to the lobby with no rewards.')) {
+      socketService.abandonDraft();
+    }
+  };
+
   const renderBanPhase = () => {
     const draftCards = getDraftCards();
     
     return (
       <div className="draft-phase">
+        {/* Abandon Draft Button */}
+        <button
+          onClick={handleAbandonDraft}
+          className="abandon-draft-button"
+          title="Return to lobby without rewards"
+        >
+          ✕ Abandon Draft
+        </button>
+
+        {/* Show player matchup */}
+        {opponent && (
+          <div className="player-matchup">
+            <span className="player-name">{currentPlayer.name}</span>
+            <span className="vs-text">VS</span>
+            <span className="player-name opponent-name">{opponent.name}</span>
+          </div>
+        )}
+        
         {/* Show teams display for consistency */}
         <div className="teams-display">
           <div className="current-team">
@@ -219,60 +244,119 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
 
   const renderPickPhase = () => {
     const draftCards = getDraftCards();
+    const bothPlayersBanned = currentPlayer.bannedCard && opponent?.bannedCard;
+    const bannedCards = bothPlayersBanned 
+      ? [currentPlayer.bannedCard, opponent.bannedCard].filter(Boolean) as string[]
+      : [];
     
     return (
       <div className="draft-phase">
-        <div className="teams-display">
-          <div className="current-team">
-            <h3>Your Team ({currentPlayer.team?.length || 0}/3)</h3>
-            <div className="team-cards">
-              {(currentPlayer.team || []).map((hero) => (
-                <HeroCard
-                  key={hero.name}
-                  hero={hero}
-                />
-              ))}
+        {/* Banned Cards Sidebar */}
+        {bothPlayersBanned && (
+          <div className="banned-cards-sidebar">
+            <h3>Banned Cards</h3>
+            <div className="banned-cards-subtitle">
+              These cards cannot be picked
+            </div>
+            
+            <div className="banned-cards-list">
+              {bannedCards.map((cardName, index) => {
+                const bannedByPlayer = cardName === currentPlayer.bannedCard;
+                return (
+                  <div key={index} className="banned-card-item">
+                    <img 
+                      src={`${config.IMAGE_BASE_URL}/hero-images/${cardName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                      alt={cardName}
+                      className="banned-card-image"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vPC90ZXh0Pjwvc3ZnPg==';
+                      }}
+                    />
+                    <span className="banned-card-name">{cardName}</span>
+                    <span className="banned-by-label">{bannedByPlayer ? '(You)' : '(Opp.)'}</span>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="banned-cards-count">
+              {bannedCards.length} card{bannedCards.length !== 1 ? 's' : ''} banned
             </div>
           </div>
-          
+        )}
+        
+        {/* Main Draft Content */}
+        <div className={`draft-main-content ${bothPlayersBanned ? 'with-sidebar' : ''}`}>
+          {/* Abandon Draft Button */}
+          <button
+            onClick={handleAbandonDraft}
+            className="abandon-draft-button"
+            title="Return to lobby without rewards"
+          >
+            ✕ Abandon Draft
+          </button>
+
+          {/* Show player matchup */}
           {opponent && (
-            <div className="opponent-team">
-              <h3>Opponent's Team ({opponent.team?.length || 0}/3)</h3>
+            <div className="player-matchup">
+              <span className="player-name">{currentPlayer.name}</span>
+              <span className="vs-text">VS</span>
+              <span className="player-name opponent-name">{opponent.name}</span>
+            </div>
+          )}
+          
+          <div className="teams-display">
+            <div className="current-team">
+              <h3>Your Team ({currentPlayer.team?.length || 0}/3)</h3>
               <div className="team-cards">
-                {(opponent.team || []).map((hero, index) => (
+                {(currentPlayer.team || []).map((hero) => (
                   <HeroCard
                     key={hero.name}
                     hero={hero}
-                    isEnemy={true}
-                    tooltipPosition={index === 2 ? 'left' : 'right'}
                   />
                 ))}
               </div>
             </div>
-          )}
-        </div>
+            
+            {opponent && (
+              <div className="opponent-team">
+                <h3>Opponent's Team ({opponent.team?.length || 0}/3)</h3>
+                <div className="team-cards">
+                  {(opponent.team || []).map((hero, index) => (
+                    <HeroCard
+                      key={hero.name}
+                      hero={hero}
+                      isEnemy={true}
+                      tooltipPosition={index === 2 ? 'left' : 'right'}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-        <div className="draft-cards">
-          {draftCards.map((hero, index) => (
-            <HeroCard
-              key={hero.name}
-              hero={hero}
-              isSelectable={canPick()}
-              isSelected={selectedCard === hero.name}
-              onClick={() => canPick() && setSelectedCard(hero.name)}
-              tooltipPosition={index >= draftCards.length - 1 ? 'left' : 'right'}
-            />
-          ))}
-        </div>
+          <div className="draft-cards">
+            {draftCards.map((hero, index) => (
+              <HeroCard
+                key={hero.name}
+                hero={hero}
+                isSelectable={canPick()}
+                isSelected={selectedCard === hero.name}
+                onClick={() => canPick() && setSelectedCard(hero.name)}
+                tooltipPosition={index >= draftCards.length - 1 ? 'left' : 'right'}
+              />
+            ))}
+          </div>
 
-        <div className="draft-actions">
-          <button
-            onClick={handlePickCard}
-            disabled={!selectedCard || !canPick()}
-            className="action-button"
-          >
-            Pick Selected Card
-          </button>
+          <div className="draft-actions">
+            <button
+              onClick={handlePickCard}
+              disabled={!selectedCard || !canPick()}
+              className="action-button"
+            >
+              Pick Selected Card
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -281,6 +365,15 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const renderSetupPhase = () => {
     return (
       <div className="setup-phase">
+        {/* Abandon Draft Button */}
+        <button
+          onClick={handleAbandonDraft}
+          className="abandon-draft-button"
+          title="Return to lobby without rewards"
+        >
+          ✕ Abandon Draft
+        </button>
+
         <h2>Team Setup</h2>
         <p>Drag and drop to arrange your heroes' attack order (left to right):</p>
         

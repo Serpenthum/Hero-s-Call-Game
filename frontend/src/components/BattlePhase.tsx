@@ -59,6 +59,35 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
   const [selectingAllyForAbility, setSelectingAllyForAbility] = useState<{ abilityIndex: number; targetId: string } | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState<boolean>(false);
   const [showSpectatorList, setShowSpectatorList] = useState<boolean>(false);
+  const [opponentDisconnectTime, setOpponentDisconnectTime] = useState<number | null>(null);
+
+  // Poll for disconnection timer updates
+  useEffect(() => {
+    if (!opponent || opponent.connected || !gameState || gameState.phase !== 'battle') {
+      setOpponentDisconnectTime(null);
+      return;
+    }
+
+    // Check if opponent has a disconnection timer
+    if (opponent.disconnectionTimer && opponent.disconnectionTimer.remainingTime > 0) {
+      setOpponentDisconnectTime(opponent.disconnectionTimer.remainingTime);
+      
+      // Update countdown every second
+      const interval = setInterval(() => {
+        setOpponentDisconnectTime(prev => {
+          if (prev === null || prev <= 0) {
+            clearInterval(interval);
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    } else {
+      setOpponentDisconnectTime(null);
+    }
+  }, [opponent, gameState]);
 
   // Debug effect to log player data
   useEffect(() => {
@@ -1049,6 +1078,38 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      
+      {/* Opponent Disconnection Countdown - Bottom Right above Surrender */}
+      {!isSpectating && opponent && !opponent.connected && opponentDisconnectTime !== null && opponentDisconnectTime > 0 && gameState.phase === 'battle' && (
+        <div 
+          style={{
+            position: 'fixed',
+            bottom: '100px',
+            right: '20px',
+            backgroundColor: 'rgba(255, 193, 7, 0.95)',
+            color: '#000',
+            border: '2px solid #ffc107',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
+            zIndex: 1000,
+            textAlign: 'center',
+            minWidth: '200px'
+          }}
+        >
+          <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+            ⚠️ {opponent.name} Disconnected
+          </div>
+          <div style={{ fontSize: '24px', color: '#dc3545' }}>
+            {opponentDisconnectTime}s
+          </div>
+          <div style={{ fontSize: '12px', marginTop: '4px', color: '#555' }}>
+            Auto-forfeit in progress
+          </div>
         </div>
       )}
       

@@ -616,7 +616,7 @@
     "HP": 16,
     "Defense": 6,
     "Accuracy": "+2",
-    "BasicAttack": "1D8",
+    "BasicAttack": "1D4",
     "Ability": [
       {
         "category": "lifesteal",
@@ -1224,7 +1224,7 @@
   {
     "name": "Dual Defender",
     "HP": 20,
-    "Defense": 11,
+    "Defense": 10,
     "Accuracy": "+1",
     "BasicAttack": "1D4",
     "Ability": [
@@ -1972,7 +1972,7 @@
           {
             "type": "remove_debuff",
             "effect": "poison",
-            "target": "random_ally",
+            "target": "random_ally_with_poison",
             "count": "all"
           }
         ]
@@ -1992,8 +1992,7 @@
           "value": 1
         }
       ]
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Angel",

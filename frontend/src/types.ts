@@ -147,6 +147,12 @@ export interface Player {
   oneTwoPunchAttacksRemaining?: number;
   profile_icon?: string;
   isReady?: boolean;
+  disconnectionTimer?: {
+    playerId: string;
+    playerName: string;
+    remainingTime: number;
+    surrendered: boolean;
+  } | null;
 }
 
 export interface GameState {
@@ -298,6 +304,8 @@ export interface SocketEvents {
   'victory-points-update': (data: { type: string; pointsAwarded: number; totalVictoryPoints: number; gameMode?: string; message: string }) => void;
   'xp-update': (data: { xpGained: number; newXP: number; newLevel: number; leveledUp: boolean; message: string }) => void;
   'game-surrendered': (data: { success: boolean; gameId: string; winner: string; surrenderedBy: string; gameState: GameState }) => void;
+  'draft-abandoned': (data: { message: string }) => void;
+  'abandon-draft-result': (data: { success: boolean; message?: string }) => void;
   'returned-to-lobby': (data: { success: boolean; error?: string; preservedSurvivalState?: any }) => void;
   
   // Friends system server responses

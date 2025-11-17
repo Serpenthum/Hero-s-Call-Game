@@ -646,7 +646,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                 </div>
                 <div className="rule-item">
                   <span className="rule-label">Survival Mode:</span>
-                  <span className="rule-value">Face increasingly difficult AI opponents. Cannot reuse heroes between battles</span>
+                  <span className="rule-value">Fight other players using Survival Mode decks. Heroes that win in this battle cannot be used again</span>
                 </div>
                 <div className="rule-item">
                   <span className="rule-label">Friendly Battle:</span>

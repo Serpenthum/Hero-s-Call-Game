@@ -396,6 +396,9 @@ const PORT = process.env.PORT || 3001;
 // Game state management
 const gameManager = new GameManager(heroes, database);
 
+// Inject the io instance into gameManager for disconnection countdown events
+// This will be done after io is defined
+
 // Friendly rooms management
 const friendlyRooms = new Map(); // roomName -> { gameId, creator, players, gameStarted }
 
@@ -646,6 +649,9 @@ async function checkSurvivalGameCompletion(result) {
     if (result.gameState?.mode !== 'survival') console.log('🔍 Game mode is not survival:', result.gameState?.mode);
   }
 }
+
+// Inject io instance into gameManager for disconnection countdown events
+gameManager.setIo(io);
 
 io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);
@@ -971,6 +977,41 @@ io.on('connection', (socket) => {
       console.log('Auto-draft error:', result.error);
       socket.emit('error', { message: result.error });
     }
+  });
+
+  socket.on('abandon-draft', () => {
+    const gameId = gameManager.playerGameMap.get(socket.id);
+    if (!gameId) {
+      socket.emit('abandon-draft-result', { success: false, message: 'No active game found' });
+      return;
+    }
+
+    const game = gameManager.games.get(gameId);
+    if (!game) {
+      socket.emit('abandon-draft-result', { success: false, message: 'Game not found' });
+      return;
+    }
+
+    // Only allow abandoning during draft or setup phase
+    if (game.phase !== 'draft' && game.phase !== 'setup') {
+      socket.emit('abandon-draft-result', { success: false, message: 'Can only abandon during draft phase' });
+      return;
+    }
+
+    console.log(`🚫 Draft abandoned in game ${gameId}`);
+
+    // Notify both players that draft was abandoned
+    io.to(gameId).emit('draft-abandoned', {
+      message: 'Draft has been abandoned. Returning to lobby...'
+    });
+
+    // Clean up the game
+    game.players.forEach(player => {
+      gameManager.playerGameMap.delete(player.id);
+    });
+    gameManager.games.delete(gameId);
+
+    socket.emit('abandon-draft-result', { success: true });
   });
 
   // Handle battle actions

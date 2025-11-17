@@ -225,7 +225,8 @@ class GameManager {
       currentHeroTurn: 0, // which hero is acting
       winner: null,
       createdAt: Date.now(),
-      roomName: null // For friendly battles
+      roomName: null, // For friendly battles
+      disconnectionTimers: new Map() // playerId -> { startTime, timeoutId, surrendered }
     };
   }
 
@@ -512,7 +513,7 @@ class GameManager {
     }
 
     // Randomly assign heroes with equal probability
-    const shuffledHeroes = shuffle([...this.heroes]);
+    const shuffledHeroes = shuffleArray([...this.heroes]);
     
     // Select 6 heroes for both players (no additional shuffling needed)
     const selectedHeroes = shuffledHeroes.slice(0, 6);
@@ -1177,7 +1178,7 @@ class GameManager {
       target.passiveBuffs.push({
         sourceHero: sourceHero.name,
         sourceName: special.name,
-        stat: effect.effect === 'defense_modifier' ? 'Defense' : effect.stat,
+        stat: (effect.effect === 'defense_modifier' || effect.effect === 'ac_modifier') ? 'Defense' : effect.stat,
         value: effect.value, // Should be negative for debuffs
         permanent: false // Aura debuffs are not permanent
       });
@@ -1828,12 +1829,16 @@ class GameManager {
       });
       
       // Check for Hoarder's Collect Weapons - copy attack dice from any fallen hero (not just allies)
+      console.log(`🔍 Checking for Hoarder in same team as ${deadHero.name}...`);
       deadHeroTeam.forEach(hero => {
+        console.log(`  🔍 Checking ${hero.name}: alive=${hero.currentHP > 0}, isHoarder=${hero.name === 'Hoarder'}`);
         if (hero.currentHP > 0 && hero.name === 'Hoarder' && hero.Special) {
           const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
           const collectWeaponsSpecial = specials.find(special => 
             special.name === 'Collect Weapons' && special.trigger === 'on_any_death'
           );
+          
+          console.log(`  🔍 Hoarder found! Has Collect Weapons special: ${!!collectWeaponsSpecial}`);
           
           if (collectWeaponsSpecial && deadHero.name !== 'Hoarder') {
             // Skip heroes without basic attacks (like Assassin with '—')
@@ -1871,6 +1876,7 @@ class GameManager {
             });
             
             console.log(`  ⚔️ ${hero.name} collects ${attackDice} from ${deadHero.name}! Total collected: ${hero.scalingBuffs.collectedDice.length}`);
+            console.log(`  📋 Current collected dice:`, hero.scalingBuffs.collectedDice.map(c => `${c.dice} from ${c.from}`).join(', '));
             
             // Update hero's display stats to show the new damage
             this.updateHeroDisplayStats(hero);
@@ -1880,8 +1886,14 @@ class GameManager {
     }
     
     // Also check opponent's team for Hoarder (cross-team collection)
+    console.log(`🔍 Checking for Hoarder in opponent's team for ${deadHero.name}'s death...`);
     game.players.forEach(player => {
       player.team.forEach(hero => {
+        if (hero.currentHP > 0 && hero.name === 'Hoarder') {
+          console.log(`  🔍 Found Hoarder in opponent team, checking if should collect from ${deadHero.name}...`);
+          console.log(`    - Hoarder !== deadHero: ${hero !== deadHero}`);
+          console.log(`    - Not in same team: ${!deadHeroTeam.includes(hero)}`);
+        }
         if (hero.currentHP > 0 && hero.name === 'Hoarder' && hero.Special) {
           const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
           const collectWeaponsSpecial = specials.find(special => 
@@ -2167,6 +2179,10 @@ class GameManager {
       // Trigger after-damage effects (like Ninja's Vanish)
       const afterDamageSpecials = this.processAfterDamageEffects(game, target, currentHero, damage);
       statusEffects.push(...afterDamageSpecials);
+      
+      // Trigger on_take_damage effects (like Shroomguard's Poison Aura)
+      const onTakeDamageSpecials = this.processOnTakeDamageEffects(game, target, currentHero, damage);
+      statusEffects.push(...onTakeDamageSpecials);
       
       // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier (basic attacks and abilities)
       if (currentHero.name === 'Cavalier' && damage > 0) {
@@ -2784,9 +2800,10 @@ class GameManager {
       }
     }
     
-    if (totalHealing > 0) {
-      effectsText.push(`healed ${totalHealing} HP`);
-    }
+    // Don't add healing to effectsText - let the frontend display it to avoid redundancy
+    // if (totalHealing > 0) {
+    //   effectsText.push(`healed ${totalHealing} HP`);
+    // }
     
     if (specialEffects.length > 0) {
       effectsText.push(...specialEffects);
@@ -3031,6 +3048,10 @@ class GameManager {
             const afterDamageSpecials = this.processAfterDamageEffects(game, target, caster, damage);
             results.push(...afterDamageSpecials);
             
+            // Trigger on_take_damage effects (like Shroomguard's Poison Aura)
+            const onTakeDamageSpecials = this.processOnTakeDamageEffects(game, target, caster, damage);
+            results.push(...onTakeDamageSpecials);
+            
             // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier
             if (caster.name === 'Cavalier' && damage > 0) {
               if (!target.statusEffects) target.statusEffects = {};
@@ -3109,6 +3130,10 @@ class GameManager {
             // Trigger after-damage effects (like Ninja's Vanish)
             const afterDamageSpecials = this.processAfterDamageEffects(game, target, caster, damage);
             results.push(...afterDamageSpecials);
+            
+            // Trigger on_take_damage effects (like Shroomguard's Poison Aura)
+            const onTakeDamageSpecials = this.processOnTakeDamageEffects(game, target, caster, damage);
+            results.push(...onTakeDamageSpecials);
             
             // Process hit-confirmed triggers (like Elementalist's Wind Wall)
             this.processHitConfirmedTriggers(game, caster, target, 'ability');
@@ -3460,6 +3485,40 @@ class GameManager {
           }
           break;
 
+        case 'remove_debuff':
+          // Remove debuffs from target (like Shroomguard's poison cleanse)
+          if (abilityHit && target && effect.effect) {
+            const effectToRemove = effect.effect;
+            const removeCount = effect.count; // 'all' or a number
+            
+            if (target.statusEffects && target.statusEffects[effectToRemove] !== undefined) {
+              const oldValue = target.statusEffects[effectToRemove];
+              
+              if (removeCount === 'all') {
+                target.statusEffects[effectToRemove] = 0;
+                console.log(`🍄 Removed all ${effectToRemove} stacks from ${target.name} (was ${oldValue})`);
+              } else {
+                const removeAmount = parseInt(removeCount) || 0;
+                target.statusEffects[effectToRemove] = Math.max(0, target.statusEffects[effectToRemove] - removeAmount);
+                console.log(`🍄 Removed ${removeAmount} ${effectToRemove} stacks from ${target.name} (${oldValue} → ${target.statusEffects[effectToRemove]})`);
+              }
+              
+              results.push({
+                type: 'debuff_removed',
+                target: target.name,
+                effect: effectToRemove,
+                oldValue: oldValue,
+                newValue: target.statusEffects[effectToRemove],
+                hit: true
+              });
+            } else {
+              console.log(`🍄 ${target.name} has no ${effectToRemove} to remove`);
+            }
+          } else if (!target) {
+            console.log(`🍄 No valid target found for debuff removal`);
+          }
+          break;
+
         case 'recoil_damage':
           if (abilityHit) {
             const recoilRoll = rollDiceString(effect.value);
@@ -3619,10 +3678,14 @@ class GameManager {
         return caster; // Target the caster
       
       case 'ally':
+      case 'lowest_health_ally':
         // For healing allies, we need to automatically select a valid ally
-        // For now, heal the caster (self-heal) or the lowest HP ally
-        const allies = casterPlayer.team.filter(hero => hero.currentHP > 0);
-        if (allies.length === 0) return null;
+        // Find the ally with the lowest HP percentage (most in need of healing)
+        const allies = casterPlayer.team.filter(hero => hero.currentHP > 0 && hero !== caster);
+        if (allies.length === 0) {
+          // If no other allies, heal the caster themselves
+          return caster;
+        }
         
         // Find the ally with the lowest HP percentage (most in need of healing)
         const allyToHeal = allies.reduce((lowest, current) => {
@@ -3631,6 +3694,7 @@ class GameManager {
           return currentPercent < lowestPercent ? current : lowest;
         });
         
+        console.log(`🎯 Lowest health ally selected for healing: ${allyToHeal.name} (${allyToHeal.currentHP}/${allyToHeal.HP} HP)`);
         return allyToHeal;
       
       case 'selected_ally':
@@ -3640,6 +3704,26 @@ class GameManager {
         }
         // Fallback to caster if no ally selected
         return caster;
+      
+      case 'random_ally_with_poison':
+        // For Shroomguard's poison cleanse - select random ally that has poison stacks
+        const alliesWithPoison = casterPlayer.team.filter(hero => 
+          hero.currentHP > 0 && 
+          hero.statusEffects && 
+          hero.statusEffects.poison > 0
+        );
+        
+        if (alliesWithPoison.length === 0) {
+          console.log(`🍄 No allies with poison stacks found for Shroomguard's cleanse`);
+          return null; // No allies have poison
+        }
+        
+        // Pick random ally with poison
+        const randomIndex = Math.floor(Math.random() * alliesWithPoison.length);
+        const allyToCleanse = alliesWithPoison[randomIndex];
+        
+        console.log(`🍄 Random ally with poison selected for cleansing: ${allyToCleanse.name} (${allyToCleanse.statusEffects.poison} poison stacks)`);
+        return allyToCleanse;
       
       case 'all_enemies':
         return primaryTarget; // This will be processed differently in AOE logic
@@ -3947,6 +4031,18 @@ class GameManager {
                   // Note: Special effects from damage reduction will be logged separately
                   
                   target.currentHP = Math.max(0, target.currentHP - finalDamage);
+                  
+                  // Trigger after-damage effects (like Ninja's Vanish)
+                  const afterDamageSpecials = this.processAfterDamageEffects(game, target, hero, finalDamage);
+                  if (afterDamageSpecials.length > 0) {
+                    damageResults.push(...afterDamageSpecials);
+                  }
+                  
+                  // Trigger on_take_damage effects (like Shroomguard's Poison Aura)
+                  const onTakeDamageSpecials = this.processOnTakeDamageEffects(game, target, hero, finalDamage);
+                  if (onTakeDamageSpecials.length > 0) {
+                    damageResults.push(...onTakeDamageSpecials);
+                  }
                   
                   console.log(`💀 ${target.name} takes ${finalDamage} damage from ${special.name}: ${oldHP} → ${target.currentHP} HP`);
                   
@@ -4496,6 +4592,14 @@ class GameManager {
                 
                 target.currentHP = Math.max(0, target.currentHP - finalDamage);
                 
+                // Trigger after-damage effects (like Ninja's Vanish)
+                const afterDamageSpecials = this.processAfterDamageEffects(game, target, currentHero, finalDamage);
+                // Note: These will be logged separately
+                
+                // Trigger on_take_damage effects (like Shroomguard's Poison Aura)
+                const onTakeDamageSpecials = this.processOnTakeDamageEffects(game, target, currentHero, finalDamage);
+                // Note: These will be logged separately via the processOnTakeDamageEffects function
+                
                 console.log(`💥 ${target.name} takes ${finalDamage} damage from ${special.name}: ${oldHP} → ${target.currentHP} HP`);
                 
                 // Add individual damage log entry for this hero
@@ -4634,6 +4738,14 @@ class GameManager {
       const effects = processEndOfTurn(currentTurnInfo.hero);
       endTurnEffects.push(...effects);
       
+      // Check if Shroomguard took poison damage and trigger Poison Aura
+      const poisonDamageEffect = effects.find(e => e.type === 'poison_damage' && e.damage > 0);
+      if (poisonDamageEffect && currentTurnInfo.hero.name === 'Shroomguard' && currentTurnInfo.hero.currentHP > 0) {
+        console.log(`🍄 Shroomguard took ${poisonDamageEffect.damage} poison damage - triggering Poison Aura`);
+        const poisonAuraEffects = this.processOnTakeDamageEffects(game, currentTurnInfo.hero, null, poisonDamageEffect.damage);
+        endTurnEffects.push(...poisonAuraEffects);
+      }
+      
       // Druid Healing Word special: Heal lowest health ally at end of turn
       if (currentTurnInfo.hero.name === 'Druid' && currentTurnInfo.hero.currentHP > 0) {
         const druidSpecial = Array.isArray(currentTurnInfo.hero.Special) 
@@ -4715,7 +4827,10 @@ class GameManager {
             const damageRoll = rollDiceString('1D4');
             const damageAmount = damageRoll.total;
             const oldHP = randomEnemy.currentHP;
-            randomEnemy.currentHP = Math.max(0, randomEnemy.currentHP - damageAmount);
+            
+            // Use centralized damage application (triggers Shroomguard's Poison Aura and Ninja's Vanish)
+            const triggeredEffects = this.applyDamageToHero(game, randomEnemy, damageAmount, currentTurnInfo.hero, 'Engineer Turret');
+            endTurnEffects.push(...triggeredEffects);
             
             // Simple turret attack log entry
             const turretAttackLogEntry = {
@@ -4804,16 +4919,16 @@ class GameManager {
           if (shouldLog) {
             const paladinHero = this.findHeroByName(game, pendingTaunt.appliedBy);
             const shieldOfFaithLogEntry = this.createSpecialLogEntry(
+              paladinHero,
               'Shield of Faith', 
-              paladinHero, 
-              targetHero, 
               `protective reaction to ally taking damage`, 
+              null,
               [{
                 type: 'apply_debuff',
                 target: targetHero.name,
                 effect: 'taunt',
                 tauntTarget: pendingTaunt.tauntTarget,
-                message: `taunts ${targetHero.name} to target ${pendingTaunt.tauntTarget}`
+                message: `taunted ${targetHero.name}`
               }]
             );
             endTurnEffects.push(shieldOfFaithLogEntry);
@@ -4934,15 +5049,39 @@ class GameManager {
       return { success: false, error: 'Player not found in game' };
     }
 
+    // Check if player already surrendered from disconnection timeout
+    const oldPlayerId = game.players.find(p => p.name === playerName)?.id;
+    if (oldPlayerId && game.disconnectionTimers && game.disconnectionTimers.has(oldPlayerId)) {
+      const timerData = game.disconnectionTimers.get(oldPlayerId);
+      if (timerData.surrendered) {
+        return { success: false, error: 'You have already been surrendered due to disconnection' };
+      }
+    }
+
     // Update player connection
+    const oldId = player.id;
     player.id = socketId;
     player.connected = true;
     this.playerGameMap.set(socketId, gameId);
+    
+    // Cancel disconnection countdown if it exists
+    if (game.disconnectionTimers && game.disconnectionTimers.has(oldId)) {
+      const timerData = game.disconnectionTimers.get(oldId);
+      if (timerData.timeoutId) {
+        clearTimeout(timerData.timeoutId);
+      }
+      game.disconnectionTimers.delete(oldId);
+      console.log(`✅ Player ${playerName} reconnected - cancelled disconnection countdown`);
+    }
+    
+    // Update the playerGameMap entry
+    this.playerGameMap.delete(oldId);
 
     return {
       success: true,
       gameId,
-      gameState: this.getFullGameState(game)
+      gameState: this.getFullGameState(game),
+      reconnected: true
     };
   }
 
@@ -4954,6 +5093,11 @@ class GameManager {
         const player = game.players.find(p => p.id === playerId);
         if (player) {
           player.connected = false;
+          
+          // Start disconnection countdown only if game is in battle phase
+          if (game.phase === 'battle') {
+            this.startDisconnectionCountdown(game, playerId);
+          }
         }
       }
       this.playerGameMap.delete(playerId);
@@ -4998,6 +5142,132 @@ class GameManager {
       gameState: this.getFullGameState(game),
       message: 'Auto-draft completed! Teams assigned randomly.'
     };
+  }
+
+  startDisconnectionCountdown(game, playerId) {
+    if (!game.disconnectionTimers) {
+      game.disconnectionTimers = new Map();
+    }
+
+    // Don't start a new countdown if one already exists
+    if (game.disconnectionTimers.has(playerId)) {
+      console.log(`⏱️ Disconnection countdown already active for player ${playerId}`);
+      return;
+    }
+
+    const player = game.players.find(p => p.id === playerId);
+    if (!player) return;
+
+    console.log(`⏱️ Starting 30-second disconnection countdown for ${player.name}`);
+
+    const startTime = Date.now();
+    const timeoutId = setTimeout(() => {
+      this.handleDisconnectionTimeout(game, playerId);
+    }, 30000); // 30 seconds
+
+    game.disconnectionTimers.set(playerId, {
+      startTime,
+      timeoutId,
+      surrendered: false,
+      playerName: player.name
+    });
+
+    // Notify the socket service that countdown has started (will be handled in server.js)
+    if (this.io) {
+      this.io.to(game.id).emit('disconnection-countdown-started', {
+        playerId,
+        playerName: player.name,
+        remainingTime: 30
+      });
+    }
+  }
+
+  async handleDisconnectionTimeout(game, playerId) {
+    const timerData = game.disconnectionTimers.get(playerId);
+    if (!timerData) return;
+
+    const player = game.players.find(p => p.id === playerId);
+    if (!player) return;
+
+    // Check if player reconnected (connected flag is true)
+    if (player.connected) {
+      console.log(`✅ Player ${player.name} reconnected before timeout - clearing countdown`);
+      game.disconnectionTimers.delete(playerId);
+      return;
+    }
+
+    console.log(`⏰ Disconnection timeout reached for ${player.name} - forcing surrender`);
+
+    // Mark as surrendered to prevent reconnection
+    timerData.surrendered = true;
+
+    // Force surrender the disconnected player
+    const opponentPlayer = game.players.find(p => p.id !== playerId);
+    if (opponentPlayer) {
+      game.phase = 'ended';
+      game.winner = opponentPlayer.id;
+
+      console.log(`🏆 ${opponentPlayer.name} wins by disconnection forfeit`);
+
+      // Update database stats for disconnected player (loss)
+      const disconnectedUserId = this.userSessions.get(playerId);
+      if (disconnectedUserId && this.database) {
+        try {
+          await this.database.updatePlayerStats(disconnectedUserId, false, game.mode);
+          console.log(`📊 Updated loss for disconnected player ${player.name} (userId: ${disconnectedUserId})`);
+        } catch (error) {
+          console.error(`❌ Error updating stats for disconnected player:`, error);
+        }
+      }
+
+      // Update database stats for winner
+      const winnerUserId = this.userSessions.get(opponentPlayer.id);
+      if (winnerUserId && this.database) {
+        try {
+          await this.database.updatePlayerStats(winnerUserId, true, game.mode);
+          console.log(`📊 Updated win for ${opponentPlayer.name} (userId: ${winnerUserId})`);
+        } catch (error) {
+          console.error(`❌ Error updating stats for winner:`, error);
+        }
+      }
+
+      // Notify both players via socket service (will be handled in server.js)
+      if (this.io) {
+        this.io.to(game.id).emit('game-ended-by-disconnection', {
+          winner: opponentPlayer.id,
+          winnerName: opponentPlayer.name,
+          disconnectedPlayer: playerId,
+          disconnectedPlayerName: player.name,
+          gameState: this.getFullGameState(game)
+        });
+      }
+    }
+
+    // Clean up the timer
+    game.disconnectionTimers.delete(playerId);
+  }
+
+  getDisconnectionTimer(gameId, playerId) {
+    const game = this.games.get(gameId);
+    if (!game || !game.disconnectionTimers) return null;
+
+    const timerData = game.disconnectionTimers.get(playerId);
+    if (!timerData) return null;
+
+    const elapsed = Date.now() - timerData.startTime;
+    const remaining = Math.max(0, 30 - Math.floor(elapsed / 1000));
+
+    return {
+      playerId,
+      playerName: timerData.playerName,
+      remainingTime: remaining,
+      surrendered: timerData.surrendered
+    };
+  }
+
+  // Method to inject the io instance for socket communication
+  setIo(io) {
+    this.io = io;
   }
 
   getGameState(gameId) {
@@ -5050,7 +5320,8 @@ class GameManager {
         initiativeRoll: p.initiativeRoll,
         monkAttacksRemaining: p.monkAttacksRemaining || 0,
         oneTwoPunchAttacksRemaining: p.oneTwoPunchAttacksRemaining || 0,
-        profile_icon: p.profile_icon || 'Sorcerer'
+        profile_icon: p.profile_icon || 'Sorcerer',
+        disconnectionTimer: game.disconnectionTimers ? this.getDisconnectionTimer(game.id, p.id) : null
       })),
       currentTurn: game.currentTurn,
       currentHeroTurn: game.currentHeroTurn || 0,
@@ -5227,6 +5498,7 @@ class GameManager {
     for (const special of specials) {
       if (special.trigger === 'on_take_damage_after') {
         console.log(`✨ ${target.name}'s ${special.name} activated after taking ${damage} damage from ${attacker.name}`);
+        console.log(`🔍 processAfterDamageEffects - target:`, target.name, `attacker:`, attacker.name);
         
         // Add comprehensive special log entry
         const specialLogEntry = this.createSpecialLogEntry(
@@ -5241,6 +5513,8 @@ class GameManager {
             message: `becomes untargetable until their next turn`
           }]
         );
+        
+        console.log(`🔍 Created special log entry:`, { caster: specialLogEntry.caster, specialName: specialLogEntry.specialName, message: specialLogEntry.message });
         
         specialLogEntries.push(specialLogEntry);
         
@@ -5274,6 +5548,108 @@ class GameManager {
     return specialLogEntries;
   }
 
+  processOnTakeDamageEffects(game, target, attacker, damage) {
+    // Process on_take_damage triggers (like Shroomguard's Poison Aura)
+    if (!target.Special || target.currentHP <= 0 || damage <= 0) return [];
+
+    const specials = Array.isArray(target.Special) ? target.Special : [target.Special];
+    const specialLogEntries = [];
+    
+    for (const special of specials) {
+      if (special.trigger === 'on_take_damage' && special.name === 'Poison Aura') {
+        console.log(`🍄 ${target.name}'s ${special.name} activated after taking ${damage} damage!`);
+        
+        // Collect all alive heroes from both teams
+        const allHeroes = [];
+        game.players.forEach(player => {
+          player.team.forEach(hero => {
+            if (hero.currentHP > 0) {
+              allHeroes.push(hero);
+            }
+          });
+        });
+        
+        // Apply poison to all alive heroes
+        const poisonResults = [];
+        allHeroes.forEach(hero => {
+          if (!hero.statusEffects) {
+            hero.statusEffects = {};
+          }
+          if (hero.statusEffects.poison === undefined) {
+            hero.statusEffects.poison = 0;
+          }
+          
+          // Skip if hero is immune to poison
+          if (hero.Immunities && hero.Immunities.includes('poison')) {
+            console.log(`🍄 ${hero.name} is immune to poison - skipping`);
+            return;
+          }
+          
+          hero.statusEffects.poison += 1;
+          console.log(`🍄 ${hero.name} received 1 poison stack (total: ${hero.statusEffects.poison})`);
+          
+          poisonResults.push({
+            type: 'apply_debuff',
+            target: hero.name,
+            effect: 'poison',
+            value: 1,
+            message: `receives 1 Poison stack`
+          });
+        });
+        
+        // Create comprehensive special log entry
+        const specialLogEntry = this.createSpecialLogEntry(
+          target, 
+          special.name, 
+          `reactive to taking damage`, 
+          null, // no attack roll for reactive abilities
+          poisonResults
+        );
+        
+        // Override the message to match the requested format
+        specialLogEntry.message = `${target.name} used Poison Aura and gave EVERYONE 1 Poison Stack`;
+        
+        specialLogEntries.push(specialLogEntry);
+        
+        // Add to battle log
+        if (game && game.battleLog) {
+          game.battleLog.push(specialLogEntry);
+        }
+        
+        break; // Only trigger once per damage instance
+      }
+    }
+    
+    return specialLogEntries;
+  }
+
+  applyDamageToHero(game, target, damage, attacker = null, damageSource = 'unknown') {
+    // Centralized function to apply damage and trigger all on-damage effects
+    if (damage <= 0 || !target || target.currentHP <= 0) return [];
+    
+    const oldHP = target.currentHP;
+    target.currentHP = Math.max(0, target.currentHP - damage);
+    
+    console.log(`💥 ${target.name} takes ${damage} damage from ${damageSource}: ${oldHP} → ${target.currentHP}`);
+    
+    const triggeredEffects = [];
+    
+    // Only trigger reactive effects if target is still alive after damage
+    if (target.currentHP > 0) {
+      // Trigger after-damage effects (like Ninja's Vanish) - but NOT for poison damage
+      if (damageSource !== 'poison') {
+        const afterDamageSpecials = this.processAfterDamageEffects(game, target, attacker, damage);
+        triggeredEffects.push(...afterDamageSpecials);
+      }
+      
+      // Trigger on_take_damage effects (like Shroomguard's Poison Aura) - for ALL damage types
+      const onTakeDamageSpecials = this.processOnTakeDamageEffects(game, target, attacker, damage);
+      triggeredEffects.push(...onTakeDamageSpecials);
+    }
+    
+    return triggeredEffects;
+  }
+
   processHealthLinkReflection(game, angel, actualDamageTaken) {
     // Find all enemies with health_link debuff
     if (!angel || !game || actualDamageTaken <= 0) return;
@@ -5300,7 +5676,9 @@ class GameManager {
     // Reflect damage to all linked targets
     reflectionTargets.forEach(target => {
       const oldHP = target.currentHP;
-      target.currentHP = Math.max(0, target.currentHP - actualDamageTaken);
+      
+      // Use centralized damage application (triggers Shroomguard's Poison Aura and Ninja's Vanish)
+      this.applyDamageToHero(game, target, actualDamageTaken, angel, 'Health Link reflection');
       
       console.log(`🔗 Health Link reflected ${actualDamageTaken} damage to ${target.name}: ${oldHP} → ${target.currentHP} HP`);
       

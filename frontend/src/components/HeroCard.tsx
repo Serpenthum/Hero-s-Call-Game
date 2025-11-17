@@ -631,6 +631,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       
       // Build tooltip text with modifier details
       let tooltipText = `Base Defense: ${hero.Defense}, Modified Defense: ${modifiedDefense}`;
+      let tooltipParts: string[] = [];
       
       // Add stat modifier details if available
       if (hero.statusEffects?.statModifiers?.Defense && hero.statusEffects?.statModifierCasters) {
@@ -643,8 +644,18 @@ const HeroCard: React.FC<HeroCardProps> = ({
           });
         
         if (casterInfo.length > 0) {
-          tooltipText += `\n${casterInfo.join(', ')}`;
+          tooltipParts.push(...casterInfo);
         }
+      }
+      
+      // Add passive buffs/debuffs (like Reaper's Aura of Dread)
+      const defenseBuffs = hero.passiveBuffs?.filter(buff => buff.stat === 'Defense') || [];
+      defenseBuffs.forEach(buff => {
+        tooltipParts.push(`${buff.value > 0 ? '+' : ''}${buff.value} Defense from ${buff.sourceHero}'s ${buff.sourceName}`);
+      });
+      
+      if (tooltipParts.length > 0) {
+        tooltipText += `\n${tooltipParts.join('\n')}`;
       }
       
       return (

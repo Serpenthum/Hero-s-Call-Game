@@ -148,6 +148,11 @@ class SocketService {
     this.socket?.emit('auto-draft');
   }
 
+  abandonDraft() {
+    console.log('📡 SocketService sending abandon-draft');
+    this.socket?.emit('abandon-draft');
+  }
+
   reconnectGame(gameId: string, playerName: string) {
     this.socket?.emit('reconnect-game', { gameId, playerName });
   }
