@@ -470,7 +470,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                         <div className="favorite-star">⭐</div>
                       )}
                       <img 
-                        src={`${config.IMAGE_BASE_URL}/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                        src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                         alt={hero.name}
                         className="hero-image"
                         onError={(e) => {
