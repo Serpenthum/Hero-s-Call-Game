@@ -117,6 +117,8 @@ interface AppState {
     targetUsername: string;
   }>;
   showCollection: boolean;
+  showDraftAbandonedModal: boolean;
+  draftAbandonedMessage: string;
 }
 
 function App() {
@@ -162,6 +164,8 @@ function App() {
     unreadMessageChats: new Map(),
     openMessageChats: [],
     showCollection: false,
+    showDraftAbandonedModal: false,
+    draftAbandonedMessage: '',
 
   });
 
@@ -451,6 +455,25 @@ function App() {
     });
 
     socket.on('initiative-rolled', (data) => {
+      // Handle tie - reset rolls and show message
+      if (data.tie) {
+        setState(prev => ({
+          ...prev,
+          gameState: prev.gameState ? {
+            ...prev.gameState,
+            players: prev.gameState.players.map(p => ({
+              ...p,
+              initiativeRoll: undefined
+            }))
+          } : null
+        }));
+        // Show tie message briefly
+        setTimeout(() => {
+          alert(`Both players rolled ${data.rolls.player1}! Rolling again...`);
+        }, 100);
+        return;
+      }
+      
       setState(prev => ({
         ...prev,
         gameState: prev.gameState ? {
@@ -1133,12 +1156,13 @@ function App() {
       }));
     });
 
-    socket.on('draft-abandoned', (data) => {
+    socket.on('draft-abandoned', (data: { message: string; isOpponent?: boolean }) => {
       console.log('🚫 Draft abandoned:', data);
-      alert(data.message || 'Draft has been abandoned. Returning to lobby...');
-      // Reset game state and return to lobby
+      // Show modal to opponent, direct return to lobby for abandoner
       setState(prev => ({
         ...prev,
+        showDraftAbandonedModal: data.isOpponent === true,
+        draftAbandonedMessage: data.message || 'Your opponent has abandoned the draft.',
         gameState: null,
         currentView: 'lobby',
         matchmakingMode: null,
@@ -1900,29 +1924,99 @@ function App() {
           {/* Draft Phase Information */}
           {state.gameState.phase === 'draft' && (
             <div className="draft-info">
-              <h3>Draft - Round {state.gameState.currentDraftPhase}/3</h3>
               {currentPlayer && opponent && (
                 <div className="matchup-display">
                   <span className="player-name-sidebar">{currentPlayer.name}</span>
-                  <span className="vs-text-sidebar">VS</span>
+                  <span className="vs-text-sidebar">vs</span>
                   <span className="opponent-name-sidebar">{opponent.name}</span>
                 </div>
               )}
               {currentPlayer && (
                 <div className="turn-status">
                   {(currentPlayer.team?.length || 0) < state.gameState.currentDraftPhase 
-                    ? "🟢 Your turn to pick" 
+                    ? "● Your turn to pick" 
                     : "⏳ Waiting for opponent"}
                 </div>
               )}
+              
+              {/* Banned Cards Section */}
+              {currentPlayer?.bannedCard && opponent?.bannedCard && (
+                <div className="banned-cards-section">
+                  <h3>BANNED CARDS</h3>
+                  <div className="banned-cards-subtitle">
+                    These cards cannot be picked
+                  </div>
+                  
+                  <div className="banned-cards-list">
+                    {[currentPlayer.bannedCard, opponent.bannedCard].filter(Boolean).map((cardName, index) => {
+                      const bannedByPlayer = cardName === currentPlayer.bannedCard;
+                      return (
+                        <div key={index} className="banned-card-item">
+                          <img 
+                            src={`http://localhost:3001/hero-images/${cardName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                            alt={cardName}
+                            className="banned-card-image"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vPC90ZXh0Pjwvc3ZnPg==';
+                            }}
+                          />
+                          <span className="banned-card-name">{cardName}</span>
+                          <span className="banned-by-label">{bannedByPlayer ? '(You)' : '(Opp.)'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="banned-cards-count">
+                    2 cards banned
+                  </div>
+                </div>
+              )}
+              
+              {/* Abandon Draft Button */}
+              <button
+                onClick={() => {
+                  socketService.abandonDraft();
+                }}
+                className="abandon-draft-button"
+                title="Return to lobby without rewards"
+              >
+                ✕ ABANDON DRAFT
+              </button>
             </div>
           )}
           
           {/* Setup Phase Information */}
           {state.gameState.phase === 'setup' && (
             <div className="setup-info">
-              <h3>Setup Phase</h3>
-              <div className="setup-status">Set your attack order</div>
+              {currentPlayer && opponent && (
+                <div className="matchup-display">
+                  <span className="player-name-sidebar">{currentPlayer.name}</span>
+                  <span className="vs-text-sidebar">vs</span>
+                  <span className="opponent-name-sidebar">{opponent.name}</span>
+                </div>
+              )}
+              
+              {currentPlayer && opponent && (
+                <div className="turn-status">
+                  {!currentPlayer.attackOrder || currentPlayer.attackOrder.length !== 3
+                    ? "⚔️ Set your attack order"
+                    : opponent.attackOrder && opponent.attackOrder.length === 3
+                    ? "✅ Both players ready!"
+                    : "⏳ Waiting for opponent"}
+                </div>
+              )}
+              
+              {/* Abandon Draft Button */}
+              <button
+                onClick={() => {
+                  socketService.abandonDraft();
+                }}
+                className="abandon-draft-button"
+                title="Return to lobby without rewards"
+              >
+                ✕ ABANDON DRAFT
+              </button>
             </div>
           )}
           
@@ -2146,6 +2240,28 @@ function App() {
             />
           ))}
         </>
+      )}
+
+      {/* Draft Abandoned Modal */}
+      {state.showDraftAbandonedModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Draft Abandoned</h2>
+            <p>{state.draftAbandonedMessage}</p>
+            <button
+              className="action-button"
+              onClick={() => {
+                setState(prev => ({
+                  ...prev,
+                  showDraftAbandonedModal: false,
+                  draftAbandonedMessage: ''
+                }));
+              }}
+            >
+              Return to Lobby
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

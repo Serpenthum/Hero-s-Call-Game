@@ -334,6 +334,16 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
             <p>Opponent rolled: {opponent.initiativeRoll}</p>
           )}
 
+          {/* Show tie message */}
+          {currentPlayer.initiativeRoll !== undefined && 
+           opponent?.initiativeRoll !== undefined &&
+           currentPlayer.initiativeRoll === opponent.initiativeRoll && (
+            <div className="tie-message">
+              <h3>🎲 Tie! Both rolled {currentPlayer.initiativeRoll}</h3>
+              <p>Rolling again...</p>
+            </div>
+          )}
+
           {/* Show choice if player won initiative */}
           {initiativeChoice === null && 
            currentPlayer.initiativeRoll !== undefined && 

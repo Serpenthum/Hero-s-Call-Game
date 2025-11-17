@@ -2,20 +2,20 @@
 body, html {
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Prevent any scrollbars */
+  overflow: auto; /* Allow scrollbars when content overflows */
   height: 100vh; /* Fixed viewport height */
 }
 
 .App {
-  height: 100vh; /* Fixed height instead of min-height */
+  min-height: 100vh; /* Minimum height, can grow */
   color: white;
-  overflow: hidden; /* Prevent scrollbars */
+  overflow: auto; /* Allow scrolling when needed */
 }
 
 .app-layout {
   display: flex;
-  height: 100vh; /* Fixed height instead of min-height */
-  overflow: hidden; /* Prevent scrollbars */
+  min-height: 100vh; /* Minimum height */
+  overflow: auto; /* Allow scrolling */
 }
 
 .game-sidebar {
@@ -23,9 +23,10 @@ body, html {
   background: rgba(0, 0, 0, 0.8);
   border-right: 2px solid #007bff;
   padding: 0; /* Remove padding to reach edge */
-  overflow-y: hidden; /* Remove scrolling */
+  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-x: hidden; /* Prevent horizontal scroll */
   flex-shrink: 0;
-  height: 100vh; /* Fixed height */
+  max-height: 100vh; /* Limit to viewport height */
 }
 
 .game-sidebar > * {
@@ -950,37 +951,38 @@ body, html {
   position: relative;
 }
 
-/* Abandon Draft Button */
+/* Abandon Draft Button in Sidebar */
 .abandon-draft-button {
-  position: absolute;
-  top: clamp(8px, 1vw, 12px);
-  left: clamp(8px, 1vw, 12px);
-  padding: clamp(6px, 0.8vw, 8px) clamp(10px, 1.2vw, 14px);
-  background: rgba(255, 50, 50, 0.15);
-  border: 1.5px solid rgba(255, 70, 70, 0.4);
-  border-radius: 6px;
+  width: 100%;
+  padding: clamp(10px, 1.2vw, 12px);
+  background: rgba(255, 50, 50, 0.12);
+  border: 1.5px solid rgba(255, 70, 70, 0.3);
+  border-radius: 8px;
   color: #ff6b6b;
   font-size: clamp(0.75rem, 0.9vw, 0.9rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 6px;
+  margin-top: clamp(12px, 1.4vw, 16px);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .abandon-draft-button:hover {
-  background: rgba(255, 50, 50, 0.25);
-  border-color: rgba(255, 70, 70, 0.6);
+  background: rgba(255, 50, 50, 0.2);
+  border-color: rgba(255, 70, 70, 0.5);
   color: #ff8888;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(255, 50, 50, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 50, 50, 0.3);
 }
 
 .abandon-draft-button:active {
   transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(255, 50, 50, 0.2);
+  box-shadow: 0 2px 6px rgba(255, 50, 50, 0.2);
 }
 
 /* Adjust setup-phase to also be relative for button positioning */
@@ -993,10 +995,8 @@ body, html {
   justify-content: center;
   gap: clamp(6px, 0.8vw, 12px);
   flex-wrap: wrap;
-  margin: clamp(0.3rem, 0.6vw, 0.8rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
-  padding-top: 0.3rem;
-  padding-left: 2%;
-  padding-right: 8%;
+  margin: clamp(1.5rem, 2vw, 2.5rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
+  padding-top: 0.5rem;
 }
 
 /* Special layout for ban phase with 5 cards - single row */
@@ -1059,7 +1059,7 @@ body, html {
 .teams-display {
   display: flex;
   justify-content: space-around;
-  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0;
+  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0 clamp(1rem, 1.5vw, 1.5rem) 0;
   gap: clamp(0.5rem, 0.8vw, 0.8rem);
   padding-top: clamp(0.2rem, 0.4vw, 0.4rem);
   padding-bottom: clamp(0.2rem, 0.4vw, 0.4rem);
@@ -1071,7 +1071,7 @@ body, html {
   background: rgba(255, 255, 255, 0.1);
   padding: clamp(0.4rem, 0.8vw, 0.8rem);
   border-radius: 6px;
-  min-height: clamp(200px, 25vh, 320px);
+  min-height: clamp(260px, 35vh, 400px);
   display: flex;
   flex-direction: column;
 }
@@ -1091,12 +1091,12 @@ body, html {
   flex-wrap: wrap;
 }
 
-/* Team display cards - responsive sizing for laptop screens */
+/* Team display cards - larger sizing to show all information */
 .draft-phase .teams-display .hero-card {
-  width: clamp(140px, 16vw, 180px);
-  height: clamp(220px, 26vw, 290px);
+  width: clamp(165px, 18.5vw, 210px);
+  height: clamp(310px, 38vh, 390px);
   margin: 2px;
-  font-size: clamp(0.7rem, 0.85vw, 0.85rem);
+  font-size: clamp(0.75rem, 0.9vw, 0.9rem);
 }
 
 .draft-phase .teams-display .hero-card .hero-name {
@@ -1132,6 +1132,9 @@ body, html {
 .setup-phase {
   padding: 20px;
   text-align: center;
+  max-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .setup-phase h2 {
@@ -1177,36 +1180,95 @@ body, html {
   cursor: grabbing;
 }
 
-/* Banned Cards Sidebar Styles */
-.banned-cards-sidebar {
+/* Draft Info Sidebar - Combined */
+.draft-info-sidebar {
   position: fixed;
   left: clamp(8px, 1vw, 15px);
-  top: 50%;
-  transform: translateY(-50%);
-  width: clamp(120px, 14vw, 160px);
-  background: rgba(0, 0, 0, 0.85);
-  border: 2px solid rgba(255, 107, 107, 0.3);
-  border-radius: 8px;
-  padding: clamp(8px, 1vw, 12px);
-  z-index: 100;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  max-height: 90vh;
+  top: clamp(60px, 8vh, 80px);
+  width: clamp(180px, 20vw, 240px);
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.95) 0%, rgba(20, 20, 40, 0.98) 100%);
+  border: 2px solid rgba(74, 158, 255, 0.35);
+  border-radius: 12px;
+  padding: clamp(12px, 1.4vw, 16px);
+  z-index: 101;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  max-height: calc(100vh - 80px);
   overflow-y: auto;
 }
 
-.banned-cards-sidebar h3 {
+.draft-players {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 0.8vw, 8px);
+  margin-bottom: clamp(12px, 1.4vw, 16px);
+}
+
+.draft-players .player-name {
+  font-size: clamp(0.75rem, 0.9vw, 0.9rem);
+  font-weight: 600;
+}
+
+.draft-players .player-name.opponent {
   color: #ff6b6b;
-  font-size: clamp(0.85rem, 1vw, 1rem);
-  margin: 0 0 6px 0;
+}
+
+.draft-players .player-name.current {
+  color: #4a9eff;
+}
+
+.draft-players .vs-text {
+  font-size: clamp(0.65rem, 0.75vw, 0.75rem);
+  color: #888;
+  font-weight: bold;
+}
+
+.turn-indicator {
   text-align: center;
-  text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+  color: #5cff5c;
+  font-size: clamp(0.7rem, 0.85vw, 0.85rem);
+  font-weight: 600;
+  padding: clamp(8px, 1vw, 10px);
+  background: rgba(92, 255, 92, 0.1);
+  border-radius: 6px;
+  margin-bottom: clamp(12px, 1.4vw, 16px);
+}
+
+.waiting-indicator {
+  text-align: center;
+  color: #ffa500;
+  font-size: clamp(0.7rem, 0.85vw, 0.85rem);
+  font-weight: 600;
+  padding: clamp(8px, 1vw, 10px);
+  background: rgba(255, 165, 0, 0.1);
+  border-radius: 6px;
+  margin-bottom: clamp(12px, 1.4vw, 16px);
+}
+
+/* Banned Cards Section within Sidebar */
+.banned-cards-section {
+  margin-top: clamp(12px, 1.4vw, 16px);
+  padding-top: clamp(12px, 1.4vw, 16px);
+  border-top: 1px solid rgba(255, 107, 107, 0.25);
+}
+
+.banned-cards-section h3 {
+  color: #ff6b6b;
+  font-size: clamp(0.9rem, 1.05vw, 1.05rem);
+  margin: 0 0 clamp(8px, 1vw, 10px) 0;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(255, 107, 107, 0.6);
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 .banned-cards-subtitle {
   font-size: clamp(0.6rem, 0.7vw, 0.7rem);
-  color: #999;
+  color: rgba(255, 255, 255, 0.4);
   text-align: center;
-  margin-bottom: clamp(8px, 1vw, 12px);
+  margin-bottom: clamp(10px, 1.2vw, 14px);
+  font-style: italic;
 }
 
 .banned-cards-list {
@@ -1218,15 +1280,18 @@ body, html {
 .banned-card-item {
   display: flex;
   align-items: center;
-  gap: clamp(4px, 0.6vw, 6px);
-  background: rgba(255, 255, 255, 0.05);
-  padding: clamp(4px, 0.6vw, 6px);
-  border-radius: 4px;
-  transition: background 0.2s;
+  gap: clamp(6px, 0.8vw, 8px);
+  background: rgba(255, 107, 107, 0.08);
+  padding: clamp(6px, 0.8vw, 8px);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 107, 107, 0.15);
 }
 
 .banned-card-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 107, 107, 0.15);
+  border-color: rgba(255, 107, 107, 0.3);
+  transform: translateX(2px);
 }
 
 .banned-card-image {
@@ -1256,12 +1321,13 @@ body, html {
 }
 
 .banned-cards-count {
-  margin-top: clamp(8px, 1vw, 10px);
-  padding-top: clamp(8px, 1vw, 10px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: clamp(10px, 1.2vw, 12px);
+  padding-top: clamp(10px, 1.2vw, 12px);
+  border-top: 1px solid rgba(255, 107, 107, 0.15);
   text-align: center;
   font-size: clamp(0.65rem, 0.75vw, 0.75rem);
-  color: #999;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
 }
 
 .draft-main-content {
@@ -1269,7 +1335,7 @@ body, html {
 }
 
 .draft-main-content.with-sidebar {
-  margin-left: clamp(135px, 16vw, 180px);
+  margin-left: 0;
 }
 
 .draggable-hero-slot:hover {
@@ -1978,18 +2044,20 @@ body, html {
   color: #4a9eff;
   font-weight: bold;
   text-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+  font-size: 1.5em;
 }
 
 .opponent-name-sidebar {
   color: #ff6b6b;
   font-weight: bold;
   text-shadow: 0 0 8px rgba(255, 107, 107, 0.5);
+  font-size: 1.5em;
 }
 
 .vs-text-sidebar {
   color: #ffd700;
   font-weight: 900;
-  font-size: 0.85rem;
+  font-size: 1.1em;
   text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
 }
 
@@ -2250,10 +2318,10 @@ body, html {
 .battle-layout {
   display: flex;
   gap: 0;
-  height: 100vh; /* Fixed height to match viewport */
+  min-height: 100vh; /* Minimum height */
+  max-height: 100vh; /* Maximum height */
   margin-right: clamp(200px, 18vw, 300px); /* Leave space for fixed action bar */
-  overflow: hidden; /* Prevent scrollbars */
-  /* Ensure it extends to all edges except right (for action bar) */
+  overflow: auto; /* Allow scrolling when needed */
   margin: 0;
   margin-right: clamp(200px, 18vw, 300px); /* Only right margin for action bar */
 }
@@ -2266,7 +2334,8 @@ body, html {
   padding: 0; /* Remove padding so areas extend to sidebar */
   margin: 0; /* Ensure no margins */
   width: 100%; /* Full width */
-  height: 100vh; /* Full height */
+  min-height: 100vh; /* Minimum full height */
+  overflow-y: auto; /* Enable vertical scrolling */
 }
 
 .action-bar {
@@ -2275,7 +2344,8 @@ body, html {
   border-left: 2px solid #007bff;
   padding: 0; /* Remove padding to reach edge */
   margin: 0; /* Ensure no margin */
-  overflow-y: hidden; /* Remove scrolling */
+  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-x: hidden; /* Prevent horizontal scroll */
   flex-shrink: 0;
   display: flex;
   flex-direction: column;

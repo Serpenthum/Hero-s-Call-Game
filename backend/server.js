@@ -998,11 +998,22 @@ io.on('connection', (socket) => {
       return;
     }
 
-    console.log(`🚫 Draft abandoned in game ${gameId}`);
+    console.log(`🚫 Draft abandoned in game ${gameId} by player ${socket.id}`);
 
-    // Notify both players that draft was abandoned
-    io.to(gameId).emit('draft-abandoned', {
-      message: 'Draft has been abandoned. Returning to lobby...'
+    // Notify the abandoning player (no message, just return to lobby)
+    socket.emit('draft-abandoned', {
+      message: '',
+      isOpponent: false
+    });
+
+    // Notify opponent with modal
+    game.players.forEach(player => {
+      if (player.id !== socket.id) {
+        io.to(player.id).emit('draft-abandoned', {
+          message: 'Your opponent has abandoned the draft.',
+          isOpponent: true
+        });
+      }
     });
 
     // Clean up the game

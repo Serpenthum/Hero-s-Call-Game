@@ -474,6 +474,8 @@ class GameManager {
 
   startDraftPhase(game) {
     game.phase = 'draft';
+    game.currentDraftPhase = 0; // Ensure ban phase starts at 0
+    game.draftTurn = 0;
     
     // Force include Paladin and Druid for testing
     const paladin = this.heroes.find(h => h.name === 'Paladin');
@@ -602,6 +604,11 @@ class GameManager {
   banCard(playerId, cardName) {
     const gameId = this.playerGameMap.get(playerId);
     const game = this.games.get(gameId);
+    
+    console.log(`🔍 Ban attempt - gameId: ${gameId}, game exists: ${!!game}`);
+    if (game) {
+      console.log(`   Phase: ${game.phase}, currentDraftPhase: ${game.currentDraftPhase}`);
+    }
     
     if (!game || game.phase !== 'draft' || game.currentDraftPhase !== 0) {
       return { success: false, error: 'Invalid game state for banning' };
