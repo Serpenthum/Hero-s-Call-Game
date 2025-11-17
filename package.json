@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "description": "Hero's Call - Multiplayer Strategy Game",
   "scripts": {
-    "docker:build:frontend": "cd frontend && docker build -t ericellb/heros-call-frontend:latest .",
-    "docker:build:backend": "cd backend && docker build -t ericellb/heros-call-backend:latest .",
+    "docker:build:frontend": "docker build -f frontend/Dockerfile -t ericellb/heros-call-frontend:latest .",
+    "docker:build:backend": "docker build -f backend/Dockerfile -t ericellb/heros-call-backend:latest .",
     "docker:build:all": "npm run docker:build:frontend && npm run docker:build:backend",
     "docker:push:frontend": "docker push ericellb/heros-call-frontend:latest",
     "docker:push:backend": "docker push ericellb/heros-call-backend:latest",
     "docker:push:all": "npm run docker:push:frontend && npm run docker:push:backend",
     "docker:deploy": "npm run docker:build:all && npm run docker:push:all",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
     "install:all": "cd frontend && npm install && cd ../backend && npm install"
   },
   "keywords": [

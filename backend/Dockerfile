@@ -6,19 +6,19 @@ WORKDIR /app
 # Create directory for database
 RUN mkdir -p /app/data
 
-COPY package*.json ./
+COPY backend/package*.json ./
 
 # Run the standard install. This will install all dependencies.
 # 'npm ci' is preferred if you have a package-lock.json
 RUN npm ci
 
-COPY . .
+COPY backend/ .
 
 # Copy hero-images from frontend
-COPY ../frontend/hero-images ./frontend/hero-images
+COPY frontend/hero-images ./frontend/hero-images
 
 # Copy login-images from frontend public folder
-COPY ../frontend/public/login-images ./frontend/public/login-images
+COPY frontend/public/login-images ./frontend/public/login-images
 
 ENV PORT=3001
 EXPOSE $PORT
