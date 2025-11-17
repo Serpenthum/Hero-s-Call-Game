@@ -6,7 +6,7 @@ COPY tsconfig*.json ./
 COPY vite.config.ts ./
 COPY index.html ./
 COPY public ./public
-COPY hero-images ./public/hero-images
+COPY hero-images ./hero-images
 COPY src ./src
 RUN npm install && npm run build
 

@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: url('http://localhost:3001/login-images/charactercreate1.png') center center / cover no-repeat,
+  background: var(--register-background-image, linear-gradient(135deg, #0f3460 0%, #16213e 50%, #1a1a2e 100%)),
               linear-gradient(135deg, #0f3460 0%, #16213e 50%, #1a1a2e 100%);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   overflow-y: auto;

@@ -288,7 +288,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     if (!userId) return;
     
     try {
-      const response = await fetch(`http://localhost:3001/api/favorite-heroes/${userId}`);
+      const response = await fetch(`${config.API_BASE_URL}/api/favorite-heroes/${userId}`);
       if (response.ok) {
         const data = await response.json();
         setFavoriteHeroes(data.favoriteHeroes || []);
@@ -302,7 +302,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     if (!userId) return;
     
     try {
-      const response = await fetch('http://localhost:3001/api/toggle-favorite-hero', {
+      const response = await fetch(`${config.API_BASE_URL}/api/toggle-favorite-hero`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

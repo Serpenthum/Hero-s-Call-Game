@@ -14,6 +14,12 @@ RUN npm ci
 
 COPY . .
 
+# Copy hero-images from frontend
+COPY ../frontend/hero-images ./frontend/hero-images
+
+# Copy login-images from frontend public folder
+COPY ../frontend/public/login-images ./frontend/public/login-images
+
 ENV PORT=3001
 EXPOSE $PORT
 

@@ -50,7 +50,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
   const fetchPlayerStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3001/api/player-stats/${user.id}`);
+      const response = await fetch(`${config.API_BASE_URL}/api/player-stats/${user.id}`);
       const data = await response.json();
       
       if (data.success) {
@@ -66,7 +66,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
 
   const handleIconChange = async (heroName: string) => {
     try {
-      const response = await fetch('http://localhost:3001/api/update-profile-icon', {
+      const response = await fetch(`${config.API_BASE_URL}/api/update-profile-icon`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
