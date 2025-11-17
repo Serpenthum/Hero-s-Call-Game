@@ -3,6 +3,7 @@ import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
 import RewardsDisplay from './RewardsDisplay';
+import config from '../config';
 
 interface BattlePhaseProps {
   gameState: GameState;
@@ -359,7 +360,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
               <h3 className="team-label opponent-label">{opponent?.name || 'Opponent Player'}</h3>
               <div className="player-profile-icon">
                 <img 
-                  src={`http://localhost:3001/hero-images/${(opponent?.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                  src={`${config.IMAGE_BASE_URL}/hero-images/${(opponent?.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                   alt={opponent?.profile_icon || 'Default'}
                   className="profile-icon-small"
                   onError={(e) => {
@@ -406,7 +407,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
               <h3 className="team-label player-label">{currentPlayer.name || 'Your Team'}</h3>
               <div className="player-profile-icon">
                 <img 
-                  src={`http://localhost:3001/hero-images/${(currentPlayer.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                  src={`${config.IMAGE_BASE_URL}/hero-images/${(currentPlayer.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                   alt={currentPlayer.profile_icon || 'Default'}
                   className="profile-icon-small"
                   onError={(e) => {

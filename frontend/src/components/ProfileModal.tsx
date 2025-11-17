@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import HeroCard from './HeroCard';
 import XPBar from './XPBar';
 import { Hero } from '../types';
+import config from '../config';
 import '../styles/ProfileModal.css';
 
 interface User {
@@ -126,7 +127,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                   <div className="profile-icon-container">
                     {getProfileIcon() && (
                       <img 
-                        src={`/hero-images/${getProfileIcon()!.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                        src={`${config.IMAGE_BASE_URL}/hero-images/${getProfileIcon()!.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                         alt={selectedIcon}
                         className="profile-icon"
                         onError={(e) => {
@@ -232,7 +233,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                       >
                         <div className="icon-option-image">
                           <img 
-                            src={`/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                            src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                             alt={hero.name}
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
