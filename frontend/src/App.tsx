@@ -48,8 +48,9 @@ interface BattleLogEntry {
   specialName?: string;
   triggerContext?: string;
   isSpecial?: boolean;
-  // Resurrection properties
+  // Log entry type and source
   type?: string;
+  source?: string;
   caster?: string;
   message?: string;
   description?: string;
@@ -116,6 +117,10 @@ interface AppState {
     targetUserId: number;
     targetUsername: string;
   }>;
+  minimizedMessageChats: Array<{
+    targetUserId: number;
+    targetUsername: string;
+  }>;
   showCollection: boolean;
   showDraftAbandonedModal: boolean;
   draftAbandonedMessage: string;
@@ -163,6 +168,7 @@ function App() {
     messageNotificationCount: 0,
     unreadMessageChats: new Map(),
     openMessageChats: [],
+    minimizedMessageChats: [],
     showCollection: false,
     showDraftAbandonedModal: false,
     draftAbandonedMessage: '',
@@ -587,6 +593,36 @@ function App() {
           });
         }
 
+        // Process special backend log entries (resurrection, health link reflection, etc.)
+        if (data.gameState && data.gameState.battleLog) {
+          const specialBackendEntries = data.gameState.battleLog.filter((entry: any) => 
+            entry.type === 'resurrection' || 
+            entry.type === 'health_link_reflection' ||
+            entry.type === 'special_activation' ||
+            entry.type === 'special_comprehensive'
+          );
+          
+          specialBackendEntries.forEach((backendEntry: any, index: number) => {
+            const specialEntry: BattleLogEntry = {
+              id: `${Date.now()}-backend-${backendEntry.type}-${index}`,
+              timestamp: backendEntry.timestamp || Date.now() + index + 10,
+              action: backendEntry.message || backendEntry.action,
+              damage: backendEntry.damage,
+              healing: backendEntry.healing || backendEntry.healAmount,
+              hit: backendEntry.hit !== undefined ? backendEntry.hit : true,
+              crit: backendEntry.isCritical || backendEntry.crit || false,
+              attacker: backendEntry.source || backendEntry.caster || backendEntry.attacker,
+              target: backendEntry.target,
+              type: backendEntry.type,
+              source: backendEntry.source,
+              caster: backendEntry.caster,
+              specialName: backendEntry.specialName,
+              isSpecial: backendEntry.isSpecial || false
+            };
+            newLogEntries.push(specialEntry);
+          });
+        }
+
         return {
           ...prev,
           gameState: data.gameState || prev.gameState,
@@ -858,22 +894,33 @@ function App() {
           newLogEntries.push(fallbackEntry);
         }
 
-        // Process resurrection effects (like Angel's Resurrection)
+        // Process special backend log entries (resurrection, health link reflection, etc.)
         if (data.gameState && data.gameState.battleLog) {
-          const resurrections = data.gameState.battleLog.filter((entry: any) => entry.type === 'resurrection');
-          resurrections.forEach((resurrection: any, index: number) => {
-            const resurrectionEntry: BattleLogEntry = {
-              id: `${Date.now()}-resurrection-${index}`,
-              timestamp: Date.now() + index,
-              action: resurrection.message,
-              healing: resurrection.healAmount,
-              hit: true,
-              crit: false,
-              attacker: resurrection.caster,
-              target: resurrection.target,
-              type: 'resurrection'
+          const specialBackendEntries = data.gameState.battleLog.filter((entry: any) => 
+            entry.type === 'resurrection' || 
+            entry.type === 'health_link_reflection' ||
+            entry.type === 'special_activation' ||
+            entry.type === 'special_comprehensive'
+          );
+          
+          specialBackendEntries.forEach((backendEntry: any, index: number) => {
+            const specialEntry: BattleLogEntry = {
+              id: `${Date.now()}-backend-${backendEntry.type}-${index}`,
+              timestamp: backendEntry.timestamp || Date.now() + index,
+              action: backendEntry.message || backendEntry.action,
+              damage: backendEntry.damage,
+              healing: backendEntry.healing || backendEntry.healAmount,
+              hit: backendEntry.hit !== undefined ? backendEntry.hit : true,
+              crit: backendEntry.isCritical || backendEntry.crit || false,
+              attacker: backendEntry.source || backendEntry.caster || backendEntry.attacker,
+              target: backendEntry.target,
+              type: backendEntry.type,
+              source: backendEntry.source,
+              caster: backendEntry.caster,
+              specialName: backendEntry.specialName,
+              isSpecial: backendEntry.isSpecial || false
             };
-            newLogEntries.push(resurrectionEntry);
+            newLogEntries.push(specialEntry);
           });
         }
 
@@ -1631,6 +1678,22 @@ function App() {
       const hadUnreadFromThisUser = newUnreadChats.has(playerId);
       newUnreadChats.delete(playerId);
 
+      // Check if chat is minimized and restore it
+      const minimizedChat = prev.minimizedMessageChats.find(chat => chat.targetUserId === playerId);
+      if (minimizedChat) {
+        return {
+          ...prev,
+          openMessageChats: [...prev.openMessageChats, minimizedChat],
+          minimizedMessageChats: prev.minimizedMessageChats.filter(chat => chat.targetUserId !== playerId),
+          showFriendsOverlay: false,
+          unreadMessageChats: newUnreadChats,
+          // Decrease notification count if this user had unread messages
+          messageNotificationCount: hadUnreadFromThisUser 
+            ? Math.max(0, prev.messageNotificationCount - 1)
+            : prev.messageNotificationCount
+        };
+      }
+
       return {
         ...prev,
         openMessageChats: [...prev.openMessageChats, {
@@ -1654,6 +1717,22 @@ function App() {
     }));
   };
 
+  const handleMinimizeMessageChat = (playerId: number, playerName: string) => {
+    setState(prev => {
+      const chatToMinimize = prev.openMessageChats.find(chat => chat.targetUserId === playerId);
+      if (!chatToMinimize) return prev;
+
+      return {
+        ...prev,
+        openMessageChats: prev.openMessageChats.filter(chat => chat.targetUserId !== playerId),
+        minimizedMessageChats: [...prev.minimizedMessageChats, {
+          targetUserId: playerId,
+          targetUsername: playerName
+        }]
+      };
+    });
+  };
+
   const handleMessageIconClick = () => {
     // If there are unread messages, open the most recent one
     if (state.unreadMessageChats.size > 0) {
@@ -1664,6 +1743,11 @@ function App() {
       handleOpenMessageChat(firstUnreadUserId, firstUnreadUsername);
       
       console.log('Opening message chat for:', firstUnreadUsername, '(ID:', firstUnreadUserId, ')');
+    }
+    // If there are minimized chats, restore the most recent one
+    else if (state.minimizedMessageChats.length > 0) {
+      const firstMinimized = state.minimizedMessageChats[0];
+      handleOpenMessageChat(firstMinimized.targetUserId, firstMinimized.targetUsername);
     }
   };
 
@@ -2091,6 +2175,17 @@ function App() {
                                       : '<strong>$1</strong> used <span class="ability-name">$2</span>$3 →'
                                   )
                                 }} />
+                              ) : typeof entry.action === 'string' && (entry.action.includes('used') || entry.action.includes('activates')) ? (
+                                // Comprehensive message that already contains the full text - display as-is with styling
+                                <span dangerouslySetInnerHTML={{
+                                  __html: entry.action.replace(
+                                    /([\w\s']+)'s\s+(\w+)\s+activates/,
+                                    '<strong>$1</strong>\'s <span class="special-name">$2</span> activates'
+                                  ).replace(
+                                    /([\w\s]+)\s+used\s+([\w\s]+)/,
+                                    '<strong>$1</strong> used <span class="special-name">$2</span>'
+                                  )
+                                }} />
                               ) : entry.isSpecial && entry.specialName ? (
                                 // Special ability format with gold styling
                                 <>
@@ -2109,14 +2204,24 @@ function App() {
                             </div>
                             <div className="log-result">
                               {/* Handle different ability types */}
-                              {entry.action?.includes('Twin Spell') ? (
+                              {entry.type === 'special_activation' ? (
+                                // Special ability activation
+                                <span className="special-ability">
+                                  ✨ <span className="special-name">{entry.specialName}</span> activated!
+                                </span>
+                              ) : entry.action?.includes('Twin Spell') ? (
                                 // Twin Spell activation
                                 <span className="special-ability">🔮 Twin Spell activated! Casting again...</span>
                               ) : entry.type === 'resurrection' ? (
                                 // Angel Resurrection
                                 <span className="heal">
-                                  👼 {entry.message || `${entry.target} was Resurrected by ${entry.caster}`}
+                                  👼 {entry.caster} used <span className="special-name">Resurrection</span> and restored {entry.target} to {entry.healing} HP
                                   {entry.description && <span className="heal-info"> - {entry.description}</span>}
+                                </span>
+                              ) : entry.type === 'health_link_reflection' ? (
+                                // Angel Health Link reflection
+                                <span className="special-reflection">
+                                  💫 <span className="special-name">Health Link</span> reflected {entry.damage} damage from {entry.source} to {entry.target}
                                 </span>
                               ) : entry.action?.includes('heals') ? (
                                 // Healing abilities
@@ -2137,7 +2242,12 @@ function App() {
                                 <>
                                   {entry.crit && <span className="crit">CRITICAL HIT! </span>}
                                   {entry.damage !== undefined && (
-                                    <span className="hit">Hit {entry.target || 'Unknown'} for {entry.damage} damage</span>
+                                    <>
+                                      <span className="hit">Hit {entry.target || 'Unknown'} for {entry.damage} damage</span>
+                                      {entry.isSpecial && entry.specialName && (
+                                        <span className="special-note"> (from <span className="special-name">{entry.specialName}</span>)</span>
+                                      )}
+                                    </>
                                   )}
                                   {entry.damageRoll && entry.damageRoll.length > 0 && (
                                     <span className="damage-roll-info"> (damage: {entry.damageRoll.join('+')} = {entry.damage})</span>
@@ -2150,7 +2260,7 @@ function App() {
                                   )}
                                 </>
                               ) : (
-                                <span className="miss">Missed {entry.target || 'Unknown'}</span>
+                                <span className="miss">Missed {entry.target || 'Unknown'}{entry.isSpecial && entry.specialName && <span className="special-note"> (from <span className="special-name">{entry.specialName}</span>)</span>}</span>
                               )}
                             </div>
                           </div>
@@ -2213,13 +2323,12 @@ function App() {
           />
           
           {/* Message Icon */}
-          <MessageIcon
+          <MessageIcon 
             onClick={handleMessageIconClick}
             hasNotifications={state.messageNotificationCount > 0}
             notificationCount={state.messageNotificationCount}
-          />
-
-          {/* Friends Overlay */}
+            hasMinimizedChats={state.minimizedMessageChats.length > 0}
+          />          {/* Friends Overlay */}
           {state.showFriendsOverlay && (
             <FriendsOverlay
               onClose={handleToggleFriendsOverlay}
@@ -2237,6 +2346,7 @@ function App() {
               targetUsername={chat.targetUsername}
               currentUserId={state.user!.id}
               onClose={() => handleCloseMessageChat(chat.targetUserId)}
+              onMinimize={() => handleMinimizeMessageChat(chat.targetUserId, chat.targetUsername)}
             />
           ))}
         </>

@@ -2125,10 +2125,12 @@ class GameManager {
           deflectingMonk = monk;
           targetPlayer.monkDeflectUsed = true; // Mark deflect as used this round
           
-          // Counter-attack the attacker
+          // Counter-attack the attacker using centralized damage application
           const counterDamageRoll = calculateDamage('1D6', false, false, monk);
           deflectCounterDamage = counterDamageRoll.total;
-          currentHero.currentHP = Math.max(0, currentHero.currentHP - deflectCounterDamage);
+          
+          // Use centralized damage application to trigger on_take_damage effects (like Shroomguard's Poison Aura)
+          const onDamageTriggers = this.applyDamageToHero(game, currentHero, deflectCounterDamage, monk, 'Monk Deflect');
           
           console.log(`🛡️ ${monk.name} deflects attack on ${target.name} (${attackRoll.total} < ${calculateEffectiveDefense(monk)}) and counters for ${deflectCounterDamage} damage`);
           
@@ -2136,16 +2138,19 @@ class GameManager {
           const deflectSpecialLogEntry = this.createSpecialLogEntry(
             monk, 
             'Deflect', 
-            'defensive reaction to incoming attack', 
+            null, // No trigger context to avoid "Monk used Deflect" redundancy
             counterDamageRoll,
-            [{
-              type: 'damage',
-              target: currentHero.name,
-              damage: deflectCounterDamage,
-              damageRoll: counterDamageRoll,
-              newHP: currentHero.currentHP,
-              maxHP: currentHero.HP
-            }]
+            [
+              {
+                type: 'damage',
+                target: currentHero.name,
+                damage: deflectCounterDamage,
+                damageRoll: counterDamageRoll,
+                newHP: currentHero.currentHP,
+                maxHP: currentHero.HP
+              },
+              ...onDamageTriggers
+            ]
           );
           statusEffects.push(deflectSpecialLogEntry);
           
@@ -2741,7 +2746,8 @@ class GameManager {
       resultsCount: results.length
     });
     
-    let logMessage = `${hero.name} used ${specialName}`;
+    // For reactive specials with trigger context, don't add "used" - the context will provide the action
+    let logMessage = triggerContext ? `${hero.name}'s ${specialName}` : `${hero.name} used ${specialName}`;
     
     // Collect all effects that occurred
     let totalDamage = 0;
@@ -2965,10 +2971,12 @@ class GameManager {
             abilityHit = false; // Prevent ability effects from happening
             targetPlayer.monkDeflectUsed = true; // Mark deflect as used this round
             
-            // Counter-attack the caster
+            // Counter-attack the caster using centralized damage application
             const counterDamageRoll = calculateDamage('1D6', false, false, monk);
             const counterDamage = counterDamageRoll.total;
-            caster.currentHP = Math.max(0, caster.currentHP - counterDamage);
+            
+            // Use centralized damage application to trigger on_take_damage effects (like Shroomguard's Poison Aura)
+            const onDamageTriggers = this.applyDamageToHero(game, caster, counterDamage, monk, 'Monk Deflect');
             
             console.log(`🛡️ ${monk.name} deflects ability ${ability.name} on ${targetForRoll.name} (${attackRoll.total} < ${calculateEffectiveDefense(monk)}) and counters for ${counterDamage} damage`);
             
@@ -2976,16 +2984,19 @@ class GameManager {
             const deflectSpecialLogEntry = this.createSpecialLogEntry(
               monk, 
               'Deflect', 
-              `defensive reaction to ${ability.name}`, 
+              null, // No trigger context to avoid "Monk used Deflect" redundancy
               counterDamageRoll,
-              [{
-                type: 'damage',
-                target: caster.name,
-                damage: counterDamage,
-                damageRoll: counterDamageRoll,
-                newHP: caster.currentHP,
-                maxHP: caster.HP
-              }]
+              [
+                {
+                  type: 'damage',
+                  target: caster.name,
+                  damage: counterDamage,
+                  damageRoll: counterDamageRoll,
+                  newHP: caster.currentHP,
+                  maxHP: caster.HP
+                },
+                ...onDamageTriggers
+              ]
             );
             results.push(deflectSpecialLogEntry);
             
@@ -4565,14 +4576,7 @@ class GameManager {
         
         console.log(`💥 ${special.name}: Rolling damage for all heroes`);
         
-        // Add initial activation log entry with source field for frontend
-        game.battleLog.push({
-          type: 'special_activation',
-          caster: currentHero.name,
-          source: currentHero.name,
-          specialName: special.name,
-          message: `${currentHero.name} used ${special.name}!`
-        });
+        // Don't add initial activation log - individual hits/misses will be logged
         
         // Deal damage to all heroes on both teams
         game.players.forEach((targetPlayer, playerIndex) => {
@@ -4624,6 +4628,8 @@ class GameManager {
                   isCritical: attackRoll.isCritical || false,
                   newHP: target.currentHP,
                   maxHP: target.HP,
+                  specialName: special.name,
+                  isSpecial: true,
                   message: `${special.name} deals ${finalDamage} damage to ${target.name}`
                 });
                 
@@ -4659,6 +4665,8 @@ class GameManager {
                   targetDefense: calculateEffectiveDefense(target),
                   accuracy: currentHero.modifiedAccuracy,
                   hit: false,
+                  specialName: special.name,
+                  isSpecial: true,
                   message: `${special.name} missed ${target.name}`
                 });
                 
@@ -4928,7 +4936,7 @@ class GameManager {
             const shieldOfFaithLogEntry = this.createSpecialLogEntry(
               paladinHero,
               'Shield of Faith', 
-              `protective reaction to ally taking damage`, 
+              null, 
               null,
               [{
                 type: 'apply_debuff',
@@ -5701,6 +5709,8 @@ class GameManager {
           damage: actualDamageTaken,
           newHP: target.currentHP,
           maxHP: target.HP,
+          specialName: 'Health Link',
+          isSpecial: true,
           message: `Health Link reflected ${actualDamageTaken} damage from ${angel.name} to ${target.name}`,
           timestamp: Date.now()
         });
@@ -6324,7 +6334,9 @@ class GameManager {
         }
         
         const actualDamage = Math.max(0, totalDamage);
-        primaryTarget.currentHP = Math.max(0, primaryTarget.currentHP - actualDamage);
+        
+        // Use centralized damage application to trigger on_take_damage effects (like Shroomguard's Poison Aura)
+        const onDamageTriggers = this.applyDamageToHero(game, primaryTarget, actualDamage, caster, 'Elemental Strike');
         
         results.push({
           type: 'damage',
@@ -6338,6 +6350,11 @@ class GameManager {
           message: `${caster.name}'s ${totemCount} Totem${totemCount > 1 ? 's' : ''} deal${totemCount === 1 ? 's' : ''} ${actualDamage} damage to ${primaryTarget.name}!`,
           totemCount: totemCount
         });
+        
+        // Add any on_take_damage trigger results (like Poison Aura)
+        if (onDamageTriggers && onDamageTriggers.length > 0) {
+          results.push(...onDamageTriggers);
+        }
       }
     } else {
       results.push({

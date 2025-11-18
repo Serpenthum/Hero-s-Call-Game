@@ -522,13 +522,13 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                               {Array.isArray(hero.Special) ? (
                                 hero.Special.map((special, index) => (
                                   <div key={index} className="tooltip-special">
-                                    <div className="tooltip-special-name">{special.name}</div>
+                                    <div className="tooltip-special-name">{hero.name === 'Bomber' ? 'Explosion' : special.name}</div>
                                     <div className="tooltip-special-description">{renderKeywordWithTooltip(special.description)}</div>
                                   </div>
                                 ))
                               ) : (
                                 <div className="tooltip-special">
-                                  <div className="tooltip-special-name">{(hero.Special as any).name || "Special Ability"}</div>
+                                  <div className="tooltip-special-name">{hero.name === 'Bomber' ? 'Explosion' : ((hero.Special as any).name || "Special Ability")}</div>
                                   <div className="tooltip-special-description">{renderKeywordWithTooltip((hero.Special as any).description || "Special ability details not available")}</div>
                                 </div>
                               )}

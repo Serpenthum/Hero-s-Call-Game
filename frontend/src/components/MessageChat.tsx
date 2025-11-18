@@ -7,13 +7,15 @@ interface MessageChatProps {
   targetUsername: string;
   currentUserId: number;
   onClose: () => void;
+  onMinimize: () => void;
 }
 
 const MessageChat: React.FC<MessageChatProps> = ({
   targetUserId,
   targetUsername,
   currentUserId,
-  onClose
+  onClose,
+  onMinimize
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -156,9 +158,14 @@ const MessageChat: React.FC<MessageChatProps> = ({
         <div className="chat-title">
           {targetUsername}
         </div>
-        <button className="chat-close-button" onClick={onClose}>
-          ×
-        </button>
+        <div className="chat-controls">
+          <button className="chat-minimize-button" onClick={onMinimize} title="Minimize">
+            −
+          </button>
+          <button className="chat-close-button" onClick={onClose} title="Close">
+            ×
+          </button>
+        </div>
       </div>
 
       <div className="chat-body">

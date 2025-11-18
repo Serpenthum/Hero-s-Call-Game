@@ -106,6 +106,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
   const [currentPage, setCurrentPage] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [favoriteHeroes, setFavoriteHeroes] = useState<string[]>([]);
+  const [availableHeroes, setAvailableHeroes] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   const HEROES_PER_PAGE = 14; // 2 rows of 7 heroes each
@@ -114,6 +115,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     fetchHeroes();
     if (userId) {
       fetchFavoriteHeroes();
+      fetchAvailableHeroes();
     }
   }, [filterOption, userId]); // Refetch when filter changes or userId changes
 
@@ -125,7 +127,10 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       if (filterOption === 'favorites') {
         filtered = heroes.filter(hero => favoriteHeroes.includes(hero.name));
       } else if (filterOption === 'disabled') {
-        filtered = heroes.filter(hero => hero.disabled);
+        // Show heroes that are either marked as disabled OR not in player's available heroes
+        filtered = heroes.filter(hero => 
+          hero.disabled || (userId && availableHeroes.length > 0 && !availableHeroes.includes(hero.name))
+        );
       }
       
       // Apply search filter
@@ -139,7 +144,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       setSortedHeroes(sorted);
       setCurrentPage(0); // Reset to first page when sorting or filtering changes
     }
-  }, [heroes, sortOption, filterOption, favoriteHeroes, searchQuery]);
+  }, [heroes, sortOption, filterOption, favoriteHeroes, availableHeroes, searchQuery, userId]);
 
   const parseAttackValue = useCallback((attack: string): number => {
     // Extract numeric value from attack string (e.g., "1D6" -> 6, "2D4" -> 8)
@@ -295,6 +300,22 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       }
     } catch (error) {
       console.error('Error fetching favorite heroes:', error);
+    }
+  };
+
+  const fetchAvailableHeroes = async () => {
+    if (!userId) return;
+    
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/user/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.user) {
+          setAvailableHeroes(data.user.available_heroes || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching available heroes:', error);
     }
   };
 
@@ -483,14 +504,14 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
             {Array.isArray(sortedHeroes[selectedHeroIndex].Special) ? (
               (sortedHeroes[selectedHeroIndex].Special as HeroSpecial[]).map((special, index) => (
                 <div key={index} className="special-item">
-                  <div className="special-name">{special.name}</div>
+                  <div className="special-name">{sortedHeroes[selectedHeroIndex].name === 'Bomber' ? 'Explosion' : special.name}</div>
                   <div className="special-description">{special.description}</div>
                 </div>
               ))
             ) : (
               <div className="special-item">
                 <div className="special-name">
-                  {(sortedHeroes[selectedHeroIndex].Special as HeroSpecial)?.name || 'No Special'}
+                  {sortedHeroes[selectedHeroIndex].name === 'Bomber' ? 'Explosion' : ((sortedHeroes[selectedHeroIndex].Special as HeroSpecial)?.name || 'No Special')}
                 </div>
                 <div className="special-description">
                   {(sortedHeroes[selectedHeroIndex].Special as HeroSpecial)?.description || 'No description available'}

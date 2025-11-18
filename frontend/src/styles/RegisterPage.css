@@ -162,3 +162,33 @@
     padding: 25px;
   }
 }
+
+@media (max-height: 600px) {
+  .register-container {
+    padding: 20px;
+    margin: 10px auto;
+  }
+  
+  .game-title {
+    font-size: 1.8rem;
+  }
+  
+  .register-form {
+    gap: 15px;
+  }
+}
+
+@media (max-height: 600px) {
+  .register-container {
+    padding: 20px;
+    margin: 10px auto;
+  }
+  
+  .game-title {
+    font-size: 1.8rem;
+  }
+  
+  .register-form {
+    gap: 15px;
+  }
+}

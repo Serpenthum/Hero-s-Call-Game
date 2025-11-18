@@ -45,8 +45,11 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [isDismounted, setIsDismounted] = useState(false);
+  const [poisonGlowType, setPoisonGlowType] = useState<'increase' | 'cleanse' | null>(null);
   const previousHP = useRef<number | null>(null);
+  const previousPoison = useRef<number>(0);
   const animationRef = useRef<number | null>(null);
+  const poisonAnimationRef = useRef<number | null>(null);
   const wasDismountedRef = useRef(false);
   const resurrectionProcessedRef = useRef(false); // Track if we've processed the current resurrection
 
@@ -84,6 +87,47 @@ const HeroCard: React.FC<HeroCardProps> = ({
       }
     }
   }, [(hero as any).permanentDisables?.abilities, hero.name]);
+
+  // Track poison stack changes and trigger glow animations
+  useEffect(() => {
+    const currentPoison = hero.statusEffects?.poison || 0;
+    const prevPoison = previousPoison.current;
+
+    if (currentPoison !== prevPoison) {
+      // Clear any existing animation
+      if (poisonAnimationRef.current) {
+        clearTimeout(poisonAnimationRef.current);
+      }
+
+      if (currentPoison > prevPoison && currentPoison > 1) {
+        // Poison increased beyond 1 - show green increase glow
+        console.log(`🍄 ${hero.name} poison increased from ${prevPoison} to ${currentPoison}`);
+        setPoisonGlowType('increase');
+        
+        // Remove glow after animation
+        poisonAnimationRef.current = setTimeout(() => {
+          setPoisonGlowType(null);
+        }, 800);
+      } else if (currentPoison === 0 && prevPoison > 0) {
+        // Poison cleansed - show blue cleanse glow
+        console.log(`✨ ${hero.name} poison cleansed from ${prevPoison} to 0`);
+        setPoisonGlowType('cleanse');
+        
+        // Remove glow after animation
+        poisonAnimationRef.current = setTimeout(() => {
+          setPoisonGlowType(null);
+        }, 800);
+      }
+
+      previousPoison.current = currentPoison;
+    }
+
+    return () => {
+      if (poisonAnimationRef.current) {
+        clearTimeout(poisonAnimationRef.current);
+      }
+    };
+  }, [hero.statusEffects?.poison, hero.name]);
 
   // Animate HP changes (only if animations are enabled)
   useEffect(() => {
@@ -328,9 +372,11 @@ const HeroCard: React.FC<HeroCardProps> = ({
 
     // Debuffs (negative effects - top right)
     if (hero.statusEffects.poison > 0) {
+      const glowClass = poisonGlowType === 'increase' ? 'poison-glow-increase' : 
+                       poisonGlowType === 'cleanse' ? 'poison-glow-cleanse' : '';
       debuffs.push(
         <span key="poison" className="status-effect-tooltip">
-          <span className="status-effect poison">
+          <span className={`status-effect poison ${glowClass}`}>
             ☠ {hero.statusEffects.poison}
           </span>
           <span className="status-tooltip-text">
@@ -348,7 +394,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
           className="status-effect taunt"
           title={`Taunted by ${tauntTarget}: Must target ${tauntTarget} on next attack`}
         >
-          🎯
+          😤
         </span>
       );
     }
@@ -799,13 +845,13 @@ const HeroCard: React.FC<HeroCardProps> = ({
               {Array.isArray(hero.Special) ? (
                 hero.Special.map((special, index) => (
                   <div key={index} className="tooltip-special">
-                    <div className="tooltip-special-name">{special.name}</div>
+                    <div className="tooltip-special-name">{hero.name === 'Bomber' ? 'Explosion' : special.name}</div>
                     <div className="tooltip-special-description">{renderKeywordWithTooltip(special.description)}</div>
                   </div>
                 ))
               ) : (
                 <div className="tooltip-special">
-                  <div className="tooltip-special-name">{(hero.Special as any).name || "Special Ability"}</div>
+                  <div className="tooltip-special-name">{hero.name === 'Bomber' ? 'Explosion' : ((hero.Special as any).name || "Special Ability")}</div>
                   <div className="tooltip-special-description">{renderKeywordWithTooltip((hero.Special as any).description || "Special ability details not available")}</div>
                 </div>
               )}

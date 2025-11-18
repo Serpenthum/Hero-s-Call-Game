@@ -4,16 +4,18 @@ interface MessageIconProps {
   onClick: () => void;
   hasNotifications: boolean;
   notificationCount?: number;
+  hasMinimizedChats?: boolean;
 }
 
 const MessageIcon: React.FC<MessageIconProps> = ({ 
   onClick, 
   hasNotifications, 
-  notificationCount = 0 
+  notificationCount = 0,
+  hasMinimizedChats = false
 }) => {
   return (
     <div 
-      className={`message-icon ${hasNotifications ? 'has-notifications' : ''}`}
+      className={`message-icon ${hasNotifications ? 'has-notifications' : ''} ${hasMinimizedChats && !hasNotifications ? 'has-minimized' : ''}`}
       onClick={onClick}
     >
       <div className="message-icon-content">
@@ -31,6 +33,10 @@ const MessageIcon: React.FC<MessageIconProps> = ({
           <div className="notification-badge">
             {notificationCount > 9 ? '9+' : notificationCount || ''}
           </div>
+        )}
+        
+        {hasMinimizedChats && !hasNotifications && (
+          <div className="minimized-chat-indicator"></div>
         )}
       </div>
       

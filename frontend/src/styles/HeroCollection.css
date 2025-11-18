@@ -502,10 +502,38 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1600px) {
+  .collection-grid {
+    max-width: 95%;
+  }
+  
+  .collection-grid .hero-card {
+    transform: scale(0.98);
+    transform-origin: center;
+  }
+}
+
+@media (max-width: 1400px) {
+  .collection-grid {
+    max-width: 98%;
+    gap: 10px;
+  }
+  
+  .collection-grid .hero-card {
+    transform: scale(0.95);
+    transform-origin: center;
+  }
+}
+
 @media (max-width: 1200px) {
   .collection-grid {
     gap: 10px;
     padding: 0 15px;
+  }
+  
+  .collection-grid .hero-card {
+    transform: scale(0.92);
+    transform-origin: center;
   }
   
   .hero-details-panel {

@@ -50,7 +50,7 @@
     "HP": 15,
     "Defense": 6,
     "Accuracy": "+1",
-    "BasicAttack": "1D6",
+    "BasicAttack": "1D4",
     "Ability": [
       {
         "category": "summon",
@@ -182,7 +182,7 @@
   },
   {
     "name": "Paladin",
-    "HP": 23,
+    "HP": 20,
     "Defense": 10,
     "Accuracy": "+1",
     "BasicAttack": "1D4",
@@ -264,7 +264,7 @@
   {
     "name": "Druid",
     "HP": 17,
-    "Defense": 8,
+    "Defense": 7,
     "Accuracy": "+1",
     "BasicAttack": "1D6",
     "Ability": [
@@ -1057,7 +1057,7 @@
     ],
     "Special": {
       "category": "death",
-      "name": "Self Destruct",
+      "name": "Explosion",
       "description": "On death, deal 2D4 to Bomber's killer.",
       "trigger": "on_death",
       "effects": [
@@ -1441,14 +1441,25 @@
     "Ability": [
       {
         "category": "single_target_damage",
-        "name": "Charged first",
-        "description": "Deal 1D6 damage.",
+        "name": "Charged Fist",
+        "description": "Deal 1D6 damage and taunt the target to attack Mech next turn.",
         "target_type": "single_target",
         "primary_effects": [
           {
             "type": "damage",
             "value": "1D6",
             "target": "target"
+          }
+        ],
+        "secondary_effects": [
+          {
+            "category": "apply_debuff",
+            "type": "apply_debuff",
+            "effect": "taunt",
+            "duration": 1,
+            "duration_unit": "turn",
+            "target": "target",
+            "taunt_target": "self"
           }
         ]
       }

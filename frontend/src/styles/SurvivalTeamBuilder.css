@@ -12,6 +12,28 @@
   height: 100%;
   gap: 30px;
   padding: 20px;
+  overflow-x: hidden; /* Hide on fullscreen */
+  overflow-y: hidden;
+  box-sizing: border-box;
+}
+
+/* Add min-width to prevent content from being too compressed on small screens */
+@media (max-width: 1400px) {
+  .survival-split-layout {
+    overflow-x: auto; /* Enable scrolling on smaller screens */
+  }
+  
+  .survival-split-layout > * {
+    flex-shrink: 0;
+  }
+  
+  .hero-browser-side {
+    min-width: 600px;
+  }
+  
+  .team-selection-side {
+    min-width: 400px;
+  }
 }
 
 /* Left Side - Hero Browser */
@@ -728,10 +750,29 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1600px) {
+  .heroes-grid .hero-card.survival-card {
+    transform: scale(0.98);
+    transform-origin: center;
+  }
+}
+
+@media (max-width: 1400px) {
+  .heroes-grid .hero-card.survival-card {
+    transform: scale(0.95);
+    transform-origin: center;
+  }
+}
+
 @media (max-width: 1200px) {
   .survival-split-layout {
     gap: 20px;
     padding: 15px;
+  }
+  
+  .heroes-grid .hero-card.survival-card {
+    transform: scale(0.92);
+    transform-origin: center;
   }
   
   .hero-browser-side {

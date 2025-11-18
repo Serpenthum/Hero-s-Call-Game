@@ -843,7 +843,8 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                   // Check if permanently disabled (persists through resurrection)
                   const isPermanentlyDisabled = (activeHero.hero as any).permanentDisables?.special || false;
                   const isDisabled = isPermanentlyDisabled || myPlayerData.hasUsedSpecial || false;
-                  const buttonText = isDisabled ? `${(special as any).name} (Used)` : (special as any).name;
+                  const specialName = activeHero.hero.name === 'Bomber' ? 'Explosion' : (special as any).name;
+                  const buttonText = isDisabled ? `${specialName} (Used)` : specialName;
                   
                   return (
                     <button 

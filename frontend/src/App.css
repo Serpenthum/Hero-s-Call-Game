@@ -27,6 +27,26 @@ body, html {
   overflow-x: hidden; /* Prevent horizontal scroll */
   flex-shrink: 0;
   max-height: 100vh; /* Limit to viewport height */
+  transition: width 0.3s ease;
+}
+
+/* Responsive sidebar scaling */
+@media (max-width: 1400px) {
+  .game-sidebar {
+    width: clamp(180px, 16vw, 250px);
+  }
+}
+
+@media (max-width: 1200px) {
+  .game-sidebar {
+    width: clamp(160px, 14vw, 220px);
+  }
+}
+
+@media (max-width: 1000px) {
+  .game-sidebar {
+    width: clamp(140px, 12vw, 200px);
+  }
 }
 
 .game-sidebar > * {
@@ -169,6 +189,40 @@ body, html {
   box-shadow: 0 6px 20px rgba(0, 123, 255, 0.5);
 }
 
+/* Conservative responsive scaling for battle phase - minimal shrinking */
+@media (max-width: 1600px) {
+  .battle-phase {
+    transform: scale(1.0);
+    transform-origin: top center;
+  }
+  /* Reduce font sizes slightly */
+  body, .App {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 1400px) {
+  .battle-phase {
+    transform: scale(1.0);
+    transform-origin: top center;
+  }
+  /* Reduce font sizes more */
+  body, .App {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .battle-phase {
+    transform: scale(0.995);
+    transform-origin: top center;
+  }
+  /* Reduce font sizes even more */
+  body, .App {
+    font-size: 13px;
+  }
+}
+
 /* Responsive adjustments for game over overlay */
 @media (max-width: 768px) {
   .game-over-modal {
@@ -294,6 +348,25 @@ body, html {
   /* Keep the same flexbox layout as regular cards */
   display: flex;
   flex-direction: column;
+}
+
+/* Don't grow active cards when screen is resized */
+@media (max-width: 1600px) {
+  .hero-card.current-turn {
+    transform: scale(1.05); /* Smaller growth */
+  }
+}
+
+@media (max-width: 1400px) {
+  .hero-card.current-turn {
+    transform: scale(1.03); /* Even smaller growth */
+  }
+}
+
+@media (max-width: 1200px) {
+  .hero-card.current-turn {
+    transform: scale(1.0); /* No growth at all */
+  }
 }
 
 /* Ensure current turn card image still fills properly */
@@ -439,7 +512,7 @@ body, html {
   padding: clamp(8px, 0.8vw, 12px);
   min-width: clamp(180px, 15vw, 230px);
   max-width: clamp(210px, 18vw, 270px);
-  z-index: 1000;
+  z-index: 1100; /* Higher z-index to show over action bar (1000) */
   text-align: left;
   font-size: clamp(0.65rem, 0.75vw, 0.85rem);
   line-height: 1.4; /* Better line spacing for readability */
@@ -529,6 +602,7 @@ body, html {
   flex-direction: column;
   gap: clamp(2px, 0.3vw, 4px);
   align-items: flex-start;
+  z-index: 10;
 }
 
 .status-effects-debuffs {
@@ -539,6 +613,7 @@ body, html {
   flex-direction: column;
   gap: clamp(2px, 0.3vw, 4px);
   align-items: flex-end;
+  z-index: 10;
 }
 
 .status-effect {
@@ -599,6 +674,47 @@ body, html {
   background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
   border-color: #1e7e34;
   box-shadow: 0 2px 6px rgba(40, 167, 69, 0.4);
+  transition: all 0.3s ease;
+}
+
+/* Poison stack increase animation - subtle green glow */
+@keyframes poisonIncrease {
+  0% {
+    box-shadow: 0 2px 6px rgba(40, 167, 69, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(40, 167, 69, 1), 0 0 30px rgba(40, 167, 69, 0.8);
+    transform: scale(1.15);
+  }
+  100% {
+    box-shadow: 0 2px 6px rgba(40, 167, 69, 0.4);
+  }
+}
+
+.status-effect.poison.poison-glow-increase {
+  animation: poisonIncrease 0.8s ease-in-out;
+}
+
+/* Poison cleanse animation - blue glow as it disappears */
+@keyframes poisonCleanse {
+  0% {
+    box-shadow: 0 2px 6px rgba(40, 167, 69, 0.4);
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 191, 255, 1), 0 0 30px rgba(0, 191, 255, 0.8);
+    background: linear-gradient(135deg, #00bfff 0%, #0080ff 100%);
+    transform: scale(1.15);
+  }
+  100% {
+    box-shadow: 0 0 15px rgba(0, 191, 255, 0.6);
+    background: linear-gradient(135deg, #00bfff 0%, #0080ff 100%);
+    opacity: 0.7;
+  }
+}
+
+.status-effect.poison.poison-glow-cleanse {
+  animation: poisonCleanse 0.8s ease-in-out;
 }
 
 .status-effect.taunt {
@@ -744,7 +860,7 @@ body, html {
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
-  z-index: 1000;
+  z-index: 1100; /* Higher z-index to show over action bar (1000) */
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
@@ -1627,6 +1743,31 @@ body, html {
   transform: translate(-50%, calc(-50% + clamp(12px, 1.5vw, 20px))); /* Move top cards down to fit on screen */
 }
 
+/* Move heroes to the right as screen shrinks */
+@media (max-width: 1600px) {
+  .team-display {
+    left: 52%; /* Move 2% to the right */
+  }
+}
+
+@media (max-width: 1400px) {
+  .team-display {
+    left: 54%; /* Move 4% to the right */
+  }
+}
+
+@media (max-width: 1200px) {
+  .team-display {
+    left: 56%; /* Move 6% to the right */
+  }
+}
+
+@media (max-width: 1000px) {
+  .team-display {
+    left: 58%; /* Move 8% to the right */
+  }
+}
+
 .action-panel {
   background: rgba(255, 255, 255, 0.1);
   padding: 1.5rem;
@@ -1732,6 +1873,25 @@ body, html {
   position: relative;
   overflow: hidden;
   min-width: clamp(140px, 15vw, 200px);
+}
+
+/* Shrink team labels on smaller screens */
+@media (max-width: 1400px) {
+  .team-label {
+    padding: clamp(6px, 0.7vw, 10px) clamp(12px, 1.2vw, 18px);
+    font-size: clamp(0.9rem, 1.15vw, 1.25rem);
+    border: 2px solid transparent;
+    min-width: clamp(120px, 13vw, 170px);
+  }
+}
+
+@media (max-width: 1200px) {
+  .team-label {
+    padding: clamp(5px, 0.6vw, 8px) clamp(10px, 1vw, 14px);
+    font-size: clamp(0.85rem, 1.05vw, 1.1rem);
+    border: 2px solid transparent;
+    min-width: clamp(100px, 12vw, 140px);
+  }
 }
 
 /* Opponent Team Label */
@@ -2247,10 +2407,24 @@ body, html {
   text-shadow: 0 0 2px rgba(157, 78, 221, 0.3);
 }
 
+.special-note {
+  color: #aaa;
+  font-style: italic;
+}
+
+.special-ability {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.special-reflection {
+  color: #9d4edd;
+  font-weight: bold;
+}
+
 .trigger-context {
   color: #888;
   font-style: italic;
-  font-size: 0.9em;
 }
 
 .log-result {
@@ -2748,26 +2922,27 @@ body, html {
   background: linear-gradient(135deg, rgba(255, 102, 0, 0.1) 0%, rgba(255, 136, 51, 0.1) 100%);
   border: 1px solid rgba(255, 102, 0, 0.3);
   border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 15px;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-left: 4px solid #ff6600;
 }
 
 .survival-stats {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .survival-wins {
   color: #ffd700;
   font-weight: bold;
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 .survival-losses {
   color: #ff6b6b;
   font-weight: bold;
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 .survival-goal {
@@ -2948,8 +3123,23 @@ body, html {
   border: 2px solid rgba(30, 30, 30, 0.95);
 }
 
+.message-icon .minimized-chat-indicator {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #28a745;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(30, 30, 30, 0.95);
+}
+
 .message-icon.has-notifications {
   animation: message-glow 1.5s ease-in-out infinite alternate;
+}
+
+.message-icon.has-minimized {
+  border-color: rgba(40, 167, 69, 0.5);
 }
 
 @keyframes message-glow {
@@ -3494,6 +3684,13 @@ body, html {
   font-size: 1rem;
 }
 
+.chat-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chat-minimize-button,
 .chat-close-button {
   background: none;
   border: none;
@@ -3510,6 +3707,13 @@ body, html {
   transition: all 0.2s ease;
 }
 
+.chat-minimize-button {
+  font-size: 1.4rem;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.chat-minimize-button:hover,
 .chat-close-button:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
