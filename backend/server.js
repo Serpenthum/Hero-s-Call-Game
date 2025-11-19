@@ -834,30 +834,57 @@ io.on('connection', (socket) => {
     
     const result = gameManager.addPlayer(socket.id, playerData.name || 'Anonymous', mode, profileIcon);
     
-    socket.emit('join-result', result);
-    
     if (result.success) {
-      socket.join(result.gameId);
-      
-      // If game is full, start appropriate phase
-      if (result.gameReady) {
-        if (mode === 'random') {
-          // Start random mode - skip draft and go to initiative
-          const randomResult = gameManager.startRandomMode(result.gameId);
-          if (randomResult.success) {
+      if (result.waiting) {
+        // Player is in queue, waiting for opponent
+        socket.emit('join-result', {
+          success: true,
+          waiting: true,
+          mode
+        });
+        console.log(`⏳ ${playerData.name} is waiting in queue for ${mode} match`);
+      } else if (result.gameReady) {
+        // Match found! Both players join the game room
+        const opponentSocketId = result.players.find(p => p.id !== socket.id)?.id;
+        
+        if (opponentSocketId) {
+          // Have both players join the game room
+          socket.join(result.gameId);
+          io.sockets.sockets.get(opponentSocketId)?.join(result.gameId);
+          
+          console.log(`✅ Match found! ${playerData.name} matched with opponent`);
+          
+          // Notify both players
+          io.to(result.gameId).emit('join-result', {
+            success: true,
+            gameId: result.gameId,
+            playerId: socket.id,
+            players: result.players,
+            gameReady: true,
+            mode
+          });
+          
+          // Start appropriate phase
+          if (mode === 'random') {
+            // Start random mode - skip draft and go to initiative
+            const randomResult = gameManager.startRandomMode(result.gameId);
+            if (randomResult.success) {
+              io.to(result.gameId).emit('game-start', {
+                players: randomResult.players,
+                gameState: randomResult.gameState
+              });
+            }
+          } else {
+            // Start draft mode
             io.to(result.gameId).emit('game-start', {
-              players: randomResult.players,
-              gameState: randomResult.gameState
+              players: result.players,
+              draftCards: result.draftCards
             });
           }
-        } else {
-          // Start draft mode
-          io.to(result.gameId).emit('game-start', {
-            players: result.players,
-            draftCards: result.draftCards
-          });
         }
       }
+    } else {
+      socket.emit('join-result', result);
     }
   });
 
@@ -882,44 +909,55 @@ io.on('connection', (socket) => {
     const result = gameManager.addSurvivalPlayer(socket.id, data.name, data.team, profileIcon);
     
     if (result.success) {
-      socket.join(result.gameId);
-      console.log(`🔗 Player ${data.name} joined socket room ${result.gameId}`);
-      
-      // Emit join result first
-      socket.emit('join-result', {
-        success: true,
-        gameId: result.gameId,
-        playerId: result.playerId,
-        players: result.players,
-        gameReady: result.gameReady,
-        mode: 'survival'
-      });
-      console.log(`📤 Sent join-result to ${data.name}: gameReady=${result.gameReady}`);
-      
-      if (result.gameReady) {
-        // Both players found, start the game immediately with predefined teams
-        console.log('🎯 Two survival players matched! Starting battle...');
-        const gameStart = gameManager.startSurvivalBattle(result.gameId);
-        if (gameStart.success) {
-          console.log('🚀 Starting survival battle immediately - skipping draft');
-          // Emit to all players in the game room
-          io.to(result.gameId).emit('game-start', {
-            players: gameStart.players,
-            gameState: gameStart.gameState,
-            initiative: gameStart.initiative
+      if (result.waiting) {
+        // Player is in queue, waiting for opponent
+        socket.emit('join-result', {
+          success: true,
+          waiting: true,
+          mode: 'survival'
+        });
+        console.log(`⏳ ${data.name} is waiting in queue for survival match`);
+      } else if (result.gameReady) {
+        // Match found! Both players join the game room
+        const opponentSocketId = result.players.find(p => p.id !== socket.id)?.id;
+        
+        if (opponentSocketId) {
+          // Have both players join the game room
+          socket.join(result.gameId);
+          io.sockets.sockets.get(opponentSocketId)?.join(result.gameId);
+          
+          console.log(`✅ Survival match found! ${data.name} matched with opponent`);
+          
+          // Notify both players
+          io.to(result.gameId).emit('join-result', {
+            success: true,
+            gameId: result.gameId,
+            playerId: socket.id,
+            players: result.players,
+            gameReady: true,
+            mode: 'survival'
           });
-          console.log(`📡 Sent game-start event to all players in room ${result.gameId}`);
-        } else {
-          console.error('❌ Failed to start survival battle:', gameStart.message);
+          
+          // Start the survival battle immediately
+          console.log('🎯 Two survival players matched! Starting battle...');
+          const gameStart = gameManager.startSurvivalBattle(result.gameId);
+          if (gameStart.success) {
+            console.log('🚀 Starting survival battle immediately - skipping draft');
+            io.to(result.gameId).emit('game-start', {
+              players: gameStart.players,
+              gameState: gameStart.gameState,
+              initiative: gameStart.initiative
+            });
+            console.log(`📡 Sent game-start event to all players in room ${result.gameId}`);
+          } else {
+            console.error('❌ Failed to start survival battle:', gameStart.message);
+          }
         }
-      } else {
-        // Still waiting for opponent
-        console.log('⏳ Survival player waiting for opponent...');
       }
     } else {
       socket.emit('join-result', {
         success: false,
-        message: result.message || 'Failed to join survival game'
+        message: result.message || result.error || 'Failed to join survival game'
       });
     }
   });
@@ -1858,6 +1896,10 @@ io.on('connection', (socket) => {
   // Handle disconnection
   socket.on('disconnect', (reason) => {
     console.log('Player disconnected:', socket.id, 'Reason:', reason);
+    
+    // Remove player from any matchmaking queues
+    gameManager.cancelSearch(socket.id);
+    gameManager.cancelSurvivalSearch(socket.id);
     
     // IMPORTANT: Spectators must never receive XP or victory points
     // Check if user was spectating and clean up (spectators are NOT in playerGameMap)

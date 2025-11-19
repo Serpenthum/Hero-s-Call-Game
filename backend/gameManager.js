@@ -21,6 +21,8 @@ class GameManager {
     this.survivalStates = new Map(); // playerId -> survivalState (wins, losses, usedHeroes)
     this.gauntletRuns = new Map(); // playerId -> gauntletRun state
     this.gauntletQueues = new Map(); // bracket -> array of players waiting
+    this.draftQueue = []; // Array of players waiting for draft/random mode
+    this.survivalQueue = []; // Array of players waiting for survival mode
     this.database = database; // Database instance for victory points
     this.userSessions = new Map(); // playerId -> userId mapping for database operations
     
@@ -86,67 +88,132 @@ class GameManager {
     return resetHero;
   }
 
-  addPlayer(playerId, playerName, mode = 'draft', profileIcon = 'Sorcerer') {
-    // Find or create a game for this player with matching mode
-    let gameId = null;
-    let game = null;
-
-    // Look for a game that needs players with same mode
-    for (const [id, gameState] of this.games.entries()) {
-      if (gameState.players.length < 2 && gameState.phase === 'waiting' && gameState.mode === mode) {
-        gameId = id;
-        game = gameState;
-        break;
-      }
+  // Centralized initiative rolling with automatic reroll on ties
+  rollInitiativeWithReroll(game) {
+    let player1Roll = rollDice(20);
+    let player2Roll = rollDice(20);
+    let rerollCount = 0;
+    
+    // Keep rerolling while tied (max 10 attempts to prevent infinite loop)
+    while (player1Roll === player2Roll && rerollCount < 10) {
+      console.log(`🎲 Initiative tie! (${player1Roll} vs ${player2Roll}) Rerolling...`);
+      player1Roll = rollDice(20);
+      player2Roll = rollDice(20);
+      rerollCount++;
     }
-
-    // Create new game if none found
-    if (!game) {
-      gameId = uuidv4();
-      game = this.createNewGame(gameId, mode);
-      this.games.set(gameId, game);
-    }
-
-    // Add player to game
-    console.log(`🎮 GameManager adding player: id="${playerId}", name="${playerName}", profileIcon="${profileIcon}"`);
-    const player = {
-      id: playerId,
-      name: playerName,
-      connected: true,
-      team: [],
-      draftCards: [],
-      bannedCard: null,
-      attackOrder: [],
-      currentHeroIndex: 0,
-      hasUsedAttack: false,
-      hasUsedAbility: false,
-      usedAbilities: [], // Track specific abilities used this turn
-      selectedTarget: null,
-      twinSpellUsed: false, // Track if Twin Spell has been used this round
-      oneTwoPunchUsed: false, // Track if One-Two Punch has been used this round
-      monkAttacksRemaining: 1, // Monk starts with 1 attack, ability grants +1 more (max 2 total)
-      oneTwoPunchAttacksRemaining: 0, // Legacy field kept for compatibility
-      profile_icon: profileIcon,
-      monkDeflectUsed: false // Track if Monk's Deflect has been used this round
-    };
-
-    game.players.push(player);
-    this.playerGameMap.set(playerId, gameId);
-
-    const gameReady = game.players.length === 2;
-    if (gameReady && mode === 'draft') {
-      this.startDraftPhase(game);
-    }
-
+    
+    // Store the final rolls
+    game.players[0].initiativeRoll = player1Roll;
+    game.players[1].initiativeRoll = player2Roll;
+    
+    console.log(`🎲 Final initiative rolls after ${rerollCount} reroll(s): Player 1: ${player1Roll}, Player 2: ${player2Roll}`);
+    
+    // Determine winner
+    const winner = player1Roll > player2Roll ? game.players[0] : game.players[1];
+    
     return {
-      success: true,
-      gameId,
-      playerId,
-      players: game.players.map(p => ({ id: p.id, name: p.name })),
-      gameReady,
-      draftCards: gameReady && mode === 'draft' ? game.draftCards : null,
-      mode
+      rolls: { player1: player1Roll, player2: player2Roll },
+      winner: winner.id,
+      needsChoice: true
     };
+  }
+
+  addPlayer(playerId, playerName, mode = 'draft', profileIcon = 'Sorcerer') {
+    console.log(`🔍 Player ${playerName} joining ${mode} queue...`);
+    
+    // Check if already in queue
+    if (this.draftQueue.some(p => p.playerId === playerId)) {
+      console.log(`⚠️ Player ${playerId} already in draft queue`);
+      return { success: false, error: 'Already in queue' };
+    }
+
+    // Check if there's someone waiting in the queue
+    if (this.draftQueue.length > 0) {
+      // Match with the first player in queue
+      const opponent = this.draftQueue.shift();
+      console.log(`✅ Matched ${playerName} with ${opponent.playerName} from queue!`);
+      
+      // Create a new game with both players
+      const gameId = uuidv4();
+      const game = this.createNewGame(gameId, mode);
+      this.games.set(gameId, game);
+      
+      // Add both players to the game
+      const player1 = {
+        id: opponent.playerId,
+        name: opponent.playerName,
+        connected: true,
+        team: [],
+        draftCards: [],
+        bannedCard: null,
+        attackOrder: [],
+        currentHeroIndex: 0,
+        hasUsedAttack: false,
+        hasUsedAbility: false,
+        usedAbilities: [],
+        selectedTarget: null,
+        twinSpellUsed: false,
+        oneTwoPunchUsed: false,
+        monkAttacksRemaining: 1,
+        oneTwoPunchAttacksRemaining: 0,
+        profile_icon: opponent.profileIcon,
+        monkDeflectUsed: false
+      };
+      
+      const player2 = {
+        id: playerId,
+        name: playerName,
+        connected: true,
+        team: [],
+        draftCards: [],
+        bannedCard: null,
+        attackOrder: [],
+        currentHeroIndex: 0,
+        hasUsedAttack: false,
+        hasUsedAbility: false,
+        usedAbilities: [],
+        selectedTarget: null,
+        twinSpellUsed: false,
+        oneTwoPunchUsed: false,
+        monkAttacksRemaining: 1,
+        oneTwoPunchAttacksRemaining: 0,
+        profile_icon: profileIcon,
+        monkDeflectUsed: false
+      };
+      
+      game.players.push(player1, player2);
+      this.playerGameMap.set(opponent.playerId, gameId);
+      this.playerGameMap.set(playerId, gameId);
+      
+      // Start draft phase immediately
+      if (mode === 'draft') {
+        this.startDraftPhase(game);
+      }
+      
+      return {
+        success: true,
+        gameId,
+        playerId,
+        players: game.players.map(p => ({ id: p.id, name: p.name })),
+        gameReady: true,
+        draftCards: mode === 'draft' ? game.draftCards : null,
+        mode
+      };
+    } else {
+      // No one in queue, add this player to queue
+      this.draftQueue.push({ playerId, playerName, mode, profileIcon });
+      console.log(`⏳ ${playerName} added to ${mode} queue (waiting for opponent). Queue size: ${this.draftQueue.length}`);
+      
+      return {
+        success: true,
+        gameId: null,
+        playerId,
+        players: [],
+        gameReady: false,
+        waiting: true,
+        mode
+      };
+    }
   }
 
   addPlayerToGame(gameId, playerId, playerName) {
@@ -234,86 +301,105 @@ class GameManager {
 
   // Survival mode methods
   addSurvivalPlayer(playerId, playerName, selectedTeam, profileIcon = 'Sorcerer') {
-    console.log(`🔍 Looking for survival games to match player ${playerName}...`);
-    console.log(`Current games:`, Array.from(this.games.entries()).map(([id, game]) => ({
-      id,
-      mode: game.mode,
-      phase: game.phase,
-      playerCount: game.players.length
-    })));
-
-    // Look for existing SURVIVAL games waiting for a second player
-    let gameId = null;
-    let game = null;
-
-    // Only match with other survival mode games
-    for (const [id, gameState] of this.games.entries()) {
-      console.log(`Checking game ${id}: mode=${gameState.mode}, phase=${gameState.phase}, players=${gameState.players.length}`);
-      if (gameState.players.length < 2 && 
-          gameState.phase === 'waiting' && 
-          gameState.mode === 'survival') {
-        console.log(`✅ Found matching survival game: ${id}`);
-        gameId = id;
-        game = gameState;
-        break;
-      }
+    console.log(`🔍 Player ${playerName} joining survival queue...`);
+    
+    // Check if already in queue
+    if (this.survivalQueue.some(p => p.playerId === playerId)) {
+      console.log(`⚠️ Player ${playerId} already in survival queue`);
+      return { success: false, error: 'Already in queue' };
     }
 
-    // Create new survival game if none found
-    if (!game) {
-      gameId = uuidv4();
-      game = this.createNewGame(gameId, 'survival');
+    // Check if there's someone waiting in the queue
+    if (this.survivalQueue.length > 0) {
+      // Match with the first player in queue
+      const opponent = this.survivalQueue.shift();
+      console.log(`✅ Matched ${playerName} with ${opponent.playerName} from survival queue!`);
+      
+      // Create a new game with both players
+      const gameId = uuidv4();
+      const game = this.createNewGame(gameId, 'survival');
       this.games.set(gameId, game);
-      console.log(`🆕 Created new survival game: ${gameId}`);
+      
+      // Reset and prepare teams for both players
+      const player1Team = opponent.selectedTeam.map(hero => this.resetHeroToOriginalState(hero));
+      const player2Team = selectedTeam.map(hero => this.resetHeroToOriginalState(hero));
+      
+      // Create both players
+      const player1 = {
+        id: opponent.playerId,
+        name: opponent.playerName,
+        connected: true,
+        team: player1Team,
+        draftCards: [],
+        bannedCard: null,
+        attackOrder: player1Team.map(h => h.name),
+        currentHeroIndex: 0,
+        hasUsedAttack: false,
+        hasUsedAbility: false,
+        usedAbilities: [],
+        selectedTarget: null,
+        twinSpellUsed: false,
+        oneTwoPunchUsed: false,
+        monkAttacksRemaining: 1,
+        oneTwoPunchAttacksRemaining: 0,
+        monkDeflectUsed: false,
+        isSurvivalPlayer: true,
+        profile_icon: opponent.profileIcon
+      };
+      
+      const player2 = {
+        id: playerId,
+        name: playerName,
+        connected: true,
+        team: player2Team,
+        draftCards: [],
+        bannedCard: null,
+        attackOrder: player2Team.map(h => h.name),
+        currentHeroIndex: 0,
+        hasUsedAttack: false,
+        hasUsedAbility: false,
+        usedAbilities: [],
+        selectedTarget: null,
+        twinSpellUsed: false,
+        oneTwoPunchUsed: false,
+        monkAttacksRemaining: 1,
+        oneTwoPunchAttacksRemaining: 0,
+        monkDeflectUsed: false,
+        isSurvivalPlayer: true,
+        profile_icon: profileIcon
+      };
+      
+      game.players.push(player1, player2);
+      this.playerGameMap.set(opponent.playerId, gameId);
+      this.playerGameMap.set(playerId, gameId);
+      
+      console.log(`🏟️ Survival game created with both players ready`);
+      console.log(`   - ${player1.name}: ${player1.team.map(h => h.name).join(', ')}`);
+      console.log(`   - ${player2.name}: ${player2.team.map(h => h.name).join(', ')}`);
+      
+      return {
+        success: true,
+        gameId,
+        playerId,
+        players: game.players.map(p => ({ id: p.id, name: p.name })),
+        gameReady: true,
+        mode: 'survival'
+      };
+    } else {
+      // No one in queue, add this player to queue
+      this.survivalQueue.push({ playerId, playerName, selectedTeam, profileIcon });
+      console.log(`⏳ ${playerName} added to survival queue (waiting for opponent). Queue size: ${this.survivalQueue.length}`);
+      
+      return {
+        success: true,
+        gameId: null,
+        playerId,
+        players: [],
+        gameReady: false,
+        waiting: true,
+        mode: 'survival'
+      };
     }
-
-    // Reset and prepare the selected team heroes
-    const resetTeam = selectedTeam.map(hero => this.resetHeroToOriginalState(hero));
-
-    // Create survival player
-    const player = {
-      id: playerId,
-      name: playerName,
-      connected: true,
-      team: resetTeam,
-      draftCards: [],
-      bannedCard: null,
-      attackOrder: resetTeam.map(h => h.name), // Team is in battle order already
-      currentHeroIndex: 0,
-      hasUsedAttack: false,
-      hasUsedAbility: false,
-      usedAbilities: [],
-      selectedTarget: null,
-      twinSpellUsed: false,
-      oneTwoPunchUsed: false,
-      monkAttacksRemaining: 1,
-      oneTwoPunchAttacksRemaining: 0,
-      monkDeflectUsed: false,
-      isSurvivalPlayer: true, // Mark as survival mode player
-      profile_icon: profileIcon
-    };
-
-    game.players.push(player);
-    this.playerGameMap.set(playerId, gameId);
-
-    const gameReady = game.players.length === 2;
-
-    console.log(`🏟️ Survival player ${playerName} added to game ${gameId}. Players: ${game.players.length}/2`);
-    if (gameReady) {
-      console.log(`🎯 Two survival players matched! Starting battle between:`);
-      game.players.forEach(p => {
-        console.log(`   - ${p.name}: ${p.team.map(h => h.name).join(', ')}`);
-      });
-    }
-
-    return {
-      success: true,
-      gameId,
-      playerId,
-      players: game.players.map(p => ({ id: p.id, name: p.name })),
-      gameReady,
-      mode: 'survival'
-    };
   }
 
   startSurvivalBattle(gameId) {
@@ -344,52 +430,8 @@ class GameManager {
       console.log(`✅ Player ${player.name} team ready: ${player.team.map(h => h.name).join(', ')}`);
     });
 
-    // Auto-roll initiative for both players (like random mode)
-    const player1Roll = rollDice(20);
-    const player2Roll = rollDice(20);
-    
-    game.players[0].initiativeRoll = player1Roll;
-    game.players[1].initiativeRoll = player2Roll;
-    
-    console.log(`🎲 Initiative rolled - ${game.players[0].name}: ${player1Roll}, ${game.players[1].name}: ${player2Roll}`);
-
-    // Create initiative data for the frontend
-    let initiativeData = null;
-    let winner = null;
-    
-    if (player1Roll !== player2Roll) {
-      // Clear winner
-      winner = player1Roll > player2Roll ? game.players[0] : game.players[1];
-      initiativeData = {
-        rolls: { player1: player1Roll, player2: player2Roll },
-        winner: winner.id,
-        needsChoice: true
-      };
-      console.log(`🏆 ${winner.name} won the initiative roll and will choose turn order`);
-    } else {
-      // Handle tie by rerolling until we get a winner
-      let rerollCount = 0;
-      let p1Roll = player1Roll;
-      let p2Roll = player2Roll;
-      
-      while (p1Roll === p2Roll && rerollCount < 10) {
-        p1Roll = rollDice(20);
-        p2Roll = rollDice(20);
-        rerollCount++;
-      }
-      
-      game.players[0].initiativeRoll = p1Roll;
-      game.players[1].initiativeRoll = p2Roll;
-      
-      winner = p1Roll > p2Roll ? game.players[0] : game.players[1];
-      initiativeData = {
-        rolls: { player1: p1Roll, player2: p2Roll },
-        winner: winner.id,
-        needsChoice: true
-      };
-      
-      console.log(`🎲 Initiative tie resolved after ${rerollCount} rerolls - ${winner.name} wins`);
-    }
+    // Auto-roll initiative for both players using centralized function
+    const initiativeData = this.rollInitiativeWithReroll(game);
 
     game.currentTurn = 0; // Will be set properly when turn order is chosen
 
@@ -416,6 +458,15 @@ class GameManager {
   }
 
   cancelSurvivalSearch(playerId) {
+    // Check if player is in queue
+    const queueIndex = this.survivalQueue.findIndex(p => p.playerId === playerId);
+    if (queueIndex !== -1) {
+      this.survivalQueue.splice(queueIndex, 1);
+      console.log(`❌ Player ${playerId} removed from survival queue`);
+      return { success: true };
+    }
+    
+    // Check if player is in a game
     const gameId = this.playerGameMap.get(playerId);
     if (!gameId) {
       return { success: false, message: 'No active search found' };
@@ -440,6 +491,15 @@ class GameManager {
   }
 
   cancelSearch(playerId) {
+    // Check if player is in queue
+    const queueIndex = this.draftQueue.findIndex(p => p.playerId === playerId);
+    if (queueIndex !== -1) {
+      this.draftQueue.splice(queueIndex, 1);
+      console.log(`❌ Player ${playerId} removed from draft queue`);
+      return { success: true };
+    }
+    
+    // Check if player is in a game
     const gameId = this.playerGameMap.get(playerId);
     if (!gameId) {
       return { success: false, message: 'No active search found' };
@@ -530,25 +590,9 @@ class GameManager {
     game.players[0].attackOrder = game.players[0].team.map(h => h.name);
     game.players[1].attackOrder = game.players[1].team.map(h => h.name);
 
-    // Auto-roll initiative for both players
-    game.players[0].initiativeRoll = rollDice(20);
-    game.players[1].initiativeRoll = rollDice(20);
-
-    // Determine winner and automatically set turn order
-    const player1Roll = game.players[0].initiativeRoll;
-    const player2Roll = game.players[1].initiativeRoll;
-    let firstPlayerIndex;
-    
-    if (player1Roll > player2Roll) {
-      // Player 1 wins, they choose to go first (random mode auto-chooses advantage)
-      firstPlayerIndex = 0;
-    } else if (player2Roll > player1Roll) {
-      // Player 2 wins, they choose to go first
-      firstPlayerIndex = 1;
-    } else {
-      // Tie, randomly choose
-      firstPlayerIndex = Math.random() < 0.5 ? 0 : 1;
-    }
+    // Auto-roll initiative for both players using centralized function
+    const initiativeResult = this.rollInitiativeWithReroll(game);
+    const firstPlayerIndex = game.players[0].initiativeRoll > game.players[1].initiativeRoll ? 0 : 1;
 
     // Set up battle phase directly
     game.phase = 'battle';
@@ -797,38 +841,10 @@ class GameManager {
       // Both players have set their order - transition to initiative phase
       game.phase = 'initiative';
       
-      // Auto-roll initiative for both players
-      game.players[0].initiativeRoll = rollDice(20);
-      game.players[1].initiativeRoll = rollDice(20);
-      
       console.log('Both players ready! Auto-rolling initiative...');
-      console.log(`Initiative rolls: Player 1: ${game.players[0].initiativeRoll}, Player 2: ${game.players[1].initiativeRoll}`);
       
-      // Prepare initiative data
-      const player1Roll = game.players[0].initiativeRoll;
-      const player2Roll = game.players[1].initiativeRoll;
-      
-      if (player1Roll !== player2Roll) {
-        const winner = player1Roll > player2Roll ? game.players[0] : game.players[1];
-        initiativeData = {
-          rolls: { player1: player1Roll, player2: player2Roll },
-          winner: winner.id,
-          needsChoice: true
-        };
-      } else {
-        // Tie - reroll automatically
-        game.players[0].initiativeRoll = rollDice(20);
-        game.players[1].initiativeRoll = rollDice(20);
-        console.log('Initiative tie! Rerolling...');
-        const newPlayer1Roll = game.players[0].initiativeRoll;
-        const newPlayer2Roll = game.players[1].initiativeRoll;
-        const newWinner = newPlayer1Roll > newPlayer2Roll ? game.players[0] : game.players[1];
-        initiativeData = {
-          rolls: { player1: newPlayer1Roll, player2: newPlayer2Roll },
-          winner: newWinner.id,
-          needsChoice: true
-        };
-      }
+      // Auto-roll initiative using centralized function
+      initiativeData = this.rollInitiativeWithReroll(game);
     }
 
     return {
@@ -859,28 +875,13 @@ class GameManager {
 
     const bothRolled = game.players.every(p => p.initiativeRoll !== undefined);
     if (bothRolled) {
-      const player1Roll = game.players[0].initiativeRoll;
-      const player2Roll = game.players[1].initiativeRoll;
-      
-      if (player1Roll !== player2Roll) {
-        const winner = player1Roll > player2Roll ? game.players[0] : game.players[1];
-        return {
-          success: true,
-          gameId,
-          rolls: { player1: player1Roll, player2: player2Roll },
-          winner: winner.id,
-          needsChoice: true
-        };
-      } else {
-        // Tie, reroll
-        game.players.forEach(p => p.initiativeRoll = undefined);
-        return {
-          success: true,
-          gameId,
-          rolls: { player1: player1Roll, player2: player2Roll },
-          tie: true
-        };
-      }
+      // Both players have rolled, check for ties and reroll if needed
+      const initiativeData = this.rollInitiativeWithReroll(game);
+      return {
+        success: true,
+        gameId,
+        ...initiativeData
+      };
     }
 
     return {
