@@ -197,6 +197,8 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 30px;
+  overflow-y: auto; /* Enable scrolling when content exceeds viewport */
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 /* Collection Grid */
@@ -390,6 +392,9 @@
   box-shadow: 0 0 50px rgba(0, 123, 255, 1);
   border-color: #4da6ff;
   animation: enlargeCard 0.3s ease-out;
+  height: auto; /* Allow height to fit content */
+  min-height: clamp(240px, 18.5vw, 360px); /* Maintain minimum */
+  max-height: 80vh; /* Don't exceed viewport */
 }
 
 @keyframes enlargeCard {
@@ -508,8 +513,7 @@
   }
   
   .collection-grid .hero-card {
-    transform: scale(0.98);
-    transform-origin: center;
+    max-height: 330px; /* Reduce empty space on larger screens */
   }
 }
 
@@ -520,8 +524,7 @@
   }
   
   .collection-grid .hero-card {
-    transform: scale(0.95);
-    transform-origin: center;
+    max-height: 310px; /* Reduce empty space */
   }
 }
 
@@ -532,8 +535,7 @@
   }
   
   .collection-grid .hero-card {
-    transform: scale(0.92);
-    transform-origin: center;
+    max-height: 280px; /* Limit height on medium screens */
   }
   
   .hero-details-panel {
@@ -564,6 +566,10 @@
   .collection-grid {
     gap: 8px;
     padding: 0 10px;
+  }
+  
+  .collection-grid .hero-card {
+    max-height: 240px; /* Limit height on smaller screens */
   }
   
   .hero-card.collection-card.enlarged {
@@ -622,6 +628,10 @@
   .collection-grid {
     padding: 15px;
     gap: 10px;
+  }
+  
+  .collection-grid .hero-card {
+    max-height: 220px; /* Further limit height on very small screens */
   }
   
   .hero-card.collection-card.enlarged {

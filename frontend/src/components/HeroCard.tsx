@@ -338,7 +338,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
             ⚔️ {hero.statusEffects.damageStacks}
           </span>
           <span className="status-tooltip-text">
-            Damage Stacks: +{hero.statusEffects.damageStacks} damage to all attacks
+            Bloodbath Stacks: +{hero.statusEffects.damageStacks} damage to all attacks
           </span>
         </span>
       );

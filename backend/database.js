@@ -45,6 +45,7 @@ class Database {
         survival_losses INTEGER DEFAULT 0,
         survival_used_heroes TEXT DEFAULT '[]',
         available_heroes TEXT DEFAULT '[]',
+        best_gauntlet_trial INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_login DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -74,6 +75,20 @@ class Database {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (sender_id) REFERENCES users (id),
         FOREIGN KEY (receiver_id) REFERENCES users (id)
+      )
+    `;
+
+    // Gauntlet save states table
+    const createGauntletSaveStatesTable = `
+      CREATE TABLE IF NOT EXISTS gauntlet_save_states (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER UNIQUE NOT NULL,
+        current_trial INTEGER NOT NULL,
+        rerolls_remaining INTEGER NOT NULL,
+        shop_actions_remaining INTEGER NOT NULL,
+        roster TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `;
 
@@ -123,6 +138,22 @@ class Database {
       }
     });
 
+    this.db.run(createGauntletSaveStatesTable, (err) => {
+      if (err) {
+        console.error('Error creating gauntlet_save_states table:', err.message);
+      } else {
+        console.log('Gauntlet save states table created or already exists');
+      }
+    });
+
+    this.db.run(createGauntletSaveStatesTable, (err) => {
+      if (err) {
+        console.error('Error creating gauntlet_save_states table:', err.message);
+      } else {
+        console.log('Gauntlet save states table created or already exists');
+      }
+    });
+
     this.db.run(createPlayerStatsTable, (err) => {
       if (err) {
         console.error('Error creating player_stats table:', err.message);
@@ -137,6 +168,15 @@ class Database {
         console.error('Error adding favorite_heroes column:', err.message);
       } else if (!err) {
         console.log('Added favorite_heroes column to users table');
+      }
+    });
+
+    // Add best_gauntlet_trial column to users table if it doesn't exist
+    this.db.run(`ALTER TABLE users ADD COLUMN best_gauntlet_trial INTEGER DEFAULT 0`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('Error adding best_gauntlet_trial column:', err.message);
+      } else if (!err) {
+        console.log('Added best_gauntlet_trial column to users table');
       }
     });
   }
@@ -1034,6 +1074,133 @@ class Database {
     });
   }
 
+  // Gauntlet methods
+  async updateBestGauntletTrial(userId, trialReached) {
+    return new Promise((resolve, reject) => {
+      // First get current best
+      const getQuery = `SELECT best_gauntlet_trial FROM users WHERE id = ?`;
+      
+      this.db.get(getQuery, [userId], (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        const currentBest = row?.best_gauntlet_trial || 0;
+        const newBest = Math.max(currentBest, trialReached);
+
+        // Only update if new best is higher
+        if (newBest > currentBest) {
+          const updateQuery = `UPDATE users SET best_gauntlet_trial = ? WHERE id = ?`;
+          
+          this.db.run(updateQuery, [newBest, userId], function(err) {
+            if (err) {
+              reject(err);
+              return;
+            }
+
+            resolve({ 
+              previousBest: currentBest,
+              newBest: newBest,
+              improved: true
+            });
+          });
+        } else {
+          resolve({
+            previousBest: currentBest,
+            newBest: currentBest,
+            improved: false
+          });
+        }
+      });
+    });
+  }
+
+  async calculateGauntletRewards(trialReached) {
+    // XP rewards based on trial reached
+    const xpRewards = {
+      1: 5, 2: 10, 3: 15, 4: 20, 5: 25,
+      6: 30, 7: 40, 8: 50, 9: 65, 10: 80,
+      11: 100, 12: 125, 13: 150
+    };
+
+    // Victory points rewards based on trial reached
+    const vpRewards = {
+      1: 1, 2: 1, 3: 2, 4: 2, 5: 3,
+      6: 3, 7: 4, 8: 5, 9: 6, 10: 8,
+      11: 10, 12: 12, 13: 15
+    };
+
+    return {
+      xp: xpRewards[trialReached] || 0,
+      victoryPoints: vpRewards[trialReached] || 0
+    };
+  }
+
+  async saveGauntletState(userId, runState) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        INSERT OR REPLACE INTO gauntlet_save_states 
+        (user_id, current_trial, rerolls_remaining, shop_actions_remaining, roster, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `;
+      
+      const rosterJson = JSON.stringify(runState.roster);
+      
+      this.db.run(query, [userId, runState.current_trial, runState.rerolls_remaining, runState.shop_actions_remaining, rosterJson], (err) => {
+        if (err) {
+          console.error('Error saving gauntlet state:', err.message);
+          reject(err);
+        } else {
+          console.log(`✅ Saved gauntlet state for user ${userId}`);
+          resolve({ success: true });
+        }
+      });
+    });
+  }
+
+  async loadGauntletState(userId) {
+    return new Promise((resolve, reject) => {
+      const query = `SELECT * FROM gauntlet_save_states WHERE user_id = ?`;
+      
+      this.db.get(query, [userId], (err, row) => {
+        if (err) {
+          console.error('Error loading gauntlet state:', err.message);
+          reject(err);
+        } else if (row) {
+          console.log(`✅ Loaded gauntlet state for user ${userId}`);
+          resolve({
+            success: true,
+            runState: {
+              current_trial: row.current_trial,
+              rerolls_remaining: row.rerolls_remaining,
+              shop_actions_remaining: row.shop_actions_remaining,
+              roster: JSON.parse(row.roster)
+            }
+          });
+        } else {
+          resolve({ success: false, message: 'No saved state found' });
+        }
+      });
+    });
+  }
+
+  async clearGauntletState(userId) {
+    return new Promise((resolve, reject) => {
+      const query = `DELETE FROM gauntlet_save_states WHERE user_id = ?`;
+      
+      this.db.run(query, [userId], (err) => {
+        if (err) {
+          console.error('Error clearing gauntlet state:', err.message);
+          reject(err);
+        } else {
+          console.log(`✅ Cleared gauntlet state for user ${userId}`);
+          resolve({ success: true });
+        }
+      });
+    });
+  }
+
   close() {
     if (this.db) {
       this.db.close((err) => {
@@ -1047,4 +1214,11 @@ class Database {
   }
 }
 
+// Starter heroes for Gauntlet mode
+const GAUNTLET_STARTER_HEROES = [
+  'Assassin', 'Barbarian', 'Cleric', 'Druid', 'Fighter',
+  'Monk', 'Paladin', 'Ranger', 'Sorcerer', 'Wizard'
+];
+
 module.exports = Database;
+module.exports.GAUNTLET_STARTER_HEROES = GAUNTLET_STARTER_HEROES;

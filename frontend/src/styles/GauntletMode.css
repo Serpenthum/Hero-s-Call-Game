@@ -1,0 +1,403 @@
+.gauntlet-mode {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  overflow: hidden;
+}
+
+/* Left Sidebar - Gauntlet Info */
+.gauntlet-sidebar {
+  width: clamp(200px, 18vw, 300px);
+  background: rgba(0, 0, 0, 0.5);
+  border-right: 2px solid rgba(220, 20, 60, 0.3);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.gauntlet-sidebar .sidebar-header {
+  text-align: center;
+  padding-bottom: 15px;
+  border-bottom: 2px solid rgba(220, 20, 60, 0.5);
+}
+
+.gauntlet-sidebar .sidebar-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #dc143c;
+  text-shadow: 0 0 10px rgba(220, 20, 60, 0.5);
+}
+
+.mode-subtitle {
+  margin-top: 10px;
+  font-size: 1.1rem;
+  color: #ffd700;
+}
+
+.stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border-left: 3px solid #dc143c;
+}
+
+.stat-item.best-trial {
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent);
+  border-left-color: #ffd700;
+}
+
+.stat-label {
+  color: #aaa;
+  font-size: 0.85rem;
+}
+
+.stat-value {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.dead-heroes-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+
+.dead-heroes-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 1.1rem;
+  color: #ff6666;
+}
+
+.dead-heroes-list {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.dead-hero-item {
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: rgba(255, 0, 0, 0.1);
+  border-left: 3px solid #ff4444;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.no-dead-heroes {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  padding: 15px;
+  font-size: 0.85rem;
+}
+
+.return-to-lobby-btn {
+  padding: 12px;
+  background: linear-gradient(135deg, #4a9eff, #6bb0ff);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 15px;
+  margin-bottom: 10px;
+}
+
+.return-to-lobby-btn:hover {
+  background: linear-gradient(135deg, #6bb0ff, #8dc6ff);
+  transform: translateY(-2px);
+}
+
+.abandon-run-btn {
+  padding: 12px;
+  background: linear-gradient(135deg, #666, #444);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.abandon-run-btn:hover {
+  background: linear-gradient(135deg, #888, #666);
+  transform: translateY(-2px);
+}
+
+/* Right Sidebar - Shop Actions */
+.gauntlet-actions {
+  width: clamp(123px, 15vw, 203px) !important;
+  background: rgba(0, 0, 0, 0.5);
+  border-left: 2px solid rgba(220, 20, 60, 0.3);
+  margin-left: -50px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  overflow-y: auto;
+}
+
+.gauntlet-actions h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #ffd700;
+  text-align: center;
+  border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+  padding-bottom: 12px;
+}
+
+.actions-remaining {
+  text-align: center;
+  padding: 8px;
+  background: rgba(255, 215, 0, 0.1);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.actions-available {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.actions-depleted {
+  color: #ff6666;
+}
+
+.shop-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shop-action-btn {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(74, 158, 255, 0.5);
+  border-radius: 10px;
+  color: white;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shop-action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
+  border-color: #4a9eff;
+}
+
+.shop-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.shop-action-btn.heal {
+  border-color: rgba(0, 255, 136, 0.5);
+}
+
+.shop-action-btn.heal:hover:not(:disabled) {
+  border-color: #00ff88;
+  box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);
+}
+
+.shop-action-btn.resurrect {
+  border-color: rgba(155, 89, 182, 0.5);
+}
+
+.shop-action-btn.resurrect:hover:not(:disabled) {
+  border-color: #9b59b6;
+  box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4);
+}
+
+.shop-action-btn.buy-pack {
+  border-color: rgba(255, 215, 0, 0.5);
+}
+
+.shop-action-btn.buy-pack:hover:not(:disabled) {
+  border-color: #ffd700;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+}
+
+.shop-action-btn.skip {
+  border-color: rgba(52, 152, 219, 0.5);
+}
+
+.shop-action-btn.skip:hover:not(:disabled) {
+  border-color: #3498db;
+  box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+}
+
+.action-icon {
+  font-size: 1.8rem;
+}
+
+.action-name {
+  font-size: 0.95rem;
+  font-weight: bold;
+}
+
+.action-desc {
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.abandon-modal {
+  background: linear-gradient(135deg, #2d2d44 0%, #1a1a2e 100%);
+  padding: 30px;
+  border-radius: 15px;
+  border: 2px solid #ff4444;
+  max-width: 400px;
+  text-align: center;
+}
+
+.abandon-modal h2 {
+  margin-top: 0;
+  color: #ff6666;
+  font-size: 1.5rem;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 15px;
+  margin-top: 25px;
+  justify-content: center;
+}
+
+.confirm-button {
+  padding: 10px 25px;
+  background: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.confirm-button:hover {
+  background: #ff6666;
+  transform: scale(1.05);
+}
+
+.cancel-button {
+  padding: 10px 25px;
+  background: #4a9eff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-button:hover {
+  background: #6bb0ff;
+  transform: scale(1.05);
+}
+
+.gauntlet-complete-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  text-align: center;
+}
+
+.gauntlet-complete-screen h1 {
+  font-size: 3rem;
+  margin-bottom: 30px;
+  text-shadow: 0 0 20px #ffd700;
+}
+
+.final-stats {
+  background: rgba(0, 0, 0, 0.5);
+  padding: 40px;
+  border-radius: 15px;
+  border: 2px solid #4a9eff;
+  margin-bottom: 30px;
+}
+
+.final-stats h2 {
+  font-size: 2rem;
+  color: #4a9eff;
+  margin-bottom: 20px;
+}
+
+.rewards-summary {
+  margin: 20px 0;
+  font-size: 1.3rem;
+}
+
+.rewards-summary p {
+  margin: 10px 0;
+}
+
+.best-trial {
+  margin-top: 20px;
+  font-size: 1.1rem;
+  color: #ffd700;
+}
+
+.complete-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+.return-button {
+  padding: 15px 40px;
+  background: linear-gradient(135deg, #4a9eff, #6bb0ff);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(74, 158, 255, 0.4);
+}
+
+.return-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(74, 158, 255, 0.6);
+}

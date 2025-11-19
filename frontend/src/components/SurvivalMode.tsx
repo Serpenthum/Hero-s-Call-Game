@@ -282,22 +282,20 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
 
   return (
     <div className="survival-mode-container">
-      <div className="survival-header">
-        <h1>Survival Mode</h1>
-        <div className="survival-header-buttons">
-          <button className="survival-btn danger" onClick={handleAbandonRun}>
-            Abandon Run
-          </button>
-          <button className="survival-btn secondary" onClick={onReturnToLobby}>
-            Return to Lobby
-          </button>
-        </div>
-      </div>
-
       <div className="survival-content">
         <div className="survival-sidebar">
+          <h1 className="survival-mode-title">Survival Mode</h1>
           <SurvivalProgress wins={survivalState.wins} losses={survivalState.losses} />
           <SurvivalUsedHeroes usedHeroes={survivalState.usedHeroes} />
+          
+          <div className="survival-sidebar-buttons">
+            <button className="survival-btn danger" onClick={handleAbandonRun}>
+              Abandon Run
+            </button>
+            <button className="survival-btn secondary" onClick={onReturnToLobby}>
+              Return to Lobby
+            </button>
+          </div>
         </div>
 
         <div className="survival-main">

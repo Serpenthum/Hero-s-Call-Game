@@ -19,6 +19,8 @@ class GameManager {
     this.games = new Map();
     this.playerGameMap = new Map(); // playerId -> gameId
     this.survivalStates = new Map(); // playerId -> survivalState (wins, losses, usedHeroes)
+    this.gauntletRuns = new Map(); // playerId -> gauntletRun state
+    this.gauntletQueues = new Map(); // bracket -> array of players waiting
     this.database = database; // Database instance for victory points
     this.userSessions = new Map(); // playerId -> userId mapping for database operations
     
@@ -6927,6 +6929,744 @@ class GameManager {
       }
     }
     return null;
+  }
+
+  // =================================================================
+  // GAUNTLET MODE METHODS
+  // =================================================================
+
+  /**
+   * Get matchmaking bracket based on current trial
+   */
+  getGauntletBracket(currentTrial) {
+    if (currentTrial === 1) return 'A';
+    if (currentTrial >= 2 && currentTrial <= 4) return 'B';
+    if (currentTrial >= 5 && currentTrial <= 7) return 'C';
+    if (currentTrial >= 8 && currentTrial <= 10) return 'D';
+    if (currentTrial >= 11 && currentTrial <= 13) return 'E';
+    return 'A'; // Default to bracket A
+  }
+
+  /**
+   * Initialize a new Gauntlet run for a player
+   */
+  async initializeGauntletRun(playerId, playerName) {
+    const { GAUNTLET_STARTER_HEROES } = require('./database');
+    
+    // Get player's available heroes
+    const userId = this.userSessions.get(playerId);
+    let availableHeroes = [];
+    
+    if (userId && this.database) {
+      try {
+        const user = await this.database.getUserById(userId);
+        availableHeroes = user.available_heroes || [];
+      } catch (error) {
+        console.error('Error getting user heroes:', error);
+        availableHeroes = this.heroes.map(h => h.name);
+      }
+    } else {
+      availableHeroes = this.heroes.map(h => h.name);
+    }
+
+    // Select 6 random starter heroes from the GAUNTLET_STARTER_HEROES list
+    const starterPool = GAUNTLET_STARTER_HEROES.filter(name => 
+      this.heroes.some(h => h.name === name && !h.disabled)
+    );
+    const shuffledStarters = shuffleArray([...starterPool]);
+    const selectedStarterNames = shuffledStarters.slice(0, 6);
+
+    // Create HeroInstances for the initial roster
+    const initialRoster = selectedStarterNames.map(heroName => {
+      const heroTemplate = this.heroes.find(h => h.name === heroName);
+      if (!heroTemplate) return null;
+      
+      const heroInstance = this.resetHeroToOriginalState(heroTemplate);
+      return {
+        hero_id: heroTemplate.name,
+        heroData: heroInstance,
+        current_hp: heroInstance.currentHP,
+        max_hp: heroInstance.HP,
+        alive: true,
+        temporary_resurrection_active: false
+      };
+    }).filter(Boolean);
+
+    // Create the run state
+    const runState = {
+      playerId,
+      playerName,
+      current_trial: 1,
+      roster: initialRoster, // Array of HeroInstances
+      dead_hero_ids: new Set(),
+      rerolls_remaining: 3,
+      shop_actions_remaining: 1,
+      battle_team_indices: [], // Will be set in preparation phase
+      phase: 'preparation', // preparation, queueing, battle
+      availableHeroPool: availableHeroes, // Expanded pool after initial 6
+      isActive: true
+    };
+
+    this.gauntletRuns.set(playerId, runState);
+    console.log(`🎮 Initialized Gauntlet run for ${playerName}: 6 starter heroes selected`);
+
+    return {
+      success: true,
+      runState: this.serializeGauntletRunState(runState)
+    };
+  }
+
+  /**
+   * Serialize gauntlet run state for sending to client
+   */
+  serializeGauntletRunState(runState) {
+    return {
+      current_trial: runState.current_trial,
+      roster: runState.roster.map(instance => ({
+        hero_id: instance.hero_id,
+        hero: instance.heroData,
+        current_hp: instance.current_hp,
+        max_hp: instance.max_hp,
+        alive: instance.alive,
+        temporary_resurrection_active: instance.temporary_resurrection_active
+      })),
+      dead_hero_ids: Array.from(runState.dead_hero_ids),
+      rerolls_remaining: runState.rerolls_remaining,
+      shop_actions_remaining: runState.shop_actions_remaining,
+      battle_team_indices: runState.battle_team_indices,
+      phase: runState.phase
+    };
+  }
+
+  /**
+   * Get current Gauntlet run state
+   */
+  getGauntletRunState(playerId) {
+    const runState = this.gauntletRuns.get(playerId);
+    if (!runState) {
+      return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    return {
+      success: true,
+      runState: this.serializeGauntletRunState(runState)
+    };
+  }
+
+  /**
+   * Perform a shop action in Gauntlet
+   */
+  async performGauntletShopAction(playerId, action, data) {
+    const runState = this.gauntletRuns.get(playerId);
+    if (!runState) {
+      return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    if (runState.shop_actions_remaining <= 0) {
+      return { success: false, error: 'No shop actions remaining' };
+    }
+
+    let result = { success: false };
+
+    switch (action) {
+      case 'heal':
+        result = this.gauntletShopHeal(runState, data.heroIndex);
+        break;
+      case 'temp_res':
+        result = this.gauntletShopTempRes(runState, data.heroId);
+        break;
+      case 'buy_pack':
+        result = await this.gauntletShopBuyPack(runState, data.selectedHeroId, data.sacrificeIndex, data.useReroll);
+        break;
+      case 'skip_trial':
+        result = this.gauntletShopSkipTrial(runState);
+        break;
+      default:
+        return { success: false, error: 'Invalid shop action' };
+    }
+
+    if (result.success) {
+      runState.shop_actions_remaining = 0;
+    }
+
+    return {
+      ...result,
+      runState: this.serializeGauntletRunState(runState)
+    };
+  }
+
+  gauntletShopHeal(runState, heroIndex) {
+    if (heroIndex < 0 || heroIndex >= runState.roster.length) {
+      return { success: false, error: 'Invalid hero index' };
+    }
+
+    const heroInstance = runState.roster[heroIndex];
+    if (!heroInstance.alive) {
+      return { success: false, error: 'Cannot heal a dead hero' };
+    }
+
+    heroInstance.current_hp = heroInstance.max_hp;
+    heroInstance.heroData.currentHP = heroInstance.max_hp;
+
+    console.log(`💚 Healed ${heroInstance.hero_id} to full HP (${heroInstance.max_hp})`);
+
+    return {
+      success: true,
+      message: `${heroInstance.hero_id} healed to full HP!`
+    };
+  }
+
+  gauntletShopTempRes(runState, heroId) {
+    if (!runState.dead_hero_ids.has(heroId)) {
+      return { success: false, error: 'Hero is not dead' };
+    }
+
+    // Find or recreate hero instance
+    const heroTemplate = this.heroes.find(h => h.name === heroId);
+    if (!heroTemplate) {
+      return { success: false, error: 'Hero not found' };
+    }
+
+    const heroData = this.resetHeroToOriginalState(heroTemplate);
+    const heroInstance = {
+      hero_id: heroId,
+      heroData: heroData,
+      current_hp: heroData.currentHP,
+      max_hp: heroData.HP,
+      alive: true,
+      temporary_resurrection_active: true
+    };
+
+    // Add back to roster
+    runState.roster.push(heroInstance);
+
+    console.log(`👻 Temporarily resurrected ${heroId}`);
+
+    return {
+      success: true,
+      message: `${heroId} temporarily resurrected! (Will die after next battle)`
+    };
+  }
+
+  async gauntletShopBuyPack(runState, selectedHeroId, sacrificeIndex, useReroll) {
+    // If using a reroll, decrement rerolls
+    if (useReroll) {
+      if (runState.rerolls_remaining <= 0) {
+        return { success: false, error: 'No rerolls remaining' };
+      }
+      runState.rerolls_remaining--;
+      console.log(`🔄 Used reroll, ${runState.rerolls_remaining} remaining`);
+    }
+
+    // If no hero selected yet, generate offer
+    if (!selectedHeroId) {
+      const offer = this.generateGauntletHeroOffer(runState);
+      return {
+        success: true,
+        action: 'show_offer',
+        offer: offer,
+        rerolls_remaining: runState.rerolls_remaining
+      };
+    }
+
+    // Hero selected, process purchase
+    const heroTemplate = this.heroes.find(h => h.name === selectedHeroId);
+    if (!heroTemplate) {
+      return { success: false, error: 'Hero not found' };
+    }
+
+    // Check if roster is full (need sacrifice)
+    if (runState.roster.length >= 6) {
+      if (sacrificeIndex === undefined || sacrificeIndex === null) {
+        return {
+          success: true,
+          action: 'need_sacrifice',
+          selectedHero: selectedHeroId
+        };
+      }
+
+      // Validate sacrifice
+      if (sacrificeIndex < 0 || sacrificeIndex >= runState.roster.length) {
+        return { success: false, error: 'Invalid sacrifice index' };
+      }
+
+      const sacrificedHero = runState.roster[sacrificeIndex];
+      if (!sacrificedHero.alive) {
+        return { success: false, error: 'Cannot sacrifice a dead hero' };
+      }
+
+      // Remove sacrificed hero
+      runState.roster.splice(sacrificeIndex, 1);
+      runState.dead_hero_ids.add(sacrificedHero.hero_id);
+
+      console.log(`🔥 Sacrificed ${sacrificedHero.hero_id} to make room for ${selectedHeroId}`);
+    }
+
+    // Add new hero
+    const heroData = this.resetHeroToOriginalState(heroTemplate);
+    const newInstance = {
+      hero_id: selectedHeroId,
+      heroData: heroData,
+      current_hp: heroData.currentHP,
+      max_hp: heroData.HP,
+      alive: true,
+      temporary_resurrection_active: false
+    };
+
+    runState.roster.push(newInstance);
+
+    console.log(`✨ Added ${selectedHeroId} to roster`);
+
+    return {
+      success: true,
+      message: `Added ${selectedHeroId} to your roster!`
+    };
+  }
+
+  gauntletShopSkipTrial(runState) {
+    // Skip not available after trial 10
+    if (runState.current_trial >= 10) {
+      return { success: false, error: 'Cannot skip trial after trial 10' };
+    }
+
+    runState.current_trial = Math.min(runState.current_trial + 1, 13);
+    console.log(`⏭️ Skipped trial, now at trial ${runState.current_trial}`);
+
+    return {
+      success: true,
+      message: `Skipped to Trial ${runState.current_trial}!`
+    };
+  }
+
+  /**
+   * Generate a 2-hero offer for Gauntlet
+   */
+  generateGauntletHeroOffer(runState) {
+    // Build candidate pool: available heroes excluding dead ones
+    const candidatePool = runState.availableHeroPool.filter(heroName => 
+      !runState.dead_hero_ids.has(heroName) &&
+      this.heroes.some(h => h.name === heroName && !h.disabled)
+    );
+
+    if (candidatePool.length < 2) {
+      return null; // Not enough heroes
+    }
+
+    // Randomly select 2
+    const shuffled = shuffleArray([...candidatePool]);
+    const offer = shuffled.slice(0, 2).map(heroName => {
+      const heroTemplate = this.heroes.find(h => h.name === heroName);
+      return heroTemplate ? { name: heroName, data: heroTemplate } : null;
+    }).filter(Boolean);
+
+    return offer;
+  }
+
+  /**
+   * Set battle team for next trial
+   */
+  setGauntletBattleTeam(playerId, teamIndices) {
+    const runState = this.gauntletRuns.get(playerId);
+    if (!runState) {
+      return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    // Validate team size
+    if (teamIndices.length !== 3) {
+      return { success: false, error: 'Team must have exactly 3 heroes' };
+    }
+
+    // Validate all heroes are alive or temp-resurrected
+    for (const index of teamIndices) {
+      if (index < 0 || index >= runState.roster.length) {
+        return { success: false, error: 'Invalid hero index' };
+      }
+
+      const hero = runState.roster[index];
+      if (!hero.alive && !hero.temporary_resurrection_active) {
+        return { success: false, error: 'All team members must be alive' };
+      }
+    }
+
+    runState.battle_team_indices = teamIndices;
+    console.log(`⚔️ Set battle team: [${teamIndices.join(', ')}]`);
+
+    return {
+      success: true,
+      runState: this.serializeGauntletRunState(runState)
+    };
+  }
+
+  /**
+   * Queue for Gauntlet trial matchmaking
+   */
+  queueForGauntletTrial(playerId) {
+    const runState = this.gauntletRuns.get(playerId);
+    if (!runState) {
+      return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    if (runState.battle_team_indices.length !== 3) {
+      return { success: false, error: 'Must select battle team first' };
+    }
+
+    const bracket = this.getGauntletBracket(runState.current_trial);
+    
+    // Initialize queue for bracket if needed
+    if (!this.gauntletQueues.has(bracket)) {
+      this.gauntletQueues.set(bracket, []);
+    }
+
+    const queue = this.gauntletQueues.get(bracket);
+    
+    // Check if already in queue
+    if (queue.some(p => p.playerId === playerId)) {
+      return { success: false, error: 'Already in queue' };
+    }
+
+    // Add to queue
+    queue.push({
+      playerId,
+      playerName: runState.playerName,
+      currentTrial: runState.current_trial,
+      bracket,
+      timestamp: Date.now()
+    });
+
+    runState.phase = 'queueing';
+
+    console.log(`🎯 ${runState.playerName} queued for Trial ${runState.current_trial} (Bracket ${bracket})`);
+
+    // Try to match immediately
+    return this.tryMatchGauntletPlayers(bracket);
+  }
+
+  /**
+   * Try to match players in a Gauntlet bracket
+   */
+  tryMatchGauntletPlayers(bracket) {
+    const queue = this.gauntletQueues.get(bracket);
+    if (!queue || queue.length < 2) {
+      return {
+        success: true,
+        waiting: true,
+        message: 'Waiting for opponent...'
+      };
+    }
+
+    // Match the first two players in queue
+    const player1Data = queue.shift();
+    const player2Data = queue.shift();
+
+    const player1Run = this.gauntletRuns.get(player1Data.playerId);
+    const player2Run = this.gauntletRuns.get(player2Data.playerId);
+
+    if (!player1Run || !player2Run) {
+      console.error('Error: Player run state not found');
+      return { success: false, error: 'Player state not found' };
+    }
+
+    // Create game
+    const gameId = uuidv4();
+    const game = this.createNewGame(gameId, 'gauntlet');
+
+    // Prepare teams from battle_team_indices
+    const player1Team = player1Run.battle_team_indices.map(index => {
+      const instance = player1Run.roster[index];
+      return this.resetHeroToOriginalState(instance.heroData);
+    });
+
+    const player2Team = player2Run.battle_team_indices.map(index => {
+      const instance = player2Run.roster[index];
+      return this.resetHeroToOriginalState(instance.heroData);
+    });
+
+    // Create players
+    const player1 = {
+      id: player1Data.playerId,
+      name: player1Data.playerName,
+      connected: true,
+      team: player1Team,
+      attackOrder: player1Team.map(h => h.name),
+      currentHeroIndex: 0,
+      hasUsedAttack: false,
+      hasUsedAbility: false,
+      usedAbilities: [],
+      selectedTarget: null,
+      isGauntletPlayer: true,
+      gauntletTrial: player1Run.current_trial
+    };
+
+    const player2 = {
+      id: player2Data.playerId,
+      name: player2Data.playerName,
+      connected: true,
+      team: player2Team,
+      attackOrder: player2Team.map(h => h.name),
+      currentHeroIndex: 0,
+      hasUsedAttack: false,
+      hasUsedAbility: false,
+      usedAbilities: [],
+      selectedTarget: null,
+      isGauntletPlayer: true,
+      gauntletTrial: player2Run.current_trial
+    };
+
+    game.players = [player1, player2];
+    game.phase = 'initiative';
+
+    this.games.set(gameId, game);
+    this.playerGameMap.set(player1Data.playerId, gameId);
+    this.playerGameMap.set(player2Data.playerId, gameId);
+
+    player1Run.phase = 'battle';
+    player2Run.phase = 'battle';
+
+    console.log(`⚔️ Matched Gauntlet battle: ${player1Data.playerName} (Trial ${player1Run.current_trial}) vs ${player2Data.playerName} (Trial ${player2Run.current_trial})`);
+
+    // Auto-roll initiative
+    const initiative = this.autoRollGauntletInitiative(game);
+
+    return {
+      success: true,
+      matched: true,
+      gameId,
+      players: [player1, player2],
+      initiative
+    };
+  }
+
+  /**
+   * Auto-roll initiative for Gauntlet battle
+   */
+  autoRollGauntletInitiative(game) {
+    let player1Roll = rollDice(20);
+    let player2Roll = rollDice(20);
+
+    // Handle ties
+    let rerollCount = 0;
+    while (player1Roll === player2Roll && rerollCount < 10) {
+      player1Roll = rollDice(20);
+      player2Roll = rollDice(20);
+      rerollCount++;
+    }
+
+    game.players[0].initiativeRoll = player1Roll;
+    game.players[1].initiativeRoll = player2Roll;
+
+    const winner = player1Roll > player2Roll ? game.players[0] : game.players[1];
+
+    return {
+      rolls: { player1: player1Roll, player2: player2Roll },
+      winner: winner.id,
+      needsChoice: true
+    };
+  }
+
+  /**
+   * Cancel Gauntlet trial queue
+   */
+  cancelGauntletQueue(playerId) {
+    const runState = this.gauntletRuns.get(playerId);
+    if (!runState) {
+      return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    const bracket = this.getGauntletBracket(runState.current_trial);
+    const queue = this.gauntletQueues.get(bracket);
+
+    if (queue) {
+      const index = queue.findIndex(p => p.playerId === playerId);
+      if (index !== -1) {
+        queue.splice(index, 1);
+        console.log(`❌ Removed ${runState.playerName} from Gauntlet queue`);
+      }
+    }
+
+    runState.phase = 'preparation';
+
+    return {
+      success: true,
+      runState: this.serializeGauntletRunState(runState)
+    };
+  }
+
+  /**
+   * Process post-battle effects for Gauntlet
+   */
+  async processGauntletPostBattle(playerId, won, teamUsed) {
+    const runState = this.gauntletRuns.get(playerId);
+    if (!runState) {
+      return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    // Update trial number if won
+    if (won) {
+      runState.current_trial = Math.min(runState.current_trial + 1, 13);
+      console.log(`🏆 ${runState.playerName} won! Advanced to Trial ${runState.current_trial}`);
+    } else {
+      console.log(`💔 ${runState.playerName} lost, staying at Trial ${runState.current_trial}`);
+    }
+
+    // Process hero deaths and temp resurrections
+    for (const index of runState.battle_team_indices) {
+      const instance = runState.roster[index];
+      const usedHero = teamUsed.find(h => h.name === instance.hero_id);
+
+      if (usedHero) {
+        // Update HP
+        instance.current_hp = usedHero.currentHP;
+        instance.heroData.currentHP = usedHero.currentHP;
+
+        // Check for death
+        if (usedHero.currentHP <= 0) {
+          instance.alive = false;
+          runState.dead_hero_ids.add(instance.hero_id);
+          console.log(`💀 ${instance.hero_id} died in battle`);
+        }
+
+        // Handle temp resurrection
+        if (instance.temporary_resurrection_active) {
+          instance.alive = false;
+          instance.temporary_resurrection_active = false;
+          runState.dead_hero_ids.add(instance.hero_id);
+          console.log(`👻 ${instance.hero_id} returned to death after temp resurrection`);
+          
+          // Remove from roster
+          const rosterIndex = runState.roster.findIndex(r => r.hero_id === instance.hero_id);
+          if (rosterIndex !== -1) {
+            runState.roster.splice(rosterIndex, 1);
+          }
+        }
+      }
+    }
+
+    // Reset for next trial
+    runState.shop_actions_remaining = 1;
+    runState.battle_team_indices = [];
+    runState.phase = 'hero_offer';
+
+    // Check if run should end (fewer than 3 usable heroes)
+    const usableHeroes = runState.roster.filter(h => h.alive || h.temporary_resurrection_active).length;
+    const runEnded = usableHeroes < 3;
+
+    if (runEnded) {
+      console.log(`🏁 Gauntlet run ended for ${runState.playerName} at Trial ${runState.current_trial}`);
+      return {
+        success: true,
+        runEnded: true,
+        finalTrial: runState.current_trial
+      };
+    }
+
+    return {
+      success: true,
+      runEnded: false,
+      runState: this.serializeGauntletRunState(runState)
+    };
+  }
+
+  /**
+   * Complete hero offer phase
+   */
+  async completeGauntletHeroOffer(playerId, selectedHeroId, sacrificeIndex, useReroll) {
+    const runState = this.gauntletRuns.get(playerId);
+    if (!runState) {
+      return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    if (runState.phase !== 'hero_offer') {
+      return { success: false, error: 'Not in hero offer phase' };
+    }
+
+    // Use the buy pack logic
+    const result = await this.gauntletShopBuyPack(runState, selectedHeroId, sacrificeIndex, useReroll);
+
+    if (result.success && result.action !== 'show_offer' && result.action !== 'need_sacrifice') {
+      // Move to preparation phase
+      runState.phase = 'preparation';
+    }
+
+    return {
+      ...result,
+      runState: this.serializeGauntletRunState(runState)
+    };
+  }
+
+  /**
+   * Abandon Gauntlet run
+   */
+  async abandonGauntletRun(playerId) {
+    const runState = this.gauntletRuns.get(playerId);
+    if (!runState) {
+      return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    const finalTrial = runState.current_trial;
+
+    // Update best trial if needed
+    const userId = this.userSessions.get(playerId);
+    if (userId && this.database) {
+      try {
+        await this.database.updateBestGauntletTrial(userId, finalTrial);
+      } catch (error) {
+        console.error('Error updating best gauntlet trial:', error);
+      }
+    }
+
+    // Calculate and award rewards
+    const rewards = await this.calculateAndAwardGauntletRewards(playerId, finalTrial);
+
+    // Clean up
+    this.gauntletRuns.delete(playerId);
+
+    // Remove from any queues
+    for (const [bracket, queue] of this.gauntletQueues.entries()) {
+      const index = queue.findIndex(p => p.playerId === playerId);
+      if (index !== -1) {
+        queue.splice(index, 1);
+      }
+    }
+
+    console.log(`🚪 ${runState.playerName} abandoned Gauntlet run at Trial ${finalTrial}`);
+
+    return {
+      success: true,
+      finalTrial,
+      rewards
+    };
+  }
+
+  /**
+   * Calculate and award Gauntlet rewards
+   */
+  async calculateAndAwardGauntletRewards(playerId, trialReached) {
+    if (!this.database) {
+      return { xp: 0, victoryPoints: 0 };
+    }
+
+    const rewards = await this.database.calculateGauntletRewards(trialReached);
+    const userId = this.userSessions.get(playerId);
+
+    if (userId) {
+      try {
+        // Award XP
+        if (rewards.xp > 0) {
+          await this.database.updatePlayerXP(userId, rewards.xp);
+        }
+
+        // Award Victory Points
+        if (rewards.victoryPoints > 0) {
+          await this.database.updateUserVictoryPoints(userId, rewards.victoryPoints);
+        }
+
+        console.log(`🎁 Awarded rewards for Trial ${trialReached}: ${rewards.xp} XP, ${rewards.victoryPoints} VP`);
+      } catch (error) {
+        console.error('Error awarding Gauntlet rewards:', error);
+      }
+    }
+
+    return rewards;
   }
 }
 

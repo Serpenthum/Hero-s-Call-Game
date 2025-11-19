@@ -241,6 +241,16 @@ body, html {
   .game-over-message {
     font-size: 1.1rem;
   }
+  
+  .draft-phase .teams-display .hero-card {
+    max-height: 240px; /* Limit height on smaller screens */
+  }
+}
+
+@media (max-width: 480px) {
+  .draft-phase .teams-display .hero-card {
+    max-height: 220px; /* Further limit height on very small screens */
+  }
 }
 
 .error {
@@ -291,9 +301,11 @@ body, html {
   width: clamp(156px, 12vw, 234px); /* Responsive width: 66% at smallest, 234px at largest */
   height: clamp(240px, 18.5vw, 360px); /* Responsive height maintaining aspect ratio */
   position: relative;
-  overflow: hidden;
+  height: 100%;
+  max-height: 350px;
   display: flex; /* Use flexbox for perfect alignment */
   flex-direction: column; /* Stack image and content vertically */
+  box-sizing: border-box; /* Include border in dimensions */
 }
 
 .hero-card:hover {
@@ -341,40 +353,7 @@ body, html {
 }
 
 .hero-card.current-turn {
-  border: 3px solid #ffc107;
-  transform: scale(1.1); /* This works with the larger base size */
-  z-index: 10;
-  background: rgba(255, 193, 7, 0.1);
-  /* Keep the same flexbox layout as regular cards */
-  display: flex;
-  flex-direction: column;
-}
-
-/* Don't grow active cards when screen is resized */
-@media (max-width: 1600px) {
-  .hero-card.current-turn {
-    transform: scale(1.05); /* Smaller growth */
-  }
-}
-
-@media (max-width: 1400px) {
-  .hero-card.current-turn {
-    transform: scale(1.03); /* Even smaller growth */
-  }
-}
-
-@media (max-width: 1200px) {
-  .hero-card.current-turn {
-    transform: scale(1.0); /* No growth at all */
-  }
-}
-
-/* Ensure current turn card image still fills properly */
-.hero-card.current-turn .hero-image {
-  height: 182px; /* Maintain the increased height even when scaled */
-  flex-shrink: 0; /* Prevent shrinking */
-  margin: 0;
-  padding: 0;
+  border: 2px solid #ffd700 !important;
 }
 
 .hero-card.dead {
@@ -389,7 +368,7 @@ body, html {
 }
 
 .hero-card.selectable {
-  border: 2px solid #28a745;
+  border-color: #28a745;
   cursor: pointer;
   /* Maintain flexbox layout for selectable cards */
   display: flex;
@@ -457,7 +436,7 @@ body, html {
 .hero-stats {
   background: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: clamp(8px, 0.8vw, 12px);
+  padding: clamp(6px, 0.6vw, 10px) clamp(8px, 0.8vw, 12px) clamp(5px, 0.5vw, 8px) clamp(8px, 0.8vw, 12px);
   border-radius: 0 0 clamp(7px, 0.65vw, 10px) clamp(7px, 0.65vw, 10px); /* Only round bottom corners */
   font-size: clamp(0.7rem, 0.8vw, 0.9rem);
   margin: 0; /* Remove all margins */
@@ -475,19 +454,20 @@ body, html {
 .hero-stats .hero-name {
   font-weight: bold;
   font-size: clamp(0.85rem, 1vw, 1.1rem);
-  margin-bottom: clamp(5px, 0.5vw, 8px);
+  margin-bottom: clamp(3px, 0.35vw, 5px);
   text-align: center; /* Center the hero name */
   color: white; /* Ensure name is white in the dark box */
-  padding-bottom: clamp(5px, 0.5vw, 8px);
+  padding-bottom: clamp(3px, 0.35vw, 5px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.3); /* Add subtle separator */
 }
 
 .hero-stats-row {
   display: flex;
   align-items: center;
-  margin-bottom: clamp(4px, 0.4vw, 6px);
+  margin-bottom: clamp(2px, 0.25vw, 3px);
   font-size: clamp(0.65rem, 0.75vw, 0.85rem);
   font-weight: bold;
+  line-height: 1.2;
 }
 
 .hero-stats-row:last-child {
@@ -611,7 +591,7 @@ body, html {
   right: clamp(5px, 0.5vw, 8px);
   display: flex;
   flex-direction: column;
-  gap: clamp(2px, 0.3vw, 4px);
+  gap: clamp(3px, 0.4vw, 5px); /* Increased gap to prevent overlap */
   align-items: flex-end;
   z-index: 10;
 }
@@ -1207,11 +1187,12 @@ body, html {
   flex-wrap: wrap;
 }
 
-/* Team display cards - larger sizing to show all information */
+/* Team display cards - use same sizing as draft cards for consistency */
 .draft-phase .teams-display .hero-card {
-  width: clamp(165px, 18.5vw, 210px);
-  height: clamp(310px, 38vh, 390px);
-  margin: 2px;
+  width: clamp(156px, 12vw, 234px); /* Match draft card width */
+  height: auto; /* Allow height to adjust to content */
+  min-height: clamp(240px, 18.5vw, 360px); /* Ensure minimum height */
+  margin: clamp(3px, 0.4vw, 6px); /* Match draft card margin */
   font-size: clamp(0.75rem, 0.9vw, 0.9rem);
 }
 
@@ -1892,6 +1873,10 @@ body, html {
     border: 2px solid transparent;
     min-width: clamp(100px, 12vw, 140px);
   }
+  
+  .draft-phase .teams-display .hero-card {
+    max-height: 280px; /* Limit height on medium screens */
+  }
 }
 
 /* Opponent Team Label */
@@ -2255,12 +2240,11 @@ body, html {
 }
 
 .current-turn {
-  color: #28a745;
+
   font-weight: bold;
   font-size: 1.1rem;
-  padding: 8px;
   background: rgba(40, 167, 69, 0.2);
-  border-radius: 6px;
+  border-style: 4px solid #f7e601;
   margin-bottom: 10px;
 }
 
@@ -2337,6 +2321,7 @@ body, html {
   border-left: 3px solid #dc3545;
   margin-top: 15px;
   max-height: 35vh; /* Slightly smaller than standalone battle log */
+  min-width: 90%; /* Prevent shrinking below 90% of original size (max 10% shrink) */
   overflow: hidden;
   display: flex;
   flex-direction: column;

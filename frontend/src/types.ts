@@ -258,6 +258,15 @@ export interface SocketEvents {
   'surrender-game': () => void;
   'return-to-lobby': () => void;
   
+  // Gauntlet mode events (client to server)
+  'start-gauntlet-run': (data: { name: string }) => void;
+  'gauntlet-shop-action': (data: GauntletShopAction) => void;
+  'set-gauntlet-battle-team': (data: { teamIndices: number[] }) => void;
+  'queue-for-gauntlet-trial': () => void;
+  'cancel-gauntlet-queue': () => void;
+  'complete-gauntlet-hero-offer': (data: { selectedHeroId?: string; useReroll?: boolean; sacrificeIndex?: number }) => void;
+  'abandon-gauntlet-run': () => void;
+  
   // Friends system events
   'get-online-players': () => void;
   'send-friend-request': (data: { username: string }) => void;
@@ -308,6 +317,17 @@ export interface SocketEvents {
   'abandon-draft-result': (data: { success: boolean; message?: string }) => void;
   'returned-to-lobby': (data: { success: boolean; error?: string; preservedSurvivalState?: any }) => void;
   
+  // Gauntlet mode events (server to client)
+  'gauntlet-run-started': (data: { success: boolean; runState?: GauntletRunState; error?: string }) => void;
+  'gauntlet-shop-action-result': (data: { success: boolean; runState?: GauntletRunState; action?: string; offer?: GauntletHeroOffer[]; error?: string }) => void;
+  'gauntlet-battle-team-set': (data: { success: boolean; error?: string }) => void;
+  'gauntlet-match-found': (data: { gameId: string; opponentName: string }) => void;
+  'gauntlet-queue-waiting': () => void;
+  'gauntlet-queue-cancelled': (data: { success: boolean }) => void;
+  'gauntlet-battle-complete': (data: { won: boolean; runState?: GauntletRunState; heroOffer?: GauntletHeroOffer[]; runEnded?: boolean; finalTrial?: number; rewards?: GauntletRewards }) => void;
+  'gauntlet-hero-offer-result': (data: { success: boolean; runState?: GauntletRunState; offer?: GauntletHeroOffer[]; error?: string }) => void;
+  'gauntlet-run-abandoned': (data: { success: boolean; finalTrial: number; rewards?: GauntletRewards }) => void;
+  
   // Friends system server responses
   'online-players-response': (data: { success: boolean; onlinePlayers?: OnlinePlayer[]; totalOnline?: number; friendIds?: number[]; error?: string }) => void;
   'friend-request-response': (data: { success: boolean; message?: string; error?: string }) => void;
@@ -356,4 +376,67 @@ export type GamePhase = GameState['phase'];
 export interface TooltipData {
   keyword: string;
   description: string;
+}
+
+// =================================================================
+// GAUNTLET MODE TYPES
+// =================================================================
+
+export interface HeroInstance {
+  hero_id: string;
+  hero: Hero;
+  current_hp: number;
+  max_hp: number;
+  alive: boolean;
+  temporary_resurrection_active: boolean;
+}
+
+export interface GauntletRunState {
+  current_trial: number;
+  roster: HeroInstance[];
+  dead_hero_ids: string[];
+  rerolls_remaining: number;
+  shop_actions_remaining: number;
+  battle_team_indices: number[];
+  phase: 'preparation' | 'queueing' | 'battle' | 'hero_offer';
+}
+
+export interface GauntletShopAction {
+  type: 'heal' | 'temp_res' | 'buy_pack' | 'skip_trial';
+  data?: any;
+}
+
+export interface GauntletHeroOffer {
+  name: string;
+  data: Hero;
+}
+
+export interface GauntletRewards {
+  xp: number;
+  victoryPoints: number;
+}
+
+export interface GauntletSocketEvents {
+  // Client to Server
+  'start-gauntlet-run': (data: { name: string }) => void;
+  'get-gauntlet-run-state': () => void;
+  'gauntlet-shop-action': (data: { action: string; heroIndex?: number; heroId?: string; selectedHeroId?: string; sacrificeIndex?: number; useReroll?: boolean }) => void;
+  'set-gauntlet-battle-team': (data: { teamIndices: number[] }) => void;
+  'queue-for-gauntlet-trial': () => void;
+  'cancel-gauntlet-queue': () => void;
+  'complete-gauntlet-hero-offer': (data: { selectedHeroId?: string; sacrificeIndex?: number; useReroll?: boolean }) => void;
+  'abandon-gauntlet-run': () => void;
+
+  // Server to Client
+  'gauntlet-run-started': (data: { success: boolean; runState?: GauntletRunState; error?: string }) => void;
+  'gauntlet-run-state-response': (data: { success: boolean; runState?: GauntletRunState; error?: string }) => void;
+  'gauntlet-shop-action-result': (data: { success: boolean; action?: string; message?: string; offer?: GauntletHeroOffer[]; selectedHero?: string; rerolls_remaining?: number; runState?: GauntletRunState; error?: string }) => void;
+  'gauntlet-battle-team-set': (data: { success: boolean; runState?: GauntletRunState; error?: string }) => void;
+  'gauntlet-match-found': (data: { gameId: string; players: Player[]; initiative: any }) => void;
+  'gauntlet-queue-waiting': (data: { message: string }) => void;
+  'gauntlet-queue-failed': (data: { error: string }) => void;
+  'gauntlet-queue-cancelled': (data: { success: boolean; runState?: GauntletRunState; error?: string }) => void;
+  'gauntlet-battle-complete': (data: { won: boolean; runEnded: boolean; finalTrial?: number; runState?: GauntletRunState; heroOffer?: GauntletHeroOffer[] | null }) => void;
+  'gauntlet-hero-offer-result': (data: { success: boolean; action?: string; message?: string; offer?: GauntletHeroOffer[]; selectedHero?: string; rerolls_remaining?: number; runState?: GauntletRunState; error?: string }) => void;
+  'gauntlet-run-abandoned': (data: { success: boolean; finalTrial?: number; rewards?: GauntletRewards; error?: string }) => void;
 }

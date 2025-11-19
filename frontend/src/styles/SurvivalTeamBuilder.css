@@ -1,49 +1,52 @@
-/* Survival Team Builder Component */
+/* Survival Team Builder Component - Updated Layout */
 .survival-team-builder {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  height: auto;
+  width: 100%;
 }
 
 /* Split Layout */
 .survival-split-layout {
   display: flex;
-  height: 100%;
-  gap: 30px;
-  padding: 20px;
-  overflow-x: hidden; /* Hide on fullscreen */
-  overflow-y: hidden;
+  height: auto;
+  min-height: 0;
+  gap: 10px;
+  padding: 0 15px;
+  overflow-x: hidden;
+  overflow-y: visible;
   box-sizing: border-box;
+  width: 100%;
 }
 
 /* Add min-width to prevent content from being too compressed on small screens */
 @media (max-width: 1400px) {
   .survival-split-layout {
-    overflow-x: auto; /* Enable scrolling on smaller screens */
+    overflow-x: hidden;
   }
   
   .survival-split-layout > * {
-    flex-shrink: 0;
+    flex-shrink: 1;
   }
   
   .hero-browser-side {
-    min-width: 600px;
+    min-width: 400px;
   }
   
   .team-selection-side {
-    min-width: 400px;
+    min-width: 300px;
   }
 }
 
 /* Left Side - Hero Browser */
 .hero-browser-side {
-  flex: 1;
+  flex: 0 0 58%;
   display: flex;
   flex-direction: column;
   overflow: visible;
   border-right: 2px solid #ff6600;
-  padding-right: 30px;
+  padding: 15px 2px 15px 0;
+  max-width: 58%;
 }
 
 /* Hero Browser Header */
@@ -53,7 +56,9 @@
   align-items: center;
   padding: 8px 15px;
   margin-bottom: 5px;
-  margin-top: -20px;
+  margin-top: 0;
+  margin-left: 10px;
+  margin-right: 40px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid #ff6600;
   border-radius: 6px;
@@ -129,10 +134,11 @@
 
 /* Right Side - Team Selection */
 .team-selection-side {
-  flex: 0 0 400px;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  padding-left: 30px;
+  padding-left: 10px;
+  min-width: 320px;
 }
 
 .team-selection-header {
@@ -145,40 +151,50 @@
   font-size: 2rem;
   margin: 0 0 10px 0;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  text-transform: capitalize;
+  font-weight: bold;
 }
 
 .team-selection-header p {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 1.1rem;
-  margin: 0 0 15px 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.2rem;
+  margin: 0;
+  font-weight: normal;
 }
 
-/* Selected Team Display */
-.selected-team {
+/* Selected Team Display - Survival Specific */
+.survival-selected-team {
   display: flex;
   flex-direction: row;
   justify-content: center;
-  gap: 20px;
+  gap: 15px;
   margin-bottom: 30px;
   padding: 20px;
   background: rgba(0, 0, 0, 0.3);
-  border: 2px solid #ff6600;
-  border-radius: 15px;
+  border: 3px solid #ff6600;
+  border-radius: 20px;
+  box-sizing: border-box;
+  max-width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.team-slot {
-  width: 180px;
-  height: 250px;
+.survival-team-slot {
+  width: clamp(120px, 13vw, 165px);
+  height: auto;
+  min-height: clamp(200px, 22vw, 270px);
   border: 3px dashed #ff6600;
-  border-radius: 15px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   transition: all 0.3s ease;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.4);
 }
 
-.team-slot:hover {
+.survival-team-slot:hover {
   border-color: #ff8833;
   background: rgba(255, 102, 0, 0.1);
 }
@@ -227,8 +243,9 @@
 
 .selected-hero-image {
   width: 100%;
-  height: 70%;
+  height: clamp(160px, 17.6vw, 216px); /* 80% of slot height */
   object-fit: cover;
+  border-radius: 10px 10px 0 0;
 }
 
 .selected-hero-name {
@@ -236,12 +253,14 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.95);
   color: white;
-  padding: 10px;
+  padding: 15px 8px;
   text-align: center;
   font-weight: bold;
-  font-size: 1rem;
+  font-size: 1.15rem;
+  border-radius: 0 0 9px 9px;
+  text-transform: capitalize;
 }
 
 .remove-hero-hint {
@@ -268,17 +287,17 @@
 
 .start-battle-btn {
   background: linear-gradient(135deg, #ff6600 0%, #ff8833 100%);
-  border: 3px solid #ff6600;
+  border: none;
   color: white;
-  padding: 15px 40px;
-  font-size: 1.3rem;
+  padding: 18px 50px;
+  font-size: 1.4rem;
   font-weight: bold;
-  border-radius: 12px;
+  border-radius: 15px;
   cursor: pointer;
   transition: all 0.3s ease;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
+  letter-spacing: 2px;
+  box-shadow: 0 4px 15px rgba(255, 102, 0, 0.6);
 }
 
 .start-battle-btn:hover {
@@ -377,19 +396,20 @@
   flex: 1;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
-  padding-top: 10px;
+  justify-content: flex-start;
+  padding-top: 15px;
   overflow: visible;
 }
 
 .heroes-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 20px;
-  padding: 0 50px;
+  grid-template-columns: repeat(3, auto);
+  grid-template-rows: repeat(2, auto);
+  column-gap: 10px;
+  row-gap: 10px;
+  padding: 0 40px 20px 10px;
   justify-content: center;
-  max-width: 800px;
+  max-width: 100%;
   width: 100%;
   opacity: 1;
   transition: opacity 0.2s ease-in-out;
@@ -402,9 +422,11 @@
 
 /* Survival Hero Cards - Match Collection Format Exactly */
 .hero-card.survival-card {
-  /* Use same dimensions as collection hero cards */
-  width: 234px;
-  height: 360px;
+  /* Use same responsive dimensions as draft cards */
+  width: clamp(156px, 12vw, 234px); /* Match draft card width */
+  height: auto; /* Allow height to fit all content */
+  min-height: clamp(240px, 18.5vw, 360px); /* Ensure minimum height */
+  margin: clamp(3px, 0.4vw, 6px); /* Match draft card margin */
   
   /* Orange border instead of blue */
   border: 3px solid #ff6600;
@@ -427,24 +449,23 @@
 
 .hero-card.survival-card:hover,
 .hero-card.survival-card.hovered {
-  transform: scale(1.1);
   border-color: #ff8833;
   box-shadow: 0 0 20px rgba(255, 102, 0, 0.8);
   z-index: 10;
+  transform: scale(1) !important;
 }
 
 .hero-card.survival-card.selected {
   border-color: #00ff00;
   box-shadow: 0 0 25px rgba(0, 255, 0, 0.8);
-  transform: scale(1.02);
 }
 
 /* Ensure hero images in survival cards match collection format */
 .hero-card.survival-card .hero-image {
   width: 100%;
-  height: 182px;
+  height: clamp(121px, 9.3vw, 182px); /* Use responsive height like base cards */
   object-fit: cover;
-  border-radius: 10px 10px 0 0;
+  border-radius: clamp(7px, 0.65vw, 10px) clamp(7px, 0.65vw, 10px) 0 0;
   margin: 0;
   padding: 0;
   display: block;
@@ -462,45 +483,11 @@
   font-weight: bold;
 }
 
-/* Ensure hero stats match collection format */
-.hero-card.survival-card .hero-stats {
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 12px;
-  border-radius: 0 0 10px 10px;
-  font-size: 0.9rem;
-  margin: 0;
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  flex: 1;
-  margin-top: -1px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-}
+/* Ensure hero stats match collection format - uses base App.css styles with clamp() */
 
-.hero-card.survival-card .hero-stats .hero-name {
-  font-weight: bold;
-  font-size: 1.1rem;
-  margin-bottom: 8px;
-  text-align: center;
-  color: white;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-}
+/* Hero name uses base App.css styles with clamp() */
 
-.hero-card.survival-card .hero-stats-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 6px;
-  font-size: 0.85rem;
-  font-weight: bold;
-}
-
-.hero-card.survival-card .hero-stats-row:last-child {
-  margin-bottom: 0;
-}
+/* Hero stats rows use base App.css styles with clamp() */
 
 .selection-indicator {
   position: absolute;
@@ -556,20 +543,20 @@
 }
 
 .survival-team-builder .heroes-grid-container .pagination-arrow-overlay.left-arrow {
-  left: -12px !important;
+  left: 10px !important;
 }
 
 .survival-team-builder .heroes-grid-container .pagination-arrow-overlay.right-arrow {
-  right: -12px !important;
+  right: 35px !important;
 }
 
 /* Additional high-specificity rules to ensure arrows move closer */
 .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.left-arrow {
-  left: -12px !important;
+  left: 10px !important;
 }
 
 .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.right-arrow {
-  right: -12px !important;
+  right: 35px !important;
 }
 
 
@@ -751,16 +738,90 @@
 
 /* Responsive Design */
 @media (max-width: 1600px) {
-  .heroes-grid .hero-card.survival-card {
+  .team-selection-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .team-selection-header p {
+    font-size: 0.95rem;
+  }
+  
+  .heroes-grid .hero-card.survival-card,
+  .heroes-grid .hero-card.survival-card:hover,
+  .heroes-grid .hero-card.survival-card.hovered {
     transform: scale(0.98);
     transform-origin: center;
   }
 }
 
 @media (max-width: 1400px) {
-  .heroes-grid .hero-card.survival-card {
+  .team-selection-header h2 {
+    font-size: 1.3rem;
+  }
+  
+  .team-selection-header p {
+    font-size: 0.85rem;
+  }
+  
+  .survival-team-slot {
+    max-width: 115px;
+  }
+  
+  .selected-hero-name {
+    font-size: 0.85rem;
+    padding: 10px 5px;
+  }
+  
+  .slot-number {
+    font-size: 2.1rem;
+  }
+  
+  .slot-hint {
+    font-size: 0.75rem;
+  }
+  
+  .start-battle-btn {
+    font-size: 1.1rem;
+    padding: 14px 38px;
+  }
+  
+  .heroes-grid .hero-card.survival-card,
+  .heroes-grid .hero-card.survival-card:hover,
+  .heroes-grid .hero-card.survival-card.hovered {
     transform: scale(0.95);
     transform-origin: center;
+  }
+}
+
+@media (max-width: 1000px) {
+  .team-selection-header h2 {
+    font-size: 1.15rem;
+  }
+  
+  .team-selection-header p {
+    font-size: 0.8rem;
+  }
+  
+  .survival-team-slot {
+    max-width: 100px;
+  }
+  
+  .selected-hero-name {
+    font-size: 0.75rem;
+    padding: 8px 4px;
+  }
+  
+  .slot-number {
+    font-size: 1.8rem;
+  }
+  
+  .slot-hint {
+    font-size: 0.7rem;
+  }
+  
+  .start-battle-btn {
+    font-size: 0.95rem;
+    padding: 12px 30px;
   }
 }
 
@@ -770,7 +831,17 @@
     padding: 15px;
   }
   
-  .heroes-grid .hero-card.survival-card {
+  .team-selection-header h2 {
+    font-size: 1.2rem;
+  }
+  
+  .team-selection-header p {
+    font-size: 0.85rem;
+  }
+  
+  .heroes-grid .hero-card.survival-card,
+  .heroes-grid .hero-card.survival-card:hover,
+  .heroes-grid .hero-card.survival-card.hovered {
     transform: scale(0.92);
     transform-origin: center;
   }
@@ -801,13 +872,22 @@
     padding-right: 0;
   }
   
-  .selected-team {
+  .survival-selected-team {
     gap: 15px;
   }
   
-  .team-slot {
-    width: 160px;
-    height: 220px;
+  .survival-team-slot {
+    max-height: 220px;
+    max-width: 105px;
+  }
+  
+  .selected-hero-name {
+    font-size: 0.8rem;
+    padding: 9px 5px;
+  }
+  
+  .selected-hero-image {
+    max-height: 176px; /* 80% of 220px */
   }
   
   .heroes-grid {
@@ -816,15 +896,6 @@
     gap: 15px;
     padding: 0 45px;
     max-width: 700px;
-  }
-  
-  .hero-card.survival-card {
-    width: 200px;
-    height: 310px;
-  }
-  
-  .hero-card.survival-card .hero-image {
-    height: 155px;
   }
   
   .heroes-grid-container .pagination-arrow-overlay {
@@ -841,6 +912,38 @@
   .survival-team-builder .heroes-grid-container .pagination-arrow-overlay.right-arrow,
   .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.right-arrow {
     right: -17px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .team-selection-header h2 {
+    font-size: 1.05rem;
+  }
+  
+  .team-selection-header p {
+    font-size: 0.75rem;
+  }
+  
+  .survival-team-slot {
+    max-width: 90px;
+  }
+  
+  .selected-hero-name {
+    font-size: 0.7rem;
+    padding: 7px 4px;
+  }
+  
+  .slot-number {
+    font-size: 1.6rem;
+  }
+  
+  .slot-hint {
+    font-size: 0.65rem;
+  }
+  
+  .start-battle-btn {
+    font-size: 0.85rem;
+    padding: 10px 25px;
   }
 }
 
@@ -881,18 +984,31 @@
   }
   
   .team-selection-header h2 {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
   }
   
-  .selected-team {
+  .team-selection-header p {
+    font-size: 0.95rem;
+  }
+  
+  .survival-selected-team {
     flex-direction: row;
     gap: 15px;
     justify-content: center;
   }
   
-  .team-slot {
-    width: 140px;
-    height: 200px;
+  .survival-team-slot {
+    max-height: 200px;
+    max-width: 85px;
+  }
+  
+  .selected-hero-name {
+    font-size: 0.7rem;
+    padding: 7px 3px;
+  }
+  
+  .selected-hero-image {
+    max-height: 160px; /* 80% of 200px */
   }
   
   .heroes-grid {
@@ -901,15 +1017,6 @@
     gap: 15px;
     padding: 0 40px;
     max-width: 600px;
-  }
-  
-  .hero-card.survival-card {
-    width: 180px;
-    height: 280px;
-  }
-  
-  .hero-card.survival-card .hero-image {
-    height: 140px;
   }
   
   .heroes-grid-container .pagination-arrow-overlay {
@@ -936,36 +1043,45 @@
 
 @media (max-width: 480px) {
   .team-selection-header h2 {
-    font-size: 1.4rem;
+    font-size: 0.95rem;
   }
   
   .team-selection-header p {
-    font-size: 1rem;
+    font-size: 0.7rem;
   }
   
-  .selected-team {
+  .survival-selected-team {
     padding: 15px;
     gap: 10px;
     flex-wrap: wrap;
     justify-content: center;
   }
   
-  .team-slot {
-    width: 120px;
-    height: 170px;
+  .survival-team-slot {
+    max-height: 170px;
+    max-width: 78px;
+  }
+  
+  .selected-hero-name {
+    font-size: 0.6rem;
+    padding: 6px 3px;
+  }
+  
+  .selected-hero-image {
+    max-height: 136px; /* 80% of 170px */
   }
   
   .slot-number {
-    font-size: 2.5rem;
+    font-size: 1.4rem;
   }
   
   .slot-hint {
-    font-size: 0.9rem;
+    font-size: 0.6rem;
   }
   
   .start-battle-btn {
-    font-size: 1rem;
-    padding: 10px 25px;
+    font-size: 0.75rem;
+    padding: 8px 18px;
   }
   
   .heroes-grid {
@@ -974,14 +1090,5 @@
     gap: 10px;
     padding: 0 30px;
     max-width: 400px;
-  }
-  
-  .hero-card.survival-card {
-    width: 180px;
-    height: 280px;
-  }
-  
-  .hero-card.survival-card .hero-image {
-    height: 140px;
   }
 }

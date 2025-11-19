@@ -13,6 +13,7 @@ interface User {
   favorite_heroes: string[];
   xp: number;
   level: number;
+  best_gauntlet_trial: number;
 }
 
 interface LoginPageProps {

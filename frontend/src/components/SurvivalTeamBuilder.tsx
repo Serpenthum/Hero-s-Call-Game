@@ -573,9 +573,9 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
           </div>
 
           {/* Selected Team Display */}
-          <div className="selected-team">
+          <div className="survival-selected-team">
             {Array.from({ length: TEAM_SIZE }, (_, index) => (
-              <div key={index} className="team-slot">
+              <div key={index} className="survival-team-slot">
                 {selectedTeam[index] ? (
                   <div className="selected-hero" onClick={() => handleHeroRemove(selectedTeam[index])}>
                     <img 

@@ -25,7 +25,7 @@ const SurvivalProgress: React.FC<SurvivalProgressProps> = ({ wins, losses }) => 
 
   return (
     <div className="survival-progress">
-      <h3>Survival Progress</h3>
+      <h3>Progress</h3>
       
       <div className="progress-section">
         <div className="progress-label">

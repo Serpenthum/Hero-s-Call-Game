@@ -13,9 +13,6 @@ const SurvivalUsedHeroes: React.FC<SurvivalUsedHeroesProps> = ({ usedHeroes }) =
   return (
     <div className="survival-used-heroes">
       <h3>Used Heroes</h3>
-      <div className="used-heroes-subtitle">
-        These heroes are no longer available for selection
-      </div>
       
       {uniqueUsedHeroes.length === 0 ? (
         <div className="no-used-heroes">

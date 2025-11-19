@@ -27,8 +27,10 @@ const io = socketIo(server, {
   cors: {
     origin: [
       "http://localhost:5173", 
+      "http://localhost:5174",
       "http://localhost:3000", 
       "http://127.0.0.1:5173",
+      "http://127.0.0.1:5174",
       "https://heroescall.8363742.xyz"
     ],
     methods: ["GET", "POST"]
@@ -38,8 +40,10 @@ const io = socketIo(server, {
 app.use(cors({
   origin: [
     "http://localhost:5173", 
+    "http://localhost:5174",
     "http://localhost:3000", 
     "http://127.0.0.1:5173", 
+    "http://127.0.0.1:5174",
     "http://localhost:4173",
     "https://heroescall.8363742.xyz"
   ],
@@ -650,6 +654,118 @@ async function checkSurvivalGameCompletion(result) {
   }
 }
 
+// Helper function to check and handle Gauntlet game completion
+async function checkGauntletGameCompletion(result) {
+  console.log('🔍 Checking Gauntlet game completion. Result success:', result.success);
+  console.log('🔍 Result gameState mode:', result.gameState?.mode);
+  
+  if (result.success && result.gameState && result.gameState.winner && result.gameState.mode === 'gauntlet') {
+    console.log('🏆 Gauntlet game completed! Winner:', result.gameState.winner);
+    
+    // Find the winner and loser players
+    const winnerPlayer = result.gameState.players.find(p => p.id === result.gameState.winner);
+    const loserPlayer = result.gameState.players.find(p => p.id !== result.gameState.winner);
+    
+    if (winnerPlayer && loserPlayer) {
+      try {
+        // Process post-battle for winner
+        const winnerResult = await gameManager.processGauntletPostBattle(
+          winnerPlayer.id,
+          true,
+          winnerPlayer.team
+        );
+
+        // Process post-battle for loser
+        const loserResult = await gameManager.processGauntletPostBattle(
+          loserPlayer.id,
+          false,
+          loserPlayer.team
+        );
+
+        // Send updates to both players
+        io.to(winnerPlayer.id).emit('gauntlet-battle-complete', {
+          won: true,
+          runEnded: winnerResult.runEnded,
+          finalTrial: winnerResult.finalTrial,
+          runState: winnerResult.runState,
+          heroOffer: winnerResult.runEnded ? null : gameManager.generateGauntletHeroOffer(gameManager.gauntletRuns.get(winnerPlayer.id))
+        });
+
+        io.to(loserPlayer.id).emit('gauntlet-battle-complete', {
+          won: false,
+          runEnded: loserResult.runEnded,
+          finalTrial: loserResult.finalTrial,
+          runState: loserResult.runState,
+          heroOffer: loserResult.runEnded ? null : gameManager.generateGauntletHeroOffer(gameManager.gauntletRuns.get(loserPlayer.id))
+        });
+
+        // If run ended, award rewards
+        if (winnerResult.runEnded) {
+          const rewards = await gameManager.calculateAndAwardGauntletRewards(winnerPlayer.id, winnerResult.finalTrial);
+          const userId = userSessions.get(winnerPlayer.id);
+          
+          if (userId) {
+            const user = await database.getUserById(userId);
+            const playerStats = await database.getPlayerStats(userId);
+
+            if (rewards.xp > 0) {
+              io.to(winnerPlayer.id).emit('xp-update', {
+                xpGained: rewards.xp,
+                newXP: playerStats.xp,
+                newLevel: playerStats.level,
+                leveledUp: false,
+                message: `+${rewards.xp} XP from Gauntlet Trial ${winnerResult.finalTrial}!`
+              });
+            }
+
+            if (rewards.victoryPoints > 0) {
+              io.to(winnerPlayer.id).emit('victory-points-update', {
+                type: 'gauntlet_complete',
+                pointsAwarded: rewards.victoryPoints,
+                totalVictoryPoints: user.victory_points,
+                message: `Gauntlet complete! Earned ${rewards.victoryPoints} victory points!`
+              });
+            }
+          }
+        }
+
+        if (loserResult.runEnded) {
+          const rewards = await gameManager.calculateAndAwardGauntletRewards(loserPlayer.id, loserResult.finalTrial);
+          const userId = userSessions.get(loserPlayer.id);
+          
+          if (userId) {
+            const user = await database.getUserById(userId);
+            const playerStats = await database.getPlayerStats(userId);
+
+            if (rewards.xp > 0) {
+              io.to(loserPlayer.id).emit('xp-update', {
+                xpGained: rewards.xp,
+                newXP: playerStats.xp,
+                newLevel: playerStats.level,
+                leveledUp: false,
+                message: `+${rewards.xp} XP from Gauntlet Trial ${loserResult.finalTrial}!`
+              });
+            }
+
+            if (rewards.victoryPoints > 0) {
+              io.to(loserPlayer.id).emit('victory-points-update', {
+                type: 'gauntlet_complete',
+                pointsAwarded: rewards.victoryPoints,
+                totalVictoryPoints: user.victory_points,
+                message: `Gauntlet run ended at Trial ${loserResult.finalTrial}! Earned ${rewards.victoryPoints} victory points!`
+              });
+            }
+          }
+        }
+
+        console.log(`✅ Gauntlet post-battle processing complete`);
+      } catch (error) {
+        console.error('❌ Error processing Gauntlet game completion:', error);
+      }
+    }
+  }
+}
+
 // Inject io instance into gameManager for disconnection countdown events
 gameManager.setIo(io);
 
@@ -1061,9 +1177,11 @@ io.on('connection', (socket) => {
     if (result.success) {
       io.to(result.gameId).emit('attack-result', result);
       
-      // Handle game completion for both regular and survival modes
+      // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
         await checkSurvivalGameCompletion(result);
+      } else if (result.gameState && result.gameState.mode === 'gauntlet') {
+        await checkGauntletGameCompletion(result);
       } else {
         await handleRegularGameCompletion(result);
       }
@@ -1077,9 +1195,11 @@ io.on('connection', (socket) => {
     if (result.success) {
       io.to(result.gameId).emit('ability-result', result);
       
-      // Handle game completion for both regular and survival modes
+      // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
         await checkSurvivalGameCompletion(result);
+      } else if (result.gameState && result.gameState.mode === 'gauntlet') {
+        await checkGauntletGameCompletion(result);
       } else {
         await handleRegularGameCompletion(result);
       }
@@ -1093,9 +1213,11 @@ io.on('connection', (socket) => {
     if (result.success) {
       io.to(result.gameId).emit('ability-result', result);
       
-      // Handle game completion for both regular and survival modes
+      // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
         await checkSurvivalGameCompletion(result);
+      } else if (result.gameState && result.gameState.mode === 'gauntlet') {
+        await checkGauntletGameCompletion(result);
       } else {
         await handleRegularGameCompletion(result);
       }
@@ -1118,9 +1240,11 @@ io.on('connection', (socket) => {
     if (result.success) {
       io.to(result.gameId).emit('special-activated', result);
       
-      // Handle game completion for both regular and survival modes
+      // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
         await checkSurvivalGameCompletion(result);
+      } else if (result.gameState && result.gameState.mode === 'gauntlet') {
+        await checkGauntletGameCompletion(result);
       } else {
         await handleRegularGameCompletion(result);
       }
@@ -1134,9 +1258,11 @@ io.on('connection', (socket) => {
     if (result.success) {
       io.to(result.gameId).emit('game-surrendered', result);
       
-      // Handle game completion for both regular and survival modes
+      // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
         await checkSurvivalGameCompletion(result);
+      } else if (result.gameState && result.gameState.mode === 'gauntlet') {
+        await checkGauntletGameCompletion(result);
       } else {
         await handleRegularGameCompletion(result);
       }
@@ -1216,6 +1342,191 @@ io.on('connection', (socket) => {
       console.log('❌ Failed to return player to lobby:', result.error);
     }
   });
+
+  // ==================== GAUNTLET MODE SOCKET EVENTS ====================
+
+  socket.on('start-gauntlet-run', async (data) => {
+    console.log('🎮 Player starting Gauntlet run:', data.name);
+    
+    // First check if there's a saved state
+    const userId = userSessions.get(socket.id);
+    if (userId) {
+      const savedState = await database.loadGauntletState(userId);
+      if (savedState.success && savedState.runState) {
+        console.log('📂 Loading saved Gauntlet state for user', userId);
+        socket.emit('gauntlet-run-started', {
+          success: true,
+          runState: savedState.runState
+        });
+        return;
+      }
+    }
+    
+    const result = await gameManager.initializeGauntletRun(socket.id, data.name);
+    
+    if (result.success) {
+      socket.emit('gauntlet-run-started', {
+        success: true,
+        runState: result.runState
+      });
+      console.log(`✅ Gauntlet run initialized for ${data.name}`);
+    } else {
+      socket.emit('gauntlet-run-started', {
+        success: false,
+        error: result.error || 'Failed to start Gauntlet run'
+      });
+    }
+  });
+
+  socket.on('save-and-return-to-lobby', async (data) => {
+    console.log('💾 Saving Gauntlet state and returning to lobby:', socket.id);
+    
+    const userId = userSessions.get(socket.id);
+    if (userId && data.runState) {
+      try {
+        await database.saveGauntletState(userId, data.runState);
+        socket.emit('save-success', { success: true });
+      } catch (error) {
+        console.error('❌ Error saving Gauntlet state:', error);
+        socket.emit('save-success', { success: false, error: error.message });
+      }
+    }
+  });
+
+  socket.on('get-gauntlet-run-state', () => {
+    const result = gameManager.getGauntletRunState(socket.id);
+    socket.emit('gauntlet-run-state-response', result);
+  });
+
+  socket.on('gauntlet-shop-action', async (data) => {
+    console.log('🛒 Gauntlet shop action:', data.action);
+    
+    const result = await gameManager.performGauntletShopAction(
+      socket.id,
+      data.action,
+      data
+    );
+    
+    socket.emit('gauntlet-shop-action-result', result);
+  });
+
+  socket.on('set-gauntlet-battle-team', (data) => {
+    console.log('⚔️ Setting Gauntlet battle team:', data.teamIndices);
+    
+    const result = gameManager.setGauntletBattleTeam(socket.id, data.teamIndices);
+    socket.emit('gauntlet-battle-team-set', result);
+  });
+
+  socket.on('queue-for-gauntlet-trial', () => {
+    console.log('🎯 Queueing for Gauntlet trial:', socket.id);
+    
+    const result = gameManager.queueForGauntletTrial(socket.id);
+    
+    if (result.success && result.matched) {
+      // Match found - emit to both players
+      const gameId = result.gameId;
+      io.to(gameId).emit('gauntlet-match-found', {
+        gameId,
+        players: result.players,
+        initiative: result.initiative
+      });
+      
+      // Start battle
+      const game = gameManager.games.get(gameId);
+      if (game) {
+        io.to(gameId).emit('game-start', {
+          players: result.players,
+          gameState: game,
+          initiative: result.initiative,
+          mode: 'gauntlet'
+        });
+      }
+    } else if (result.success && result.waiting) {
+      socket.emit('gauntlet-queue-waiting', {
+        message: result.message
+      });
+    } else {
+      socket.emit('gauntlet-queue-failed', {
+        error: result.error || 'Failed to queue'
+      });
+    }
+  });
+
+  socket.on('cancel-gauntlet-queue', () => {
+    const result = gameManager.cancelGauntletQueue(socket.id);
+    socket.emit('gauntlet-queue-cancelled', result);
+  });
+
+  socket.on('complete-gauntlet-hero-offer', async (data) => {
+    console.log('🎁 Completing Gauntlet hero offer');
+    
+    const result = await gameManager.completeGauntletHeroOffer(
+      socket.id,
+      data.selectedHeroId,
+      data.sacrificeIndex,
+      data.useReroll
+    );
+    
+    socket.emit('gauntlet-hero-offer-result', result);
+  });
+
+  socket.on('abandon-gauntlet-run', async () => {
+    console.log('🚪 Player abandoning Gauntlet run:', socket.id);
+    
+    const result = await gameManager.abandonGauntletRun(socket.id);
+    
+    if (result.success) {
+      // Clear saved state on abandon
+      const userId = userSessions.get(socket.id);
+      if (userId) {
+        await database.clearGauntletState(userId);
+      }
+      
+      // Send rewards update
+      if (userId && result.rewards) {
+        try {
+          const user = await database.getUserById(userId);
+          
+          // Send XP update
+          if (result.rewards.xp > 0) {
+            const playerStats = await database.getPlayerStats(userId);
+            socket.emit('xp-update', {
+              xpGained: result.rewards.xp,
+              newXP: playerStats.xp,
+              newLevel: playerStats.level,
+              leveledUp: false,
+              message: `+${result.rewards.xp} XP from Gauntlet Trial ${result.finalTrial}!`
+            });
+          }
+          
+          // Send victory points update
+          if (result.rewards.victoryPoints > 0) {
+            socket.emit('victory-points-update', {
+              type: 'gauntlet_complete',
+              pointsAwarded: result.rewards.victoryPoints,
+              totalVictoryPoints: user.victory_points,
+              message: `Gauntlet complete! Earned ${result.rewards.victoryPoints} victory points for reaching Trial ${result.finalTrial}`
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error sending Gauntlet rewards:', error);
+        }
+      }
+      
+      socket.emit('gauntlet-run-abandoned', {
+        success: true,
+        finalTrial: result.finalTrial,
+        rewards: result.rewards
+      });
+    } else {
+      socket.emit('gauntlet-run-abandoned', {
+        success: false,
+        error: result.error
+      });
+    }
+  });
+
+  // ==================== END GAUNTLET MODE SOCKET EVENTS ====================
 
   // Friends system socket events
   socket.on('get-online-players', async () => {

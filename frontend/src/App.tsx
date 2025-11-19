@@ -6,6 +6,7 @@ import DraftPhase from './components/DraftPhase';
 import BattlePhase from './components/BattlePhase';
 import SurvivalMode from './components/SurvivalMode';
 import SurvivalBattleTransition from './components/SurvivalBattleTransition';
+import GauntletMode from './components/GauntletMode';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
@@ -67,6 +68,7 @@ interface User {
   favorite_heroes: string[];
   xp: number;
   level: number;
+  best_gauntlet_trial: number;
 }
 
 interface AppState {
@@ -79,6 +81,7 @@ interface AppState {
   battleLog: BattleLogEntry[];
   victoryPoints: number;
   showSurvival: boolean;
+  showGauntlet: boolean;
   isSurvivalMode: boolean;
   survivalTeam: Hero[];
   isTransitioningToBattle: boolean;
@@ -144,6 +147,7 @@ function App() {
     battleLog: [],
     victoryPoints: getInitialVictoryPoints(),
     showSurvival: false,
+    showGauntlet: false,
     isSurvivalMode: false,
     survivalTeam: [],
     isTransitioningToBattle: false,
@@ -1489,6 +1493,10 @@ function App() {
     setState(prev => ({ ...prev, showSurvival: true }));
   };
 
+  const handleStartGauntlet = () => {
+    setState(prev => ({ ...prev, showGauntlet: true }));
+  };
+
   const handleReturnToLobby = (forceMainLobby: boolean = false) => {
     // Clear any pending survival return timeout
     if (survivalReturnTimeoutRef.current) {
@@ -1844,6 +1852,15 @@ function App() {
       );
     }
 
+    if (state.showGauntlet) {
+      return (
+        <GauntletMode
+          onReturnToLobby={() => setState(prev => ({ ...prev, showGauntlet: false }))}
+          user={state.user}
+        />
+      );
+    }
+
     // Show GameLobby if we don't have a game state OR if we're in waiting phase (still matchmaking)
     if (!state.gameState || state.gameState.phase === 'waiting') {
       return (
@@ -1851,6 +1868,7 @@ function App() {
           onStartGame={handleJoinGame}
           onStartFriendlyGame={handleFriendlyGame}
           onStartSurvival={handleStartSurvival}
+          onStartGauntlet={handleStartGauntlet}
           onSpectateGame={handleSpectateGame}
           victoryPoints={state.victoryPoints}
           user={state.user}

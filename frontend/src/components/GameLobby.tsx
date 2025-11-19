@@ -19,12 +19,14 @@ interface User {
   favorite_heroes: string[];
   xp: number;
   level: number;
+  best_gauntlet_trial: number;
 }
 
 interface GameLobbyProps {
   onStartGame: (gameMode: 'draft' | 'random') => void;
   onStartFriendlyGame: (action: 'create' | 'join', roomName: string) => void;
   onStartSurvival: () => void;
+  onStartGauntlet: () => void;
   onSpectateGame: (gameId: string, spectatingPlayerId: string) => void;
   victoryPoints: number;
   user: User;
@@ -37,7 +39,7 @@ interface GameLobbyProps {
   onFavoritesChange?: (favoriteHeroes: string[]) => void;
 }
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onSpectateGame, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange }) => {
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onStartGauntlet, onSpectateGame, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange }) => {
   const [showCollection, setShowCollection] = useState(false);
   const [showFriendlyModal, setShowFriendlyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -102,6 +104,14 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
       onCancelSearch();
     }
     onStartSurvival();
+  };
+
+  const handleGauntletClick = () => {
+    // Cancel any existing search first
+    if (isSearching && onCancelSearch) {
+      onCancelSearch();
+    }
+    onStartGauntlet();
   };
 
   // Fetch heroes and set up rotation
@@ -360,6 +370,20 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                       <div className="btn-glow"></div>
                     </button>
                   </div>
+
+                  {/* Gauntlet Mode - Hidden for now */}
+                  {/* <div className="game-mode gauntlet-mode" onClick={handleGauntletClick}>
+                    <div className="mode-overlay"></div>
+                    <div className="mode-icon">⚔️</div>
+                    <div className="mode-info">
+                      <h3>Gauntlet Mode</h3>
+                      <p>Face 13 trials</p>
+                    </div>
+                    <button className="mode-play-btn">
+                      <span>Enter Gauntlet</span>
+                      <div className="btn-glow"></div>
+                    </button>
+                  </div> */}
 
                 </div>
               </div>

@@ -550,6 +550,33 @@
   background: linear-gradient(135deg, #ff6600 0%, #ff8833 100%);
 }
 
+/* Gauntlet Mode Specific Styling */
+.game-mode.gauntlet-mode {
+  border: 1px solid rgba(220, 20, 60, 0.3);
+  /* Ensure same sizing as other game modes */
+  padding: clamp(12px, 1.5vw, 18px) clamp(15px, 1.8vw, 20px);
+  min-height: auto;
+  max-height: none;
+}
+
+.game-mode.gauntlet-mode:hover {
+  border-color: #dc143c;
+  box-shadow: 0 0 20px rgba(220, 20, 60, 0.3);
+}
+
+.game-mode.gauntlet-mode .mode-overlay {
+  background: linear-gradient(135deg, rgba(220, 20, 60, 0.05) 0%, rgba(255, 0, 0, 0.05) 100%);
+}
+
+.game-mode.gauntlet-mode .mode-icon {
+  filter: drop-shadow(0 0 10px rgba(220, 20, 60, 0.4));
+  font-size: clamp(1.5rem, 2vw, 2rem);
+}
+
+.game-mode.gauntlet-mode .mode-play-btn {
+  background: linear-gradient(135deg, #dc143c 0%, #ff4444 100%);
+}
+
 /* Collection Panel */
 .collection-panel {
   cursor: pointer;
