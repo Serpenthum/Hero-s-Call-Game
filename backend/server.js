@@ -854,11 +854,20 @@ io.on('connection', (socket) => {
           
           console.log(`✅ Match found! ${playerData.name} matched with opponent`);
           
-          // Notify both players
-          io.to(result.gameId).emit('join-result', {
+          // Notify each player individually with their own playerId
+          socket.emit('join-result', {
             success: true,
             gameId: result.gameId,
             playerId: socket.id,
+            players: result.players,
+            gameReady: true,
+            mode
+          });
+          
+          io.to(opponentSocketId).emit('join-result', {
+            success: true,
+            gameId: result.gameId,
+            playerId: opponentSocketId,
             players: result.players,
             gameReady: true,
             mode
@@ -928,11 +937,20 @@ io.on('connection', (socket) => {
           
           console.log(`✅ Survival match found! ${data.name} matched with opponent`);
           
-          // Notify both players
-          io.to(result.gameId).emit('join-result', {
+          // Notify each player individually with their own playerId
+          socket.emit('join-result', {
             success: true,
             gameId: result.gameId,
             playerId: socket.id,
+            players: result.players,
+            gameReady: true,
+            mode: 'survival'
+          });
+          
+          io.to(opponentSocketId).emit('join-result', {
+            success: true,
+            gameId: result.gameId,
+            playerId: opponentSocketId,
             players: result.players,
             gameReady: true,
             mode: 'survival'
