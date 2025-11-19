@@ -260,7 +260,6 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
                 </button>
               </div>
             )}
-            {error && <div className="error-message" style={{color: 'red', fontSize: '12px', marginTop: '5px'}}>{error}</div>}
           </div>
 
           {/* Online Players List */}
