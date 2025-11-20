@@ -1309,8 +1309,14 @@ function App() {
       setState(prev => ({
         ...prev,
         survivalWins: data.state.wins,
-        survivalLosses: data.state.losses
-        // Don't update user object to prevent socket reconnection loop
+        survivalLosses: data.state.losses,
+        // Update the user object to keep survival data in sync
+        user: prev.user ? {
+          ...prev.user,
+          survival_wins: data.state.wins,
+          survival_losses: data.state.losses,
+          survival_used_heroes: data.state.usedHeroes || prev.user.survival_used_heroes
+        } : prev.user
       }));
     });
 
@@ -1320,6 +1326,13 @@ function App() {
         ...prev,
         survivalWins: data.state.wins,
         survivalLosses: data.state.losses,
+        // Update the user object to keep it in sync
+        user: prev.user ? {
+          ...prev.user,
+          survival_wins: data.state.wins,
+          survival_losses: data.state.losses,
+          survival_used_heroes: data.state.usedHeroes || prev.user.survival_used_heroes
+        } : prev.user,
         // Update victory points if provided (for run completion)
         ...(data.victoryPoints !== undefined && { victoryPoints: data.victoryPoints })
       }));
@@ -2338,6 +2351,7 @@ function App() {
             onClick={handleToggleFriendsOverlay}
             hasNotifications={state.friendsNotificationCount > 0}
             notificationCount={state.friendsNotificationCount}
+            isOpen={state.showFriendsOverlay}
           />
           
           {/* Message Icon */}

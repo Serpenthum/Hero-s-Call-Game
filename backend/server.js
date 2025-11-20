@@ -408,6 +408,97 @@ const friendlyRooms = new Map(); // roomName -> { gameId, creator, players, game
 
 // Helper function to check and handle regular game completion (draft/random modes)
 async function handleRegularGameCompletion(result) {
+  // Handle tie games
+  if (result.success && result.gameState && result.gameState.winner === 'TIE' && result.gameState.mode !== 'survival') {
+    console.log(`🤝 TIE game (${result.gameState.mode})! Both players eliminated!`);
+    
+    try {
+      const player1 = result.gameState.players[0];
+      const player2 = result.gameState.players[1];
+      
+      const player1UserId = userSessions.get(player1.id);
+      const player2UserId = userSessions.get(player2.id);
+      
+      // Ensure these are actual players, not spectators
+      const player1IsSpectator = result.gameState.spectators?.some(s => s.socketId === player1.id);
+      const player2IsSpectator = result.gameState.spectators?.some(s => s.socketId === player2.id);
+      
+      // Update stats for both players (no win/loss, just XP)
+      if (player1UserId && !player1IsSpectator) {
+        // Award small XP for tie
+        const xpGain = 10; // Small XP for tie
+        const player1XPUpdate = await database.updatePlayerXP(player1UserId, xpGain);
+        
+        // Track hero usage
+        for (const hero of player1.team) {
+          await database.updateHeroUsage(player1UserId, hero.name);
+        }
+        
+        // Get updated user data
+        const player1User = await database.getUserById(player1UserId);
+        
+        // Emit victory points update (1 point for tie)
+        io.to(player1.id).emit('victory-points-update', {
+          type: 'game_tie',
+          pointsAwarded: 1,
+          totalVictoryPoints: player1User.victory_points,
+          gameMode: result.gameState.mode,
+          message: `Tie game! You earned 1 victory point. Total: ${player1User.victory_points}`
+        });
+        
+        // Emit XP update
+        io.to(player1.id).emit('xp-update', {
+          xpGained: player1XPUpdate.xpGained,
+          newXP: player1XPUpdate.xp,
+          newLevel: player1XPUpdate.level,
+          leveledUp: player1XPUpdate.leveledUp,
+          message: player1XPUpdate.leveledUp ? 
+            `Level up! You're now level ${player1XPUpdate.level}! (+${player1XPUpdate.xpGained} XP from tie)` :
+            `+${player1XPUpdate.xpGained} XP from tie! (${player1XPUpdate.xp} total)`
+        });
+      }
+      
+      if (player2UserId && !player2IsSpectator) {
+        // Award small XP for tie
+        const xpGain = 10; // Small XP for tie
+        const player2XPUpdate = await database.updatePlayerXP(player2UserId, xpGain);
+        
+        // Track hero usage
+        for (const hero of player2.team) {
+          await database.updateHeroUsage(player2UserId, hero.name);
+        }
+        
+        // Get updated user data
+        const player2User = await database.getUserById(player2UserId);
+        
+        // Emit victory points update (1 point for tie)
+        io.to(player2.id).emit('victory-points-update', {
+          type: 'game_tie',
+          pointsAwarded: 1,
+          totalVictoryPoints: player2User.victory_points,
+          gameMode: result.gameState.mode,
+          message: `Tie game! You earned 1 victory point. Total: ${player2User.victory_points}`
+        });
+        
+        // Emit XP update
+        io.to(player2.id).emit('xp-update', {
+          xpGained: player2XPUpdate.xpGained,
+          newXP: player2XPUpdate.xp,
+          newLevel: player2XPUpdate.level,
+          leveledUp: player2XPUpdate.leveledUp,
+          message: player2XPUpdate.leveledUp ? 
+            `Level up! You're now level ${player2XPUpdate.level}! (+${player2XPUpdate.xpGained} XP from tie)` :
+            `+${player2XPUpdate.xpGained} XP from tie! (${player2XPUpdate.xp} total)`
+        });
+      }
+      
+      console.log(`📡 Processed tie game for both players`);
+    } catch (error) {
+      console.error('❌ Error handling tie game:', error);
+    }
+    return;
+  }
+  
   if (result.success && result.gameState && result.gameState.winner && result.gameState.mode !== 'survival') {
     console.log(`🏆 Regular game (${result.gameState.mode}) completed! Winner: ${result.gameState.winner}`);
     
@@ -499,6 +590,63 @@ async function checkSurvivalGameCompletion(result) {
   console.log('🔍 Result gameState exists:', !!result.gameState);
   console.log('🔍 Result gameState winner:', result.gameState?.winner);
   console.log('🔍 Result gameState mode:', result.gameState?.mode);
+  
+  // Handle tie games in survival mode
+  if (result.success && result.gameState && result.gameState.winner === 'TIE' && result.gameState.mode === 'survival') {
+    console.log('🤝 Survival TIE game! Both players lost all heroes!');
+    
+    const player1 = result.gameState.players[0];
+    const player2 = result.gameState.players[1];
+    
+    // Get user IDs
+    const player1UserId = userSessions.get(player1.id);
+    const player2UserId = userSessions.get(player2.id);
+    
+    // For survival ties, both players get a loss (no heroes are banned, no wins incremented)
+    const player1State = await gameManager.updateSurvivalLoss(player1.id, player1.team);
+    const player2State = await gameManager.updateSurvivalLoss(player2.id, player2.team);
+    
+    console.log('🤝 Player 1 tie state:', player1State);
+    console.log('🤝 Player 2 tie state:', player2State);
+    
+    // Get updated user data
+    let player1VictoryPoints = null;
+    let player2VictoryPoints = null;
+    
+    if (player1UserId) {
+      const player1User = await database.getUserById(player1UserId);
+      player1VictoryPoints = player1User.victory_points;
+    }
+    
+    if (player2UserId) {
+      const player2User = await database.getUserById(player2UserId);
+      player2VictoryPoints = player2User.victory_points;
+    }
+    
+    // Emit tie state updates to both players
+    io.to(player1.id).emit('survival-state-update', {
+      type: 'tie',
+      state: player1State,
+      runEnded: player1State.runEnded || false,
+      victoryPoints: player1VictoryPoints,
+      message: player1State.runEnded ? 
+        `Run ended in a tie! You earned ${player1State.wins} victory points for your ${player1State.wins} wins.` :
+        `Tie game! You now have ${player1State.wins} wins and ${player1State.losses} losses. No heroes banned.`
+    });
+    
+    io.to(player2.id).emit('survival-state-update', {
+      type: 'tie',
+      state: player2State,
+      runEnded: player2State.runEnded || false,
+      victoryPoints: player2VictoryPoints,
+      message: player2State.runEnded ? 
+        `Run ended in a tie! You earned ${player2State.wins} victory points for your ${player2State.wins} wins.` :
+        `Tie game! You now have ${player2State.wins} wins and ${player2State.losses} losses. No heroes banned.`
+    });
+    
+    console.log('📡 Sent survival tie state updates to both players');
+    return;
+  }
   
   if (result.success && result.gameState && result.gameState.winner && result.gameState.mode === 'survival') {
     console.log('🏆 Survival game completed! Winner:', result.gameState.winner);
@@ -1282,10 +1430,21 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('end-turn', () => {
+  socket.on('end-turn', async () => {
     const result = gameManager.endTurn(socket.id);
     if (result.success) {
       io.to(result.gameId).emit('turn-ended', result);
+      
+      // Handle game completion for all game modes
+      if (result.gameState && result.gameState.winner) {
+        if (result.gameState.mode === 'survival') {
+          await checkSurvivalGameCompletion(result);
+        } else if (result.gameState.mode === 'gauntlet') {
+          await checkGauntletGameCompletion(result);
+        } else {
+          await handleRegularGameCompletion(result);
+        }
+      }
     } else {
       socket.emit('error', { message: result.error });
     }

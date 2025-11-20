@@ -271,12 +271,12 @@
       {
         "category": "heal_self",
         "name": "Wildshape",
-        "description": "Heal Druid for 1D6.",
+        "description": "Heal Druid for 1D4.",
         "target_type": "self_only",
         "primary_effects": [
           {
             "type": "heal",
-            "value": "1D6",
+            "value": "1D4",
             "target": "self"
           }
         ]
@@ -747,14 +747,14 @@
       {
         "category": "conditional",
         "name": "Inspiring Crowd",
-        "description": "Heal Champion for 1D4 HP (1D8 if below 11 HP).",
+        "description": "Heal Champion for 1D4 HP (1D6 if below 11 HP).",
         "target_type": "self_only",
         "primary_effects": [
           {
             "type": "conditional_heal",
             "target": "self",
             "condition": "self_hp_lt_11",
-            "value_true": "1D8",
+            "value_true": "1D6",
             "value_false": "1D4"
           }
         ]
@@ -927,7 +927,7 @@
     "HP": 16,
     "Defense": 6,
     "Accuracy": "+2",
-    "BasicAttack": "1D8",
+    "BasicAttack": "1D6",
     "Ability": [
       {
         "category": "utility",
@@ -1044,12 +1044,12 @@
       {
         "category": "aoe_damage",
         "name": "Bomb Toss",
-        "description": "Deal 2D4 damage to all enemies.",
+        "description": "Deal 1D6 damage to all enemies.",
         "target_type": "all_enemies",
         "primary_effects": [
           {
             "type": "damage",
-            "value": "2D4",
+            "value": "1D6",
             "target": "all_enemies"
           }
         ]
@@ -1342,7 +1342,7 @@
   },
   {
     "name": "Elementalist",
-    "HP": 18,
+    "HP": 17,
     "Defense": 8,
     "Accuracy": "+2",
     "BasicAttack": "1D6",
@@ -1388,7 +1388,7 @@
     "HP": 12,
     "Defense": 6,
     "Accuracy": "+2",
-    "BasicAttack": "\u2014",
+    "BasicAttack": "-",
     "Ability": [
       {
         "category": "apply_buff",

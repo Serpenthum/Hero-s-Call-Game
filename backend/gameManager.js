@@ -1713,12 +1713,26 @@ class GameManager {
   updatePassiveEffectsOnDeath(game, deadHero, killer = null, deathCause = 'damage') {
     console.log(`💀 ${deadHero.name} died, checking for death triggers and buffs to remove...`);
     
+    // Safety check: Only process if the hero is actually dead and hasn't been processed yet
+    if (deadHero.currentHP > 0) {
+      console.log(`⚠️ ${deadHero.name} is not dead (${deadHero.currentHP} HP), skipping death processing`);
+      return;
+    }
+    
+    // Prevent processing the same death multiple times
+    if (deadHero.deathProcessed) {
+      console.log(`⚠️ ${deadHero.name}'s death already processed, skipping`);
+      return;
+    }
+    deadHero.deathProcessed = true;
+    
     // Check for Angel's Resurrection FIRST - before any death processing
     // Don't resurrect Angel itself, and exclude certain death causes
     if (deadHero.name !== 'Angel' && deathCause !== 'health_link_reflection') {
       const wasResurrected = this.processAngelResurrection(game, deadHero, killer);
       if (wasResurrected) {
         console.log(`👼 ${deadHero.name} was resurrected by Angel - aborting death processing`);
+        deadHero.deathProcessed = false; // Reset flag since hero was resurrected
         return; // Hero was resurrected, don't process death
       }
     }
@@ -1821,10 +1835,10 @@ class GameManager {
             
             // Apply scaling buffs based on fallen allies
             for (const effect of lastStandSpecial.effects) {
-              if (effect.type === 'stat_modifier' && effect.stat === 'AC') {
-                const acBonus = effect.value_per_stack * fallenAllies;
-                hero.scalingBuffs.ac = acBonus;
-                console.log(`  🛡️ ${hero.name} gains +${acBonus} AC from Last Stand`);
+              if (effect.type === 'stat_modifier' && effect.stat === 'Defense') {
+                const defenseBonus = effect.value_per_stack * fallenAllies;
+                hero.scalingBuffs.defense = defenseBonus;
+                console.log(`  🛡️ ${hero.name} gains +${defenseBonus} Defense from Last Stand`);
               } else if (effect.type === 'damage_modifier') {
                 const damageBonus = fallenAllies; // Each fallen ally adds 1D6
                 hero.scalingBuffs.damage = damageBonus;
@@ -2122,7 +2136,8 @@ class GameManager {
       if (targetPlayer) {
         // Look for Monk ally who can deflect this attack
         const monk = targetPlayer.team.find(h => h.name === 'Monk' && h.currentHP > 0);
-        if (monk && attackRoll.total < calculateEffectiveDefense(monk) && !targetPlayer.monkDeflectUsed) {
+        // Monk cannot deflect attacks from itself
+        if (monk && monk.name !== currentHero.name && attackRoll.total < calculateEffectiveDefense(monk) && !targetPlayer.monkDeflectUsed) {
           // Monk deflects the attack
           monkDeflected = true;
           deflectingMonk = monk;
@@ -3311,15 +3326,18 @@ class GameManager {
           // Conditional healing that checks a condition before determining heal amount
           // For abilities with attack rolls, healing only happens if the ability hit
           if ((abilityHit || !needsAttackRoll)) {
-            let shouldHeal = false;
+            let shouldHeal = true; // Always heal for conditional_heal, just choose the value
             let healValue = effect.value_false || '1D4'; // Default value
             let conditionMet = false;
             
             // Check different conditions
             if (effect.condition === 'self_hp_lt_11' && target && target.currentHP > 0 && target.currentHP < 11) {
               healValue = effect.value_true || '1D8';
-              shouldHeal = true;
               conditionMet = true;
+            } else if (effect.condition === 'self_hp_lt_11' && target && target.currentHP > 0) {
+              // Condition not met (HP >= 11), use value_false
+              healValue = effect.value_false || '1D4';
+              conditionMet = false;
             } else if (effect.condition === 'target_dies_from_damage') {
               // Check if the original target died from the damage effects of this ability
               // Find the damage result for the original target from this ability
@@ -4314,6 +4332,29 @@ class GameManager {
     // Get the new turn info
     const nextTurnInfo = this.getCurrentTurnInfo(game);
     
+    // Reset action flags for the new turn
+    if (nextTurnInfo && nextTurnInfo.player) {
+      nextTurnInfo.player.hasUsedAttack = false;
+      nextTurnInfo.player.usedAttacks = 0;
+      nextTurnInfo.player.hasUsedAbility = false;
+      nextTurnInfo.player.twinSpellUsed = false;
+      nextTurnInfo.player.twinSpellActive = false;
+      nextTurnInfo.player.oneTwoPunchUsed = false;
+      nextTurnInfo.player.oneTwoPunchAttacksRemaining = 0;
+      nextTurnInfo.player.monkDeflectUsed = false;
+      
+      // Initialize or reset usedAbilities array
+      if (!nextTurnInfo.player.usedAbilities) {
+        nextTurnInfo.player.usedAbilities = [];
+      } else {
+        nextTurnInfo.player.usedAbilities = [];
+      }
+      
+      nextTurnInfo.player.selectedTarget = null;
+      
+      console.log(`♻️ Reset action flags for player ${game.currentPlayerTurn}`);
+    }
+    
     // Reset Monk attack count for the new hero
     if (nextTurnInfo && nextTurnInfo.hero) {
       if (nextTurnInfo.hero.name === 'Monk') {
@@ -4995,6 +5036,23 @@ class GameManager {
       return null;
     }
     
+    // Check if both players have no heroes left (tie condition)
+    const player1AliveHeroes = game.players[0].team.filter(h => h.currentHP > 0);
+    const player2AliveHeroes = game.players[1].team.filter(h => h.currentHP > 0);
+    
+    if (player1AliveHeroes.length === 0 && player2AliveHeroes.length === 0) {
+      console.log('🤝 TIE GAME! Both players have no heroes left!');
+      
+      // Award victory points for tie (async, but don't wait) - only for non-survival modes
+      if (game.mode !== 'survival') {
+        this.handleGameCompletion(game.id, null, 'tie').catch(error => {
+          console.error('Error awarding victory points for tie:', error);
+        });
+      }
+      
+      return 'TIE';
+    }
+    
     for (let i = 0; i < game.players.length; i++) {
       const player = game.players[i];
       const aliveHeroes = player.team.filter(h => h.currentHP > 0);
@@ -5625,7 +5683,7 @@ class GameManager {
         );
         
         // Override the message to match the requested format
-        specialLogEntry.message = `${target.name} used Poison Aura and gave EVERYONE 1 Poison Stack`;
+        specialLogEntry.message = `${target.name}'s Poison Aura gave EVERYONE 1 Poison Stack`;
         
         specialLogEntries.push(specialLogEntry);
         
@@ -6655,6 +6713,30 @@ class GameManager {
     if (game.mode === 'survival') {
       console.log(`🏆 Survival mode detected - victory points will be handled when run ends, not per battle`);
       return { success: true, message: 'Survival mode - victory points handled on run end' };
+    }
+
+    // Handle tie games
+    if (reason === 'tie') {
+      console.log(`🤝 Tie game detected - awarding 1 victory point to each player`);
+      
+      // Award 1 victory point to each player
+      const results = [];
+      for (const player of game.players) {
+        const result = await this.awardVictoryPoints(player.id, 1, `${game.mode}_mode_tie`);
+        results.push(result);
+        
+        if (result.success) {
+          console.log(`🏆 Awarded 1 victory point to player ${player.id} for tie`);
+        } else {
+          console.error(`❌ Failed to award tie victory points to player ${player.id}:`, result.error);
+        }
+      }
+      
+      return { 
+        success: results.every(r => r.success),
+        message: 'Tie - 1 victory point awarded to each player',
+        results
+      };
     }
 
     // For regular modes (draft/random), award 1 victory point to the winner

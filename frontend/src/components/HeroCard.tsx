@@ -672,12 +672,53 @@ const HeroCard: React.FC<HeroCardProps> = ({
     // Use modifiedDefense if available (includes scaling buffs like Champion's Last Stand)
     if ((hero as any).modifiedDefense !== undefined) {
       const modifiedDefense = (hero as any).modifiedDefense;
-      const hasModifications = modifiedDefense !== hero.Defense;
-      const glowClass = hasModifications ? (modifiedDefense > hero.Defense ? 'stat-buffed' : 'stat-debuffed') : '';
+      const sharedDefense = (hero as any).sharedDefense;
+      
+      // Determine the base defense for comparison
+      let baseDefenseForComparison = sharedDefense?.originalDefense || hero.Defense;
+      
+      // Check if defense was buffed (either modified or shared from Dual Defender)
+      let hasModifications = modifiedDefense !== hero.Defense;
+      let isSharedDefenseBuff = false;
+      let hasDebuff = false;
+      
+      // Check for debuffs (like Piercing Shot)
+      if (hero.statusEffects?.statModifiers?.Defense && hero.statusEffects.statModifiers.Defense < 0) {
+        hasDebuff = true;
+        hasModifications = true;
+      }
+      
+      // Special handling for Dual Defender's shared defense
+      if (sharedDefense && sharedDefense.sharedValue > sharedDefense.originalDefense) {
+        isSharedDefenseBuff = true;
+        hasModifications = true;
+        // When there's shared defense, compare against the shared value (not original) for determining buff/debuff color
+        baseDefenseForComparison = sharedDefense.sharedValue;
+      }
+      
+      // Determine glow class: debuffs take priority for red glow
+      let glowClass = '';
+      if (hasModifications) {
+        if (hasDebuff && !isSharedDefenseBuff) {
+          // Pure debuff - show red
+          glowClass = 'stat-debuffed';
+        } else if (hasDebuff && isSharedDefenseBuff) {
+          // Both shared defense buff and debuff - compare final value
+          glowClass = modifiedDefense > baseDefenseForComparison ? 'stat-buffed' : 'stat-debuffed';
+        } else {
+          // Normal comparison
+          glowClass = modifiedDefense > baseDefenseForComparison ? 'stat-buffed' : 'stat-debuffed';
+        }
+      }
       
       // Build tooltip text with modifier details
-      let tooltipText = `Base Defense: ${hero.Defense}, Modified Defense: ${modifiedDefense}`;
+      let tooltipText = `Base Defense: ${sharedDefense?.originalDefense || hero.Defense}, Modified Defense: ${modifiedDefense}`;
       let tooltipParts: string[] = [];
+      
+      // Add shared defense info (Dual Defender)
+      if (isSharedDefenseBuff) {
+        tooltipParts.push(`Defense shared from ${sharedDefense.source}`);
+      }
       
       // Add stat modifier details if available
       if (hero.statusEffects?.statModifiers?.Defense && hero.statusEffects?.statModifierCasters) {
