@@ -90,6 +90,7 @@ const RewardsDisplay: React.FC<RewardsDisplayProps> = ({
                 level={newLevel} 
                 animated={true}
                 xpGained={xpGained}
+                leveledUp={leveledUp}
               />
             </div>
           </div>

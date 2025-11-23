@@ -1562,7 +1562,7 @@
     "Special": {
       "category": "activated_aoe_heal",
       "name": "Peace Treaty",
-      "description": "Once: The Diplomat can heal ALL characters 2D6.",
+      "description": "Once: The Diplomat can heal ALL heroes 2D6.",
       "frequency": "once",
       "effects": [
         {
@@ -1572,7 +1572,7 @@
         }
       ]
     },
-    "disabled": true
+    "disabled": false
   },
   {
     "name": "Venom",
@@ -2202,34 +2202,32 @@
       {
         "category": "summon",
         "name": "Med Bots",
-        "description": "Summon 1 Med Bot (Max 4).",
+        "description": "Summon 1 Med Bot (Max 3).",
         "target_type": "self_only",
         "primary_effects": [
           {
             "type": "summon",
             "unit": "Med Bot",
-            "max": 4
+            "max": 3
           }
         ]
       }
     ],
     "Special": {
-      "category": "reaction",
+      "category": "turn_based",
       "name": "Emergency Heal",
-      "description": "Once per round, when an ally takes damage, heal them 1D4 for each summoned Med Bot.",
-      "trigger": "on_ally_take_damage",
-      "frequency": "once_per_round",
+      "description": "At the end of the Medic's turn, heal the lowest health ally 1D4 for each summoned Med Bot.",
+      "trigger": "owner_turn_end",
       "effects": [
         {
           "type": "heal",
           "value": "1D4_per_bot",
-          "target": "damaged_ally",
+          "target": "lowest_health_ally",
           "scaling": "summon_count",
           "unit": "Med Bot"
         }
       ]
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Mime",

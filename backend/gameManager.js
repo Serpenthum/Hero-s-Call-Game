@@ -53,7 +53,8 @@ class GameManager {
       rideDownDebuff: null,
       beast_active: false,
       totem_count: 0,
-      turret_count: 0
+      turret_count: 0,
+      med_bot_count: 0
     };
     
     // Clear all passive buffs and modified display stats
@@ -1069,6 +1070,24 @@ class GameManager {
           }
         }
         
+        // Add Med Bot buff for Medic (backward compatibility)
+        if (hero.name === 'Medic' && hero.statusEffects && hero.statusEffects.med_bot_count > 0) {
+          if (!hero.passiveBuffs) hero.passiveBuffs = [];
+          
+          // Check if med bot buff already exists (added by processMedicAbility)
+          const existingMedBotBuff = hero.passiveBuffs.find(buff => buff.name && buff.name.startsWith('Med Bots'));
+          if (!existingMedBotBuff) {
+            const medBotCount = hero.statusEffects.med_bot_count;
+            hero.passiveBuffs.push({
+              name: `Med Bots (${medBotCount})`,
+              sourceName: 'Medic',
+              description: `${medBotCount} med bot${medBotCount > 1 ? 's' : ''} active - heal${medBotCount === 1 ? 's' : ''} lowest HP ally ${medBotCount}D4 at end of turn`,
+              type: 'status',
+              value: medBotCount
+            });
+          }
+        }
+        
         // Add Arcane Shield available status for Wizard
         if (hero.name === 'Wizard' && hero.currentHP > 0) {
           // Initialize Arcane Shield status if not already set
@@ -1747,6 +1766,12 @@ class GameManager {
     if (deadHero.name === 'Engineer' && deadHero.statusEffects && deadHero.statusEffects.turret_count > 0) {
       console.log(`🔧 ${deadHero.name} died - all ${deadHero.statusEffects.turret_count} turrets are destroyed`);
       deadHero.statusEffects.turret_count = 0;
+    }
+    
+    // Reset med bot count if Medic dies
+    if (deadHero.name === 'Medic' && deadHero.statusEffects && deadHero.statusEffects.med_bot_count > 0) {
+      console.log(`💉 ${deadHero.name} died - all ${deadHero.statusEffects.med_bot_count} med bots are destroyed`);
+      deadHero.statusEffects.med_bot_count = 0;
     }
     
     // Check for death trigger effects (like Bomber's Self Destruct)
@@ -2894,6 +2919,11 @@ class GameManager {
       return this.processEngineerAbility(ability, caster, primaryTarget, casterPlayer, opponent, game);
     }
 
+    // Special handling for Medic's Med Bots (summon med bots)
+    if (caster.name === 'Medic' && ability.name === 'Med Bots') {
+      return this.processMedicAbility(ability, caster, primaryTarget, casterPlayer, opponent, game);
+    }
+
     // Special handling for Shaman's Elemental Strike (summon totems and deal damage per totem)
     if (caster.name === 'Shaman' && ability.name === 'Elemental Strike') {
       return this.processShamanAbility(ability, caster, primaryTarget, casterPlayer, opponent, game);
@@ -2902,6 +2932,11 @@ class GameManager {
     // Special handling for Timekeeper ally command ability
     if (caster.name === 'Timekeeper' && ability.name === 'Chrono Shift' && (!commandContext || !commandContext.preventRecursion)) {
       return this.processTimekeeperAbility(ability, caster, primaryTarget, casterPlayer, opponent, game, allyTarget);
+    }
+    
+    // Special handling for Diplomat's Declare War (command adjacent allies to attack)
+    if (caster.name === 'Diplomat' && ability.name === 'Declare War') {
+      return this.processDiplomatAbility(ability, caster, primaryTarget, casterPlayer, opponent, game);
     }
     
     // Get all effects from both primary and secondary effects
@@ -3660,6 +3695,7 @@ class GameManager {
     
     // Skip general comprehensive logging for heroes that handle their own logging
     const skipGeneralLogging = (caster.name === 'Engineer' && ability.name === 'Call Turret') ||
+                              (caster.name === 'Medic' && ability.name === 'Med Bots') ||
                               (caster.name === 'Beast Tamer' && ability.name === 'Call Beast / Command Attack') ||
                               (caster.name === 'Shaman' && ability.name === 'Elemental Strike');
     
@@ -4586,8 +4622,8 @@ class GameManager {
 
     // Check if the special is an activated type
     const special = Array.isArray(currentHero.Special) 
-      ? currentHero.Special.find(s => s.category === 'activated_aoe')
-      : (currentHero.Special.category === 'activated_aoe' ? currentHero.Special : null);
+      ? currentHero.Special.find(s => s.category === 'activated_aoe' || s.category === 'activated_aoe_heal')
+      : (currentHero.Special.category === 'activated_aoe' || currentHero.Special.category === 'activated_aoe_heal' ? currentHero.Special : null);
     
     if (!special) {
       return { success: false, error: 'Special ability is not manually activatable' };
@@ -4734,6 +4770,60 @@ class GameManager {
           
           this.updatePassiveEffectsOnDeath(game, currentHero, null, 'self_destruct');
         }
+      } else if (effect.type === 'heal' && effect.target === 'all_heroes') {
+        // Diplomat's Peace Treaty - heal ALL heroes (both teams)
+        const { rollDiceString } = require('./utils');
+        
+        console.log(`🕊️ ${special.name}: Rolling healing for all heroes`);
+        
+        // Roll healing once for all heroes
+        const healingRoll = rollDiceString(effect.value);
+        const healingAmount = healingRoll.total;
+        
+        console.log(`🕊️ ${special.name} heals for ${healingAmount} HP`);
+        
+        // Heal all heroes on both teams
+        game.players.forEach((targetPlayer, playerIndex) => {
+          targetPlayer.team.forEach(target => {
+            if (target.currentHP > 0) {
+              const oldHP = target.currentHP;
+              const missingHP = target.HP - target.currentHP;
+              const actualHealing = Math.min(healingAmount, missingHP);
+              target.currentHP = Math.min(target.HP, target.currentHP + healingAmount);
+              
+              console.log(`🕊️ ${target.name} healed for ${actualHealing} HP: ${oldHP} → ${target.currentHP}`);
+              
+              // Clear Cavalier's Ride Down debuff if healed to full HP
+              if (target.currentHP === target.HP && target.statusEffects?.rideDownDebuff) {
+                console.log(`✨ ${target.name} healed to full HP - removing Cavalier's Ride Down debuff`);
+                delete target.statusEffects.rideDownDebuff;
+              }
+              
+              results.push({
+                type: 'heal',
+                target: target.name,
+                healing: actualHealing,
+                newHP: target.currentHP,
+                maxHP: target.HP,
+                healingRoll: healingRoll,
+                message: `${target.name} healed for ${actualHealing} HP`
+              });
+            }
+          });
+        });
+        
+        // Add comprehensive log entry for Peace Treaty
+        game.battleLog.push({
+          type: 'special_heal',
+          source: currentHero.name,
+          specialName: special.name,
+          isSpecial: true,
+          healing: healingAmount,
+          healingRoll: healingRoll,
+          message: `${currentHero.name} used ${special.name}`,
+          summary: `All heroes were healed for ${healingAmount}`,
+          timestamp: Date.now()
+        });
       }
     }
 
@@ -4840,23 +4930,18 @@ class GameManager {
               
               console.log(`🌿 ${currentTurnInfo.hero.name}'s Healing Word heals ${lowestHealthAlly.name} for ${healingAmount} HP (${oldHP} → ${lowestHealthAlly.currentHP})`);
               
-              // Add comprehensive special log entry for Healing Word
-              const healingWordLogEntry = this.createSpecialLogEntry(
-                currentTurnInfo.hero,
-                'Healing Word', 
-                'end-of-turn healing for lowest health ally', 
-                null,
-                [{
-                  type: 'heal',
-                  target: lowestHealthAlly.name,
-                  healing: healingAmount,
-                  hit: true,
-                  healRoll: healingRoll,
-                  newHP: lowestHealthAlly.currentHP,
-                  maxHP: lowestHealthAlly.HP,
-                  message: `heals ${lowestHealthAlly.name} for ${healingAmount} HP`
-                }]
-              );
+              // Add comprehensive log entry for Healing Word with "used" in message
+              const healingWordLogEntry = {
+                type: 'healing_word',
+                caster: currentTurnInfo.hero.name,
+                target: lowestHealthAlly.name,
+                healing: healingAmount,
+                newHP: lowestHealthAlly.currentHP,
+                maxHP: lowestHealthAlly.HP,
+                message: `${currentTurnInfo.hero.name} used Healing Word and healed ${lowestHealthAlly.name} for ${healingAmount}`,
+                timestamp: Date.now()
+              };
+              
               endTurnEffects.push(healingWordLogEntry);
             } else {
               console.log(`🌿 ${lowestHealthAlly.name} is already at full health, no healing needed`);
@@ -4899,7 +4984,7 @@ class GameManager {
               damage: damageAmount,
               newHP: randomEnemy.currentHP,
               maxHP: randomEnemy.HP,
-              message: `${currentTurnInfo.hero.name}'s Turret attacked ${randomEnemy.name} for ${damageAmount} damage`,
+              message: `${currentTurnInfo.hero.name} used Deploy Turret - Turret attacked ${randomEnemy.name} for ${damageAmount} damage`,
               timestamp: Date.now()
             };
             
@@ -4907,6 +4992,62 @@ class GameManager {
           }
         } else {
           console.log(`🔧 No alive enemies found for turret damage`);
+        }
+      }
+
+      // Medic Emergency Heal: Heal lowest health ally for 1D4 per med bot at end of turn
+      if (currentTurnInfo.hero.name === 'Medic' && currentTurnInfo.hero.currentHP > 0 && 
+          currentTurnInfo.hero.statusEffects && currentTurnInfo.hero.statusEffects.med_bot_count > 0) {
+        
+        const medBotCount = currentTurnInfo.hero.statusEffects.med_bot_count;
+        console.log(`💉 ${currentTurnInfo.hero.name}'s ${medBotCount} med bot(s) activate Emergency Heal at end of turn`);
+        
+        // Get all damaged allies (including Medic themselves)
+        const aliveAllies = currentTurnInfo.player.team.filter(hero => hero.currentHP > 0 && hero.currentHP < hero.HP);
+        
+        if (aliveAllies.length > 0) {
+          // Find lowest health ally
+          let lowestHealthAlly = aliveAllies[0];
+          for (const ally of aliveAllies) {
+            if (ally.currentHP < lowestHealthAlly.currentHP) {
+              lowestHealthAlly = ally;
+            }
+          }
+          
+          // Heal 1D4 for each med bot
+          const { rollDiceString } = require('./utils');
+          let totalHealing = 0;
+          const healRolls = [];
+          
+          for (let i = 0; i < medBotCount; i++) {
+            const healRoll = rollDiceString('1D4');
+            totalHealing += healRoll.total;
+            healRolls.push(healRoll.total);
+          }
+          
+          const oldHP = lowestHealthAlly.currentHP;
+          lowestHealthAlly.currentHP = Math.min(lowestHealthAlly.currentHP + totalHealing, lowestHealthAlly.HP);
+          const actualHealing = lowestHealthAlly.currentHP - oldHP;
+          
+          console.log(`💉 ${currentTurnInfo.hero.name} used Emergency Heal: Healed ${lowestHealthAlly.name} for ${actualHealing} HP (rolled ${healRolls.join(' + ')} = ${totalHealing})`);
+          
+          // Create heal log entry
+          const emergencyHealLogEntry = {
+            type: 'emergency_heal',
+            caster: currentTurnInfo.hero.name,
+            target: lowestHealthAlly.name,
+            healing: actualHealing,
+            totalRolled: totalHealing,
+            medBotCount: medBotCount,
+            newHP: lowestHealthAlly.currentHP,
+            maxHP: lowestHealthAlly.HP,
+            message: `${currentTurnInfo.hero.name} used Emergency Heal and healed ${lowestHealthAlly.name} for ${actualHealing}`,
+            timestamp: Date.now()
+          };
+          
+          endTurnEffects.push(emergencyHealLogEntry);
+        } else {
+          console.log(`💉 No damaged allies found for Emergency Heal`);
         }
       }
     }
@@ -6341,6 +6482,92 @@ class GameManager {
     return results;
   }
 
+  processMedicAbility(ability, caster, primaryTarget, casterPlayer, opponent, game) {
+    console.log(`💉 processMedicAbility called: ${caster.name} uses ${ability.name}`);
+    const results = [];
+    
+    // Initialize med bot count if needed
+    if (!caster.statusEffects) caster.statusEffects = {};
+    if (!caster.statusEffects.med_bot_count) caster.statusEffects.med_bot_count = 0;
+
+    // Initialize passiveBuffs for immediate visual display
+    if (!caster.passiveBuffs) caster.passiveBuffs = [];
+
+    // Determine if med bot can be summoned (max 3)
+    const canSummonMedBot = caster.statusEffects.med_bot_count < 3;
+    let effects = [];
+    let summaryMessage = '';
+
+    if (canSummonMedBot) {
+      caster.statusEffects.med_bot_count++;
+      
+      // Add/update immediate visual buff for med bot count
+      const existingMedBotBuff = caster.passiveBuffs.find(buff => buff.name && buff.name.startsWith('Med Bots'));
+      if (existingMedBotBuff) {
+        // Update existing buff
+        existingMedBotBuff.name = `Med Bots (${caster.statusEffects.med_bot_count})`;
+        existingMedBotBuff.description = `${caster.statusEffects.med_bot_count} med bot${caster.statusEffects.med_bot_count > 1 ? 's' : ''} active - heal${caster.statusEffects.med_bot_count === 1 ? 's' : ''} lowest HP ally ${caster.statusEffects.med_bot_count}D4 at end of turn`;
+        existingMedBotBuff.value = caster.statusEffects.med_bot_count;
+      } else {
+        // Add new visual buff
+        caster.passiveBuffs.push({
+          name: `Med Bots (${caster.statusEffects.med_bot_count})`,
+          sourceName: 'Medic',
+          description: `${caster.statusEffects.med_bot_count} med bot${caster.statusEffects.med_bot_count > 1 ? 's' : ''} active - heal${caster.statusEffects.med_bot_count === 1 ? 's' : ''} lowest HP ally ${caster.statusEffects.med_bot_count}D4 at end of turn`,
+          type: 'status',
+          value: caster.statusEffects.med_bot_count
+        });
+      }
+      
+      // Create comprehensive log entry
+      summaryMessage = `Summoned med bot (${caster.statusEffects.med_bot_count}/3)`;
+      
+      effects.push({
+        type: 'summon',
+        description: `Summoned med bot ${caster.statusEffects.med_bot_count}`,
+        details: `${caster.statusEffects.med_bot_count} med bot${caster.statusEffects.med_bot_count > 1 ? 's' : ''} active`
+      });
+      
+      // Add med bot effect result for other systems
+      results.push({
+        type: 'summon',
+        caster: caster.name,
+        medBotSummoned: true,
+        medBotCount: caster.statusEffects.med_bot_count
+      });
+    } else {
+      summaryMessage = 'Maximum med bots already deployed (3/3)';
+      
+      effects.push({
+        type: 'limit_reached',
+        description: 'Cannot summon more med bots',
+        details: 'Maximum of 3 med bots already active'
+      });
+    }
+
+    // Create comprehensive log entry
+    const comprehensiveLogEntry = {
+      type: 'ability_comprehensive',
+      caster: caster.name,
+      ability: ability.name,
+      target: null, // Self-targeting ability
+      message: `${caster.name} used ${ability.name}`,
+      summary: summaryMessage,
+      effects: effects,
+      hitStatus: null, // Auto-success ability
+      rollInfo: null,
+      timestamp: Date.now()
+    };
+    
+    results.unshift(comprehensiveLogEntry);
+    
+    // Force immediate game state update via socket
+    console.log(`💉 Medic ability used - forcing immediate socket update for med bot buff visibility`);
+    
+    console.log(`💉 processMedicAbility returning ${results.length} results:`, results);
+    return results;
+  }
+
   processShamanAbility(ability, caster, primaryTarget, casterPlayer, opponent, game) {
     const results = [];
     
@@ -6442,6 +6669,209 @@ class GameManager {
     filteredResults.unshift(comprehensiveLogEntry);
     
     return filteredResults;
+  }
+
+  processDiplomatAbility(ability, caster, primaryTarget, casterPlayer, opponent, game) {
+    const results = [];
+    console.log(`🤝 processDiplomatAbility called: ${caster.name} uses ${ability.name} on ${primaryTarget.name}`);
+    
+    // Create initial comprehensive log entry for Diplomat using Declare War
+    const declareWarEntry = {
+      type: 'ability_comprehensive',
+      caster: caster.name,
+      abilityName: ability.name,
+      target: primaryTarget.name,
+      message: `${caster.name} used ${ability.name}`,
+      hit: true,
+      isCritical: false
+    };
+    results.push(declareWarEntry);
+    
+    // Find Diplomat's position in the team
+    const diplomatIndex = casterPlayer.team.findIndex(h => h.name === caster.name);
+    console.log(`🤝 Diplomat position: ${diplomatIndex}`);
+    
+    // Find adjacent allies (position ±1)
+    const adjacentAllies = [];
+    
+    // Check left ally (index - 1)
+    if (diplomatIndex > 0) {
+      const leftAlly = casterPlayer.team[diplomatIndex - 1];
+      if (leftAlly && leftAlly.currentHP > 0 && leftAlly.name !== caster.name) {
+        adjacentAllies.push({ ally: leftAlly, position: 'left' });
+        console.log(`🤝 Found left ally: ${leftAlly.name}`);
+      }
+    }
+    
+    // Check right ally (index + 1)
+    if (diplomatIndex < casterPlayer.team.length - 1) {
+      const rightAlly = casterPlayer.team[diplomatIndex + 1];
+      if (rightAlly && rightAlly.currentHP > 0 && rightAlly.name !== caster.name) {
+        adjacentAllies.push({ ally: rightAlly, position: 'right' });
+        console.log(`🤝 Found right ally: ${rightAlly.name}`);
+      }
+    }
+    
+    console.log(`🤝 Total adjacent allies found: ${adjacentAllies.length}`);
+    
+    // If no adjacent allies, ability still succeeds but does nothing
+    if (adjacentAllies.length === 0) {
+      results.push({
+        type: 'ability_effect',
+        message: 'No adjacent allies to command',
+        caster: caster.name
+      });
+      return results;
+    }
+    
+    // Make each adjacent ally perform a basic attack on the primary target
+    for (const { ally, position } of adjacentAllies) {
+      console.log(`🤝 Commanding ${ally.name} (${position} of Diplomat) to attack ${primaryTarget.name}`);
+      
+      // Check if ally can attack (not stunned, has basic attack)
+      if (ally.statusEffects?.disable_attack) {
+        console.log(`❌ ${ally.name} cannot attack (stunned)`);
+        results.push({
+          type: 'attack_prevented',
+          message: `${ally.name} is stunned and cannot attack`,
+          attacker: ally.name
+        });
+        continue;
+      }
+      
+      // Check if ally has a basic attack
+      if (ally.BasicAttack === '—' || ally.BasicAttack === '-') {
+        console.log(`❌ ${ally.name} has no basic attack`);
+        results.push({
+          type: 'attack_prevented',
+          message: `${ally.name} has no basic attack`,
+          attacker: ally.name
+        });
+        continue;
+      }
+      
+      // Perform the attack using the ally's own accuracy
+      const advantageDisadvantage = this.hasAdvantageDisadvantage(ally, primaryTarget, false, game);
+      const attackRoll = calculateAttackRoll(ally.modifiedAccuracy, advantageDisadvantage.advantage, advantageDisadvantage.disadvantage, ally);
+      const attackHit = attackRoll.total >= calculateEffectiveDefense(primaryTarget);
+      
+      const rollText = attackRoll.advantageInfo 
+        ? `${attackRoll.advantageInfo.roll1} and ${attackRoll.advantageInfo.roll2} (${attackRoll.advantageInfo.type}, chose ${attackRoll.advantageInfo.chosen})`
+        : attackRoll.roll;
+      console.log(`⚔️ ${ally.name} attacks ${primaryTarget.name}: Roll ${rollText}+${ally.modifiedAccuracy} = ${attackRoll.total} vs Defense ${calculateEffectiveDefense(primaryTarget)} → ${attackHit ? 'HIT' : 'MISS'}${attackRoll.crit ? ' (CRITICAL!)' : ''}`);
+      
+      // Create attack result
+      if (attackHit && primaryTarget.currentHP > 0) {
+        // Calculate damage
+        const damageRoll = calculateDamage(ally.BasicAttack, attackRoll.isCritical, false, ally);
+        let damage = damageRoll.total;
+        
+        const oldHP = primaryTarget.currentHP;
+        
+        // Apply damage
+        const onDamageTriggers = this.applyDamageToHero(game, primaryTarget, damage, ally, 'Basic Attack');
+        
+        console.log(`⚔️ ${ally.name} deals ${damage} damage to ${primaryTarget.name} (${oldHP} → ${primaryTarget.currentHP})`);
+        
+        // Check for on-attack special triggers (like Cavalier's Ride Down)
+        if (ally.name === 'Cavalier' && damage > 0) {
+          if (!primaryTarget.statusEffects) primaryTarget.statusEffects = {};
+          primaryTarget.statusEffects.rideDownDebuff = {
+            source: ally.name,
+            maxHP: primaryTarget.HP
+          };
+          console.log(`🎯 ${primaryTarget.name} debuffed by Cavalier's Ride Down`);
+        }
+        
+        // Process hit-confirmed triggers (like Elementalist's Wind Wall)
+        this.processHitConfirmedTriggers(game, ally, primaryTarget, 'attack');
+        
+        // Check if target died
+        if (primaryTarget.currentHP <= 0 && !primaryTarget.statusEffects?.justResurrected) {
+          this.updatePassiveEffectsOnDeath(game, primaryTarget, ally, 'damage');
+        }
+        
+        results.push({
+          type: 'attack',
+          attacker: ally.name,
+          target: primaryTarget.name,
+          damage: damage,
+          hit: true,
+          isCritical: attackRoll.isCritical,
+          damageRoll: damageRoll.rolls,
+          damageTotal: damage,
+          attackRoll: attackRoll.roll,
+          attackTotal: attackRoll.displayTotal || attackRoll.total,
+          advantageInfo: attackRoll.advantageInfo,
+          targetHP: primaryTarget.currentHP,
+          commandedBy: caster.name
+        });
+        
+        // Add any on_take_damage trigger results
+        if (onDamageTriggers && onDamageTriggers.length > 0) {
+          results.push(...onDamageTriggers);
+        }
+      } else {
+        // Attack missed
+        results.push({
+          type: 'attack',
+          attacker: ally.name,
+          target: primaryTarget.name,
+          damage: 0,
+          hit: false,
+          attackRoll: attackRoll.roll,
+          attackTotal: attackRoll.displayTotal || attackRoll.total,
+          advantageInfo: attackRoll.advantageInfo,
+          targetHP: primaryTarget.currentHP,
+          damageRoll: [],
+          damageTotal: 0,
+          commandedBy: caster.name
+        });
+        
+        // Check for Shield Bash if attack missed by AC
+        const targetPlayer = game.players.find(p => p.team.some(h => h.name === primaryTarget.name));
+        if (targetPlayer) {
+          const warden = targetPlayer.team.find(h => h.name === 'Warden' && h.currentHP > 0);
+          if (warden && primaryTarget.name === warden.name && attackRoll.total < calculateEffectiveDefense(warden)) {
+            // Warden's Shield Bash counter
+            const counterDamageRoll = calculateDamage('1D6', false, false, warden);
+            const counterDamage = counterDamageRoll.total;
+            
+            const onDamageTriggers = this.applyDamageToHero(game, ally, counterDamage, warden, 'Shield Bash');
+            
+            console.log(`🛡️ ${warden.name}'s Shield Bash counters ${ally.name} for ${counterDamage} damage`);
+            
+            const shieldBashEntry = this.createSpecialLogEntry(
+              warden,
+              'Shield Bash',
+              { target: ally.name },
+              counterDamageRoll,
+              [
+                {
+                  type: 'damage',
+                  target: ally.name,
+                  damage: counterDamage,
+                  damageRoll: counterDamageRoll,
+                  newHP: ally.currentHP,
+                  maxHP: ally.HP
+                },
+                ...onDamageTriggers
+              ]
+            );
+            results.push(shieldBashEntry);
+            
+            if (ally.currentHP <= 0 && !ally.statusEffects?.justResurrected) {
+              this.updatePassiveEffectsOnDeath(game, ally, warden, 'counter_attack');
+            }
+          }
+        }
+      }
+      
+      // Consume advantage effects after the attack
+      this.consumeAdvantageEffects(ally, primaryTarget);
+    }
+    
+    return results;
   }
 
   // Survival State Management Methods
@@ -6739,11 +7169,25 @@ class GameManager {
       };
     }
 
-    // For regular modes (draft/random), award 1 victory point to the winner
-    const result = await this.awardVictoryPoints(winnerId, 1, `${game.mode}_mode_${reason}`);
+    // For regular modes (draft/random), award 2 base VP + 1 per surviving hero
+    const winner = game.players.find(p => p.id === winnerId);
+    if (!winner) {
+      console.error(`❌ Winner ${winnerId} not found in game players`);
+      return { success: false, error: 'Winner not found' };
+    }
+    
+    // Count surviving heroes (currentHP > 0)
+    const survivingHeroes = winner.team.filter(hero => hero.currentHP > 0).length;
+    const basePoints = 2;
+    const bonusPoints = survivingHeroes;
+    const totalPoints = basePoints + bonusPoints;
+    
+    console.log(`🏆 Draft mode victory: ${basePoints} base + ${bonusPoints} surviving heroes = ${totalPoints} VP`);
+    
+    const result = await this.awardVictoryPoints(winnerId, totalPoints, `${game.mode}_mode_${reason}`);
     
     if (result.success) {
-      console.log(`🏆 Awarded 1 victory point to winner ${winnerId} for ${game.mode} mode ${reason}`);
+      console.log(`🏆 Awarded ${totalPoints} victory points to winner ${winnerId} for ${game.mode} mode ${reason}`);
     } else {
       console.error(`❌ Failed to award victory points to winner ${winnerId}:`, result.error);
     }
@@ -6757,12 +7201,25 @@ class GameManager {
       return { success: true, pointsAwarded: 0, totalVictoryPoints: 0, message: 'No wins in run' };
     }
 
-    console.log(`🏆 Player ${playerId} survival run ended with ${finalWins} wins - awarding ${finalWins} victory points`);
+    // Victory points based on wins: 1→1, 2→2, 3→4, 4→6, 5→9, 6→12, 7→16
+    const vpTable = {
+      1: 1,
+      2: 2,
+      3: 4,
+      4: 6,
+      5: 9,
+      6: 12,
+      7: 16
+    };
     
-    const result = await this.awardVictoryPoints(playerId, finalWins, 'survival_run_completion');
+    const pointsToAward = vpTable[finalWins] || 0;
+    
+    console.log(`🏆 Player ${playerId} survival run ended with ${finalWins} wins - awarding ${pointsToAward} victory points`);
+    
+    const result = await this.awardVictoryPoints(playerId, pointsToAward, 'survival_run_completion');
     
     if (result.success) {
-      console.log(`🏆 Successfully awarded ${finalWins} victory points to player ${playerId} for survival run`);
+      console.log(`🏆 Successfully awarded ${pointsToAward} victory points to player ${playerId} for survival run`);
     } else {
       console.error(`❌ Failed to award survival victory points to player ${playerId}:`, result.error);
     }

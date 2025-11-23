@@ -53,6 +53,7 @@ interface BattleLogEntry {
   type?: string;
   source?: string;
   caster?: string;
+  isNonStandardLog?: boolean; // Flag for entries that shouldn't have "used" prefix
   message?: string;
   description?: string;
 }
@@ -69,6 +70,7 @@ interface User {
   xp: number;
   level: number;
   best_gauntlet_trial: number;
+  player_id?: string;
 }
 
 interface AppState {
@@ -201,7 +203,9 @@ function App() {
 
   // Save Victory Points to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('heroCallVictoryPoints', state.victoryPoints.toString());
+    if (state.victoryPoints !== undefined && state.victoryPoints !== null) {
+      localStorage.setItem('heroCallVictoryPoints', state.victoryPoints.toString());
+    }
   }, [state.victoryPoints]);
 
   useEffect(() => {
@@ -987,6 +991,7 @@ function App() {
             let target = '';
             let damage = 0;
             let healing = 0;
+            let isNonStandardLog = false;
             
             switch (effect.type) {
               case 'druid_healing':
@@ -1037,6 +1042,8 @@ function App() {
                 action = `${effect.target} is poisoned`;
                 target = effect.target;
                 damage = effect.damage;
+                // Mark this as a non-standard log entry to prevent "used" prefix
+                isNonStandardLog = true;
                 break;
               case 'monk_deflect_counter':
                 if (effect.abilityName) {
@@ -1076,8 +1083,9 @@ function App() {
                 ...(healing > 0 && { healing }),
                 hit: true,
                 crit: false,
-                attacker: effect.caster,
-                target
+                attacker: isNonStandardLog ? undefined : effect.caster,
+                target,
+                isNonStandardLog
               };
               newLogEntries.push(logEntry);
             }
@@ -2217,6 +2225,9 @@ function App() {
                                     '<strong>$1</strong> used <span class="special-name">$2</span>'
                                   )
                                 }} />
+                              ) : entry.isNonStandardLog ? (
+                                // Non-standard logs (like poison) - display action as-is without "used" prefix
+                                <span>{entry.action}</span>
                               ) : entry.isSpecial && entry.specialName ? (
                                 // Special ability format with gold styling
                                 <>

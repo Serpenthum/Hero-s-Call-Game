@@ -179,85 +179,30 @@ class Database {
         console.log('Added best_gauntlet_trial column to users table');
       }
     });
+
+    // Add player_id column to users table if it doesn't exist
+    this.db.run(`ALTER TABLE users ADD COLUMN player_id TEXT`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('Error adding player_id column:', err.message);
+      } else if (!err) {
+        console.log('Added player_id column to users table');
+      }
+    });
   }
 
+  // DISABLED: No longer automatically giving all heroes to users
+  // Heroes must now be purchased in the shop
   async initializeAvailableHeroes() {
-    try {
-      // Get all enabled heroes from the heroes.json file
-      delete require.cache[require.resolve('./heros.json')];
-      const allHeroes = require('./heros.json');
-      const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
-      const heroesJson = JSON.stringify(enabledHeroes);
-
-      // Update all users who have empty available_heroes
-      const updateQuery = `
-        UPDATE users 
-        SET available_heroes = ? 
-        WHERE available_heroes = '[]' OR available_heroes IS NULL
-      `;
-
-      this.db.run(updateQuery, [heroesJson], (err) => {
-        if (err) {
-          console.error('Error initializing available heroes:', err.message);
-        } else {
-          console.log('Initialized available heroes for existing users');
-        }
-      });
-
-      // Also refresh available heroes for all existing users to include newly enabled heroes
-      this.refreshAvailableHeroes();
-    } catch (error) {
-      console.error('Error getting enabled heroes:', error);
-    }
+    console.log('⚠️ Hero auto-initialization disabled - heroes must be purchased in shop');
+    // No longer automatically giving all heroes to users
+    return;
   }
 
+  // DISABLED: No longer automatically refreshing heroes
   async refreshAvailableHeroes() {
-    try {
-      // Get all enabled heroes from the heroes.json file
-      delete require.cache[require.resolve('./heros.json')];
-      const allHeroes = require('./heros.json');
-      const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
-
-      // Get all users and update their available heroes
-      const getAllUsersQuery = 'SELECT id, available_heroes FROM users';
-      
-      this.db.all(getAllUsersQuery, [], (err, rows) => {
-        if (err) {
-          console.error('Error getting users for hero refresh:', err.message);
-          return;
-        }
-
-        rows.forEach(row => {
-          let currentHeroes = [];
-          try {
-            currentHeroes = JSON.parse(row.available_heroes || '[]');
-          } catch (parseErr) {
-            console.error('Error parsing available heroes for user', row.id, parseErr);
-            currentHeroes = [];
-          }
-
-          // Add any newly enabled heroes that the user doesn't have
-          const updatedHeroes = [...new Set([...currentHeroes, ...enabledHeroes])];
-          
-          // Only update if there are new heroes to add
-          if (updatedHeroes.length > currentHeroes.length) {
-            const heroesJson = JSON.stringify(updatedHeroes);
-            const updateQuery = 'UPDATE users SET available_heroes = ? WHERE id = ?';
-            
-            this.db.run(updateQuery, [heroesJson, row.id], (updateErr) => {
-              if (updateErr) {
-                console.error('Error updating available heroes for user', row.id, updateErr.message);
-              } else {
-                const newHeroes = updatedHeroes.filter(hero => !currentHeroes.includes(hero));
-                console.log(`✅ Added new heroes to user ${row.id}:`, newHeroes.join(', '));
-              }
-            });
-          }
-        });
-      });
-    } catch (error) {
-      console.error('Error refreshing available heroes:', error);
-    }
+    console.log('⚠️ Hero auto-refresh disabled - heroes must be purchased in shop');
+    // No longer automatically adding newly enabled heroes
+    return;
   }
 
   // User authentication methods
@@ -282,12 +227,11 @@ class Database {
             return;
           }
 
-          // Get all enabled heroes for new user
+          // Get starter heroes for new user (same as Gauntlet starter heroes)
           try {
-            delete require.cache[require.resolve('./heros.json')];
-            const allHeroes = require('./heros.json');
-            const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
-            const heroesJson = JSON.stringify(enabledHeroes);
+            const { GAUNTLET_STARTER_HEROES } = require('./database');
+            const starterHeroes = [...GAUNTLET_STARTER_HEROES];
+            const heroesJson = JSON.stringify(starterHeroes);
 
             // Insert new user
             const insertQuery = `
@@ -308,7 +252,7 @@ class Database {
                 survival_wins: 0,
                 survival_losses: 0,
                 survival_used_heroes: [],
-                available_heroes: enabledHeroes
+                available_heroes: starterHeroes
               });
             });
           } catch (heroErr) {
@@ -403,10 +347,14 @@ class Database {
   async getUserById(userId) {
     return new Promise((resolve, reject) => {
       const query = `
-        SELECT id, username, victory_points, survival_wins, 
-               survival_losses, survival_used_heroes, available_heroes
-        FROM users 
-        WHERE id = ?
+        SELECT 
+          u.id, u.username, u.victory_points, u.survival_wins, 
+          u.survival_losses, u.survival_used_heroes, u.available_heroes,
+          u.favorite_heroes, u.best_gauntlet_trial, u.player_id,
+          ps.level, ps.xp
+        FROM users u
+        LEFT JOIN player_stats ps ON u.id = ps.user_id
+        WHERE u.id = ?
       `;
 
       this.db.get(query, [userId], (err, row) => {
@@ -423,10 +371,12 @@ class Database {
         // Parse JSON fields
         let survivalUsedHeroes = [];
         let availableHeroes = [];
+        let favoriteHeroes = [];
         
         try {
           survivalUsedHeroes = JSON.parse(row.survival_used_heroes || '[]');
           availableHeroes = JSON.parse(row.available_heroes || '[]');
+          favoriteHeroes = JSON.parse(row.favorite_heroes || '[]');
         } catch (parseErr) {
           console.error('Error parsing user data:', parseErr);
         }
@@ -434,11 +384,16 @@ class Database {
         resolve({
           id: row.id,
           username: row.username,
-          victory_points: row.victory_points,
-          survival_wins: row.survival_wins,
-          survival_losses: row.survival_losses,
+          victory_points: row.victory_points || 0,
+          survival_wins: row.survival_wins || 0,
+          survival_losses: row.survival_losses || 0,
           survival_used_heroes: survivalUsedHeroes,
-          available_heroes: availableHeroes
+          available_heroes: availableHeroes,
+          favorite_heroes: favoriteHeroes,
+          xp: row.xp || 0,
+          level: row.level || 1,
+          best_gauntlet_trial: row.best_gauntlet_trial || 0,
+          player_id: row.player_id || null
         });
       });
     });
@@ -485,6 +440,19 @@ class Database {
         WHERE id = ?
       `;
       
+      this.db.run(query, [userId], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(this.changes > 0);
+      });
+    });
+  }
+
+  async updateLastLogin(userId) {
+    return new Promise((resolve, reject) => {
+      const query = 'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?';
       this.db.run(query, [userId], function(err) {
         if (err) {
           reject(err);
@@ -827,8 +795,14 @@ class Database {
       // First get current stats
       this.getPlayerStats(userId)
         .then(stats => {
-          const newXP = stats.xp + xpGain;
+          let newXP = stats.xp + xpGain;
+          const oldLevel = stats.level;
           const newLevel = this.calculateLevel(newXP);
+          
+          // Reset XP to 0 if leveled up
+          if (newLevel > oldLevel) {
+            newXP = 0;
+          }
 
           const query = `
             UPDATE player_stats 
@@ -847,7 +821,7 @@ class Database {
               xp: newXP,
               level: newLevel,
               xpGained: xpGain,
-              leveledUp: newLevel > stats.level
+              leveledUp: newLevel > oldLevel
             });
           });
         })
@@ -856,14 +830,20 @@ class Database {
   }
 
   calculateLevel(xp) {
-    // Level progression: 100, 200, 300, ... up to level 10
-    for (let level = 1; level <= 10; level++) {
-      const xpRequired = level * 100;
-      if (xp < xpRequired) {
-        return level;
-      }
-    }
-    return 10; // Max level
+    // XP resets on level up. Each level requires: 50, 100, 150, 200, etc.
+    // Level 1: 0-49 XP
+    // Level 2: 0-99 XP (need 100 to level up)
+    // Level 3: 0-149 XP (need 150 to level up)
+    if (xp < 50) return 1;
+    if (xp < 100) return 2;
+    if (xp < 150) return 3;
+    if (xp < 200) return 4;
+    if (xp < 250) return 5;
+    if (xp < 300) return 6;
+    if (xp < 350) return 7;
+    if (xp < 400) return 8;
+    if (xp < 450) return 9;
+    return 10; // Max level (450+ XP)
   }
 
   async updatePlayerStats(userId, isWin, gameMode) {
@@ -1210,6 +1190,65 @@ class Database {
           console.log('Database connection closed');
         }
       });
+    }
+  }
+
+  // Auto-create admin accounts for testing
+  async createAdminAccounts() {
+    const adminAccounts = ['Admin1', 'Admin2', 'Admin3'];
+    const adminPassword = 'admin';
+    
+    try {
+      // Get all enabled heroes
+      delete require.cache[require.resolve('./heros.json')];
+      const allHeroes = require('./heros.json');
+      const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
+      const heroesJson = JSON.stringify(enabledHeroes);
+      
+      for (const adminName of adminAccounts) {
+        // Check if admin already exists
+        const existingAdmin = await new Promise((resolve, reject) => {
+          this.db.get('SELECT id FROM users WHERE username = ?', [adminName], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+        
+        if (existingAdmin) {
+          console.log(`ℹ️ Admin account ${adminName} already exists`);
+          continue;
+        }
+        
+        // Create admin account
+        const hash = await bcrypt.hash(adminPassword, 10);
+        
+        const userId = await new Promise((resolve, reject) => {
+          this.db.run(
+            'INSERT INTO users (username, password_hash, available_heroes, victory_points, favorite_heroes, best_gauntlet_trial, player_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [adminName, hash, heroesJson, 1000, '[]', 0, adminName], // Give 1000 VP to admins
+            function(err) {
+              if (err) reject(err);
+              else resolve(this.lastID);
+            }
+          );
+        });
+        
+        // Create player stats with level 10
+        await new Promise((resolve, reject) => {
+          this.db.run(
+            'INSERT INTO player_stats (user_id, level, xp) VALUES (?, ?, ?)',
+            [userId, 10, 1000],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        
+        console.log(`✅ Created admin account: ${adminName} (Level 10, all heroes unlocked)`);
+      }
+    } catch (error) {
+      console.error('Error creating admin accounts:', error);
     }
   }
 }

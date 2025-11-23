@@ -63,6 +63,7 @@ export interface Hero {
   BasicAttack: string;
   Ability: Ability[];
   Special: Ability[];
+  disabled?: boolean; // Whether hero is disabled/not available in game
   
   // Runtime properties
   currentHP?: number;

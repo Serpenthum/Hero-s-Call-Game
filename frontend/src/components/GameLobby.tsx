@@ -4,6 +4,8 @@ import HeroCard from './HeroCard';
 import ProfileModal from './ProfileModal';
 import XPBar from './XPBar';
 import SpectatorView from './SpectatorView';
+import Shop from './Shop';
+import RequirementModal from './RequirementModal';
 import { Hero, GameState } from '../types';
 import config from '../config';
 import '../styles/GameLobby.css';
@@ -20,6 +22,7 @@ interface User {
   xp: number;
   level: number;
   best_gauntlet_trial: number;
+  player_id?: string;
 }
 
 interface GameLobbyProps {
@@ -41,16 +44,37 @@ interface GameLobbyProps {
 
 const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onStartGauntlet, onSpectateGame, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange }) => {
   const [showCollection, setShowCollection] = useState(false);
+  const [showShop, setShowShop] = useState(false);
   const [showFriendlyModal, setShowFriendlyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [friendlyAction, setFriendlyAction] = useState<'create' | 'join' | 'spectate'>('create');
   const [roomName, setRoomName] = useState('');
   const [allHeroes, setAllHeroes] = useState<Hero[]>([]);
+  const [showRequirementModal, setShowRequirementModal] = useState(false);
+  const [requirementModalData, setRequirementModalData] = useState({
+    message: '',
+    currentCount: 0,
+    requiredCount: 0,
+    type: 'heroes' as 'heroes' | 'level'
+  });
   const [currentRandomHero, setCurrentRandomHero] = useState<Hero | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [userRefreshTrigger, setUserRefreshTrigger] = useState(0);
 
   const handleModeSelect = (mode: 'draft' | 'random') => {
+    // Check if player meets level requirement for Draft mode
+    if (mode === 'draft' && user.level < 3) {
+      setRequirementModalData({
+        message: 'You must reach level 3 to unlock Draft Mode.',
+        currentCount: user.level,
+        requiredCount: 3,
+        type: 'level'
+      });
+      setShowRequirementModal(true);
+      return;
+    }
+    
     // Cancel any existing search first
     if (isSearching && onCancelSearch) {
       onCancelSearch();
@@ -98,7 +122,53 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
     onCollectionStateChange?.(false);
   };
 
+  const handleShowShop = () => {
+    if (isSearching && onCancelSearch) {
+      onCancelSearch();
+    }
+    setShowShop(true);
+  };
+
+  const handleCloseShop = () => {
+    setShowShop(false);
+  };
+
+  const handlePurchaseComplete = async () => {
+    // Fetch updated user data without reloading the page
+    try {
+      const response = await fetch(`${config.API_BASE_URL}/api/user/${user.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        // API returns { success: true, user: {...} }
+        const userData = data.user || data;
+        // Update the user object by merging with existing data
+        Object.assign(user, {
+          victory_points: userData.victory_points,
+          available_heroes: userData.available_heroes
+        });
+        setUserRefreshTrigger(prev => prev + 1);
+        console.log(`✅ User data updated: ${userData.available_heroes.length} heroes`);
+      }
+    } catch (error) {
+      console.error('Error fetching updated user data:', error);
+    }
+  };
+
   const handleSurvivalClick = () => {
+    // Check if player has enough heroes for Survival mode
+    const ownedHeroCount = user.available_heroes?.length || 0;
+    console.log(`🔍 Survival check: ${ownedHeroCount} heroes owned, need 21`);
+    if (ownedHeroCount < 21) {
+      setRequirementModalData({
+        message: 'You need at least 21 heroes to play Survival Mode.',
+        currentCount: ownedHeroCount,
+        requiredCount: 21,
+        type: 'heroes'
+      });
+      setShowRequirementModal(true);
+      return;
+    }
+    
     // Cancel any existing search first
     if (isSearching && onCancelSearch) {
       onCancelSearch();
@@ -447,17 +517,17 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
           </div>
 
           {/* Collection Panel */}
-          <div className="collection-panel" onClick={handleShowCollection}>
+          <div className="collection-panel">
             <div className="panel-header">
               <h2>Hero Collection</h2>
               <div className="header-accent"></div>
             </div>
             <div className="collection-preview">
-              <div className="collection-text">
-                <h3>Explore Heroes</h3>
-                <p>Browse all available heroes, abilities, and lore</p>
-              </div>
-              <button className="collection-btn">
+              <button className="collection-btn shop-btn" onClick={handleShowShop} style={{ marginBottom: '10px' }}>
+                <span>Shop</span>
+                <div className="btn-arrow">→</div>
+              </button>
+              <button className="collection-btn" onClick={handleShowCollection}>
                 <span>View Collection</span>
                 <div className="btn-arrow">→</div>
               </button>
@@ -484,6 +554,17 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
 
         </div>
       </main>
+
+      {/* Shop Modal */}
+      {showShop && (
+        <Shop
+          onClose={handleCloseShop}
+          userId={user.id}
+          victoryPoints={user.victory_points}
+          availableHeroes={user.available_heroes}
+          onPurchaseComplete={handlePurchaseComplete}
+        />
+      )}
 
       {/* Collection Modal */}
       {showCollection && (
@@ -702,6 +783,16 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
           </div>
         </div>
       )}
+
+      {/* Requirement Modal */}
+      <RequirementModal
+        isOpen={showRequirementModal}
+        onClose={() => setShowRequirementModal(false)}
+        message={requirementModalData.message}
+        currentCount={requirementModalData.currentCount}
+        requiredCount={requirementModalData.requiredCount}
+        type={requirementModalData.type}
+      />
 
     </div>
   );

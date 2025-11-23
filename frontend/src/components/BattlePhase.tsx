@@ -831,13 +831,13 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                   // Check if hero has an activated special ability
                   const hasActivatedSpecial = activeHero.hero.Special && 
                     (Array.isArray(activeHero.hero.Special) 
-                      ? activeHero.hero.Special.some((s: any) => s.category === 'activated_aoe')
-                      : (activeHero.hero.Special as any).category === 'activated_aoe');
+                      ? activeHero.hero.Special.some((s: any) => s.category === 'activated_aoe' || s.category === 'activated_aoe_heal')
+                      : ((activeHero.hero.Special as any).category === 'activated_aoe' || (activeHero.hero.Special as any).category === 'activated_aoe_heal'));
                   
                   if (!hasActivatedSpecial) return null;
                   
                   const special = Array.isArray(activeHero.hero.Special)
-                    ? activeHero.hero.Special.find((s: any) => s.category === 'activated_aoe')
+                    ? activeHero.hero.Special.find((s: any) => s.category === 'activated_aoe' || s.category === 'activated_aoe_heal')
                     : activeHero.hero.Special;
                   
                   // Check if permanently disabled (persists through resurrection)

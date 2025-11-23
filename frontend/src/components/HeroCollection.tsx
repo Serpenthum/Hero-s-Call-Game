@@ -35,7 +35,7 @@ interface HeroCollectionProps {
 }
 
 type SortOption = 'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage';
-type FilterOption = 'available' | 'all' | 'favorites' | 'disabled';
+type FilterOption = 'available' | 'not-owned' | 'all' | 'favorites' | 'disabled';
 
 // Memoized HeroCard component to prevent unnecessary re-renders
 const HeroCard = React.memo<{
@@ -43,15 +43,16 @@ const HeroCard = React.memo<{
   actualIndex: number;
   isSelected: boolean;
   isFavorite: boolean;
+  isOwned: boolean;
   onClick: (index: number) => void;
-}>(({ hero, actualIndex, isSelected, isFavorite, onClick }) => {
+}>(({ hero, actualIndex, isSelected, isFavorite, isOwned, onClick }) => {
   const handleClick = useCallback(() => {
     onClick(actualIndex);
   }, [actualIndex, onClick]);
 
   return (
     <div 
-      className={`hero-card selectable collection-card ${isSelected ? 'enlarged' : ''} ${hero.disabled ? 'disabled-hero' : ''}`}
+      className={`hero-card selectable collection-card ${isSelected ? 'enlarged' : ''} ${!isOwned || hero.disabled ? 'disabled-hero' : ''}`}
       onClick={handleClick}
     >
       {isFavorite && (
@@ -70,7 +71,6 @@ const HeroCard = React.memo<{
         <div className="hero-stats">
           <div className="hero-name">
             {hero.name}
-            {hero.disabled && <span className="disabled-badge">Not Available</span>}
           </div>
           <div className="hero-stats-row">
             <span className="stat-icon">❤️</span>
@@ -123,14 +123,26 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     if (heroes.length > 0) {
       let filtered = heroes;
       
-      // Apply favorites filter if selected
-      if (filterOption === 'favorites') {
-        filtered = heroes.filter(hero => favoriteHeroes.includes(hero.name));
-      } else if (filterOption === 'disabled') {
-        // Show heroes that are either marked as disabled OR not in player's available heroes
+      // Apply filter based on selection
+      if (filterOption === 'available') {
+        // Show only owned and enabled heroes
         filtered = heroes.filter(hero => 
-          hero.disabled || (userId && availableHeroes.length > 0 && !availableHeroes.includes(hero.name))
+          availableHeroes.includes(hero.name) && !hero.disabled
         );
+      } else if (filterOption === 'not-owned') {
+        // Show only enabled heroes not owned
+        filtered = heroes.filter(hero => 
+          !availableHeroes.includes(hero.name) && !hero.disabled
+        );
+      } else if (filterOption === 'disabled') {
+        // Show only disabled heroes
+        filtered = heroes.filter(hero => hero.disabled);
+      } else if (filterOption === 'all') {
+        // Show all heroes (owned and not owned, enabled and disabled)
+        filtered = heroes;
+      } else if (filterOption === 'favorites') {
+        // Show only favorite heroes
+        filtered = heroes.filter(hero => favoriteHeroes.includes(hero.name));
       }
       
       // Apply search filter
@@ -142,9 +154,13 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       
       const sorted = sortHeroes(filtered, sortOption);
       setSortedHeroes(sorted);
-      setCurrentPage(0); // Reset to first page when sorting or filtering changes
     }
-  }, [heroes, sortOption, filterOption, favoriteHeroes, availableHeroes, searchQuery, userId]);
+  }, [heroes, sortOption, filterOption, favoriteHeroes, availableHeroes, searchQuery]);
+
+  // Separate effect to reset page only when sort, filter, or search changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [sortOption, filterOption, searchQuery]);
 
   const parseAttackValue = useCallback((attack: string): number => {
     // Extract numeric value from attack string (e.g., "1D6" -> 6, "2D4" -> 8)
@@ -186,18 +202,14 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     try {
       console.log('Attempting to fetch heroes from:', config.API_BASE_URL);
       
-      // Build URL with parameters for authenticated users in collection view
+      // Always fetch all heroes, then filter based on filterOption
       let url = `${config.API_BASE_URL}/api/heroes`;
       const params = new URLSearchParams();
       
       if (userId) {
         params.append('userId', userId.toString());
-        if (filterOption === 'all') {
-          params.append('showAll', 'true');
-        }
-      } else {
-        // For non-authenticated users, show all enabled heroes
-        params.append('showAll', 'false');
+        // Request all heroes to properly filter
+        params.append('showAll', 'true');
       }
       
       if (params.toString()) {
@@ -213,17 +225,10 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       }
       
       const data = await response.json();
-      console.log('Fetched data:', data);
+      console.log('Fetched heroes data:', data);
       console.log('Total heroes received:', data.length);
       
-      // If showing all heroes (collection view), keep all; otherwise filter enabled
-      let filteredHeroes = data;
-      if (filterOption === 'available') {
-        filteredHeroes = data.filter((hero: Hero) => !hero.disabled);
-      }
-      console.log('Filtered heroes:', filteredHeroes.length);
-      
-      setHeroes(filteredHeroes);
+      setHeroes(data);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching heroes from API, using fallback data:', error);
@@ -440,7 +445,8 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                 onChange={handleFilterChange}
                 className="filter-dropdown"
               >
-                <option value="available">Available Heroes</option>
+                <option value="available">Owned Heroes</option>
+                <option value="not-owned">Not Owned</option>
                 <option value="all">All Heroes</option>
                 {userId && <option value="favorites">Favorite Heroes</option>}
                 <option value="disabled">Disabled Heroes</option>
@@ -548,6 +554,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                   actualIndex={actualIndex}
                   isSelected={selectedHeroIndex === actualIndex}
                   isFavorite={favoriteHeroes.includes(hero.name)}
+                  isOwned={availableHeroes.includes(hero.name)}
                   onClick={handleHeroClick}
                 />
               );

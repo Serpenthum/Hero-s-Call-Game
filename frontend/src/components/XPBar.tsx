@@ -6,28 +6,23 @@ interface XPBarProps {
   level: number;
   animated?: boolean;
   xpGained?: number;
+  leveledUp?: boolean;
 }
 
-const XPBar: React.FC<XPBarProps> = ({ currentXP, level, animated = true, xpGained = 0 }) => {
+const XPBar: React.FC<XPBarProps> = ({ currentXP, level, animated = true, xpGained = 0, leveledUp = false }) => {
   const [displayXP, setDisplayXP] = useState(animated ? currentXP - xpGained : currentXP);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showLevelUp, setShowLevelUp] = useState(false);
 
-  // Calculate XP values for current level
-  const getXPForLevel = (lvl: number) => {
-    if (lvl <= 1) return 0;
-    return (lvl - 1) * 100;
+  // Calculate XP target for current level (XP resets to 0 on level up)
+  // Level 1 needs 50, Level 2 needs 100, Level 3 needs 150, etc.
+  const getXPNeededForCurrentLevel = (lvl: number) => {
+    if (lvl >= 10) return 500; // Max level
+    return lvl * 50;
   };
 
-  const getXPForNextLevel = (lvl: number) => {
-    if (lvl >= 10) return lvl * 100; // Max level
-    return lvl * 100;
-  };
-
-  const xpForCurrentLevel = getXPForLevel(level);
-  const xpForNextLevel = getXPForNextLevel(level);
-  const currentLevelXP = Math.max(0, displayXP - xpForCurrentLevel);
-  const xpNeededForNext = xpForNextLevel - xpForCurrentLevel;
-  const progressPercent = Math.min(100, (currentLevelXP / xpNeededForNext) * 100);
+  const xpNeededForNext = getXPNeededForCurrentLevel(level);
+  const progressPercent = Math.min(100, (displayXP / xpNeededForNext) * 100);
 
   // Animation effect for XP gain
   useEffect(() => {
@@ -61,9 +56,20 @@ const XPBar: React.FC<XPBarProps> = ({ currentXP, level, animated = true, xpGain
     }
   }, [currentXP, xpGained, animated]);
 
+  // Level up animation effect
+  useEffect(() => {
+    if (leveledUp) {
+      setShowLevelUp(true);
+      const timer = setTimeout(() => {
+        setShowLevelUp(false);
+      }, 2000); // Match the levelUpGlow animation duration
+      return () => clearTimeout(timer);
+    }
+  }, [leveledUp]);
+
   return (
     <div className="xp-bar-container">
-      <div className="xp-bar">
+      <div className={`xp-bar ${showLevelUp ? 'level-up' : ''}`}>
         <div 
           className={`xp-fill ${isAnimating ? 'animating' : ''}`}
           style={{ width: `${progressPercent}%` }}
@@ -71,7 +77,7 @@ const XPBar: React.FC<XPBarProps> = ({ currentXP, level, animated = true, xpGain
           <div className="xp-shine"></div>
         </div>
         <div className="xp-text">
-          <span className="xp-current">{Math.floor(currentLevelXP)}</span>
+          <span className="xp-current">{Math.floor(displayXP)}</span>
           <span className="xp-separator">/</span>
           <span className="xp-max">{xpNeededForNext}</span>
           <span className="xp-label">XP</span>

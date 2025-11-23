@@ -1,0 +1,329 @@
+.pack-opening-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(8px);
+}
+
+.pack-opening-container {
+  display: flex;
+  gap: clamp(2rem, 5vw, 4rem);
+  justify-content: center;
+  align-items: center;
+  perspective: 1500px;
+}
+
+.pack-card-slot {
+  position: relative;
+  width: clamp(180px, 15vw, 280px);
+  height: clamp(270px, 22.5vw, 420px);
+  transform-style: preserve-3d;
+  transition: transform 0.8s ease;
+}
+
+/* Zoom in animation */
+.pack-card-slot.zoom-in {
+  animation: zoomToCenter 1s ease-out forwards;
+}
+
+@keyframes zoomToCenter {
+  0% {
+    transform: scale(0.3) translateY(100vh);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Flip animation - triggers when flipped class is added */
+.pack-card-slot.flipped {
+  animation: flipCard 0.8s ease-in-out forwards;
+}
+
+@keyframes flipCard {
+  0% {
+    transform: rotateY(0deg) scale(1);
+  }
+  50% {
+    transform: rotateY(90deg) scale(1.1);
+  }
+  100% {
+    transform: rotateY(180deg) scale(1);
+  }
+}
+
+/* Revealed state - add bounce */
+.pack-card-slot.revealed {
+  animation: revealBounce 0.6s ease-out forwards;
+}
+
+@keyframes revealBounce {
+  0% {
+    transform: rotateY(180deg) scale(1);
+  }
+  50% {
+    transform: rotateY(180deg) scale(1.15);
+  }
+  100% {
+    transform: rotateY(180deg) scale(1.05);
+  }
+}
+
+/* Pack front face */
+.pack-front {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.3) 0%, rgba(75, 0, 130, 0.3) 100%);
+  border: 3px solid rgba(138, 43, 226, 0.6);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(138, 43, 226, 0.4);
+}
+
+.pack-image-full {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+/* Hero card back face */
+.hero-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-card-revealed {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 3px solid #4a9eff;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(74, 158, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+/* Glow effect when revealed */
+.hero-card-revealed.glow {
+  animation: cardGlow 2s ease-in-out infinite;
+  border-color: #4a9eff;
+}
+
+@keyframes cardGlow {
+  0%, 100% {
+    box-shadow: 
+      0 0 15px rgba(74, 158, 255, 0.4),
+      0 0 25px rgba(74, 158, 255, 0.3),
+      0 0 35px rgba(74, 158, 255, 0.2);
+    border-color: #4a9eff;
+  }
+  50% {
+    box-shadow: 
+      0 0 20px rgba(74, 158, 255, 0.6),
+      0 0 35px rgba(74, 158, 255, 0.4),
+      0 0 50px rgba(74, 158, 255, 0.3);
+    border-color: #5aafff;
+  }
+}
+
+.hero-reveal-image {
+  width: 100%;
+  height: 70%;
+  object-fit: cover;
+  background: #1a1a2e;
+}
+
+.hero-card-revealed .hero-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.hero-card-revealed .hero-stats {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: clamp(6px, 0.6vw, 10px) clamp(8px, 0.8vw, 12px) clamp(5px, 0.5vw, 8px) clamp(8px, 0.8vw, 12px);
+  border-radius: 0 0 10px 10px;
+  font-size: clamp(0.7rem, 0.8vw, 0.9rem);
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-card-revealed .hero-name {
+  font-weight: bold;
+  font-size: clamp(0.85rem, 1vw, 1.1rem);
+  margin-bottom: clamp(3px, 0.35vw, 5px);
+  text-align: center;
+  color: white;
+  padding-bottom: clamp(3px, 0.35vw, 5px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.hero-card-revealed .hero-stats-row {
+  display: flex;
+  align-items: center;
+  font-size: clamp(0.65rem, 0.75vw, 0.85rem);
+  color: #ffffff;
+  margin-bottom: clamp(2px, 0.25vw, 3px);
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.hero-card-revealed .hero-stats-row:last-child {
+  margin-bottom: 0;
+}
+
+.hero-card-revealed .stat-icon {
+  width: clamp(12px, 1vw, 16px);
+  height: clamp(12px, 1vw, 16px);
+  margin-right: clamp(5px, 0.5vw, 8px);
+  flex-shrink: 0;
+}
+
+/* Tooltip styling - matches HeroCard tooltip */
+.pack-hero-tooltip {
+  position: absolute;
+  top: 50%;
+  left: 110%;
+  transform: translateY(-50%);
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 2px solid #4a9eff;
+  border-radius: 8px;
+  padding: 1rem;
+  min-width: 280px;
+  max-width: 350px;
+  z-index: 10001;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  opacity: 0;
+  animation: tooltipFadeIn 0.2s ease-out forwards;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+.pack-hero-tooltip .tooltip-section {
+  margin-bottom: 1rem;
+}
+
+.pack-hero-tooltip .tooltip-section:last-child {
+  margin-bottom: 0;
+}
+
+.pack-hero-tooltip h4 {
+  margin: 0 0 0.5rem 0;
+  color: #4a9eff;
+  font-size: 0.9rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(74, 158, 255, 0.3);
+  padding-bottom: 0.25rem;
+}
+
+.pack-hero-tooltip .tooltip-ability,
+.pack-hero-tooltip .tooltip-special {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(74, 158, 255, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid #4a9eff;
+}
+
+.pack-hero-tooltip .tooltip-ability:last-child,
+.pack-hero-tooltip .tooltip-special:last-child {
+  margin-bottom: 0;
+}
+
+.pack-hero-tooltip .tooltip-ability-name,
+.pack-hero-tooltip .tooltip-special-name {
+  font-weight: bold;
+  color: #ffd700;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.pack-hero-tooltip .tooltip-ability-description,
+.pack-hero-tooltip .tooltip-special-description {
+  color: #e0e0e0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+/* Position tooltip on left side for rightmost card */
+.pack-card-slot.pack-2 .pack-hero-tooltip {
+  left: auto;
+  right: 110%;
+  animation: tooltipFadeInLeft 0.2s ease-out forwards;
+}
+
+@keyframes tooltipFadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* Hover scale effect */
+.hero-card-back:hover .hero-card-revealed {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+  z-index: 10;
+}
+
+.hero-card-revealed {
+  transition: transform 0.2s ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .pack-opening-container {
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1rem;
+  }
+
+  .pack-card-slot {
+    width: clamp(120px, 25vw, 180px);
+    height: clamp(180px, 37.5vw, 270px);
+  }
+}

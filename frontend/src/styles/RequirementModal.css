@@ -1,0 +1,134 @@
+.requirement-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+.requirement-modal-container {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 2px solid #ff6b6b;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 380px;
+  padding: 0;
+  box-shadow: 0 10px 40px rgba(255, 107, 107, 0.4);
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.requirement-modal-content {
+  padding: 1.5rem;
+}
+
+.requirement-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  background: rgba(255, 107, 107, 0.15);
+  border-bottom: 2px solid rgba(255, 107, 107, 0.3);
+}
+
+.requirement-warning-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(255, 107, 107, 0.6));
+}
+
+.requirement-title {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #ff6b6b;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(255, 107, 107, 0.4);
+}
+
+.requirement-message {
+  margin: 0 0 1.25rem 0;
+  font-size: 1rem;
+  color: #e0e0e0;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.requirement-display {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.requirement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.requirement-label {
+  font-size: 1rem;
+  color: #b0b0b0;
+  font-weight: 500;
+}
+
+.requirement-value {
+  font-size: 1.15rem;
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.current-count {
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.requirement-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4a9eff;
+  text-align: center;
+  font-style: italic;
+}
+
+.requirement-modal-button {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #8b4513 0%, #6b3410 100%);
+  color: white;
+  border: none;
+  border-radius: 0 0 10px 10px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.requirement-modal-button:hover {
+  background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
+  box-shadow: 0 0 15px rgba(139, 69, 19, 0.5);
+}
+
+.requirement-modal-button:active {
+  transform: scale(0.98);
+}

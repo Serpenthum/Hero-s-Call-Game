@@ -318,6 +318,19 @@ const HeroCard: React.FC<HeroCardProps> = ({
       );
     }
     
+    if (hero.statusEffects.med_bot_count && hero.statusEffects.med_bot_count > 0) {
+      buffs.push(
+        <span key="med-bot-count" className="status-effect-tooltip">
+          <span className="status-effect med-bot-count">
+            💉 {hero.statusEffects.med_bot_count}
+          </span>
+          <span className="status-tooltip-text">
+            Med Bots: {hero.statusEffects.med_bot_count}/3 active - heal lowest HP ally {hero.statusEffects.med_bot_count}D4 at end of Medic's turn
+          </span>
+        </span>
+      );
+    }
+    
     if (hero.statusEffects.inspiration > 0) {
       buffs.push(
         <span key="inspiration" className="status-effect-tooltip">

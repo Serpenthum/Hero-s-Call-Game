@@ -30,7 +30,8 @@
   }
   
   .hero-browser-side {
-    min-width: 400px;
+    min-width: 350px;
+    max-width: 55%;
   }
   
   .team-selection-side {
@@ -38,15 +39,38 @@
   }
 }
 
+@media (max-width: 1200px) {
+  .hero-browser-side {
+    min-width: 320px;
+    max-width: 52%;
+  }
+  
+  .team-selection-side {
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .hero-browser-side {
+    min-width: 300px;
+    max-width: 50%;
+  }
+  
+  .team-selection-side {
+    min-width: 260px;
+  }
+}
+
 /* Left Side - Hero Browser */
 .hero-browser-side {
-  flex: 0 0 58%;
+  flex: 1 1 58%;
   display: flex;
   flex-direction: column;
   overflow: visible;
   border-right: 2px solid #ff6600;
   padding: 15px 2px 15px 0;
   max-width: 58%;
+  min-width: 300px;
 }
 
 /* Hero Browser Header */
@@ -396,7 +420,7 @@
   flex: 1;
   display: flex;
   align-items: flex-start;
-  justify-content: flex-start;
+  justify-content: center;
   padding-top: 15px;
   overflow: visible;
 }
@@ -405,12 +429,11 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, auto);
-  column-gap: 10px;
-  row-gap: 10px;
-  padding: 0 40px 20px 10px;
+  gap: 10px;
+  padding: 0 50px 20px 10px;
   justify-items: center;
+  width: 90%;
   max-width: 100%;
-  width: 100%;
   opacity: 1;
   transition: opacity 0.2s ease-in-out;
   overflow: visible;
@@ -426,7 +449,6 @@
   width: clamp(156px, 12vw, 234px); /* Match draft card width */
   height: auto; /* Allow height to fit all content */
   min-height: clamp(240px, 18.5vw, 360px); /* Ensure minimum height */
-  margin: clamp(3px, 0.4vw, 6px); /* Match draft card margin */
   
   /* Orange border instead of blue */
   border: 3px solid #ff6600;
@@ -893,8 +915,8 @@
   .heroes-grid {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
-    gap: 15px;
-    padding: 0 45px;
+    gap: 10px;
+    padding: 0 55px;
     max-width: 700px;
   }
   

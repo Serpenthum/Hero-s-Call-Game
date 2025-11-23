@@ -308,11 +308,11 @@ body, html {
   box-sizing: border-box; /* Include border in dimensions */
 }
 
-.hero-card:hover {
+.hero-card:hover:not(.shop-hero-card) {
   overflow: visible;
 }
 
-.hero-card:hover {
+.hero-card:hover:not(.shop-hero-card) {
   transform: scale(1.1);
   z-index: 15;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
@@ -375,7 +375,7 @@ body, html {
   flex-direction: column;
 }
 
-.hero-card.selectable:hover {
+.hero-card.selectable:hover:not(.shop-hero-card) {
   border-color: #007bff;
   transform: scale(1.1);
   z-index: 15;

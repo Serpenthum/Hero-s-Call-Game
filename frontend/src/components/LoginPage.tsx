@@ -110,6 +110,43 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
     }
   };
 
+  const handleAdminLogin = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Call new endpoint that handles finding next available admin
+      const response = await fetch(`${config.API_BASE_URL}/api/admin-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      console.log('Admin login response data:', JSON.stringify({
+        success: data.success,
+        username: data.user?.username,
+        level: data.user?.level,
+        xp: data.user?.xp,
+        victory_points: data.user?.victory_points,
+        player_id: data.user?.player_id
+      }, null, 2));
+
+      if (data.success) {
+        onLogin(data.user);
+      } else {
+        setError(data.message || 'Failed to login as admin');
+      }
+    } catch (error) {
+      console.error('Admin login error:', error);
+      setError('Connection failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="login-page">
       <div className="login-background">
@@ -124,6 +161,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
       <div className="login-container">
         <div className="login-header">
           <h1 className="game-title">Hero's Call</h1>
+        </div>
+
+        {/* Admin Quick Login Button */}
+        <div className="admin-quick-login">
+          <button 
+            type="button"
+            className="admin-login-btn"
+            onClick={handleAdminLogin}
+            disabled={isLoading}
+          >
+            🔑 Quick Admin Login
+          </button>
+          <div className="admin-login-hint">Auto-creates next available admin account</div>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>

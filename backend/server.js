@@ -72,9 +72,9 @@ const heroes = getHeroes();
 const database = new Database();
 await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait a moment to ensure database is ready
 
-// Refresh available heroes for all users to include newly enabled heroes like Engineer
+// Create admin accounts for testing
 setTimeout(() => {
-  database.refreshAvailableHeroes();
+  database.createAdminAccounts();
 }, 10000); // Small delay to ensure database tables are created first
 
 // Session management for authentication
@@ -187,6 +187,106 @@ app.post('/api/login', async (req, res) => {
     res.status(401).json({ 
       success: false, 
       message: error.message || 'Login failed' 
+    });
+  }
+});
+
+// Admin auto-login endpoint - finds next available admin account
+app.post('/api/admin-login', async (req, res) => {
+  try {
+    // Get all enabled heroes for admin accounts
+    delete require.cache[require.resolve('./heros.json')];
+    const allHeroes = require('./heros.json');
+    const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
+    const heroesJson = JSON.stringify(enabledHeroes);
+
+    // Find next available admin number by checking existing admins
+    let adminNumber = 1;
+    let adminFound = false;
+    let user = null;
+    
+    // Try to find an admin that's not currently logged in
+    while (!adminFound && adminNumber <= 100) { // Cap at 100 admins
+      const adminUsername = `Admin${adminNumber}`;
+      
+      // Check if this admin exists
+      const existingUser = await database.getUserByUsername(adminUsername);
+      
+      if (!existingUser) {
+        // Admin doesn't exist, create it
+        const hash = await bcrypt.hash('admin', 10);
+        
+        const userId = await new Promise((resolve, reject) => {
+          database.db.run(
+            'INSERT INTO users (username, password_hash, available_heroes, victory_points, favorite_heroes, best_gauntlet_trial, player_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [adminUsername, hash, heroesJson, 1000, '[]', 0, adminUsername],
+            function(err) {
+              if (err) reject(err);
+              else resolve(this.lastID);
+            }
+          );
+        });
+        
+        // Create player stats with level 10
+        await new Promise((resolve, reject) => {
+          database.db.run(
+            'INSERT INTO player_stats (user_id, level, xp) VALUES (?, ?, ?)',
+            [userId, 10, 1000],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        
+        user = await database.getUserById(userId);
+        console.log(`✅ Created and logging in as ${adminUsername}`);
+        adminFound = true;
+      } else {
+        // Check if this admin is currently logged in
+        const isLoggedIn = loggedInUsers.has(existingUser.id);
+        
+        if (!isLoggedIn) {
+          // Admin exists and is not logged in, fetch full user data
+          user = await database.getUserById(existingUser.id);
+          console.log(`✅ Logging in as existing ${adminUsername}`);
+          adminFound = true;
+        } else {
+          // This admin is logged in, try next number
+          adminNumber++;
+        }
+      }
+    }
+    
+    if (!user) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Could not create or find available admin account' 
+      });
+    }
+    
+    // Update last login
+    await database.updateLastLogin(user.id);
+    
+    console.log('Admin user data being sent:', JSON.stringify({
+      id: user.id,
+      username: user.username,
+      level: user.level,
+      xp: user.xp,
+      victory_points: user.victory_points,
+      player_id: user.player_id
+    }));
+    
+    res.json({ 
+      success: true, 
+      user: user,
+      message: `Logged in as ${user.username}`
+    });
+  } catch (error) {
+    console.error('Admin auto-login error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to auto-login as admin' 
     });
   }
 });
@@ -352,6 +452,200 @@ app.get('/api/favorite-heroes/:userId', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: error.message || 'Failed to get favorite heroes' 
+    });
+  }
+});
+
+// Shop API endpoints
+
+// Get current shop rotation (6 heroes that refresh every 6 hours)
+app.get('/api/shop/rotation', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
+
+    // Get user data to know which heroes they own
+    const user = await database.getUserById(parseInt(userId));
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Get all enabled heroes that the user doesn't own
+    const enabledHeroes = heroes.filter(h => !h.disabled && !user.available_heroes.includes(h.name));
+    
+    // Calculate current rotation seed (changes every 15 minutes)
+    const now = new Date();
+    const rotationSeed = Math.floor(now.getTime() / (15 * 60 * 1000));
+    
+    // Shuffle unowned enabled heroes using the rotation seed
+    const shuffled = [...enabledHeroes];
+    let seed = rotationSeed;
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      seed = (seed * 9301 + 49297) % 233280;
+      const j = Math.floor((seed / 233280) * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
+    // Take the first 6 heroes from the shuffled list (this is the rotation)
+    const rotationHeroes = shuffled.slice(0, Math.min(6, shuffled.length));
+    
+    // All heroes in rotation are unowned
+    const rotationWithStatus = rotationHeroes.map(hero => ({
+      ...hero,
+      owned: false
+    }));
+
+    res.json({ 
+      success: true, 
+      heroes: rotationWithStatus,
+      rotationSeed 
+    });
+  } catch (error) {
+    console.error('Get shop rotation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to get shop rotation' 
+    });
+  }
+});
+
+app.post('/api/shop/purchase-hero', async (req, res) => {
+  try {
+    const { userId, heroName } = req.body;
+    
+    if (!userId || !heroName) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID and hero name are required' 
+      });
+    }
+
+    // Get user data
+    const user = await database.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check if user has enough VP
+    if (user.victory_points < 5) {
+      return res.status(400).json({ success: false, message: 'Not enough Victory Points' });
+    }
+
+    // Check if hero is enabled
+    const hero = heroes.find(h => h.name === heroName);
+    if (!hero || hero.disabled) {
+      return res.status(400).json({ success: false, message: 'Hero not available' });
+    }
+
+    // Check if user already owns the hero
+    if (user.available_heroes.includes(heroName)) {
+      return res.status(400).json({ success: false, message: 'Hero already owned' });
+    }
+
+    // Deduct VP and add hero
+    const updatedHeroes = [...user.available_heroes, heroName];
+    const newVP = user.victory_points - 5;
+
+    await new Promise((resolve, reject) => {
+      database.db.run(
+        'UPDATE users SET available_heroes = ?, victory_points = ? WHERE id = ?',
+        [JSON.stringify(updatedHeroes), newVP, userId],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    console.log(`✅ User ${userId} purchased ${heroName} for 5 VP`);
+    res.json({ 
+      success: true, 
+      message: `${heroName} purchased successfully!`,
+      newVP,
+      heroName,
+      available_heroes: updatedHeroes,
+      heroCount: updatedHeroes.length
+    });
+  } catch (error) {
+    console.error('Purchase hero error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to purchase hero' 
+    });
+  }
+});
+
+app.post('/api/shop/purchase-pack', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
+
+    // Get user data
+    const user = await database.getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check if user has enough VP
+    if (user.victory_points < 12) {
+      return res.status(400).json({ success: false, message: 'Not enough Victory Points' });
+    }
+
+    // Get all unowned enabled heroes
+    const enabledHeroes = heroes.filter(h => !h.disabled);
+    const unownedHeroes = enabledHeroes.filter(h => !user.available_heroes.includes(h.name));
+
+    if (unownedHeroes.length === 0) {
+      return res.status(400).json({ success: false, message: 'All heroes already owned' });
+    }
+
+    // Select 3 random heroes (or fewer if less than 3 remaining)
+    const heroesToGive = Math.min(3, unownedHeroes.length);
+    const shuffled = unownedHeroes.sort(() => Math.random() - 0.5);
+    const selectedHeroes = shuffled.slice(0, heroesToGive);
+    const heroNames = selectedHeroes.map(h => h.name);
+
+    // Deduct VP and add heroes
+    const updatedHeroes = [...user.available_heroes, ...heroNames];
+    const newVP = user.victory_points - 12;
+
+    await new Promise((resolve, reject) => {
+      database.db.run(
+        'UPDATE users SET available_heroes = ?, victory_points = ? WHERE id = ?',
+        [JSON.stringify(updatedHeroes), newVP, userId],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    console.log(`✅ User ${userId} purchased pack for 12 VP, received: ${heroNames.join(', ')}`);
+    res.json({ 
+      success: true, 
+      message: `Pack opened! Received ${heroesToGive} hero${heroesToGive > 1 ? 'es' : ''}`,
+      newVP,
+      heroesReceived: heroNames,
+      available_heroes: updatedHeroes,
+      heroCount: updatedHeroes.length
+    });
+  } catch (error) {
+    console.error('Purchase pack error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Failed to purchase pack' 
     });
   }
 });
@@ -854,15 +1148,18 @@ async function checkGauntletGameCompletion(result) {
           
           if (userId) {
             const user = await database.getUserById(userId);
-            const playerStats = await database.getPlayerStats(userId);
 
             if (rewards.xp > 0) {
+              const xpUpdate = await database.updatePlayerXP(userId, rewards.xp);
+              
               io.to(winnerPlayer.id).emit('xp-update', {
-                xpGained: rewards.xp,
-                newXP: playerStats.xp,
-                newLevel: playerStats.level,
-                leveledUp: false,
-                message: `+${rewards.xp} XP from Gauntlet Trial ${winnerResult.finalTrial}!`
+                xpGained: xpUpdate.xpGained,
+                newXP: xpUpdate.xp,
+                newLevel: xpUpdate.level,
+                leveledUp: xpUpdate.leveledUp,
+                message: xpUpdate.leveledUp ?
+                  `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP from Gauntlet Trial ${winnerResult.finalTrial})` :
+                  `+${xpUpdate.xpGained} XP from Gauntlet Trial ${winnerResult.finalTrial}! (${xpUpdate.xp} total)`
               });
             }
 
@@ -883,15 +1180,18 @@ async function checkGauntletGameCompletion(result) {
           
           if (userId) {
             const user = await database.getUserById(userId);
-            const playerStats = await database.getPlayerStats(userId);
 
             if (rewards.xp > 0) {
+              const xpUpdate = await database.updatePlayerXP(userId, rewards.xp);
+              
               io.to(loserPlayer.id).emit('xp-update', {
-                xpGained: rewards.xp,
-                newXP: playerStats.xp,
-                newLevel: playerStats.level,
-                leveledUp: false,
-                message: `+${rewards.xp} XP from Gauntlet Trial ${loserResult.finalTrial}!`
+                xpGained: xpUpdate.xpGained,
+                newXP: xpUpdate.xp,
+                newLevel: xpUpdate.level,
+                leveledUp: xpUpdate.leveledUp,
+                message: xpUpdate.leveledUp ?
+                  `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP from Gauntlet Trial ${loserResult.finalTrial})` :
+                  `+${xpUpdate.xpGained} XP from Gauntlet Trial ${loserResult.finalTrial}! (${xpUpdate.xp} total)`
               });
             }
 
@@ -2158,9 +2458,35 @@ app.get('/api/game/:gameId', (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Hero's Call server running on port ${PORT}`);
   console.log('Server startup completed successfully');
+  
+  // Migrate existing admin accounts to have player_id
+  try {
+    const adminAccounts = ['Admin1', 'Admin2', 'Admin3'];
+    for (const adminName of adminAccounts) {
+      await new Promise((resolve, reject) => {
+        database.db.run(
+          'UPDATE users SET player_id = ? WHERE username = ? AND player_id IS NULL',
+          [adminName, adminName],
+          function(err) {
+            if (err) {
+              console.error(`Error updating player_id for ${adminName}:`, err);
+              reject(err);
+            } else if (this.changes > 0) {
+              console.log(`✅ Updated player_id for ${adminName}`);
+              resolve();
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+    }
+  } catch (error) {
+    console.error('Error migrating admin accounts:', error);
+  }
 });
 
 // Add error handling for uncaught exceptions
