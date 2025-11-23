@@ -14,6 +14,7 @@ interface HeroCardProps {
   disableHPAnimations?: boolean;
   hideAbilities?: boolean;
   tooltipPosition?: 'right' | 'left'; // Add tooltip position prop
+  forceShowTooltip?: boolean; // Force tooltip to always show
 }
 
 const KEYWORD_TOOLTIPS: { [key: string]: string } = {
@@ -37,7 +38,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
   showFullInfo = true,
   disableHPAnimations = false,
   hideAbilities = false,
-  tooltipPosition = 'right' // Default to right
+  tooltipPosition = 'right', // Default to right
+  forceShowTooltip = false
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
@@ -881,7 +883,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
         </div>
       </div>
 
-      {showFullInfo && isHovered && !hideAbilities && (
+      {showFullInfo && (isHovered || forceShowTooltip) && !hideAbilities && (
         <div className={`hero-tooltip ${tooltipPosition === 'left' ? 'tooltip-left' : 'tooltip-right'}`}>
           <div className="tooltip-section">
             <h4>Abilities</h4>

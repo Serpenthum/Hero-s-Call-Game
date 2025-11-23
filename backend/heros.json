@@ -182,7 +182,7 @@
   },
   {
     "name": "Paladin",
-    "HP": 20,
+    "HP": 19,
     "Defense": 10,
     "Accuracy": "+1",
     "BasicAttack": "1D4",
@@ -236,12 +236,12 @@
       {
         "category": "single_target_damage",
         "name": "Chromatic Orb",
-        "description": "Deal 2D4 damage.",
+        "description": "Deal 1D8 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
             "type": "damage",
-            "value": "2D4",
+            "value": "1D8",
             "target": "target"
           }
         ]

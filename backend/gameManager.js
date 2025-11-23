@@ -4895,6 +4895,12 @@ class GameManager {
         endTurnEffects.push(...poisonAuraEffects);
       }
       
+      // Check if hero died from poison and trigger death effects (Hoarder's Collect Weapons, remove passive effects, etc.)
+      if (poisonDamageEffect && currentTurnInfo.hero.currentHP <= 0 && !currentTurnInfo.hero.statusEffects?.justResurrected) {
+        console.log(`💀 ${currentTurnInfo.hero.name} died from poison damage`);
+        this.updatePassiveEffectsOnDeath(game, currentTurnInfo.hero, null, 'poison');
+      }
+      
       // Druid Healing Word special: Heal lowest health ally at end of turn
       if (currentTurnInfo.hero.name === 'Druid' && currentTurnInfo.hero.currentHP > 0) {
         const druidSpecial = Array.isArray(currentTurnInfo.hero.Special) 

@@ -4,14 +4,12 @@ interface FriendsIconProps {
   onClick: () => void;
   hasNotifications: boolean;
   notificationCount?: number;
-  isOpen?: boolean;
 }
 
 const FriendsIcon: React.FC<FriendsIconProps> = ({ 
   onClick, 
   hasNotifications, 
-  notificationCount = 0,
-  isOpen = false
+  notificationCount = 0
 }) => {
   return (
     <div 
@@ -36,12 +34,6 @@ const FriendsIcon: React.FC<FriendsIconProps> = ({
           </div>
         )}
       </div>
-      
-      {!isOpen && (
-        <div className="friends-icon-tooltip">
-          Friends
-        </div>
-      )}
     </div>
   );
 };

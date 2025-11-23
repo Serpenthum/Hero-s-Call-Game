@@ -427,7 +427,7 @@
   border-radius: 8px;
   transform: none !important;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Prevent HeroCard component hover effects in shop */
@@ -509,7 +509,6 @@
   transform: none !important;
   scale: 1 !important;
   box-shadow: none;
-  overflow: hidden !important;
 }
 
 .shop-hero-card.selected {

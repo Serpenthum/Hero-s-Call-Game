@@ -18,7 +18,6 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
   const [saleHeroes, setSaleHeroes] = useState<Hero[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [timeUntilRefresh, setTimeUntilRefresh] = useState('');
-  const [selectedHero, setSelectedHero] = useState<Hero | null>(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -173,7 +172,6 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       if (data.success) {
         // Mark hero as purchased in current session
         setPurchasedHeroes(prev => new Set(prev).add(heroName));
-        setSelectedHero(null);
         console.log(`✅ Hero purchased: ${data.heroCount} total heroes`);
         onPurchaseComplete(); // Refresh user data
       } else {
@@ -331,12 +329,12 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                         </div>
                         
                         <div 
-                          className={`shop-hero-card ${selectedHero?.name === hero.name ? 'selected' : ''} ${isPurchased ? 'purchased' : ''}`}
-                          onClick={() => !isPurchased && setSelectedHero(selectedHero?.name === hero.name ? null : hero)}
+                          className={`shop-hero-card ${isPurchased ? 'purchased' : ''}`}
                         >
                           <HeroCard 
                             hero={hero}
-                            showFullInfo={false}
+                            showFullInfo={true}
+                            forceShowTooltip={true}
                             disableHPAnimations={true}
                           />
                           {isPurchased && (
@@ -413,20 +411,6 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
           </div>
         </div>
 
-        {/* Selected Hero Details */}
-        {selectedHero && (
-          <div className="shop-hero-details">
-            <h3>{selectedHero.name}</h3>
-            <div className="hero-details-content">
-              <HeroCard 
-                hero={selectedHero}
-                showFullInfo={true}
-                disableHPAnimations={true}
-              />
-            </div>
-          </div>
-        )}
-
         {/* Pack Contents Modal */}
         {showPackContents && (
           <div className="pack-contents-modal" onClick={() => setShowPackContents(false)}>
@@ -440,8 +424,8 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                   const isOwned = availableHeroes.includes(hero.name);
                   return (
                   <div key={hero.name} className="shop-hero-wrapper pack-content-hero">
-                    <div className={`shop-hero-card ${isOwned ? 'purchased' : ''}`} onClick={() => !isOwned && setSelectedHero(hero)}>
-                      <HeroCard hero={hero} showFullInfo={false} disableHPAnimations={true} />
+                    <div className={`shop-hero-card ${isOwned ? 'purchased' : ''}`}>
+                      <HeroCard hero={hero} showFullInfo={true} forceShowTooltip={true} disableHPAnimations={true} />
                       {isOwned && (
                         <div className="shop-hero-purchased-overlay">
                           <span className="purchased-text">OWNED</span>

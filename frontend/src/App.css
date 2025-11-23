@@ -1091,8 +1091,8 @@ body, html {
   justify-content: center;
   gap: clamp(6px, 0.8vw, 12px);
   flex-wrap: wrap;
-  margin: clamp(1.5rem, 2vw, 2.5rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
-  padding-top: 0.5rem;
+  margin: clamp(0.5rem, 0.8vw, 1rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
+  padding-top: 0;
 }
 
 /* Special layout for ban phase with 5 cards - single row */
@@ -1103,8 +1103,8 @@ body, html {
   justify-content: center;
   align-items: center;
   max-width: 100%;
-  margin: clamp(0.5rem, 1vw, 1rem) auto 1.5rem auto;
-  padding: 0.5rem 20px 0 20px;
+  margin: clamp(0.5rem, 0.8vw, 1rem) auto clamp(0.5rem, 0.8vw, 1rem) auto;
+  padding: 0 20px;
   flex-wrap: nowrap;
 }
 
@@ -1155,10 +1155,11 @@ body, html {
 .teams-display {
   display: flex;
   justify-content: space-around;
-  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0 clamp(1rem, 1.5vw, 1.5rem) 0;
+  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
   gap: clamp(0.5rem, 0.8vw, 0.8rem);
   padding-top: clamp(0.2rem, 0.4vw, 0.4rem);
   padding-bottom: clamp(0.2rem, 0.4vw, 0.4rem);
+  min-height: clamp(280px, 36vh, 420px);
 }
 
 .current-team,

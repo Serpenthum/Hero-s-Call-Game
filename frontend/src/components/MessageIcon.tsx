@@ -39,10 +39,6 @@ const MessageIcon: React.FC<MessageIconProps> = ({
           <div className="minimized-chat-indicator"></div>
         )}
       </div>
-      
-      <div className="message-icon-tooltip">
-        Messages
-      </div>
     </div>
   );
 };

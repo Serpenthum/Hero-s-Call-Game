@@ -703,7 +703,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                 </div>
                 <div className="rule-item">
                   <span className="rule-label">Critical Hits:</span>
-                  <span className="rule-value">Natural 20 = Critical (max damage), Natural 1 = Auto-miss</span>
+                  <span className="rule-value">Natural 20 = Critical (max damage)</span>
                 </div>
                 <div className="rule-item">
                   <span className="rule-label">Damage:</span>
