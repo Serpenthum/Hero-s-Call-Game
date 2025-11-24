@@ -21,6 +21,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const [draggedHero, setDraggedHero] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
+  const [hoveredHero, setHoveredHero] = useState<string | null>(null);
 
   // Reset selected card when draft phase or turn changes
   useEffect(() => {
@@ -29,8 +30,17 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
 
   // Initialize team order when entering setup phase
   useEffect(() => {
-    if (gameState.phase === 'setup' && currentPlayer.team && teamOrder.length === 0) {
-      setTeamOrder(currentPlayer.team.map(h => h.name));
+    if (gameState.phase === 'setup' && currentPlayer.team && currentPlayer.team.length > 0) {
+      console.log('Setup phase - Current player team:', currentPlayer.team.map(h => h.name));
+      console.log('Current teamOrder length:', teamOrder.length);
+      // Always update teamOrder when in setup phase to ensure it reflects current team
+      const newTeamOrder = currentPlayer.team.map(h => h.name);
+      console.log('New team order would be:', newTeamOrder);
+      console.log('Current team order is:', teamOrder);
+      if (teamOrder.length !== newTeamOrder.length || JSON.stringify(newTeamOrder) !== JSON.stringify(teamOrder)) {
+        console.log('Updating teamOrder to:', newTeamOrder);
+        setTeamOrder(newTeamOrder);
+      }
     }
   }, [gameState.phase, currentPlayer.team]);
 
@@ -120,10 +130,13 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
 
   const handleDragStart = (heroName: string, e: React.DragEvent) => {
     setDraggedHero(heroName);
+    setHoveredHero(null); // Hide tooltip when dragging starts
     // Create a transparent drag image to hide the default ghost
     const img = new Image();
     img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     e.dataTransfer.setDragImage(img, 0, 0);
+    // Set initial drag position
+    setDragPosition({ x: e.clientX, y: e.clientY });
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -134,6 +147,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
 
   const handleDragEnd = () => {
     setDragPosition(null);
+    setDraggedHero(null);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -143,10 +157,12 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const handleDrop = (targetIndex: number) => {
     if (draggedHero) {
       const currentIndex = teamOrder.indexOf(draggedHero);
-      const newOrder = [...teamOrder];
-      newOrder.splice(currentIndex, 1);
-      newOrder.splice(targetIndex, 0, draggedHero);
-      setTeamOrder(newOrder);
+      if (currentIndex !== targetIndex) {
+        const newOrder = [...teamOrder];
+        newOrder.splice(currentIndex, 1);
+        newOrder.splice(targetIndex, 0, draggedHero);
+        setTeamOrder(newOrder);
+      }
       setDraggedHero(null);
       setDragPosition(null);
     }
@@ -295,6 +311,10 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
           <div className="draggable-team">
             {teamOrder.map((heroName, index) => {
               const hero = getHeroByName(heroName);
+              if (!hero) {
+                console.error('Hero not found for name:', heroName);
+                console.log('All heroes names:', allHeroes.map(h => h.name));
+              }
               const isDragging = draggedHero === heroName;
               return hero ? (
                 <div
@@ -306,16 +326,19 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
                   onDragEnd={handleDragEnd}
                   onDragOver={handleDragOver}
                   onDrop={() => !isReady && handleDrop(index)}
+                  onMouseEnter={() => !isDragging && setHoveredHero(heroName)}
+                  onMouseLeave={() => setHoveredHero(null)}
                   style={{
                     opacity: isDragging ? 0.3 : 1,
-                    transition: 'opacity 0.2s ease'
+                    transition: 'opacity 0.15s ease, transform 0.3s ease'
                   }}
                 >
                   <div className="position-badge">{index + 1}</div>
                   <HeroCard
                     hero={hero}
                     isSelectable={false}
-                    hideAbilities={true}
+                    hideAbilities={hoveredHero !== heroName}
+                    tooltipPosition="right"
                   />
                 </div>
               ) : null;
@@ -334,7 +357,8 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
               zIndex: 9999,
               opacity: 0.9,
               transform: 'rotate(-5deg)',
-              transition: 'left 0.05s ease, top 0.05s ease'
+              transition: 'none',
+              willChange: 'transform'
             }}
           >
             <HeroCard

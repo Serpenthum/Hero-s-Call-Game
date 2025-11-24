@@ -764,7 +764,7 @@
 
 .pack-content-hero .hero-image {
   object-fit: cover;
-  object-position: center top;
+  object-position: center center;
   width: 100%;
   flex-shrink: 0;
 }

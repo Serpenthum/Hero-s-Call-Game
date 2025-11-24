@@ -119,7 +119,7 @@ class GameManager {
     };
   }
 
-  addPlayer(playerId, playerName, mode = 'draft', profileIcon = 'Sorcerer') {
+  async addPlayer(playerId, playerName, mode = 'draft', profileIcon = 'Sorcerer', userId = null) {
     console.log(`🔍 Player ${playerName} joining ${mode} queue...`);
     
     // Check if already in queue
@@ -143,6 +143,7 @@ class GameManager {
       const player1 = {
         id: opponent.playerId,
         name: opponent.playerName,
+        userId: opponent.userId,
         connected: true,
         team: [],
         draftCards: [],
@@ -164,6 +165,7 @@ class GameManager {
       const player2 = {
         id: playerId,
         name: playerName,
+        userId: userId,
         connected: true,
         team: [],
         draftCards: [],
@@ -188,7 +190,7 @@ class GameManager {
       
       // Start draft phase immediately
       if (mode === 'draft') {
-        this.startDraftPhase(game);
+        await this.startDraftPhase(game);
       }
       
       return {
@@ -202,7 +204,7 @@ class GameManager {
       };
     } else {
       // No one in queue, add this player to queue
-      this.draftQueue.push({ playerId, playerName, mode, profileIcon });
+      this.draftQueue.push({ playerId, playerName, mode, profileIcon, userId });
       console.log(`⏳ ${playerName} added to ${mode} queue (waiting for opponent). Queue size: ${this.draftQueue.length}`);
       
       return {
@@ -217,7 +219,7 @@ class GameManager {
     }
   }
 
-  addPlayerToGame(gameId, playerId, playerName) {
+  async addPlayerToGame(gameId, playerId, playerName) {
     const game = this.games.get(gameId);
     
     if (!game) {
@@ -267,7 +269,7 @@ class GameManager {
 
     const gameReady = game.players.length === 2;
     if (gameReady && game.mode === 'draft') {
-      this.startDraftPhase(game);
+      await this.startDraftPhase(game);
     }
 
     return {
@@ -535,28 +537,50 @@ class GameManager {
     return shuffled.slice(0, size);
   }
 
-  startDraftPhase(game) {
+  async startDraftPhase(game) {
     game.phase = 'draft';
     game.currentDraftPhase = 0; // Ensure ban phase starts at 0
     game.draftTurn = 0;
     
-    // Force include Paladin and Druid for testing
-    const paladin = this.heroes.find(h => h.name === 'Paladin');
-    const druid = this.heroes.find(h => h.name === 'Druid');
-    const otherHeroes = this.heroes.filter(h => h.name !== 'Paladin' && h.name !== 'Druid');
+    // Get both players' owned heroes from database
+    const user1 = await this.database.getUserById(game.players[0].userId);
+    const user2 = await this.database.getUserById(game.players[1].userId);
     
-    // Give each player 5 heroes with at least one of Paladin/Druid each
-    const shuffledOtherHeroes = shuffleArray([...otherHeroes]);
-    
-    // Ensure we have enough heroes for the draft
-    if (shuffledOtherHeroes.length < 8) {
-      console.error('Not enough heroes for draft phase');
+    if (!user1 || !user2) {
+      console.error('Could not load user data for draft');
       return;
     }
     
-    // Player 1 gets Paladin + 4 random others, Player 2 gets Druid + 4 random others
-    game.players[0].draftCards = [paladin, ...shuffledOtherHeroes.slice(0, 4)];
-    game.players[1].draftCards = [druid, ...shuffledOtherHeroes.slice(4, 8)];
+    // Get hero objects for each player's owned heroes
+    const player1OwnedHeroes = user1.available_heroes
+      .map(name => this.heroes.find(h => h.name === name))
+      .filter(h => h && !h.disabled);
+    const player2OwnedHeroes = user2.available_heroes
+      .map(name => this.heroes.find(h => h.name === name))
+      .filter(h => h && !h.disabled);
+    
+    console.log('Player 1 owns', player1OwnedHeroes.length, 'heroes');
+    console.log('Player 2 owns', player2OwnedHeroes.length, 'heroes');
+    
+    // Check if players have enough heroes
+    if (player1OwnedHeroes.length < 5 || player2OwnedHeroes.length < 5) {
+      console.error('Players need at least 5 heroes each for draft mode');
+      return;
+    }
+    
+    // Player 1 bans from Player 2's heroes
+    const shuffledPlayer2Heroes = shuffleArray([...player2OwnedHeroes]);
+    const player1DraftPool = shuffledPlayer2Heroes.slice(0, 5);
+    
+    // Player 2 bans from Player 1's heroes (excluding heroes already in Player 1's pool)
+    const player1PoolNames = player1DraftPool.map(h => h.name);
+    const player1HeroesAvailable = player1OwnedHeroes.filter(h => !player1PoolNames.includes(h.name));
+    const shuffledPlayer1Heroes = shuffleArray([...player1HeroesAvailable]);
+    const player2DraftPool = shuffledPlayer1Heroes.slice(0, 5);
+    
+    // Assign draft cards to players
+    game.players[0].draftCards = player1DraftPool;
+    game.players[1].draftCards = player2DraftPool;
     
     // Initialize team arrays if they don't exist
     game.players[0].team = game.players[0].team || [];
@@ -571,17 +595,45 @@ class GameManager {
     console.log('Draft started - Player 2 cards:', game.draftCards.player2);
   }
 
-  startRandomMode(gameId) {
+  async startRandomMode(gameId) {
     const game = this.games.get(gameId);
     if (!game) {
       return { success: false, error: 'Game not found' };
     }
 
-    // Randomly assign heroes with equal probability
-    const shuffledHeroes = shuffleArray([...this.heroes]);
+    // Get both players' owned heroes from database
+    const user1 = await this.database.getUserById(game.players[0].userId);
+    const user2 = await this.database.getUserById(game.players[1].userId);
     
-    // Select 6 heroes for both players (no additional shuffling needed)
-    const selectedHeroes = shuffledHeroes.slice(0, 6);
+    if (!user1 || !user2) {
+      console.error('Could not load user data for random mode');
+      return { success: false, error: 'Could not load user data' };
+    }
+    
+    // Get hero objects for each player's owned heroes
+    const player1OwnedHeroes = user1.available_heroes
+      .map(name => this.heroes.find(h => h.name === name))
+      .filter(h => h && !h.disabled);
+    const player2OwnedHeroes = user2.available_heroes
+      .map(name => this.heroes.find(h => h.name === name))
+      .filter(h => h && !h.disabled);
+    
+    console.log('Random mode - Player 1 owns', player1OwnedHeroes.length, 'heroes');
+    console.log('Random mode - Player 2 owns', player2OwnedHeroes.length, 'heroes');
+    
+    // Check if players have enough heroes
+    if (player1OwnedHeroes.length < 3 || player2OwnedHeroes.length < 3) {
+      console.error('Players need at least 3 heroes each for random mode');
+      return { success: false, error: 'Not enough heroes' };
+    }
+    
+    // Select 3 random heroes for each player from their own collection
+    const shuffledPlayer1Heroes = shuffleArray([...player1OwnedHeroes]);
+    const shuffledPlayer2Heroes = shuffleArray([...player2OwnedHeroes]);
+    const selectedHeroes = [
+      ...shuffledPlayer1Heroes.slice(0, 3),
+      ...shuffledPlayer2Heroes.slice(0, 3)
+    ];
     
     // Give each player 3 heroes - properly reset each hero
     game.players[0].team = selectedHeroes.slice(0, 3).map(hero => this.resetHeroToOriginalState(hero));
@@ -669,6 +721,14 @@ class GameManager {
     // Remove card from player's draft cards
     player.draftCards = player.draftCards.filter(h => h.name !== cardName);
     player.bannedCard = cardName;
+    
+    // Update the global draftCards object immediately to prevent UI glitch
+    const playerIndex = game.players.findIndex(p => p.id === playerId);
+    if (playerIndex === 0) {
+      game.draftCards.player1 = player.draftCards.map(h => h.name);
+    } else {
+      game.draftCards.player2 = player.draftCards.map(h => h.name);
+    }
 
     // Check if both players have banned
     const allBanned = game.players.every(p => p.bannedCard);

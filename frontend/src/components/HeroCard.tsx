@@ -13,7 +13,7 @@ interface HeroCardProps {
   showFullInfo?: boolean;
   disableHPAnimations?: boolean;
   hideAbilities?: boolean;
-  tooltipPosition?: 'right' | 'left'; // Add tooltip position prop
+  tooltipPosition?: 'right' | 'left' | 'top'; // Add tooltip position prop
   forceShowTooltip?: boolean; // Force tooltip to always show
 }
 
@@ -884,7 +884,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       </div>
 
       {showFullInfo && (isHovered || forceShowTooltip) && !hideAbilities && (
-        <div className={`hero-tooltip ${tooltipPosition === 'left' ? 'tooltip-left' : 'tooltip-right'}`}>
+        <div className={`hero-tooltip ${tooltipPosition === 'left' ? 'tooltip-left' : tooltipPosition === 'top' ? 'tooltip-top' : 'tooltip-right'}`}>
           <div className="tooltip-section">
             <h4>Abilities</h4>
             {hero.Ability.map((ability, index) => (

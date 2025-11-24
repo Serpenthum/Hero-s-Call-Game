@@ -517,6 +517,18 @@ body, html {
   margin-right: 0;
 }
 
+/* Top-positioned tooltip for setup phase */
+.hero-tooltip.tooltip-top {
+  left: 50%;
+  right: auto;
+  top: auto;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-left: 0;
+  margin-right: 0;
+  margin-bottom: clamp(5px, 0.7vw, 10px);
+}
+
 .tooltip-section {
   margin-bottom: 12px;
 }
@@ -1091,8 +1103,8 @@ body, html {
   justify-content: center;
   gap: clamp(6px, 0.8vw, 12px);
   flex-wrap: wrap;
-  margin: clamp(0.5rem, 0.8vw, 1rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
-  padding-top: 0;
+  margin: clamp(0.2rem, 0.3vw, 0.4rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
+  padding-top: 0.5rem;
 }
 
 /* Special layout for ban phase with 5 cards - single row */
@@ -1103,8 +1115,8 @@ body, html {
   justify-content: center;
   align-items: center;
   max-width: 100%;
-  margin: clamp(0.5rem, 0.8vw, 1rem) auto clamp(0.5rem, 0.8vw, 1rem) auto;
-  padding: 0 20px;
+  margin: clamp(0.2rem, 0.3vw, 0.4rem) auto clamp(0.5rem, 0.8vw, 1rem) auto;
+  padding: 0.5rem 20px 0 20px;
   flex-wrap: nowrap;
 }
 
@@ -1155,7 +1167,7 @@ body, html {
 .teams-display {
   display: flex;
   justify-content: space-around;
-  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
+  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0 clamp(1rem, 1.5vw, 1.5rem) 0;
   gap: clamp(0.5rem, 0.8vw, 0.8rem);
   padding-top: clamp(0.2rem, 0.4vw, 0.4rem);
   padding-bottom: clamp(0.2rem, 0.4vw, 0.4rem);
@@ -1271,11 +1283,16 @@ body, html {
 .draggable-hero-slot {
   position: relative;
   cursor: grab;
-  transition: transform 0.2s;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
+  will-change: transform;
 }
 
 .draggable-hero-slot:active {
   cursor: grabbing;
+}
+
+.draggable-hero-slot.dragging {
+  transform: scale(0.95);
 }
 
 /* Draft Info Sidebar - Combined */

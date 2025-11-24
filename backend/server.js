@@ -1280,7 +1280,7 @@ io.on('connection', (socket) => {
       }
     }
     
-    const result = gameManager.addPlayer(socket.id, playerData.name || 'Anonymous', mode, profileIcon);
+    const result = await gameManager.addPlayer(socket.id, playerData.name || 'Anonymous', mode, profileIcon, userId);
     
     if (result.success) {
       if (result.waiting) {
@@ -1324,7 +1324,7 @@ io.on('connection', (socket) => {
           // Start appropriate phase
           if (mode === 'random') {
             // Start random mode - skip draft and go to initiative
-            const randomResult = gameManager.startRandomMode(result.gameId);
+            const randomResult = await gameManager.startRandomMode(result.gameId);
             if (randomResult.success) {
               io.to(result.gameId).emit('game-start', {
                 players: randomResult.players,
@@ -1332,10 +1332,12 @@ io.on('connection', (socket) => {
               });
             }
           } else {
-            // Start draft mode
+            // Start draft mode - get full game state to include player draftCards
+            const fullGameState = gameManager.getGameState(result.gameId);
             io.to(result.gameId).emit('game-start', {
-              players: result.players,
-              draftCards: result.draftCards
+              players: fullGameState ? fullGameState.players : result.players,
+              draftCards: result.draftCards,
+              gameState: fullGameState
             });
           }
         }
