@@ -625,12 +625,21 @@ app.post('/api/shop/purchase-pack', async (req, res) => {
       database.db.run(
         'UPDATE users SET available_heroes = ?, victory_points = ? WHERE id = ?',
         [JSON.stringify(updatedHeroes), newVP, userId],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
+        function(err) {
+          if (err) {
+            console.error('❌ Failed to update user after pack purchase:', err);
+            reject(err);
+          } else {
+            console.log(`✅ Database updated: User ${userId} now has ${updatedHeroes.length} heroes, ${newVP} VP`);
+            resolve();
+          }
         }
       );
     });
+
+    // Verify the update by reading back from database
+    const verifyUser = await database.getUserById(userId);
+    console.log(`✅ Verified user ${userId} heroes count: ${verifyUser.available_heroes.length}`);
 
     console.log(`✅ User ${userId} purchased pack for 12 VP, received: ${heroNames.join(', ')}`);
     res.json({ 

@@ -803,8 +803,23 @@ function App() {
             // Legacy handling for old-style result entries (keep for compatibility)
             let action = '';
             let target = '';
+            let damage = 0;
             
             switch (result.type) {
+              case 'attack':
+                // Handle commanded attacks (like from Declare War)
+                if (result.commandedBy) {
+                  action = result.hit
+                    ? `${result.attacker} used Basic Attack (commanded by ${result.commandedBy})`
+                    : `${result.attacker} missed (commanded by ${result.commandedBy})`;
+                } else {
+                  action = result.hit
+                    ? `${result.attacker} used Basic Attack`
+                    : `${result.attacker} missed`;
+                }
+                target = result.target;
+                damage = result.damage || 0;
+                break;
               case 'damage':
                 action = result.hit ? `${data.ability} deals damage to ${result.target}` : `${data.ability} misses ${result.target}`;
                 target = result.target;

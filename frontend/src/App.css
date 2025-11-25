@@ -492,7 +492,7 @@ body, html {
   padding: clamp(8px, 0.8vw, 12px);
   min-width: clamp(180px, 15vw, 230px);
   max-width: clamp(210px, 18vw, 270px);
-  z-index: 1100; /* Higher z-index to show over action bar (1000) */
+  z-index: 9999; /* High z-index to show above hero cards */
   text-align: left;
   font-size: clamp(0.65rem, 0.75vw, 0.85rem);
   line-height: 1.4; /* Better line spacing for readability */
@@ -1455,6 +1455,7 @@ body, html {
 
 .draggable-hero-slot:hover {
   transform: translateY(-5px);
+  z-index: 10000; /* Ensure hovered slot is above all adjacent slots */
 }
 
 .position-badge {

@@ -52,6 +52,12 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   }, [opponent?.isReady]);
 
   const getHeroByName = (name: string): Hero | undefined => {
+    // In setup phase, prioritize looking in currentPlayer.team since those are the drafted heroes
+    if (gameState.phase === 'setup' && currentPlayer.team) {
+      const teamHero = currentPlayer.team.find(h => h.name === name);
+      if (teamHero) return teamHero;
+    }
+    // Fallback to allHeroes for draft phase
     return allHeroes.find(h => h.name === name);
   };
 

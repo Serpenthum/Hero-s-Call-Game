@@ -560,7 +560,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
         <Shop
           onClose={handleCloseShop}
           userId={user.id}
-          victoryPoints={user.victory_points}
+          victoryPoints={victoryPoints}
           availableHeroes={user.available_heroes}
           onPurchaseComplete={handlePurchaseComplete}
         />

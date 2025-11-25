@@ -150,7 +150,7 @@
 
 .hero-reveal-image {
   width: 100%;
-  height: 70%;
+  height: 60%;
   object-fit: cover;
   background: #1a1a2e;
 }
@@ -166,34 +166,35 @@
 .hero-card-revealed .hero-stats {
   background: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: clamp(6px, 0.6vw, 10px) clamp(8px, 0.8vw, 12px) clamp(5px, 0.5vw, 8px) clamp(8px, 0.8vw, 12px);
+  padding: clamp(10px, 1vw, 14px) clamp(12px, 1.2vw, 16px) clamp(8px, 0.8vw, 12px) clamp(12px, 1.2vw, 16px);
   border-radius: 0 0 10px 10px;
-  font-size: clamp(0.7rem, 0.8vw, 0.9rem);
+  font-size: clamp(0.85rem, 1vw, 1.1rem);
   margin: 0;
   width: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 
 .hero-card-revealed .hero-name {
   font-weight: bold;
-  font-size: clamp(0.85rem, 1vw, 1.1rem);
-  margin-bottom: clamp(3px, 0.35vw, 5px);
+  font-size: clamp(1.1rem, 1.3vw, 1.5rem);
+  margin-bottom: clamp(5px, 0.6vw, 8px);
   text-align: center;
   color: white;
-  padding-bottom: clamp(3px, 0.35vw, 5px);
+  padding-bottom: clamp(5px, 0.6vw, 8px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .hero-card-revealed .hero-stats-row {
   display: flex;
   align-items: center;
-  font-size: clamp(0.65rem, 0.75vw, 0.85rem);
+  font-size: clamp(0.85rem, 1vw, 1.1rem);
   color: #ffffff;
-  margin-bottom: clamp(2px, 0.25vw, 3px);
+  margin-bottom: clamp(4px, 0.5vw, 6px);
   font-weight: bold;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 
 .hero-card-revealed .hero-stats-row:last-child {
@@ -201,9 +202,9 @@
 }
 
 .hero-card-revealed .stat-icon {
-  width: clamp(12px, 1vw, 16px);
-  height: clamp(12px, 1vw, 16px);
-  margin-right: clamp(5px, 0.5vw, 8px);
+  width: clamp(16px, 1.3vw, 20px);
+  height: clamp(16px, 1.3vw, 20px);
+  margin-right: clamp(7px, 0.7vw, 10px);
   flex-shrink: 0;
 }
 
