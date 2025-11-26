@@ -163,8 +163,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
           <h1 className="game-title">Hero's Call</h1>
         </div>
 
-        {/* Admin Quick Login Button */}
-        <div className="admin-quick-login">
+        {/* Admin Quick Login Button - Hidden */}
+        {/* <div className="admin-quick-login">
           <button 
             type="button"
             className="admin-login-btn"
@@ -174,7 +174,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
             🔑 Quick Admin Login
           </button>
           <div className="admin-login-hint">Auto-creates next available admin account</div>
-        </div>
+        </div> */}
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
