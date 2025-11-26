@@ -522,7 +522,8 @@ function App() {
             crit: false,
             attacker: data.deflectingMonk,
             target: data.attacker,
-            deflected: true
+            deflected: true,
+            isNonStandardLog: true
           };
           newLogEntries.push(deflectLogEntry);
         } else {

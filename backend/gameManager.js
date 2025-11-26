@@ -2261,7 +2261,7 @@ class GameManager {
           targetPlayer.monkDeflectUsed = true; // Mark deflect as used this round
           
           // Counter-attack the attacker using centralized damage application
-          const counterDamageRoll = calculateDamage('1D6', false, false, monk);
+          const counterDamageRoll = calculateDamage('1D4', false, false, monk);
           deflectCounterDamage = counterDamageRoll.total;
           
           // Use centralized damage application to trigger on_take_damage effects (like Shroomguard's Poison Aura)
@@ -3129,7 +3129,7 @@ class GameManager {
             targetPlayer.monkDeflectUsed = true; // Mark deflect as used this round
             
             // Counter-attack the caster using centralized damage application
-            const counterDamageRoll = calculateDamage('1D6', false, false, monk);
+            const counterDamageRoll = calculateDamage('1D4', false, false, monk);
             const counterDamage = counterDamageRoll.total;
             
             // Use centralized damage application to trigger on_take_damage effects (like Shroomguard's Poison Aura)
@@ -4489,7 +4489,7 @@ class GameManager {
       nextTurnInfo.player.twinSpellActive = false;
       nextTurnInfo.player.oneTwoPunchUsed = false;
       nextTurnInfo.player.oneTwoPunchAttacksRemaining = 0;
-      nextTurnInfo.player.monkDeflectUsed = false;
+      // Don't reset monkDeflectUsed here - it only resets on Monk's turn
       
       // Initialize or reset usedAbilities array
       if (!nextTurnInfo.player.usedAbilities) {
@@ -5185,7 +5185,11 @@ class GameManager {
     currentTurnInfo.player.oneTwoPunchUsed = false; // Reset One-Two Punch usage for this player
     currentTurnInfo.player.monkAttacksRemaining = currentTurnInfo.hero.name === 'Monk' ? 1 : 0; // Reset Monk attack count
     currentTurnInfo.player.oneTwoPunchAttacksRemaining = 0; // Legacy field for compatibility
-    currentTurnInfo.player.monkDeflectUsed = false; // Reset Monk Deflect usage for this player
+    // Only reset Monk Deflect at the start of Monk's turn
+    if (currentTurnInfo.hero.name === 'Monk') {
+      currentTurnInfo.player.monkDeflectUsed = false;
+      console.log(`🛡️ Reset Monk Deflect for ${currentTurnInfo.hero.name}'s turn`);
+    }
     
 
     

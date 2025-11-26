@@ -372,8 +372,9 @@
     "Special": {
       "category": "counter_attack",
       "name": "Deflect",
-      "description": "When an ally would be hit by an attack or ability with a roll lower than monk's defense, negate the damage and deal 1D4 to the attacker.",
+      "description": "Once per round, when an ally would be hit by an attack or ability with a roll lower than monk's defense, negate the damage and deal 1D4 to the attacker. Resets at the start of Monk's turn.",
       "trigger": "on_ally_hit_by_low_roll",
+      "frequency": "once_per_round",
       "effects": [
         {
           "type": "negate_damage"
