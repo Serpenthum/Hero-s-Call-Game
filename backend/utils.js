@@ -445,7 +445,7 @@ function hasSpecialEffect(hero, effectName) {
 }
 
 function calculateEffectiveDefense(hero) {
-  // Use modifiedDefense if it exists (from effects like Dual Defender's Defense sharing), otherwise use base Defense
+  // Use modifiedDefense if it exists (already includes scalingBuffs from updateHeroDisplayStats)
   let effectiveDefense = hero.modifiedDefense !== undefined ? hero.modifiedDefense : (hero.Defense !== undefined ? hero.Defense : hero.AC);
   
   // Ensure we have a valid number
@@ -454,42 +454,15 @@ function calculateEffectiveDefense(hero) {
     effectiveDefense = 0;
   }
   
-  // Apply stat modifiers if they exist
-  if (hero.statusEffects?.statModifiers?.Defense) {
-    effectiveDefense += hero.statusEffects.statModifiers.Defense;
-  } else if (hero.statusEffects?.statModifiers?.AC) {
-    effectiveDefense += hero.statusEffects.statModifiers.AC;
-  }
-  
-  // Apply scaling Defense buffs if they exist (Champion's Last Stand)
-  if (hero.scalingBuffs && hero.scalingBuffs.defense) {
-    effectiveDefense += hero.scalingBuffs.defense;
-  } else if (hero.scalingBuffs && hero.scalingBuffs.ac) {
-    effectiveDefense += hero.scalingBuffs.ac; // Legacy support
-  }
-  
-  // Apply permanent stat modifiers if they exist (Dragon Rider's Dismount)
-  if (hero.permanentBuffs) {
-    Object.values(hero.permanentBuffs).forEach(buffGroup => {
-      buffGroup.forEach(buff => {
-        if (buff.stat === 'Defense') {
-          effectiveDefense += buff.value;
-        }
-      });
-    });
-  }
-  
-  // Apply Wind Wall Defense bonus (Elementalist's special)
-  if (hero.statusEffects?.windWallAC && hero.statusEffects.windWallAC.bonus > 0) {
-    effectiveDefense += hero.statusEffects.windWallAC.bonus;
-  }
-  
-  // Apply passive Defense buffs/debuffs from auras (like Reaper's Aura of Dread)
-  if (hero.passiveBuffs) {
-    const defenseBuffs = hero.passiveBuffs.filter(b => b.stat === 'Defense');
-    const totalDefenseModifier = defenseBuffs.reduce((sum, buff) => sum + buff.value, 0);
-    effectiveDefense += totalDefenseModifier;
-  }
+  // Note: modifiedDefense already includes:
+  // - Base Defense
+  // - Shared Defense (Dual Defender)
+  // - Permanent stat modifiers (Dragon Rider's Dismount)
+  // - Status effect stat modifiers (Ranger's Piercing Shot)
+  // - Scaling buffs (Champion's Last Stand)
+  // - Wind Wall bonus (Elementalist)
+  // - Passive buffs/debuffs from auras
+  // So we don't need to add them again here
   
   return Math.max(0, effectiveDefense); // Defense can't go below 0
 }

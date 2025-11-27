@@ -1673,8 +1673,8 @@ class GameManager {
       }
     });
 
-    // Beast Tamer's Pack Tactics: Attacks have advantage while the beast is summoned
-    if (attacker.name === 'Beast Tamer' && attacker.statusEffects && attacker.statusEffects.beast_active) {
+    // Beast Tamer's Pack Tactics: Basic attacks (not abilities) have advantage while the beast is summoned
+    if (!isAbility && attacker.name === 'Beast Tamer' && attacker.statusEffects && attacker.statusEffects.beast_active) {
       advantageCount++;
       advantageReasons.push('Pack Tactics (beast active)');
     }
@@ -4029,21 +4029,22 @@ class GameManager {
           }
         }
         
-        // Add comprehensive special log entry for hit confirmed trigger
-        if (specialEffects.length > 0) {
-          const hitConfirmedLogEntry = this.createSpecialLogEntry(
-            caster, 
-            special.name, 
-            `reactive to successful ${actionType}`, 
-            null, // no attack roll for reactive abilities
-            specialEffects
-          );
-          
-          // Add to battle log
-          if (game && game.battleLog) {
-            game.battleLog.push(hitConfirmedLogEntry);
-          }
-        }
+        // Don't create battle log entries for hit confirmed triggers like Wind Wall
+        // These are passive effects that don't need to clutter the log
+        // if (specialEffects.length > 0) {
+        //   const hitConfirmedLogEntry = this.createSpecialLogEntry(
+        //     caster, 
+        //     special.name, 
+        //     `reactive to successful ${actionType}`, 
+        //     null, // no attack roll for reactive abilities
+        //     specialEffects
+        //   );
+        //   
+        //   // Add to battle log
+        //   if (game && game.battleLog) {
+        //     game.battleLog.push(hitConfirmedLogEntry);
+        //   }
+        // }
       }
     }
   }

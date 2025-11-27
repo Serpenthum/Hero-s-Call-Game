@@ -1040,7 +1040,7 @@
     "HP": 14,
     "Defense": 5,
     "Accuracy": "+1",
-    "BasicAttack": "1D6",
+    "BasicAttack": "1D4",
     "Ability": [
       {
         "category": "aoe_damage",
@@ -1059,12 +1059,12 @@
     "Special": {
       "category": "death",
       "name": "Explosion",
-      "description": "On death, deal 2D4 to Bomber's killer.",
+      "description": "On death, deal 1D6 damage to Bomber's killer.",
       "trigger": "on_death",
       "effects": [
         {
           "type": "damage",
-          "value": "2D4",
+          "value": "1D6",
           "target": "killer"
         }
       ]
@@ -1073,7 +1073,7 @@
   {
     "name": "Beast Tamer",
     "HP": 17,
-    "Defense": 7,
+    "Defense": 6,
     "Accuracy": "+2",
     "BasicAttack": "1D4",
     "Ability": [
@@ -1310,7 +1310,7 @@
       {
         "category": "single_target_damage",
         "name": "Stacked Deck",
-        "description": "Deal 2D4 damage. If you crit, deal an additional 1D6 damage.",
+        "description": "Deal 2D4 damage. If you crit, deal an additional 1D4 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1321,7 +1321,7 @@
         ],
         "crit_bonus": {
           "type": "damage",
-          "value": "1D6",
+          "value": "1D4",
           "target": "target"
         }
       }
@@ -1344,7 +1344,7 @@
   {
     "name": "Elementalist",
     "HP": 17,
-    "Defense": 8,
+    "Defense": 6,
     "Accuracy": "+2",
     "BasicAttack": "1D6",
     "Ability": [
