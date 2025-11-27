@@ -160,6 +160,46 @@ app.post('/api/login', async (req, res) => {
     // Get complete player stats
     const playerStats = await database.getPlayerStats(user.id);
     
+    // Check if player needs to be leveled up (for existing players with excess XP)
+    const levelUpResult = await database.checkAndLevelUpPlayer(user.id);
+    let updatedVictoryPoints = user.victory_points;
+    
+    if (levelUpResult.leveledUp) {
+      console.log(`🎉 Player ${user.username} leveled up from ${levelUpResult.oldLevel} to ${levelUpResult.level} on login! Gained ${levelUpResult.vpGained} VP`);
+      // Update playerStats with new values
+      playerStats.level = levelUpResult.level;
+      playerStats.xp = levelUpResult.xp;
+      
+      // Get updated VP from database
+      const updatedUser = await database.getUserById(user.id);
+      updatedVictoryPoints = updatedUser.victory_points;
+      
+      // Find the user's socket connection and send level up notification
+      const userSocket = Array.from(io.sockets.sockets.values()).find(s => s.data.userId === user.id);
+      if (userSocket) {
+        // Send xp-update event to trigger rewards modal
+        userSocket.emit('xp-update', {
+          xpGained: 0, // No XP gained, just leveled up from existing XP
+          newXP: levelUpResult.xp,
+          newLevel: levelUpResult.level,
+          leveledUp: true,
+          oldLevel: levelUpResult.oldLevel,
+          levelsGained: levelUpResult.levelsGained,
+          vpGained: levelUpResult.vpGained,
+          message: levelUpResult.levelsGained > 1 ? 
+            `Level up! You're now level ${levelUpResult.level}! Gained ${levelUpResult.levelsGained} levels and ${levelUpResult.vpGained} VP!` :
+            `Level up! You're now level ${levelUpResult.level}! Gained ${levelUpResult.vpGained} VP!`
+        });
+        
+        // Send VP update event
+        userSocket.emit('victory-points-update', {
+          oldVictoryPoints: user.victory_points,
+          newVictoryPoints: updatedVictoryPoints,
+          victoryPointsGained: levelUpResult.vpGained
+        });
+      }
+    }
+    
     // Get favorite heroes
     const favoriteHeroes = await database.getFavoriteHeroes(user.id);
     
@@ -169,7 +209,7 @@ app.post('/api/login', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        victory_points: user.victory_points,
+        victory_points: updatedVictoryPoints,
         survival_wins: user.survival_wins,
         survival_losses: user.survival_losses,
         survival_used_heroes: user.survival_used_heroes,

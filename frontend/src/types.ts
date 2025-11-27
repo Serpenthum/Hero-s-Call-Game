@@ -311,8 +311,8 @@ export interface SocketEvents {
   'error': (data: { message: string }) => void;
   'survival-state-response': (data: { state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean } }) => void;
   'survival-state-update': (data: { type: 'win' | 'loss' | 'reset'; state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean }; message: string; victoryPoints?: number }) => void;
-  'victory-points-update': (data: { type: string; pointsAwarded: number; totalVictoryPoints: number; gameMode?: string; message: string }) => void;
-  'xp-update': (data: { xpGained: number; newXP: number; newLevel: number; leveledUp: boolean; message: string }) => void;
+  'victory-points-update': (data: { type?: string; pointsAwarded?: number; totalVictoryPoints?: number; gameMode?: string; message?: string; oldVictoryPoints?: number; newVictoryPoints?: number; victoryPointsGained?: number }) => void;
+  'xp-update': (data: { xpGained: number; newXP: number; newLevel: number; leveledUp: boolean; message: string; vpGained?: number; oldLevel?: number; levelsGained?: number }) => void;
   'game-surrendered': (data: { success: boolean; gameId: string; winner: string; surrenderedBy: string; gameState: GameState }) => void;
   'draft-abandoned': (data: { message: string; isOpponent?: boolean }) => void;
   'abandon-draft-result': (data: { success: boolean; message?: string }) => void;

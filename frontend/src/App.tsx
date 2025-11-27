@@ -1402,16 +1402,16 @@ function App() {
         const oldXP = prev.user?.xp || 0;
         const oldLevel = prev.user?.level || 1;
         
-        // Update rewards data with XP information
+        // Update rewards data with XP and VP information
         setRewardsData(prevRewards => ({
           oldXP: oldXP,
           newXP: data.newXP,
-          xpGained: data.xpGained,
+          xpGained: data.xpGained || 0,
           oldLevel: oldLevel,
           newLevel: data.newLevel,
           oldVictoryPoints: prevRewards?.oldVictoryPoints || prev.victoryPoints,
-          newVictoryPoints: prevRewards?.newVictoryPoints || prev.victoryPoints,
-          victoryPointsGained: prevRewards?.victoryPointsGained || 0,
+          newVictoryPoints: data.vpGained ? (prev.victoryPoints + data.vpGained) : (prevRewards?.newVictoryPoints || prev.victoryPoints),
+          victoryPointsGained: data.vpGained || (prevRewards?.victoryPointsGained || 0),
           leveledUp: data.leveledUp || false
         }));
         
@@ -1431,7 +1431,34 @@ function App() {
         if (data.leveledUp) {
           console.log(`🎉 LEVEL UP! You are now Level ${data.newLevel}!`);
         }
+      } else if (data.leveledUp) {
+        // Level up from login with existing XP
+        console.log(`🎉 LEVEL UP! You are now Level ${data.newLevel}! (+${data.vpGained} VP)`);
       }
+    });
+
+    socket.on('victory-points-update', (data) => {
+      console.log('🏆 Received Victory Points update:', data);
+      setState(prev => {
+        // Update rewards data with VP information
+        setRewardsData(prevRewards => ({
+          ...prevRewards,
+          oldXP: prevRewards?.oldXP || prev.user?.xp || 0,
+          newXP: prevRewards?.newXP || prev.user?.xp || 0,
+          xpGained: prevRewards?.xpGained || 0,
+          oldLevel: prevRewards?.oldLevel || prev.user?.level || 1,
+          newLevel: prevRewards?.newLevel || prev.user?.level || 1,
+          oldVictoryPoints: data.oldVictoryPoints,
+          newVictoryPoints: data.newVictoryPoints,
+          victoryPointsGained: data.victoryPointsGained,
+          leveledUp: prevRewards?.leveledUp || false
+        }));
+        
+        return {
+          ...prev,
+          victoryPoints: data.newVictoryPoints
+        };
+      });
     });
 
     socket.on('authentication-success', (data) => {
