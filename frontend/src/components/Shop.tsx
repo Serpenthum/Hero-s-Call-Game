@@ -334,7 +334,6 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                           <HeroCard 
                             hero={hero}
                             showFullInfo={true}
-                            forceShowTooltip={true}
                             disableHPAnimations={true}
                           />
                           {isPurchased && (
@@ -425,7 +424,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                   return (
                   <div key={hero.name} className="shop-hero-wrapper pack-content-hero">
                     <div className={`shop-hero-card ${isOwned ? 'purchased' : ''}`}>
-                      <HeroCard hero={hero} showFullInfo={true} forceShowTooltip={true} disableHPAnimations={true} />
+                      <HeroCard hero={hero} showFullInfo={true} disableHPAnimations={true} />
                       {isOwned && (
                         <div className="shop-hero-purchased-overlay">
                           <span className="purchased-text">OWNED</span>

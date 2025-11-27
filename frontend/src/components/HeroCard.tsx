@@ -845,6 +845,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       onClick={isSelectable ? onClick : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{ cursor: isSelectable ? 'pointer' : 'default' }}
     >
       {renderStatusEffects()}
       {renderCompanions()}

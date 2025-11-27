@@ -127,7 +127,7 @@
   gap: clamp(1rem, 2vw, 1.5rem);
   padding: clamp(0.8rem, 1.5vw, 1rem) clamp(1rem, 2vw, 1.5rem);
   flex: 1;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Left Column - Hero Sale (70%) */
@@ -396,7 +396,7 @@
   flex-direction: column;
   align-items: center;
   gap: clamp(4px, 0.6vw, 8px);
-  overflow: hidden;
+  overflow: visible;
   transform: none !important;
 }
 
@@ -441,6 +441,11 @@
 .shop-hero-card .hero-card:hover {
   transform: none !important;
   filter: none !important;
+  z-index: 10000 !important;
+}
+
+.shop-hero-card:hover {
+  z-index: 10000;
 }
 
 .shop-hero-card.purchased {
