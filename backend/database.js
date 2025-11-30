@@ -1358,7 +1358,7 @@ class Database {
         await new Promise((resolve, reject) => {
           this.db.run(
             'INSERT INTO player_stats (user_id, level, xp) VALUES (?, ?, ?)',
-            [userId, 10, 1000],
+            [userId, 10, 0],
             (err) => {
               if (err) reject(err);
               else resolve();

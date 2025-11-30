@@ -274,7 +274,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
             )}
           </div>
 
-          <div className="draft-cards">
+          <div className={`draft-cards${gameState.currentDraftPhase > 1 ? ' pick-phase' : ''}`}>
             {draftCards.map((hero, index) => (
               <HeroCard
                 key={hero.name}

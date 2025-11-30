@@ -159,9 +159,11 @@ app.post('/api/login', async (req, res) => {
     
     // Get complete player stats
     const playerStats = await database.getPlayerStats(user.id);
+    console.log(`🔍 Checking level up for ${user.username}: Level ${playerStats.level}, XP ${playerStats.xp}`);
     
     // Check if player needs to be leveled up (for existing players with excess XP)
     const levelUpResult = await database.checkAndLevelUpPlayer(user.id);
+    console.log(`📊 Level up check result:`, levelUpResult);
     let updatedVictoryPoints = user.victory_points;
     
     if (levelUpResult.leveledUp) {
@@ -203,7 +205,7 @@ app.post('/api/login', async (req, res) => {
     // Get favorite heroes
     const favoriteHeroes = await database.getFavoriteHeroes(user.id);
     
-    res.json({ 
+    const response = { 
       success: true, 
       message: 'Login successful',
       user: {
@@ -221,7 +223,22 @@ app.post('/api/login', async (req, res) => {
         total_losses: playerStats.total_losses || 0,
         highest_survival_run: playerStats.highest_survival_run || 0
       }
-    });
+    };
+    
+    // Include level up data if player leveled up on login
+    if (levelUpResult.leveledUp) {
+      response.levelUpData = {
+        leveledUp: true,
+        oldLevel: levelUpResult.oldLevel,
+        newLevel: levelUpResult.level,
+        levelsGained: levelUpResult.levelsGained,
+        vpGained: levelUpResult.vpGained,
+        oldVictoryPoints: user.victory_points,
+        newVictoryPoints: updatedVictoryPoints
+      };
+    }
+    
+    res.json(response);
   } catch (error) {
     console.error('Login error:', error);
     res.status(401).json({ 
@@ -271,7 +288,7 @@ app.post('/api/admin-login', async (req, res) => {
         await new Promise((resolve, reject) => {
           database.db.run(
             'INSERT INTO player_stats (user_id, level, xp) VALUES (?, ?, ?)',
-            [userId, 10, 1000],
+            [userId, 10, 0],
             (err) => {
               if (err) reject(err);
               else resolve();
@@ -305,6 +322,29 @@ app.post('/api/admin-login', async (req, res) => {
       });
     }
     
+    // Get complete player stats
+    const playerStats = await database.getPlayerStats(user.id);
+    console.log(`🔍 Checking level up for ${user.username}: Level ${playerStats.level}, XP ${playerStats.xp}`);
+    
+    // Check if player needs to be leveled up (for existing players with excess XP)
+    const levelUpResult = await database.checkAndLevelUpPlayer(user.id);
+    console.log(`📊 Level up check result:`, levelUpResult);
+    let updatedVictoryPoints = user.victory_points;
+    
+    if (levelUpResult.leveledUp) {
+      console.log(`🎉 Admin ${user.username} leveled up from ${levelUpResult.oldLevel} to ${levelUpResult.level} on login! Gained ${levelUpResult.vpGained} VP`);
+      // Update playerStats with new values
+      playerStats.level = levelUpResult.level;
+      playerStats.xp = levelUpResult.xp;
+      
+      // Get updated VP from database
+      const updatedUser = await database.getUserById(user.id);
+      updatedVictoryPoints = updatedUser.victory_points;
+      user.victory_points = updatedVictoryPoints;
+      user.level = levelUpResult.level;
+      user.xp = levelUpResult.xp;
+    }
+    
     // Update last login
     await database.updateLastLogin(user.id);
     
@@ -317,11 +357,26 @@ app.post('/api/admin-login', async (req, res) => {
       player_id: user.player_id
     }));
     
-    res.json({ 
+    const response = { 
       success: true, 
       user: user,
       message: `Logged in as ${user.username}`
-    });
+    };
+    
+    // Include level up data if player leveled up on login
+    if (levelUpResult && levelUpResult.leveledUp) {
+      response.levelUpData = {
+        leveledUp: true,
+        oldLevel: levelUpResult.oldLevel,
+        newLevel: levelUpResult.level,
+        levelsGained: levelUpResult.levelsGained,
+        vpGained: levelUpResult.vpGained,
+        oldVictoryPoints: user.victory_points - levelUpResult.vpGained,
+        newVictoryPoints: updatedVictoryPoints
+      };
+    }
+    
+    res.json(response);
   } catch (error) {
     console.error('Admin auto-login error:', error);
     res.status(500).json({ 
@@ -871,13 +926,13 @@ async function handleRegularGameCompletion(result) {
           
           // Get updated victory points and user data
           const winnerUser = await database.getUserById(winnerUserId);
+          const oldVictoryPoints = winnerUser.victory_points - 1; // Subtract the point we just added
           
           // Emit victory points update to the winner
           io.to(result.gameState.winner).emit('victory-points-update', {
-            type: 'game_win',
-            pointsAwarded: 1,
-            totalVictoryPoints: winnerUser.victory_points,
-            gameMode: result.gameState.mode,
+            oldVictoryPoints: oldVictoryPoints,
+            newVictoryPoints: winnerUser.victory_points,
+            victoryPointsGained: 1,
             message: `Victory! You earned 1 victory point. Total: ${winnerUser.victory_points}`
           });
           

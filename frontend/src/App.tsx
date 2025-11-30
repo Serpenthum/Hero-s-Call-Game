@@ -456,9 +456,39 @@ function App() {
     socket.on('attack-order-set', (data) => {
       console.log('Attack order set data:', data);
       setState(prev => {
+        if (!prev.gameState || !data.gameState) {
+          return prev;
+        }
+        
+        // If both players are ready and we're transitioning to initiative, accept full gameState
+        if (data.bothReady && data.gameState.phase === 'initiative') {
+          console.log('Both players ready - accepting full gameState for initiative phase');
+          return {
+            ...prev,
+            gameState: data.gameState
+          };
+        }
+        
+        // Otherwise, only update phase and ready status without touching team orders
         const newState = {
           ...prev,
-          gameState: data.gameState || prev.gameState
+          gameState: {
+            ...prev.gameState,
+            phase: data.gameState.phase,
+            // Update each player's ready status without touching their team order
+            players: prev.gameState.players.map(player => {
+              const updatedPlayer = data.gameState.players.find(p => p.id === player.id);
+              if (updatedPlayer) {
+                return {
+                  ...player,
+                  isReady: updatedPlayer.isReady
+                  // Do NOT update team or attackOrder here - only update ready status
+                  // Each player maintains their own team order locally until both are ready
+                };
+              }
+              return player;
+            })
+          }
         };
         // If initiative data is included, log it for the initiative modal to pick up
         if (data.initiative) {
@@ -1661,6 +1691,33 @@ function App() {
       showRegister: false,
       victoryPoints: user.victory_points
     }));
+    
+    // Check for pending level-up data from login
+    const pendingLevelUpData = localStorage.getItem('pendingLevelUpData');
+    if (pendingLevelUpData) {
+      try {
+        const levelUpData = JSON.parse(pendingLevelUpData);
+        localStorage.removeItem('pendingLevelUpData');
+        
+        // Set rewards data to show the rewards modal
+        setRewardsData({
+          oldXP: 0, // Not showing XP animation for login level-up
+          newXP: user.xp,
+          xpGained: 0,
+          oldLevel: levelUpData.oldLevel,
+          newLevel: levelUpData.newLevel,
+          oldVictoryPoints: levelUpData.oldVictoryPoints,
+          newVictoryPoints: levelUpData.newVictoryPoints,
+          victoryPointsGained: levelUpData.vpGained,
+          leveledUp: true
+        });
+        
+        console.log('🎉 Login level-up detected! Showing rewards modal');
+      } catch (error) {
+        console.error('Error parsing level-up data:', error);
+        localStorage.removeItem('pendingLevelUpData');
+      }
+    }
   };
 
   const handleShowRegister = () => {
@@ -2250,22 +2307,27 @@ function App() {
                               {typeof entry.action === 'string' && entry.action?.includes('used') && entry.action?.includes('→') ? (
                                 // New comprehensive format: "Hero used Ability on Target → HIT for X damage"
                                 <span dangerouslySetInnerHTML={{
-                                  __html: entry.action.replace(
-                                    /(\w+)\s+used\s+([^→]+?)(\s+on\s+[^→]+?)?\s*→/,
-                                    entry.isSpecial 
-                                      ? '<strong>$1</strong> used <span class="special-name">$2</span>$3 →'
-                                      : '<strong>$1</strong> used <span class="ability-name">$2</span>$3 →'
-                                  )
+                                  __html: entry.action
+                                    .replace(
+                                      /([\w']+)\s+used\s+([^→]+?)\s+on\s+([^→]+?)\s*→/,
+                                      entry.isSpecial 
+                                        ? '<span class="hero-name">$1</span> used <span class="special-name">$2</span> on <span class="target-name">$3</span> →'
+                                        : '<span class="hero-name">$1</span> used <span class="ability-name">$2</span> on <span class="target-name">$3</span> →'
+                                    )
+                                    .replace(
+                                      /^(<span class="hero-name">[\w']+<\/span> used <span class="(?:ability|special)-name">[^<]+<\/span>)\s*→/,
+                                      '$1 →'
+                                    )
                                 }} />
                               ) : typeof entry.action === 'string' && (entry.action.includes('used') || entry.action.includes('activates')) ? (
                                 // Comprehensive message that already contains the full text - display as-is with styling
                                 <span dangerouslySetInnerHTML={{
                                   __html: entry.action.replace(
-                                    /([\w\s']+)'s\s+(\w+)\s+activates/,
-                                    '<strong>$1</strong>\'s <span class="special-name">$2</span> activates'
+                                    /([\w\s']+)'s\s+([\w\s-]+)\s+activates/,
+                                    '<span class="hero-name">$1</span>\'s <span class="special-name">$2</span> activates'
                                   ).replace(
-                                    /([\w\s]+)\s+used\s+([\w\s]+)/,
-                                    '<strong>$1</strong> used <span class="special-name">$2</span>'
+                                    /([\w']+)\s+used\s+([\w\s-]+?)(?=\s+on|$)/,
+                                    '<span class="hero-name">$1</span> used <span class="special-name">$2</span>'
                                   )
                                 }} />
                               ) : entry.isNonStandardLog ? (
@@ -2274,13 +2336,13 @@ function App() {
                               ) : entry.isSpecial && entry.specialName ? (
                                 // Special ability format with gold styling
                                 <>
-                                  <strong>{typeof entry.attacker === 'string' ? entry.attacker : (entry.attacker as any)?.name || 'Unknown'}</strong> used <span className="special-name">{entry.specialName}</span>
+                                  <span className="hero-name">{typeof entry.attacker === 'string' ? entry.attacker : (entry.attacker as any)?.name || 'Unknown'}</span> used <span className="special-name">{entry.specialName}</span>
                                   {entry.triggerContext && <span className="trigger-context"> ({typeof entry.triggerContext === 'string' ? entry.triggerContext : 'trigger'})</span>}
                                 </>
                               ) : (
                                 // Legacy format: "Attacker used Action"
                                 <>
-                                  <strong>{typeof entry.attacker === 'string' ? entry.attacker : (entry.attacker as any)?.name || 'Unknown'}</strong> used {entry.abilityName ? (
+                                  <span className="hero-name">{typeof entry.attacker === 'string' ? entry.attacker : (entry.attacker as any)?.name || 'Unknown'}</span> used {entry.abilityName ? (
                                     <span className="ability-name">{entry.abilityName}</span>
                                   ) : (typeof entry.action === 'string' ? entry.action : 'Unknown Action')}
                                 </>
@@ -2300,13 +2362,13 @@ function App() {
                               ) : entry.type === 'resurrection' ? (
                                 // Angel Resurrection
                                 <span className="heal">
-                                  👼 {entry.caster} used <span className="special-name">Resurrection</span> and restored {entry.target} to {entry.healing} HP
+                                  👼 <span className="hero-name">{entry.caster}</span> used <span className="special-name">Resurrection</span> and restored <span className="target-name">{entry.target}</span> to {entry.healing} HP
                                   {entry.description && <span className="heal-info"> - {entry.description}</span>}
                                 </span>
                               ) : entry.type === 'health_link_reflection' ? (
                                 // Angel Health Link reflection
                                 <span className="special-reflection">
-                                  💫 <span className="special-name">Health Link</span> reflected {entry.damage} damage from {entry.source} to {entry.target}
+                                  💫 <span className="special-name">Health Link</span> reflected {entry.damage} damage from <span className="hero-name">{entry.source}</span> to <span className="target-name">{entry.target}</span>
                                 </span>
                               ) : entry.action?.includes('heals') ? (
                                 // Healing abilities
@@ -2328,7 +2390,7 @@ function App() {
                                   {entry.crit && <span className="crit">CRITICAL HIT! </span>}
                                   {entry.damage !== undefined && (
                                     <>
-                                      <span className="hit">Hit {entry.target || 'Unknown'} for {entry.damage} damage</span>
+                                      <span className="hit">Hit <span className="target-name">{entry.target || 'Unknown'}</span> for {entry.damage} damage</span>
                                       {entry.isSpecial && entry.specialName && (
                                         <span className="special-note"> (from <span className="special-name">{entry.specialName}</span>)</span>
                                       )}
@@ -2345,7 +2407,7 @@ function App() {
                                   )}
                                 </>
                               ) : (
-                                <span className="miss">Missed {entry.target || 'Unknown'}{entry.isSpecial && entry.specialName && <span className="special-note"> (from <span className="special-name">{entry.specialName}</span>)</span>}</span>
+                                <span className="miss">Missed <span className="target-name">{entry.target || 'Unknown'}</span>{entry.isSpecial && entry.specialName && <span className="special-note"> (from <span className="special-name">{entry.specialName}</span>)</span>}</span>
                               )}
                             </div>
                           </div>

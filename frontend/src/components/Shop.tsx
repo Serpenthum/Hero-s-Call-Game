@@ -384,7 +384,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
               
               <div className="shop-hero-card pack-card-display">
                 <img 
-                  src="pack1.png"
+                  src="/pack1.png"
                   alt="Hero Pack"
                   className="pack-image"
                 />

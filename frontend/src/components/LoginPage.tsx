@@ -93,6 +93,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
           localStorage.removeItem('heroCallRememberMe');
         }
         
+        // Store level-up data if present
+        if (data.levelUpData) {
+          localStorage.setItem('pendingLevelUpData', JSON.stringify(data.levelUpData));
+        }
+        
         onLogin(data.user);
       } else {
         // Handle specific error cases
@@ -131,10 +136,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
         level: data.user?.level,
         xp: data.user?.xp,
         victory_points: data.user?.victory_points,
-        player_id: data.user?.player_id
+        player_id: data.user?.player_id,
+        levelUpData: data.levelUpData
       }, null, 2));
 
       if (data.success) {
+        // Store level-up data if present
+        if (data.levelUpData) {
+          localStorage.setItem('pendingLevelUpData', JSON.stringify(data.levelUpData));
+        }
+        
         onLogin(data.user);
       } else {
         setError(data.message || 'Failed to login as admin');
@@ -163,8 +174,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
           <h1 className="game-title">Hero's Call</h1>
         </div>
 
-        {/* Admin Quick Login Button - Hidden */}
-        {/* <div className="admin-quick-login">
+        {/* Admin Quick Login Button */}
+        <div className="admin-quick-login">
           <button 
             type="button"
             className="admin-login-btn"
@@ -174,7 +185,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
             🔑 Quick Admin Login
           </button>
           <div className="admin-login-hint">Auto-creates next available admin account</div>
-        </div> */}
+        </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">

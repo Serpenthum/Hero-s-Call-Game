@@ -1103,8 +1103,8 @@ body, html {
   justify-content: center;
   gap: clamp(6px, 0.8vw, 12px);
   flex-wrap: wrap;
-  margin: clamp(0.2rem, 0.3vw, 0.4rem) 0 clamp(0.5rem, 0.8vw, 1rem) 0;
-  padding-top: 0.5rem;
+  margin: 0 0 clamp(0.5rem, 0.8vw, 1rem) 0;
+  padding-top: 0;
 }
 
 /* Special layout for ban phase with 5 cards - single row */
@@ -1118,6 +1118,12 @@ body, html {
   margin: clamp(0.2rem, 0.3vw, 0.4rem) auto clamp(0.5rem, 0.8vw, 1rem) auto;
   padding: 0.5rem 20px 0 20px;
   flex-wrap: nowrap;
+}
+
+/* Move draft cards up slightly after first pick */
+.draft-phase .draft-cards.pick-phase {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 /* Remove the separate row styling since we're using a single row now */
@@ -1167,7 +1173,7 @@ body, html {
 .teams-display {
   display: flex;
   justify-content: space-around;
-  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0 clamp(1rem, 1.5vw, 1.5rem) 0;
+  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0 clamp(0.3rem, 0.5vw, 0.6rem) 0;
   gap: clamp(0.5rem, 0.8vw, 0.8rem);
   padding-top: clamp(0.2rem, 0.4vw, 0.4rem);
   padding-bottom: clamp(0.2rem, 0.4vw, 0.4rem);
@@ -2395,20 +2401,36 @@ body, html {
 }
 
 .log-action {
-  font-weight: bold;
+  font-weight: normal; /* Changed to normal so only specific elements are bold */
   margin-bottom: 2px;
+  color: white; /* Default white for regular text like 'used', 'on', etc. */
 }
 
-.ability-name {
+/* Hero/Caster name - Gold */
+.hero-name {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+/* Ability/Special name - Purple */
+.log-action .ability-name {
   color: #9d4edd;
   font-weight: bold;
   text-shadow: 0 0 2px rgba(157, 78, 221, 0.3);
+  font-size: inherit; /* Match parent log text size */
 }
 
-.special-name {
+.log-action .special-name {
   color: #9d4edd;
   font-weight: bold;
   text-shadow: 0 0 2px rgba(157, 78, 221, 0.3);
+  font-size: inherit; /* Match parent log text size */
+}
+
+/* Target/Enemy name - Orange-Red */
+.target-name {
+  color: #ff5733;
+  font-weight: bold;
 }
 
 .special-note {

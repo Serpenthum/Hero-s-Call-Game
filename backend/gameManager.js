@@ -1802,7 +1802,7 @@ class GameManager {
   consumeAdvantageEffects(attacker, target) {
     if (target && target.statusEffects && target.statusEffects.grantAdvantage) {
       const effect = target.statusEffects.grantAdvantage;
-      if (effect.duration_unit === 'attack') {
+      if (effect.duration_unit === 'attack' || effect.duration_unit === 'any_roll') {
         console.log(`🎯 Consuming advantage effect on ${target.name} (from ${effect.source})`);
         delete target.statusEffects.grantAdvantage;
       }

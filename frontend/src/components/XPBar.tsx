@@ -15,10 +15,10 @@ const XPBar: React.FC<XPBarProps> = ({ currentXP, level, animated = true, xpGain
   const [showLevelUp, setShowLevelUp] = useState(false);
 
   // Calculate XP target for current level (XP resets to 0 on level up)
-  // Level 1 needs 50, Level 2 needs 100, Level 3 needs 150, etc.
+  // Level 1 needs 25, Level 2 needs 50, Level 3 needs 75, etc.
   const getXPNeededForCurrentLevel = (lvl: number) => {
-    if (lvl >= 10) return 500; // Max level
-    return lvl * 50;
+    if (lvl >= 20) return 500; // Max level
+    return lvl * 25;
   };
 
   const xpNeededForNext = getXPNeededForCurrentLevel(level);

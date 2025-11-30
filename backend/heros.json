@@ -306,13 +306,14 @@
       {
         "category": "single_target_damage",
         "name": "Guiding Bolt",
-        "description": "Deal 1D4 damage and grant advantage on the next attack roll against the target.",
+        "description": "Deal 1D4 damage and grant advantage on the next attack or ability roll against the target.",
         "target_type": "single_target",
         "primary_effects": [
           {
             "type": "damage",
             "value": "1D4",
-            "target": "target"
+            "target": "target",
+            "condition": "target_ac_lte_attack_roll"
           }
         ],
         "secondary_effects": [
@@ -321,7 +322,7 @@
             "type": "apply_debuff",
             "effect": "grant_advantage",
             "duration": 1,
-            "duration_unit": "attack",
+            "duration_unit": "any_roll",
             "target": "target"
           }
         ]
