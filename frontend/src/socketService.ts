@@ -62,6 +62,12 @@ class SocketService {
     this.socket?.emit('authenticate', { userId });
   }
 
+  // Reconnection method
+  reconnectToGame(gameId: string, playerName: string) {
+    console.log(`🔄 SocketService reconnecting to game: ${gameId} as ${playerName}`);
+    this.socket?.emit('reconnect-game', { gameId, playerName });
+  }
+
   // Game-specific methods
   joinGame(playerName: string, mode: 'draft' | 'random' = 'draft') {
     console.log(`📡 SocketService joining game with name: "${playerName}", mode: ${mode}`);

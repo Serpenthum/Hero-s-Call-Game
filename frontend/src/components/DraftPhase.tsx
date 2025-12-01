@@ -99,7 +99,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   };
 
   const handleBanCard = () => {
-    if (selectedCard) {
+    if (selectedCard && gameState.phase === 'draft' && gameState.currentDraftPhase === 0) {
       socketService.banCard(selectedCard);
       setSelectedCard(null);
     }
@@ -219,7 +219,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         <div className="draft-actions">
           <button
             onClick={handleBanCard}
-            disabled={!selectedCard || !!currentPlayer.bannedCard}
+            disabled={!selectedCard || !!currentPlayer.bannedCard || gameState.phase !== 'draft' || gameState.currentDraftPhase !== 0}
             className="action-button"
           >
             Ban Selected Card

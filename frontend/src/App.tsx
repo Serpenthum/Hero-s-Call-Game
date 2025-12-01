@@ -208,6 +208,46 @@ function App() {
     }
   }, [state.victoryPoints]);
 
+  // Save active game state to localStorage for reconnection
+  useEffect(() => {
+    if (state.gameState && state.playerId && state.user) {
+      const gameData = {
+        gameId: state.gameState.id,
+        playerId: state.playerId,
+        playerName: state.user.username,
+        phase: state.gameState.phase,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('heroCallActiveGame', JSON.stringify(gameData));
+    } else {
+      localStorage.removeItem('heroCallActiveGame');
+    }
+  }, [state.gameState, state.playerId, state.user]);
+
+  // Attempt to reconnect to active game on load
+  useEffect(() => {
+    if (state.user && !state.gameState) {
+      const storedGame = localStorage.getItem('heroCallActiveGame');
+      if (storedGame) {
+        try {
+          const gameData = JSON.parse(storedGame);
+          // Only attempt reconnect if game is recent (within 30 minutes)
+          const timeSinceGame = Date.now() - gameData.timestamp;
+          if (timeSinceGame < 30 * 60 * 1000) {
+            console.log('🔄 Attempting to reconnect to game:', gameData.gameId);
+            socketService.reconnectToGame(gameData.gameId, gameData.playerName);
+          } else {
+            console.log('⏰ Stored game too old, not reconnecting');
+            localStorage.removeItem('heroCallActiveGame');
+          }
+        } catch (error) {
+          console.error('Failed to parse stored game data:', error);
+          localStorage.removeItem('heroCallActiveGame');
+        }
+      }
+    }
+  }, [state.user, state.gameState]);
+
   useEffect(() => {
     // Load heroes data - only load if user is authenticated
     if (state.user) {
@@ -231,6 +271,29 @@ function App() {
     // Authenticate the socket connection with user ID
     socketService.authenticate(state.user.id);
 
+    // Socket event handlers for reconnection
+    socket.on('reconnect-success', (gameState) => {
+      console.log('✅ Reconnected to game successfully:', gameState);
+      setState(prev => ({
+        ...prev,
+        gameState: gameState,
+        playerId: socketService.socket?.id || null,
+        isConnected: true,
+        error: null
+      }));
+      setIsSearchingForMatch(false);
+      setSearchMode(null);
+    });
+
+    socket.on('reconnect-failed', (data) => {
+      console.log('❌ Reconnection failed:', data.message);
+      localStorage.removeItem('heroCallActiveGame');
+      setState(prev => ({
+        ...prev,
+        error: data.message
+      }));
+    });
+
     // Socket event handlers
     socket.on('join-result', (data) => {
       console.log('📨 Join result received:', data);
@@ -250,19 +313,19 @@ function App() {
           }
         } else {
           // Regular mode - set up game state
-          console.log(`🎮 Regular mode join - gameReady: ${data.gameReady}, players: ${data.players.length}`);
+          console.log(`🎮 Regular mode join - gameReady: ${data.gameReady}, players: ${data.players?.length || 0}`);
           setState(prev => ({
             ...prev,
             playerId: data.playerId,
             gameState: {
               id: data.gameId,
               phase: 'waiting', // Always start with waiting, game-start event will update this
-              players: data.players,
+              players: data.players || [],
               currentTurn: 0,
               currentDraftPhase: 0,
               draftTurn: 0,
               winner: null,
-              draftCards: data.draftCards
+              draftCards: data.draftCards || []
             },
             isConnected: true,
             error: null
@@ -1538,6 +1601,8 @@ function App() {
     });
 
     return () => {
+      socket.off('reconnect-success');
+      socket.off('reconnect-failed');
       socketService.disconnect();
     };
   }, [state.user?.id]); // Re-run only when user ID changes, not the entire user object
@@ -1602,6 +1667,9 @@ function App() {
     
     // Clear rewards data when returning to lobby
     setRewardsData(null);
+    
+    // Clear stored game state
+    localStorage.removeItem('heroCallActiveGame');
     
     // Use the socket service to properly handle return to lobby
     socketService.returnToLobby();
@@ -1746,6 +1814,9 @@ function App() {
 
   const handleLogout = async () => {
     const currentUser = state.user;
+    
+    // Clear stored game state
+    localStorage.removeItem('heroCallActiveGame');
     
     // Update UI state first
     setState(prev => ({

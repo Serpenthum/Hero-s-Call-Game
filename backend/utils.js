@@ -1,5 +1,9 @@
 // Utility functions for game mechanics
 
+// Debug mode - set to false in production for better performance
+const DEBUG = process.env.DEBUG_GAME === 'true' || false;
+const debugLog = DEBUG ? console.log.bind(console) : () => {};
+
 function rollDice(sides) {
   return Math.floor(Math.random() * sides) + 1;
 }
@@ -76,7 +80,7 @@ function calculateAttackRoll(accuracy, advantage = false, disadvantage = false, 
       roll2: secondRoll,
       chosen: finalRoll
     };
-    console.log(`🎲 Advantage roll: ${finalRoll} (rolled ${roll} and ${secondRoll}, chose higher)`);
+    debugLog(` Advantage roll: ${finalRoll} (rolled ${roll} and ${secondRoll}, chose higher)`);
     roll = finalRoll;
   } else if (disadvantage && !advantage) {
     // Disadvantage: roll twice, take lower
@@ -88,7 +92,7 @@ function calculateAttackRoll(accuracy, advantage = false, disadvantage = false, 
       roll2: secondRoll,
       chosen: finalRoll
     };
-    console.log(`🎲 Disadvantage roll: ${finalRoll} (rolled ${roll} and ${secondRoll}, chose lower)`);
+    debugLog(` Disadvantage roll: ${finalRoll} (rolled ${roll} and ${secondRoll}, chose lower)`);
     roll = finalRoll;
   }
   // If both advantage and disadvantage, they cancel out (normal roll)
@@ -268,7 +272,7 @@ function applyStatusEffect(hero, effect, value, duration = null, stat = null, ca
       hero.statusEffects.inspiration += value;
       break;
     case 'silence':
-      console.log(`🤐 Applying silence to ${hero.name} for ${duration || 1} turns`);
+      debugLog(` Applying silence to ${hero.name} for ${duration || 1} turns`);
       hero.statusEffects.silenced = { active: true, duration: duration || 1 };
       break;
     case 'stun':
@@ -276,7 +280,7 @@ function applyStatusEffect(hero, effect, value, duration = null, stat = null, ca
       hero.statusEffects.stun = { active: true, duration: duration || 1, appliedBy: caster };
       break;
     case 'disable_attack':
-      console.log(`🚫 Disabling attacks for ${hero.name} for ${duration || 1} turns`);
+      debugLog(` Disabling attacks for ${hero.name} for ${duration || 1} turns`);
       hero.statusEffects.disableAttack = { active: true, duration: duration || 1, appliedBy: caster };
       break;
     case 'untargetable':
@@ -335,6 +339,11 @@ function applyStatusEffect(hero, effect, value, duration = null, stat = null, ca
 }
 
 function processEndOfTurn(hero) {
+  // Initialize statusEffects if it doesn't exist
+  if (!hero.statusEffects) {
+    hero.statusEffects = {};
+  }
+  
   const effects = hero.statusEffects;
   const results = [];
 
@@ -362,9 +371,9 @@ function processEndOfTurn(hero) {
   // Handle silence duration
   if (effects.silenced && effects.silenced.active && effects.silenced.duration) {
     effects.silenced.duration--;
-    console.log(`🤐 ${hero.name} silence duration decreased to ${effects.silenced.duration}`);
+    debugLog(` ${hero.name} silence duration decreased to ${effects.silenced.duration}`);
     if (effects.silenced.duration <= 0) {
-      console.log(`🗣️ ${hero.name} silence expired!`);
+      debugLog(` ${hero.name} silence expired!`);
       effects.silenced = false;
       results.push({ type: 'silence_expired' });
     }
@@ -373,9 +382,9 @@ function processEndOfTurn(hero) {
   // Handle disable attack duration  
   if (effects.disableAttack && effects.disableAttack.active && effects.disableAttack.duration) {
     effects.disableAttack.duration--;
-    console.log(`🚫 ${hero.name} attack disable duration decreased to ${effects.disableAttack.duration}`);
+    debugLog(` ${hero.name} attack disable duration decreased to ${effects.disableAttack.duration}`);
     if (effects.disableAttack.duration <= 0) {
-      console.log(`⚔️ ${hero.name} can attack again!`);
+      debugLog(` ${hero.name} can attack again!`);
       effects.disableAttack = false;
       results.push({ type: 'attack_disable_expired' });
     }
