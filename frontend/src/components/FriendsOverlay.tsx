@@ -9,6 +9,17 @@ interface FriendsOverlayProps {
   currentUserId: number;
 }
 
+// Cache for friends data with 30-second TTL
+let friendsDataCache: {
+  onlinePlayers: OnlinePlayer[];
+  friendIds: number[];
+  totalOnline: number;
+  friendRequests: FriendRequest[];
+  timestamp: number;
+} | null = null;
+
+const CACHE_TTL = 30000; // 30 seconds
+
 const FriendsOverlay: React.FC<FriendsOverlayProps> = ({ 
   onClose, 
   onOpenMessage,
@@ -25,13 +36,31 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [_checkingSpectatable, setCheckingSpectatable] = useState<number | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<number>(0);
 
   useEffect(() => {
-    // Request fresh data when component mounts (friends window opens)
-    setLoading(true);
-    setError(null);
-    socketService.getOnlinePlayers();
-    socketService.getFriendRequests();
+    // Check if we have valid cached data
+    const now = Date.now();
+    const cacheIsValid = friendsDataCache && (now - friendsDataCache.timestamp < CACHE_TTL);
+    
+    if (cacheIsValid && friendsDataCache) {
+      // Use cached data
+      console.log('📦 Using cached friends data');
+      setOnlinePlayers(friendsDataCache.onlinePlayers);
+      setFriendIds(friendsDataCache.friendIds);
+      setTotalOnline(friendsDataCache.totalOnline);
+      setFriendRequests(friendsDataCache.friendRequests);
+      setLastRefresh(friendsDataCache.timestamp);
+      setLoading(false);
+      setError(null);
+    } else {
+      // Request fresh data when cache is stale or doesn't exist
+      console.log('🔄 Cache stale or missing, fetching fresh data');
+      setLoading(true);
+      setError(null);
+      socketService.getOnlinePlayers();
+      socketService.getFriendRequests();
+    }
 
     // Set up socket listeners
     const socket = socketService.getSocket();
@@ -40,13 +69,22 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
     const handleOnlinePlayersResponse = (data: any) => {
       console.log('🟢 Received online-players-response:', data);
       if (data.success) {
+        const now = Date.now();
         console.log('🟢 Setting online players:', data.onlinePlayers);
         console.log('🟢 Player usernames:', data.onlinePlayers?.map((p: any) => p.username));
         console.log('🟢 Setting total online:', data.totalOnline);
         setOnlinePlayers(data.onlinePlayers || []);
         setFriendIds(data.friendIds || []);
         setTotalOnline(data.totalOnline || 0);
+        setLastRefresh(now);
         setError(null);
+        
+        // Update cache
+        if (!friendsDataCache) friendsDataCache = { onlinePlayers: [], friendIds: [], totalOnline: 0, friendRequests: [], timestamp: 0 };
+        friendsDataCache.onlinePlayers = data.onlinePlayers || [];
+        friendsDataCache.friendIds = data.friendIds || [];
+        friendsDataCache.totalOnline = data.totalOnline || 0;
+        friendsDataCache.timestamp = now;
       } else {
         console.log('❌ Error in online players response:', data.error);
         setError(data.error || 'Failed to get online players');
@@ -56,7 +94,12 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
 
     const handleFriendRequestsResponse = (data: any) => {
       if (data.success) {
-        setFriendRequests(data.requests || []);
+        const requests = data.requests || [];
+        setFriendRequests(requests);
+        
+        // Update cache
+        if (!friendsDataCache) friendsDataCache = { onlinePlayers: [], friendIds: [], totalOnline: 0, friendRequests: [], timestamp: 0 };
+        friendsDataCache.friendRequests = requests;
       }
     };
 
@@ -65,9 +108,9 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
       if (data.success) {
         setShowAddFriendInput(false);
         setAddFriendUsername('');
-        setError(null); // Clear any previous errors
-        // Refresh online players to update friend status
-        socketService.getOnlinePlayers();
+        setError(null);
+        // Invalidate cache so next open will refresh
+        friendsDataCache = null;
       } else {
         console.log('❌ Friend request failed:', data.error);
         setError(data.error || 'Failed to send friend request');
@@ -75,22 +118,30 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
     };
 
     const handleFriendRequestReceived = (_data: any) => {
-      // Refresh friend requests when a new one is received
-      socketService.getFriendRequests();
+      // Just invalidate cache, don't auto-refresh while window is open
+      friendsDataCache = null;
+      // Only fetch if we're currently viewing (not loading means we have data displayed)
+      if (!loading) {
+        socketService.getFriendRequests();
+      }
     };
 
     const handleFriendResponseResult = (data: any) => {
       if (data.success) {
+        // Just refresh friend requests to update the list
+        // No need to refresh online players since we have real-time updates
         socketService.getFriendRequests();
-        socketService.getOnlinePlayers();
+        // Update the friendIds in our current state and cache
+        const now = Date.now();
+        socketService.getOnlinePlayers(); // Still need this to get updated friendIds
       }
     };
 
     const handleRemoveFriendResponse = (data: any) => {
       if (data.success) {
         console.log('Friend removed successfully');
-        // Refresh the online players list to update friend status
-        socketService.getOnlinePlayers();
+        // Invalidate cache so next open will refresh
+        friendsDataCache = null;
         setError(null);
       } else {
         console.log('Failed to remove friend:', data.error);
@@ -113,6 +164,28 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
       }
     };
 
+    const handlePlayerOnlineStatusChanged = (data: any) => {
+      console.log('🔔 Player online status changed:', data);
+      const { userId, username, online } = data;
+      
+      if (online) {
+        // Player came online - add them to the list if not already there
+        setOnlinePlayers(prev => {
+          const exists = prev.find(p => p.id === userId);
+          if (exists) return prev;
+          return [...prev, { id: userId, username, isInGame: false }];
+        });
+        setTotalOnline(prev => prev + 1);
+      } else {
+        // Player went offline - remove them from the list
+        setOnlinePlayers(prev => prev.filter(p => p.id !== userId));
+        setTotalOnline(prev => Math.max(0, prev - 1));
+      }
+      
+      // Invalidate cache since data changed
+      friendsDataCache = null;
+    };
+
     socket.on('online-players-response', handleOnlinePlayersResponse);
     socket.on('friend-requests-response', handleFriendRequestsResponse);
     socket.on('friend-request-response', handleFriendRequestResponse);
@@ -120,6 +193,7 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
     socket.on('friend-response-result', handleFriendResponseResult);
     socket.on('remove-friend-response', handleRemoveFriendResponse);
     socket.on('player-spectatable-result', handlePlayerSpectatableResult);
+    socket.on('player-online-status-changed', handlePlayerOnlineStatusChanged);
 
     // Cleanup function to remove listeners when component unmounts (friends window closes)
     return () => {
@@ -131,6 +205,7 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
       socket.off('friend-response-result', handleFriendResponseResult);
       socket.off('remove-friend-response', handleRemoveFriendResponse);
       socket.off('player-spectatable-result', handlePlayerSpectatableResult);
+      socket.off('player-online-status-changed', handlePlayerOnlineStatusChanged);
     };
   }, []); // Empty dependency array means this runs once when component mounts and cleanup when unmounts
 
@@ -173,6 +248,21 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
     socketService.respondToFriendRequest(requesterId, accept);
   };
 
+  const handleManualRefresh = () => {
+    setLoading(true);
+    setError(null);
+    friendsDataCache = null; // Invalidate cache
+    socketService.getOnlinePlayers();
+    socketService.getFriendRequests();
+  };
+
+  const getTimeSinceRefresh = () => {
+    if (lastRefresh === 0) return '';
+    const seconds = Math.floor((Date.now() - lastRefresh) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    return `${Math.floor(seconds / 60)}m ago`;
+  };
+
   const sortedPlayers = [...onlinePlayers].sort((a, b) => {
     const aIsFriend = friendIds.includes(a.id);
     const bIsFriend = friendIds.includes(b.id);
@@ -190,7 +280,22 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
       <div className="friends-overlay">
         <div className="friends-overlay-header">
           <h3>Friends</h3>
-          <button className="close-button" onClick={onClose}>×</button>
+          <div className="friends-header-actions">
+            {lastRefresh > 0 && (
+              <span className="last-refresh-time" title="Click refresh to update">
+                {getTimeSinceRefresh()}
+              </span>
+            )}
+            <button 
+              className="refresh-button" 
+              onClick={handleManualRefresh}
+              disabled={loading}
+              title="Refresh friends list"
+            >
+              🔄
+            </button>
+            <button className="close-button" onClick={onClose}>×</button>
+          </div>
         </div>
 
         <div className="friends-overlay-content">
@@ -266,17 +371,6 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
           <div className="online-players-section">
             <div className="online-players-header">
               <h4>Online Players</h4>
-              <button 
-                className="refresh-button"
-                onClick={() => {
-                  setLoading(true);
-                  setError(null);
-                  socketService.getOnlinePlayers();
-                }}
-                disabled={loading}
-              >
-                🔄
-              </button>
             </div>
             
             {loading ? (

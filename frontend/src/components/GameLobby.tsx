@@ -6,6 +6,7 @@ import XPBar from './XPBar';
 import SpectatorView from './SpectatorView';
 import Shop from './Shop';
 import RequirementModal from './RequirementModal';
+import DragonflowLobby from './DragonflowLobby';
 import { Hero, GameState } from '../types';
 import config from '../config';
 import '../styles/GameLobby.css';
@@ -61,6 +62,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [userRefreshTrigger, setUserRefreshTrigger] = useState(0);
+  const [showDragonflow, setShowDragonflow] = useState(false);
 
   const handleModeSelect = (mode: 'draft' | 'random') => {
     // Check if player meets level requirement for Draft mode
@@ -793,6 +795,27 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
         requiredCount={requirementModalData.requiredCount}
         type={requirementModalData.type}
       />
+
+      {/* Dragonflow Button - Bottom Right */}
+      {!showDragonflow && (
+        <button 
+          className="dragonflow-access-btn"
+          onClick={() => setShowDragonflow(true)}
+          title="Enter Dragonflow"
+        >
+          <span className="btn-icon">🐉</span>
+          <span className="btn-text-small">Dragonflow</span>
+        </button>
+      )}
+
+      {/* Dragonflow Lobby Overlay */}
+      {showDragonflow && (
+        <DragonflowLobby 
+          onBack={() => setShowDragonflow(false)}
+          username={user.username}
+          userId={user.id}
+        />
+      )}
 
     </div>
   );

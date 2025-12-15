@@ -673,6 +673,58 @@
   }
 }
 
+/* Dragonflow Access Button - Bottom Right */
+.dragonflow-access-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(245, 230, 211, 0.1));
+  border: 2px solid #d4af37;
+  color: #d4af37;
+  padding: 15px 25px;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.4s ease;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 5px 20px rgba(212, 175, 55, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.dragonflow-access-btn .btn-icon {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 0 5px rgba(212, 175, 55, 0.5));
+  animation: dragonBreathe 2s ease-in-out infinite;
+}
+
+@keyframes dragonBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.dragonflow-access-btn .btn-text-small {
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+}
+
+.dragonflow-access-btn:hover {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.4), rgba(245, 230, 211, 0.2));
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 10px 40px rgba(212, 175, 55, 0.5);
+  border-color: #f5e6d3;
+  color: #f5e6d3;
+}
+
+.dragonflow-access-btn:active {
+  transform: scale(0.98) translateY(0);
+}
+
 /* Responsive Design */
 @media (max-width: 1200px) {
   .dashboard-grid {

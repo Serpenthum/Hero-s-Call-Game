@@ -2247,7 +2247,7 @@ function App() {
                       return (
                         <div key={index} className="banned-card-item">
                           <img 
-                            src={`http://localhost:3001/hero-images/${cardName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                            src={`${config.IMAGE_BASE_URL}/hero-images/${cardName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
                             alt={cardName}
                             className="banned-card-image"
                             onError={(e) => {

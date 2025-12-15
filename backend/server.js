@@ -1321,6 +1321,45 @@ async function checkGauntletGameCompletion(result) {
 // Inject io instance into gameManager for disconnection countdown events
 gameManager.setIo(io);
 
+// Dragonflow matchmaking storage
+const dragonflowQueue = [];
+const dragonflowGames = new Map();
+
+// Dragonflow matchmaking function
+function tryMatchDragonflowPlayers() {
+  while (dragonflowQueue.length >= 2) {
+    const player1 = dragonflowQueue.shift();
+    const player2 = dragonflowQueue.shift();
+    
+    const gameId = uuidv4();
+    const game = {
+      id: gameId,
+      player1,
+      player2,
+      startedAt: Date.now(),
+      lastState: null,
+      lastUpdate: Date.now()
+    };
+    
+    dragonflowGames.set(gameId, game);
+    
+    console.log(`🐉 Matched Dragonflow game: ${player1.username} vs ${player2.username} (Game ID: ${gameId})`);
+    
+    // Notify both players
+    io.to(player1.socketId).emit('dragonflow:match-found', {
+      gameId,
+      opponent: { username: player2.username, userId: player2.userId },
+      yourRole: 'player1'
+    });
+    
+    io.to(player2.socketId).emit('dragonflow:match-found', {
+      gameId,
+      opponent: { username: player1.username, userId: player1.userId },
+      yourRole: 'player2'
+    });
+  }
+}
+
 io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);
 
@@ -1360,6 +1399,18 @@ io.on('connection', (socket) => {
       
       console.log('User authenticated:', userId, 'for socket:', socket.id);
       socket.emit('authentication-success', { userId });
+      
+      // Broadcast to all other online users that a new player came online
+      // This allows friends lists to update in real-time
+      database.getUserById(userId).then(user => {
+        if (user) {
+          socket.broadcast.emit('player-online-status-changed', {
+            userId: user.id,
+            username: user.username,
+            online: true
+          });
+        }
+      }).catch(err => console.error('Error broadcasting player online:', err));
     } else {
       socket.emit('authentication-failed', { message: 'Invalid user ID' });
     }
@@ -2476,6 +2527,103 @@ io.on('connection', (socket) => {
 
   // ==================== END SPECTATOR SOCKET EVENTS ====================
 
+  // ==================== DRAGONFLOW MATCHMAKING ====================
+  
+  socket.on('dragonflow:join-queue', (data) => {
+    const { username } = data;
+    const userId = userSessions.get(socket.id);
+    
+    if (!userId) {
+      socket.emit('dragonflow:error', { message: 'Not authenticated' });
+      return;
+    }
+    
+    // Check if already in queue
+    if (dragonflowQueue.find(p => p.socketId === socket.id)) {
+      socket.emit('dragonflow:error', { message: 'Already in queue' });
+      return;
+    }
+    
+    // Add to queue
+    dragonflowQueue.push({
+      socketId: socket.id,
+      userId,
+      username,
+      joinedAt: Date.now()
+    });
+    
+    socket.emit('dragonflow:queue-joined', { queuePosition: dragonflowQueue.length });
+    
+    console.log(`🐉 ${username} joined Dragonflow queue (${dragonflowQueue.length} in queue)`);
+    
+    // Try to match players
+    tryMatchDragonflowPlayers();
+  });
+  
+  socket.on('dragonflow:leave-queue', () => {
+    const index = dragonflowQueue.findIndex(p => p.socketId === socket.id);
+    if (index !== -1) {
+      const player = dragonflowQueue.splice(index, 1)[0];
+      console.log(`🐉 ${player.username} left Dragonflow queue`);
+      socket.emit('dragonflow:queue-left');
+    }
+  });
+  
+  socket.on('dragonflow:game-action', (data) => {
+    const gameId = Array.from(dragonflowGames.entries())
+      .find(([_, game]) => game.player1.socketId === socket.id || game.player2.socketId === socket.id)?.[0];
+    
+    if (!gameId) {
+      socket.emit('dragonflow:error', { message: 'Not in a game' });
+      return;
+    }
+    
+    const game = dragonflowGames.get(gameId);
+    
+    // Update game state based on action
+    // The frontend handles game logic, backend just relays updates
+    const opponent = game.player1.socketId === socket.id ? game.player2 : game.player1;
+    io.to(opponent.socketId).emit('dragonflow:opponent-action', data);
+  });
+  
+  socket.on('dragonflow:sync-state', (data) => {
+    const gameId = Array.from(dragonflowGames.entries())
+      .find(([_, game]) => game.player1.socketId === socket.id || game.player2.socketId === socket.id)?.[0];
+    
+    if (!gameId) {
+      console.log('⚠️ Dragonflow sync-state: Game not found for socket', socket.id);
+      return;
+    }
+    
+    const game = dragonflowGames.get(gameId);
+    game.lastState = data.gameState;
+    game.lastUpdate = Date.now();
+    
+    // Relay to opponent
+    const opponent = game.player1.socketId === socket.id ? game.player2 : game.player1;
+    console.log(`🐉 Relaying game state from ${game.player1.socketId === socket.id ? 'player1' : 'player2'} to opponent ${opponent.socketId}`);
+    io.to(opponent.socketId).emit('dragonflow:state-update', data);
+  });
+  
+  socket.on('dragonflow:game-over', (data) => {
+    const gameId = Array.from(dragonflowGames.entries())
+      .find(([_, game]) => game.player1.socketId === socket.id || game.player2.socketId === socket.id)?.[0];
+    
+    if (!gameId) return;
+    
+    const game = dragonflowGames.get(gameId);
+    console.log(`🐉 Dragonflow game ${gameId} ended. Winner: ${data.winner}`);
+    
+    // Notify both players
+    io.to(game.player1.socketId).emit('dragonflow:game-ended', data);
+    io.to(game.player2.socketId).emit('dragonflow:game-ended', data);
+    
+    // Clean up game
+    dragonflowGames.delete(gameId);
+  });
+  
+  // ==================== END DRAGONFLOW ====================
+
   // Handle disconnection
   socket.on('disconnect', (reason) => {
     console.log('Player disconnected:', socket.id, 'Reason:', reason);
@@ -2483,6 +2631,29 @@ io.on('connection', (socket) => {
     // Remove player from any matchmaking queues
     gameManager.cancelSearch(socket.id);
     gameManager.cancelSurvivalSearch(socket.id);
+    
+    // Remove from Dragonflow queue
+    const queueIndex = dragonflowQueue.findIndex(p => p.socketId === socket.id);
+    if (queueIndex !== -1) {
+      const player = dragonflowQueue.splice(queueIndex, 1)[0];
+      console.log(`🐉 Removed ${player.username} from Dragonflow queue on disconnect`);
+    }
+    
+    // Handle Dragonflow game disconnect
+    const dragonflowGameId = Array.from(dragonflowGames.entries())
+      .find(([_, game]) => game.player1.socketId === socket.id || game.player2.socketId === socket.id)?.[0];
+    
+    if (dragonflowGameId) {
+      const game = dragonflowGames.get(dragonflowGameId);
+      const opponent = game.player1.socketId === socket.id ? game.player2 : game.player1;
+      
+      io.to(opponent.socketId).emit('dragonflow:opponent-disconnected', {
+        message: 'Your opponent has disconnected'
+      });
+      
+      console.log(`🐉 Dragonflow game ${dragonflowGameId} ended due to disconnect`);
+      dragonflowGames.delete(dragonflowGameId);
+    }
     
     // IMPORTANT: Spectators must never receive XP or victory points
     // Check if user was spectating and clean up (spectators are NOT in playerGameMap)
@@ -2535,6 +2706,18 @@ io.on('connection', (socket) => {
       loggedInUsers.delete(userId);
       userSessions.delete(socket.id);
       console.log('User logged out:', userId);
+      
+      // Broadcast to all other online users that this player went offline
+      // This allows friends lists to update in real-time
+      database.getUserById(userId).then(user => {
+        if (user) {
+          socket.broadcast.emit('player-online-status-changed', {
+            userId: user.id,
+            username: user.username,
+            online: false
+          });
+        }
+      }).catch(err => console.error('Error broadcasting player offline:', err));
     }
     
     // Clean up rate limiting cache

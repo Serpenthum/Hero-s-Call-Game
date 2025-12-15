@@ -134,9 +134,9 @@
 }
 
 .close-btn {
-  background: none;
-  border: 3px solid #007bff;
-  color: #007bff;
+  background: transparent;
+  border: 2px solid var(--accent-red);
+  color: var(--accent-red);
   font-size: 2rem;
   width: 60px;
   height: 60px;
@@ -146,14 +146,12 @@
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
 }
 
 .close-btn:hover {
-  background: #007bff;
+  background: var(--accent-red);
   color: white;
   transform: scale(1.1);
-  box-shadow: 0 0 20px rgba(0, 123, 255, 0.8);
 }
 
 /* Loading State */

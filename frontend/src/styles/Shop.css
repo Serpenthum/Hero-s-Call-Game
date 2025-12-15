@@ -71,9 +71,9 @@
 }
 
 .shop-close-btn {
-  background: rgba(255, 0, 0, 0.2);
-  border: 2px solid rgba(255, 0, 0, 0.5);
-  color: #ff4444;
+  background: transparent;
+  border: 2px solid var(--accent-red);
+  color: var(--accent-red);
   font-size: clamp(1.2rem, 1.8vw, 1.5rem);
   width: clamp(35px, 3vw, 40px);
   height: clamp(35px, 3vw, 40px);
@@ -86,7 +86,9 @@
 }
 
 .shop-close-btn:hover {
-  background: rgba(255, 0, 0, 0.4);
+  background: var(--accent-red);
+  color: white;
+  transform: scale(1.1);
 }
 
 .shop-message {
@@ -713,9 +715,9 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  background: rgba(255, 0, 0, 0.2);
-  border: 2px solid rgba(255, 0, 0, 0.5);
-  color: #ff4444;
+  background: transparent;
+  border: 2px solid var(--accent-red);
+  color: var(--accent-red);
   font-size: clamp(1.2rem, 1.8vw, 1.5rem);
   width: clamp(35px, 3vw, 40px);
   height: clamp(35px, 3vw, 40px);
@@ -728,7 +730,9 @@
 }
 
 .modal-close-btn:hover {
-  background: rgba(255, 0, 0, 0.4);
+  background: var(--accent-red);
+  color: white;
+  transform: scale(1.1);
 }
 
 .pack-contents-title {

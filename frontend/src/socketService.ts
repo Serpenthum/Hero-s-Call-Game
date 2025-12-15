@@ -228,6 +228,51 @@ class SocketService {
   getSpectatorInfo(gameId: string) {
     this.socket?.emit('get-spectator-info', { gameId });
   }
+
+  // Dragonflow methods
+  joinDragonflowQueue(username: string) {
+    this.socket?.emit('dragonflow:join-queue', { username });
+  }
+
+  leaveDragonflowQueue() {
+    this.socket?.emit('dragonflow:leave-queue');
+  }
+
+  dragonflowGameAction(data: any) {
+    this.socket?.emit('dragonflow:game-action', data);
+  }
+
+  syncDragonflowState(gameState: any) {
+    this.socket?.emit('dragonflow:sync-state', { gameState });
+  }
+
+  dragonflowGameOver(data: any) {
+    this.socket?.emit('dragonflow:game-over', data);
+  }
+
+  onDragonflowMatchFound(callback: (data: any) => void) {
+    this.socket?.on('dragonflow:match-found', callback);
+  }
+
+  onDragonflowOpponentAction(callback: (data: any) => void) {
+    this.socket?.on('dragonflow:opponent-action', callback);
+  }
+
+  onDragonflowStateUpdate(callback: (data: any) => void) {
+    this.socket?.on('dragonflow:state-update', callback);
+  }
+
+  onDragonflowGameEnded(callback: (data: any) => void) {
+    this.socket?.on('dragonflow:game-ended', callback);
+  }
+
+  onDragonflowOpponentDisconnected(callback: () => void) {
+    this.socket?.on('dragonflow:opponent-disconnected', callback);
+  }
+
+  onDragonflowError(callback: (error: { message: string }) => void) {
+    this.socket?.on('dragonflow:error', callback);
+  }
 }
 
 export const socketService = new SocketService();

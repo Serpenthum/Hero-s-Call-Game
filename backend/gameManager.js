@@ -5128,6 +5128,11 @@ class GameManager {
             };
             
             endTurnEffects.push(turretAttackLogEntry);
+            
+            // Check if target died from turret damage
+            if (randomEnemy.currentHP <= 0 && !randomEnemy.statusEffects?.justResurrected) {
+              this.updatePassiveEffectsOnDeath(game, randomEnemy, currentTurnInfo.hero, 'Engineer Turret');
+            }
           }
         } else {
           console.log(`🔧 No alive enemies found for turret damage`);
@@ -6816,6 +6821,11 @@ class GameManager {
         // Add any on_take_damage trigger results (like Poison Aura)
         if (onDamageTriggers && onDamageTriggers.length > 0) {
           results.push(...onDamageTriggers);
+        }
+        
+        // Check if target died from Elemental Strike damage
+        if (primaryTarget.currentHP <= 0 && !primaryTarget.statusEffects?.justResurrected) {
+          this.updatePassiveEffectsOnDeath(game, primaryTarget, caster, 'Elemental Strike');
         }
       }
     } else {

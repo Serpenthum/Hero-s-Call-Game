@@ -3255,13 +3255,25 @@ body, html {
   font-weight: bold;
 }
 
-.close-button {
-  background: none;
-  border: none;
+.friends-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.last-refresh-time {
+  font-size: 0.8rem;
   color: #999;
-  font-size: 1.5rem;
+  opacity: 0.7;
+}
+
+.refresh-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #999;
+  font-size: 1.2rem;
   cursor: pointer;
-  padding: 0;
+  padding: 5px;
   width: 30px;
   height: 30px;
   display: flex;
@@ -3271,9 +3283,38 @@ body, html {
   transition: all 0.2s ease;
 }
 
+.refresh-button:hover:not(:disabled) {
+  background: rgba(0, 123, 255, 0.2);
+  color: #007bff;
+  border-color: #007bff;
+  transform: rotate(90deg);
+}
+
+.refresh-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.close-button {
+  background: transparent;
+  border: 2px solid var(--accent-red);
+  color: var(--accent-red);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
 .close-button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--accent-red);
   color: white;
+  transform: scale(1.1);
 }
 
 .friends-overlay-content {
