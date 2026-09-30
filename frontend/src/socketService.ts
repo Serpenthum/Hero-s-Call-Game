@@ -168,6 +168,25 @@ class SocketService {
     this.socket?.emit('get-survival-state');
   }
 
+  getQuests() {
+    this.socket?.emit('get-quests');
+  }
+
+  // Round-trip time to the server in ms, or null if it didn't answer within 5s.
+  ping(): Promise<number | null> {
+    return new Promise(resolve => {
+      const socket = this.socket as any;
+      if (!socket?.connected) {
+        resolve(null);
+        return;
+      }
+      const start = performance.now();
+      socket.timeout(5000).emit('latency-ping', (err: unknown) => {
+        resolve(err ? null : Math.round(performance.now() - start));
+      });
+    });
+  }
+
   resetSurvivalState() {
     this.socket?.emit('reset-survival-state');
   }

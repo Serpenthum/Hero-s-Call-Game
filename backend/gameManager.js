@@ -695,6 +695,7 @@ class GameManager {
     game.playerHeroIndex = [0, 0]; // Which hero index for each player  
     game.currentTurn = firstPlayerIndex; // For compatibility
 
+    game.firstPlayerIndex = firstPlayerIndex;
     console.log('🎲 startRandomMode - Initialized turn system: Player', firstPlayerIndex, 'goes first');
 
     // Apply passive effects from specials
@@ -1014,6 +1015,7 @@ class GameManager {
     game.playerHeroIndex = [0, 0]; // Which hero index for each player
     game.currentTurn = firstPlayerIndex; // For compatibility
 
+    game.firstPlayerIndex = firstPlayerIndex;
     console.log('🎲 chooseTurnOrder - Initialized turn system: Player', firstPlayerIndex, 'goes first');
 
     // Apply passive effects from specials
@@ -1536,17 +1538,11 @@ class GameManager {
       debugLog(` ${hero.name} accuracy: ${hero.Accuracy} → ${hero.modifiedAccuracy} (buffs: ${accuracyBuffs.map(b => `+${b.value} from ${b.sourceName}`).join(', ')})`);
     }
 
-    // Update damage display (add to scaling if present)
+    // Update damage display; build on the dice string computed above so scaling and collected dice aren't lost
     const damageBuffs = hero.passiveBuffs.filter(b => b.stat === 'damage');
     if (damageBuffs.length > 0) {
       const totalDamageBonus = damageBuffs.reduce((sum, buff) => sum + buff.value, 0);
-      
-      // If we already have scaling damage, combine them
-      if (hero.scalingBuffs && hero.scalingBuffs.damage) {
-        hero.modifiedBasicAttack = `${hero.BasicAttack} +${hero.scalingBuffs.damage}D6 +${totalDamageBonus}`;
-      } else {
-        hero.modifiedBasicAttack = `${hero.BasicAttack} +${totalDamageBonus}`;
-      }
+      hero.modifiedBasicAttack = `${hero.modifiedBasicAttack} +${totalDamageBonus}`;
       debugLog(` ${hero.name} damage: ${hero.BasicAttack} → ${hero.modifiedBasicAttack} (buffs: ${damageBuffs.map(b => `+${b.value} from ${b.sourceName}`).join(', ')})`);
     }
   }
@@ -5681,6 +5677,8 @@ class GameManager {
     return {
       id: game.id,
       mode: game.mode, // Include the game mode (survival, draft, random, etc.)
+      firstPlayerIndex: game.firstPlayerIndex,
+      isFriendly: !!game.roomName,
       phase: game.phase,
       players: game.players.map(p => ({
         id: p.id,

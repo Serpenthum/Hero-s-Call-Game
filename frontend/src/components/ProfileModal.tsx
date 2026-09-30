@@ -127,7 +127,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                   <div className="profile-icon-container">
                     {getProfileIcon() && (
                       <img 
-                        src={`${config.IMAGE_BASE_URL}/hero-images/${getProfileIcon()!.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                        src={`${config.IMAGE_BASE_URL}/hero-images/${getProfileIcon()!.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
                         alt={selectedIcon}
                         className="profile-icon"
                         onError={(e) => {
@@ -233,7 +233,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                       >
                         <div className="icon-option-image">
                           <img 
-                            src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                            src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
+                            decoding="async"
+                            loading="lazy"
                             alt={hero.name}
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`

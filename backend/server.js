@@ -15,6 +15,8 @@ console.log('Basic modules loaded successfully');
 // Import game logic
 console.log('Loading GameManager...');
 const GameManager = require('./gameManager');
+const { snapshotBattle, buildBattleEvent, classifyCast } = require('./battleEvents');
+const { QuestService } = require('./quests');
 console.log('Loading utils...');
 const { rollDice, shuffleArray } = require('./utils');
 console.log('Loading Database...');
@@ -23,30 +25,35 @@ console.log('Game logic modules loaded successfully');
 
 const app = express();
 const server = http.createServer(app);
+
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://localhost:4173",
+  "https://heroescall.8363742.xyz"
+];
+const PRIVATE_NETWORK_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
+
+// Outside production, also accept LAN origins so the app works from other devices.
+const originAllowed = (origin, callback) => {
+  const ok = !origin
+    || ALLOWED_ORIGINS.includes(origin)
+    || (process.env.NODE_ENV !== 'production' && PRIVATE_NETWORK_ORIGIN.test(origin));
+  callback(null, ok);
+};
+
 const io = socketIo(server, {
   cors: {
-    origin: [
-      "http://localhost:5173", 
-      "http://localhost:5174",
-      "http://localhost:3000", 
-      "http://127.0.0.1:5173",
-      "http://127.0.0.1:5174",
-      "https://heroescall.8363742.xyz"
-    ],
+    origin: originAllowed,
     methods: ["GET", "POST"]
   }
 });
 
 app.use(cors({
-  origin: [
-    "http://localhost:5173", 
-    "http://localhost:5174",
-    "http://localhost:3000", 
-    "http://127.0.0.1:5173", 
-    "http://127.0.0.1:5174",
-    "http://localhost:4173",
-    "https://heroescall.8363742.xyz"
-  ],
+  origin: originAllowed,
   methods: ["GET", "POST", "OPTIONS"],
   credentials: true
 }));
@@ -54,7 +61,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Serve hero images
-app.use('/hero-images', express.static(path.join(__dirname, '../frontend/hero-images')));
+app.use('/hero-images', express.static(path.join(__dirname, '../frontend/hero-images'), { maxAge: '1d' }));
 
 // Serve login images
 app.use('/login-images', express.static(path.join(__dirname, '../frontend/public/login-images')));
@@ -797,7 +804,74 @@ const PORT = process.env.PORT || 3001;
 
 // Game state management
 const gameManager = new GameManager(heroes, database);
+const questService = new QuestService(database);
 
+// Friendly-room and gauntlet wins never count toward quests (easy to farm / not in scope).
+async function awardQuestProgress(result, winnerPlayer) {
+  try {
+    const gs = result.gameState;
+    if (!gs || gs.isFriendly || !['draft', 'random', 'survival'].includes(gs.mode)) return;
+    const userId = userSessions.get(winnerPlayer.id);
+    if (!userId) return;
+
+    const firstPlayer = gs.firstPlayerIndex !== undefined ? gs.players[gs.firstPlayerIndex] : null;
+    const update = await questService.recordWin(userId, {
+      mode: gs.mode,
+      teamNames: (winnerPlayer.team || []).map(h => h.name),
+      wentSecond: firstPlayer ? firstPlayer.id !== winnerPlayer.id : false
+    });
+    if (update) io.to(winnerPlayer.id).emit('quests-update', update);
+  } catch (err) {
+    console.error('Quest progress update failed:', err.message);
+  }
+}
+
+// Runs a battle action and attaches a `battleEvent` (HP/status diff) for client animations.
+// Failures here must never affect gameplay, so all event work is wrapped in try/catch.
+function withBattleEvent(socketId, kind, abilityIndex, run) {
+  const game = gameManager.games.get(gameManager.playerGameMap.get(socketId));
+  let before = null;
+  let actor = null;
+  let ability = null;
+  try {
+    before = snapshotBattle(game);
+    const turn = game && game.phase === 'battle' ? gameManager.getCurrentTurnInfo(game) : null;
+    if (turn && kind !== 'tick') {
+      actor = { playerId: turn.player.id, heroIndex: turn.player.team.indexOf(turn.hero) };
+      ability = abilityIndex != null ? turn.hero.Ability?.[abilityIndex] : null;
+    }
+  } catch (err) {
+    console.error('battleEvent snapshot failed:', err.message);
+  }
+
+  const result = run();
+
+  if (result && result.success && before) {
+    try {
+      const results = Array.isArray(result.results) ? result.results : [];
+      const comprehensive = results.find(r => r.type === 'ability_comprehensive');
+      const missed = results.find(r => r.type === 'miss');
+      const abilityTarget = comprehensive && comprehensive.target !== 'Multiple Targets'
+        ? comprehensive.target
+        : (missed ? missed.target : null);
+      const abilityHit = comprehensive
+        ? comprehensive.hit !== false
+        : !(results.length > 0 && results.every(r => r.type === 'miss'));
+      result.battleEvent = buildBattleEvent(before, game, {
+        kind,
+        cast: kind === 'ability' ? classifyCast(ability) : null,
+        actorPlayerId: actor?.playerId,
+        actorHeroIndex: actor?.heroIndex,
+        hit: kind === 'attack' ? result.hit !== false : kind === 'tick' || abilityHit,
+        crit: kind === 'attack' ? !!result.isCritical : kind === 'ability' && results.some(r => r.isCritical),
+        targetName: kind === 'attack' ? result.target : abilityTarget
+      });
+    } catch (err) {
+      console.error('battleEvent build failed:', err.message);
+    }
+  }
+  return result;
+}
 // Inject the io instance into gameManager for disconnection countdown events
 // This will be done after io is defined
 
@@ -948,6 +1022,8 @@ async function handleRegularGameCompletion(result) {
           });
           
           console.log(`📡 Updated winner stats: +${winnerStatsUpdate.xpGain} XP, level ${winnerXPUpdate.level}`);
+
+          await awardQuestProgress(result, winnerPlayer);
         }
         
         if (loserUserId && !loserIsSpectator) {
@@ -1075,6 +1151,8 @@ async function checkSurvivalGameCompletion(result) {
         
         // Track hero usage for both players
         if (winnerUserId && !winnerIsSpectator) {
+          await awardQuestProgress(result, winnerPlayer);
+
           // Track hero usage
           for (const hero of winnerPlayer.team) {
             await database.updateHeroUsage(winnerUserId, hero.name);
@@ -1834,7 +1912,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('basic-attack', async (data) => {
-    const result = gameManager.basicAttack(socket.id, data.targetId);
+    const result = withBattleEvent(socket.id, 'attack', null, () => gameManager.basicAttack(socket.id, data.targetId));
     if (result.success) {
       io.to(result.gameId).emit('attack-result', result);
       
@@ -1852,7 +1930,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('use-ability', async (data) => {
-    const result = gameManager.useAbility(socket.id, data.abilityIndex, data.targetId, data.allyTargetId);
+    const result = withBattleEvent(socket.id, 'ability', data.abilityIndex, () => gameManager.useAbility(socket.id, data.abilityIndex, data.targetId, data.allyTargetId));
     if (result.success) {
       io.to(result.gameId).emit('ability-result', result);
       
@@ -1870,7 +1948,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('use-timekeeper-selected-ability', async (data) => {
-    const result = gameManager.useTimekeeperSelectedAbility(socket.id, data.timekeeperTargetId, data.allyTargetId, data.selectedAbilityIndex);
+    const result = withBattleEvent(socket.id, 'ability', null, () => gameManager.useTimekeeperSelectedAbility(socket.id, data.timekeeperTargetId, data.allyTargetId, data.selectedAbilityIndex));
     if (result.success) {
       io.to(result.gameId).emit('ability-result', result);
       
@@ -1888,7 +1966,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('end-turn', async () => {
-    const result = gameManager.endTurn(socket.id);
+    const result = withBattleEvent(socket.id, 'tick', null, () => gameManager.endTurn(socket.id));
     if (result.success) {
       io.to(result.gameId).emit('turn-ended', result);
       
@@ -1955,6 +2033,19 @@ io.on('connection', (socket) => {
   });
 
   // Handle survival state requests
+  socket.on('latency-ping', (ack) => {
+    if (typeof ack === 'function') ack();
+  });
+
+  socket.on('get-quests', async () => {
+    const userId = userSessions.get(socket.id);
+    if (!userId) return;
+    try {
+      socket.emit('quests-update', { quests: await questService.getQuests(userId), completed: [] });
+    } catch (err) {
+      console.error('Failed to load quests:', err.message);
+    }
+  });
   socket.on('get-survival-state', async () => {
     const state = await gameManager.getSurvivalState(socket.id);
     socket.emit('survival-state-response', { state });

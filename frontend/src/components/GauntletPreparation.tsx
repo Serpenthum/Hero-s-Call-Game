@@ -248,7 +248,7 @@ const GauntletPreparation: React.FC<GauntletPreparationProps> = ({
                     onClick={() => (isSelectable || isResurrectable) ? handleHeroClick(index) : null}
                     className={`roster-hero-card ${isDead ? 'dead' : ''} ${isTemp ? 'temp-res' : ''} ${isInTeam ? 'in-team' : ''} ${isSelectable || isResurrectable ? 'selectable' : ''}`}
                   >
-                    <img src={`${config.IMAGE_BASE_URL}/hero-images/${hero.hero_id.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`} alt={hero.hero_id} />
+                    <img src={`${config.IMAGE_BASE_URL}/hero-images/${hero.hero_id.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`} alt={hero.hero_id} />
                     <div className="hero-name">{hero.hero_id}</div>
                     <div className="hero-hp">
                       {hero.current_hp}/{hero.max_hp} HP
@@ -285,7 +285,7 @@ const GauntletPreparation: React.FC<GauntletPreparationProps> = ({
                   >
                     {hero ? (
                       <>
-                        <img src={`${config.IMAGE_BASE_URL}/hero-images/${hero.hero_id.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`} alt={hero.hero_id} />
+                        <img src={`${config.IMAGE_BASE_URL}/hero-images/${hero.hero_id.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`} alt={hero.hero_id} />
                         <div className="slot-number">{slot + 1}</div>
                         <div className="hero-name">{hero.hero_id}</div>
                         <div className="hero-hp">{hero.current_hp}/{hero.max_hp} HP</div>
@@ -388,7 +388,7 @@ const GauntletPreparation: React.FC<GauntletPreparationProps> = ({
             <div className="offer-heroes">
               {shopOffer.map((offer, index) => (
                 <div key={index} className="offer-hero-card">
-                  <img src={`${config.IMAGE_BASE_URL}/hero-images/${offer.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`} alt={offer.name} />
+                  <img src={`${config.IMAGE_BASE_URL}/hero-images/${offer.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`} alt={offer.name} />
                   <h3>{offer.name}</h3>
                   <div className="offer-stats">
                     <div>❤️ HP: {offer.data.HP}</div>

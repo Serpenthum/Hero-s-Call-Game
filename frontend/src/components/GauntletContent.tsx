@@ -245,7 +245,7 @@ const GauntletContent: React.FC<GauntletContentProps> = ({
             <div className="offer-heroes">
               {shopOffer.map((offer, index) => (
                 <div key={index} className="offer-hero-card">
-                  <img src={`${config.IMAGE_BASE_URL}/hero-images/${offer.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`} alt={offer.name} />
+                  <img src={`${config.IMAGE_BASE_URL}/hero-images/${offer.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`} alt={offer.name} />
                   <h3>{offer.name}</h3>
                   <div className="offer-stats">
                     <div>❤️ HP: {offer.data.HP}</div>

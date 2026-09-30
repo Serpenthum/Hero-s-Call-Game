@@ -1,0 +1,62 @@
+.battle-fx-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 2500;
+}
+
+/* Transparent shield that blocks input while an action animation plays */
+.battle-fx-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  background: transparent;
+}
+
+.battle-fx-float {
+  position: fixed;
+  z-index: 2600;
+  pointer-events: none;
+  font-weight: 800;
+  white-space: nowrap;
+  text-shadow: 0 2px 4px #000, 0 0 6px #000;
+  will-change: transform, opacity;
+}
+
+/* Victory / defeat title entrance */
+.game-over-modal {
+  animation: gameOverPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) 0.8s both;
+}
+
+.game-over-title.winner {
+  animation: victoryGlow 1.6s ease-in-out 1.3s infinite alternate;
+}
+
+.game-over-title.loser {
+  animation: defeatFade 1.2s ease-out 1.3s both;
+}
+
+@keyframes gameOverPop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes victoryGlow {
+  from { text-shadow: 0 0 6px rgba(250, 204, 21, 0.4); }
+  to { text-shadow: 0 0 22px rgba(250, 204, 21, 0.95); }
+}
+
+@keyframes defeatFade {
+  from { filter: none; }
+  to { filter: grayscale(0.8) brightness(0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-over-modal,
+  .game-over-title.winner,
+  .game-over-title.loser {
+    animation: none;
+  }
+}

@@ -443,6 +443,12 @@
   opacity: 0;
 }
 
+/* Keeps the grid the same size on the last (short) page; see getPageSlots */
+.hero-card.survival-card.survival-card-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Survival Hero Cards - Match Collection Format Exactly */
 .hero-card.survival-card {
   /* Use same responsive dimensions as draft cards */

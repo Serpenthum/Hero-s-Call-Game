@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Hero } from '../types';
 import config from '../config';
+import { getAttackDisplay } from '../attackDisplay';
 
 interface HeroCardProps {
   hero: Hero;
@@ -15,6 +16,7 @@ interface HeroCardProps {
   hideAbilities?: boolean;
   tooltipPosition?: 'right' | 'left' | 'top'; // Add tooltip position prop
   forceShowTooltip?: boolean; // Force tooltip to always show
+  animKey?: string; // Lets the battle animation layer locate this card
 }
 
 const KEYWORD_TOOLTIPS: { [key: string]: string } = {
@@ -39,7 +41,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
   disableHPAnimations = false,
   hideAbilities = false,
   tooltipPosition = 'right', // Default to right
-  forceShowTooltip = false
+  forceShowTooltip = false,
+  animKey
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
@@ -594,9 +597,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const getImagePath = () => {
     // Show dismounted version when Dragon Rider's special triggers
     if (hero.name === 'Dragon Rider' && isDismounted) {
-      return `${config.IMAGE_BASE_URL}/hero-images/dragonriderdismounted.png`;
+      return `${config.IMAGE_BASE_URL}/hero-images/dragonriderdismounted.webp`;
     }
-    return `${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
+    return `${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`;
   };
 
   const formatAccuracy = (accuracy: string) => {
@@ -621,35 +624,20 @@ const HeroCard: React.FC<HeroCardProps> = ({
     const hasNegativeBuffs = relevantBuffs.some(buff => buff.value < 0);
     const glowClass = getStatGlowClass(statName, hasPositiveBuffs, hasNegativeBuffs);
 
-    // Special handling for heroes with damage bonuses (both status effects and passive buffs)
+    // Heroes with damage bonuses (Hoarder's dice, Last Stand, Berserker stacks, passive buffs)
     if (statName === 'attack') {
-      let stackDisplay = baseValue;
-      let hasExtraDisplay = false;
-      
-      // Add Berserker damage stacks (from status effects)
-      if (hero.statusEffects?.damageStacks && hero.statusEffects.damageStacks > 0) {
-        stackDisplay += ` + ${hero.statusEffects.damageStacks}`;
-        hasExtraDisplay = true;
-      }
-      
-      // Add passive damage buffs (like Warlock Dark Pact)
-      if (relevantBuffs.length > 0) {
-        const totalPassiveDamage = relevantBuffs.reduce((sum, buff) => sum + buff.value, 0);
-        if (totalPassiveDamage > 0) {
-          stackDisplay += ` + ${totalPassiveDamage}`;
-          hasExtraDisplay = true;
-        }
-      }
-      
-      if (hasExtraDisplay) {
-        const tooltipText = relevantBuffs.map(buff => 
-          `+${buff.value} from ${buff.sourceHero}'s ${buff.sourceName}`
-        ).join(', ');
+      const attack = getAttackDisplay(hero);
+
+      if (attack.hasExtras) {
+        const tooltipText = [
+          ...attack.sources,
+          ...relevantBuffs.map(buff => `+${buff.value} from ${buff.sourceHero}'s ${buff.sourceName}`)
+        ].join(', ');
 
         return (
-          <span className={`buffed-stat ${glowClass}`}>
+          <span className={`buffed-stat ${glowClass || 'stat-buffed'}`}>
             <span className="buffed-text">
-              Attack: {stackDisplay}
+              Attack: {attack.text}
             </span>
             <span className="buff-tooltip">
               <span className="buff-tooltiptext">
@@ -842,6 +830,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
   return (
     <div
       className={getCardClasses()}
+      data-anim-key={animKey}
+      data-hero-name={animKey ? hero.name : undefined}
       onClick={isSelectable ? onClick : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -851,7 +841,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
       {renderCompanions()}
       
       <img 
-        src={getImagePath()} 
+        src={getImagePath()}
+        decoding="async"
+        loading="lazy" 
         alt={hero.name} 
         className={`hero-image ${isFlipping ? 'card-flip' : ''}`}
         onError={(e) => {

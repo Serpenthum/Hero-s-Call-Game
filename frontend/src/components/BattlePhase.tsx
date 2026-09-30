@@ -3,7 +3,9 @@ import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
 import RewardsDisplay from './RewardsDisplay';
+import BattleFX from './BattleFX';
 import config from '../config';
+import { getAttackDisplay } from '../attackDisplay';
 
 interface BattlePhaseProps {
   gameState: GameState;
@@ -40,7 +42,7 @@ interface BattlePhaseProps {
   };
 }
 
-const BattlePhase: React.FC<BattlePhaseProps> = ({ 
+const BattlePhaseView: React.FC<BattlePhaseProps> = ({ 
   gameState, 
   currentPlayer, 
   opponent, 
@@ -89,22 +91,6 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
     }
   }, [opponent, gameState]);
 
-  // Debug effect to log player data
-  useEffect(() => {
-    console.log('🎮 BattlePhase render - Player data:', {
-      currentPlayer: {
-        name: currentPlayer.name,
-        profile_icon: currentPlayer.profile_icon,
-        id: currentPlayer.id
-      },
-      opponent: opponent ? {
-        name: opponent.name,
-        profile_icon: opponent.profile_icon,
-        id: opponent.id
-      } : null
-    });
-  }, [currentPlayer, opponent]);
-
   // Helper function to check if current ability selection is Timekeeper's Chrono Shift
   const isTimekeeperChronoShift = () => {
     if (!selectingAllyForAbility) return false;
@@ -121,26 +107,8 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
     }
   };
 
-  // Helper function to format damage display with stacks
-  const formatDamageWithStacks = (hero: Hero, baseDamage: string) => {
-    let displayString = baseDamage;
-    
-    // Add Berserker damage stacks (from status effects)
-    if (hero.statusEffects?.damageStacks && hero.statusEffects.damageStacks > 0) {
-      displayString += ` + ${hero.statusEffects.damageStacks}`;
-    }
-    
-    // Add passive damage buffs (like Warlock Dark Pact)
-    if (hero.passiveBuffs) {
-      const damageBuffs = hero.passiveBuffs.filter(buff => buff.stat === 'damage');
-      const totalPassiveDamage = damageBuffs.reduce((sum, buff) => sum + buff.value, 0);
-      if (totalPassiveDamage > 0) {
-        displayString += ` + ${totalPassiveDamage}`;
-      }
-    }
-    
-    return displayString;
-  };
+  // Helper function to format damage display with all dice and flat bonuses
+  const formatDamageWithStacks = (hero: Hero) => getAttackDisplay(hero).text;
 
   // Helper function to check if a hero can use multiple abilities
   const canUseMultipleAbilities = (hero: Hero) => {
@@ -183,29 +151,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
 
   const isMyTurn = (): boolean => {
     const playerIndex = gameState.players.findIndex(p => p.id === playerId);
-    const isMyTurnResult = gameState.currentTurn === playerIndex;
-    
-    // Add debugging for silenced heroes
-    const activeHero = getCurrentActiveHero();
-    if (activeHero) {
-      const isSilenced = activeHero.hero.statusEffects?.silenced === true || 
-                        (typeof activeHero.hero.statusEffects?.silenced === 'object' && 
-                         activeHero.hero.statusEffects.silenced?.active);
-      
-      if (isSilenced) {
-        console.log(`🤐 Active hero ${activeHero.hero.name} is silenced (Player ${activeHero.playerIndex})`);
-      }
-    }
-    
-    console.log('🔍 Turn check:', {
-      playerId,
-      playerIndex,
-      currentTurn: gameState.currentTurn,
-      currentHeroTurn: gameState.currentHeroTurn,
-      isMyTurn: isMyTurnResult,
-      activeHero: activeHero ? `${activeHero.hero.name} (P${activeHero.playerIndex})` : 'none'
-    });
-    return isMyTurnResult;
+    return gameState.currentTurn === playerIndex;
   };
 
   const getCurrentActiveHero = () => {
@@ -243,19 +189,16 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
     
     // Only allow targeting if it's my turn AND I haven't selected a target yet
     if (!isMyTurn()) {
-      console.log('🚫 Not my turn, no targetable enemies');
       return [];
     }
     
     if (!opponent) {
-      console.log('🚫 No opponent, no targetable enemies');
       return [];
     }
     
     // Check if I already have a selected target
     const myPlayerData = gameState.players.find(p => p.id === playerId);
     if (myPlayerData?.selectedTarget) {
-      console.log('🚫 Already have selected target:', myPlayerData.selectedTarget);
       return [];
     }
 
@@ -267,7 +210,6 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
       if (tauntTarget) {
         const hp = tauntTarget.currentHP !== undefined ? tauntTarget.currentHP : (typeof tauntTarget.HP === 'string' ? parseInt(tauntTarget.HP) : tauntTarget.HP);
         // Return only the taunt target if alive, otherwise empty array
-        console.log('🎯 Taunted, can only target:', tauntTargetName);
         return hp > 0 ? [tauntTarget] : [];
       }
     }
@@ -280,7 +222,6 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
       return isAlive && isTargetable;
     });
     
-    console.log('🎯 Targetable enemies:', targetable.map(h => h.name));
     return targetable;
   };
 
@@ -387,10 +328,6 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
   const renderBattlePhase = () => {
     const targetableEnemies = getTargetableEnemies();
 
-    // Debug logging for profile icons
-    console.log('Current player profile_icon:', currentPlayer.profile_icon);
-    console.log('Opponent profile_icon:', opponent?.profile_icon);
-
     return (
       <div className="battle-layout">
         <div className="game-board">
@@ -399,7 +336,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
               <h3 className="team-label opponent-label">{opponent?.name || 'Opponent Player'}</h3>
               <div className="player-profile-icon">
                 <img 
-                  src={`${config.IMAGE_BASE_URL}/hero-images/${(opponent?.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                  src={`${config.IMAGE_BASE_URL}/hero-images/${(opponent?.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
                   alt={opponent?.profile_icon || 'Default'}
                   className="profile-icon-small"
                   onError={(e) => {
@@ -419,6 +356,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
               {opponent?.team.map((hero, heroIndex) => (
                 <HeroCard
                   key={`${hero.name}-${heroIndex}`}
+                  animKey={`${opponent?.id}:${heroIndex}`}
                   hero={hero}
                   isCurrentTurn={(() => {
                     if (!gameState.activeHero) return false;
@@ -446,7 +384,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
               <h3 className="team-label player-label">{currentPlayer.name || 'Your Team'}</h3>
               <div className="player-profile-icon">
                 <img 
-                  src={`${config.IMAGE_BASE_URL}/hero-images/${(currentPlayer.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                  src={`${config.IMAGE_BASE_URL}/hero-images/${(currentPlayer.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
                   alt={currentPlayer.profile_icon || 'Default'}
                   className="profile-icon-small"
                   onError={(e) => {
@@ -465,6 +403,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
               {currentPlayer.team.map((hero, heroIndex) => (
                 <HeroCard
                   key={`${hero.name}-${heroIndex}`}
+                  animKey={`${currentPlayer.id}:${heroIndex}`}
                   hero={hero}
                   isCurrentTurn={(() => {
                     if (!gameState.activeHero) return false;
@@ -624,7 +563,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                   <div style={{ fontSize: '12px', color: '#ccc' }}>
                     HP: {activeHero.hero.currentHP || activeHero.hero.HP} | 
                     Defense: {(activeHero.hero as any).modifiedDefense || activeHero.hero.Defense} | 
-                    Attack: {formatDamageWithStacks(activeHero.hero, activeHero.hero.BasicAttack)}
+                    Attack: {formatDamageWithStacks(activeHero.hero)}
                   </div>
                 </div>
                 
@@ -638,7 +577,7 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
                     const canMultipleAttacks = canUseMultipleAttacks(activeHero.hero);
                     const usedAttacks = myPlayerData.usedAttacks || 0;
                     const oneTwoPunchRemaining = myPlayerData.oneTwoPunchAttacksRemaining || 0;
-                    let attackButtonText = `Attack (${formatDamageWithStacks(activeHero.hero, activeHero.hero.BasicAttack)})`;
+                    let attackButtonText = `Attack (${formatDamageWithStacks(activeHero.hero)})`;
                     // Check if hero is stunned (has disableAttack status)
                     const isStunned = activeHero.hero.statusEffects?.disableAttack === true || 
                                      (typeof activeHero.hero.statusEffects?.disableAttack === 'object' && 
@@ -1187,6 +1126,21 @@ const BattlePhase: React.FC<BattlePhaseProps> = ({
         )}
       </>
     );
+};
+
+// Wrapper keeps the animation layer mounted across phase changes (e.g. the killing blow ending the game)
+const BattlePhase: React.FC<BattlePhaseProps> = (props) => {
+  const { gameState, playerId, isSpectating } = props;
+  const gameOverResult = gameState.phase !== 'ended' || !gameState.winner
+    ? null
+    : isSpectating ? 'neutral' : (gameState.winner === playerId ? 'victory' : 'defeat');
+
+  return (
+    <>
+      <BattlePhaseView {...props} />
+      <BattleFX gameOverResult={gameOverResult} />
+    </>
+  );
 };
 
 export default BattlePhase;

@@ -1744,6 +1744,11 @@ body, html {
   transform: translate(-50%, -50%); /* Perfect centering */
 }
 
+/* The transform above traps tooltips in this layer; lift it over the name/icon label (z-index 10) while a card is hovered. */
+.team-display:has(.hero-card:hover) {
+  z-index: 20;
+}
+
 /* Adjust opponent team cards positioning to fit on screen */
 .opponent-area .team-display {
   transform: translate(-50%, calc(-50% + clamp(12px, 1.5vw, 20px))); /* Move top cards down to fit on screen */
@@ -2251,12 +2256,13 @@ body, html {
   color: #dc3545;
 }
 
-/* Setup and Battle Phase Styles */
+/* Setup and Battle Phase Styles: one shared gold-trim frame, no coloured side edge */
 .setup-info, .battle-info, .battle-combined-info {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 15px;
-  border-left: 4px solid #28a745;
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
 }
 
 .setup-status {
@@ -2340,22 +2346,62 @@ body, html {
 
 /* Battle Log Section within Combined Info */
 .battle-log-section {
+  position: relative;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  padding: 10px;
-  border-left: 3px solid #dc3545;
+  padding: 18px 10px;
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
   margin-top: 15px;
-  max-height: 35vh; /* Slightly smaller than standalone battle log */
+  max-height: 52vh; /* Extended so more of the log is visible */
   min-width: 90%; /* Prevent shrinking below 90% of original size (max 10% shrink) */
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
+/* Rune trim along the top and bottom edges */
+.battle-log-section::before,
+.battle-log-section::after {
+  content: '◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇◆◇';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12px;
+  line-height: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 0.55rem;
+  letter-spacing: 6px;
+  color: rgba(255, 215, 0, 0.45);
+  pointer-events: none;
+}
+
+.battle-log-section::before { top: 3px; }
+.battle-log-section::after { bottom: 3px; }
+
 .battle-log-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 10px 0;
   color: #dc3545;
   font-size: 1rem;
+}
+
+/* Header divider: gold diamond, then a fading line */
+.battle-log-section h4::before {
+  content: '◆';
+  color: #ffd700;
+  font-size: 0.6rem;
+}
+
+.battle-log-section h4::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.7), rgba(220, 53, 69, 0.4), transparent);
 }
 
 .log-entries {
@@ -2367,7 +2413,7 @@ body, html {
 
 /* Log entries within the combined battle section */
 .battle-log-section .log-entries {
-  max-height: 30vh; /* Smaller height within the combined section */
+  max-height: 44vh; /* Fits inside the taller section (52vh minus frame and header) */
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 5px;
@@ -2393,11 +2439,79 @@ body, html {
 }
 
 .log-entry {
+  position: relative;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
   padding: 8px;
   margin-bottom: 6px;
   font-size: 0.85rem;
+  border: 1px solid transparent;
+  animation: logEntryIn 0.45s ease-out;
+}
+
+/* New entries slide in from the right with a brief glow; existing entries keep their key and don't replay it */
+@keyframes logEntryIn {
+  0% { opacity: 0; transform: translateX(24px); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+  50% { opacity: 1; box-shadow: 0 0 12px 2px rgba(255, 215, 0, 0.55); }
+  100% { opacity: 1; transform: translateX(0); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+}
+
+/* Critical hit: shimmering gold border */
+.log-entry.crit {
+  border-color: #ffd700;
+  background: linear-gradient(110deg, rgba(0, 0, 0, 0.3) 30%, rgba(255, 215, 0, 0.18) 50%, rgba(0, 0, 0, 0.3) 70%);
+  background-size: 250% 100%;
+  animation: logEntryIn 0.45s ease-out, logCritShimmer 2.4s linear infinite;
+}
+
+.log-entry.crit::before {
+  content: '✦ CRIT';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ffd700;
+}
+
+@keyframes logCritShimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* Kill: red border with a one-time flash */
+.log-entry.killed {
+  border-color: #dc3545;
+  animation: logEntryIn 0.45s ease-out, logKillFlash 0.9s ease-out;
+}
+
+.log-entry.killed::after {
+  content: '☠ KO';
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ff6b6b;
+}
+
+@keyframes logKillFlash {
+  0% { background-color: rgba(220, 53, 69, 0.55); }
+  100% { background-color: rgba(0, 0, 0, 0.3); }
+}
+
+.log-entry.crit.killed {
+  animation: logEntryIn 0.45s ease-out, logCritShimmer 2.4s linear infinite, logKillFlash 0.9s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-entry,
+  .log-entry.crit,
+  .log-entry.killed {
+    animation: none;
+  }
 }
 
 .log-action {

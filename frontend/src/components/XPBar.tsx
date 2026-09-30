@@ -56,6 +56,11 @@ const XPBar: React.FC<XPBarProps> = ({ currentXP, level, animated = true, xpGain
     }
   }, [currentXP, xpGained, animated]);
 
+  // Non-animated bars follow the prop directly (used by the lobby count-up).
+  useEffect(() => {
+    if (!animated) setDisplayXP(currentXP);
+  }, [currentXP, animated]);
+
   // Level up animation effect
   useEffect(() => {
     if (leveledUp) {

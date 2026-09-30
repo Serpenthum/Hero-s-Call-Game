@@ -28,15 +28,18 @@ const getRuntimeConfig = (key: string, viteKey: string, fallback: string): strin
   return fallback;
 };
 
+// Default to the host the page was loaded from so LAN devices reach the backend too.
+const defaultBackend = `http://${window.location.hostname || 'localhost'}:3001`;
+
 const config = {
   // Backend API URL
-  API_BASE_URL: getRuntimeConfig('API_BASE_URL', 'VITE_API_BASE_URL', 'http://localhost:3001'),
+  API_BASE_URL: getRuntimeConfig('API_BASE_URL', 'VITE_API_BASE_URL', defaultBackend),
   
   // Image URL - images are served from the frontend
-  IMAGE_BASE_URL: getRuntimeConfig('IMAGE_BASE_URL', 'VITE_IMAGE_BASE_URL', 'http://localhost:3001'),
+  IMAGE_BASE_URL: getRuntimeConfig('IMAGE_BASE_URL', 'VITE_IMAGE_BASE_URL', defaultBackend),
   
   // Socket.IO URL (usually same as API base)
-  SOCKET_URL: getRuntimeConfig('SOCKET_URL', 'VITE_SOCKET_URL', 'http://localhost:3001'),
+  SOCKET_URL: getRuntimeConfig('SOCKET_URL', 'VITE_SOCKET_URL', defaultBackend),
 };
 
 export default config;

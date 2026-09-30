@@ -59,7 +59,9 @@ const HeroCard = React.memo<{
         <div className="favorite-star">⭐</div>
       )}
       <img 
-        src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+        src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
+        decoding="async"
+        loading="lazy"
         alt={hero.name}
         className="hero-image"
         onError={(e) => {

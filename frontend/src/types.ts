@@ -72,6 +72,11 @@ export interface Hero {
   passiveBuffs?: PassiveBuff[];
   modifiedAccuracy?: string; // Display version with buffs applied
   modifiedBasicAttack?: string; // Display version with damage buffs
+  scalingBuffs?: {
+    damage?: number; // Champion's Last Stand: extra D6 dice
+    defense?: number;
+    collectedDice?: Array<{ from: string; dice: string }>; // Hoarder's Collect Weapons
+  };
   companions?: Array<{ type: string; hp: number }>; // For summoner heroes like Beast Tamer
   id?: string;
   resurrected?: boolean; // Flag for resurrection animation
@@ -181,6 +186,7 @@ export interface AttackResult {
   hit: boolean;
   damage: number;
   isCritical: boolean;
+  battleEvent?: import('./battleAnimations').BattleEvent;
   roll: number; // Legacy - prefer attackRoll
   total: number; // Legacy - prefer attackTotal
   attackRoll?: number;
@@ -208,6 +214,40 @@ export interface DiceRoll {
   total: number;
   rolls: number[];
   isCritical?: boolean;
+}
+
+export interface Quest {
+  id: string;
+  text: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+  reward?: { xp: number; vp: number };
+}
+
+export interface QuestsUpdate {
+  quests: Quest[];
+  completed: Array<{ id: string; text: string }>;
+  xpGained?: number;
+  vpGained?: number;
+  newXP?: number;
+  newLevel?: number;
+  leveledUp?: boolean;
+  oldXP?: number;
+  oldLevel?: number;
+  oldVictoryPoints?: number;
+  newVictoryPoints?: number;
+}
+
+// Held back until the lobby is visible, then revealed with an animation.
+export interface PendingQuestReward {
+  completed: Array<{ id: string; text: string }>;
+  xpGained: number;
+  vpGained: number;
+  oldXP: number;
+  oldLevel: number;
+  oldVictoryPoints: number;
+  leveledUp: boolean;
 }
 
 export interface OnlinePlayer {
@@ -276,6 +316,7 @@ export interface SocketEvents {
   'remove-friend': (data: { friendId: number }) => void;
   'send-message': (data: { targetUserId: number; message: string }) => void;
   'get-messages': (data: { targetUserId: number; limit?: number }) => void;
+  'get-quests': () => void;
 
   // Spectator events
   'get-spectatable-games': () => void;
@@ -313,6 +354,7 @@ export interface SocketEvents {
   'survival-state-update': (data: { type: 'win' | 'loss' | 'reset'; state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean }; message: string; victoryPoints?: number }) => void;
   'victory-points-update': (data: { type?: string; pointsAwarded?: number; totalVictoryPoints?: number; gameMode?: string; message?: string; oldVictoryPoints?: number; newVictoryPoints?: number; victoryPointsGained?: number }) => void;
   'xp-update': (data: { xpGained: number; newXP: number; newLevel: number; leveledUp: boolean; message: string; vpGained?: number; oldLevel?: number; levelsGained?: number }) => void;
+  'quests-update': (data: QuestsUpdate) => void;
   'game-surrendered': (data: { success: boolean; gameId: string; winner: string; surrenderedBy: string; gameState: GameState }) => void;
   'draft-abandoned': (data: { message: string; isOpponent?: boolean }) => void;
   'abandon-draft-result': (data: { success: boolean; message?: string }) => void;

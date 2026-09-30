@@ -7,7 +7,11 @@ import SpectatorView from './SpectatorView';
 import Shop from './Shop';
 import RequirementModal from './RequirementModal';
 import DragonflowLobby from './DragonflowLobby';
-import { Hero, GameState } from '../types';
+import { Hero, GameState, Quest, PendingQuestReward } from '../types';
+import { socketService } from '../socketService';
+import { useQuestReveal } from '../useQuestReveal';
+import QuestRewardModal from './QuestRewardModal';
+import SettingsModal from './SettingsModal';
 import config from '../config';
 import '../styles/GameLobby.css';
 
@@ -41,9 +45,24 @@ interface GameLobbyProps {
   gameState?: GameState | null;
   onCollectionStateChange?: (isOpen: boolean) => void;
   onFavoritesChange?: (favoriteHeroes: string[]) => void;
+  quests?: Quest[];
+  pendingQuestReward?: PendingQuestReward | null;
+  onClaimQuestReward?: () => void;
 }
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onStartGauntlet, onSpectateGame, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange }) => {
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onStartGauntlet, onSpectateGame, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
+  // Refresh on entering the lobby so a new UTC day resets the list.
+  useEffect(() => {
+    socketService.getQuests();
+  }, []);
+
+  const questReveal = useQuestReveal(
+    pendingQuestReward,
+    { xp: user.xp || 0, level: user.level || 1, vp: victoryPoints },
+    onClaimQuestReward || (() => {})
+  );
+  const pendingQuestIds = new Set((pendingQuestReward?.completed || []).map(q => q.id));
+
   const [showCollection, setShowCollection] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const [showFriendlyModal, setShowFriendlyModal] = useState(false);
@@ -61,6 +80,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
   const [currentRandomHero, setCurrentRandomHero] = useState<Hero | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [userRefreshTrigger, setUserRefreshTrigger] = useState(0);
   const [showDragonflow, setShowDragonflow] = useState(false);
 
@@ -319,14 +339,15 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
             <div className="stats-row">
               <div className="victory-points">
                 <span className="trophy-icon">🏆</span>
-                <span className="points-text">Victory Points: {victoryPoints}</span>
+                <span className={`points-text${questReveal.counting ? ' vp-bump' : ''}`}>Victory Points: {questReveal.display.vp}</span>
               </div>
               <div className="xp-section">
-                <span className="level-text">Level {user.level || 1}</span>
+                <span className="level-text">Level {questReveal.display.level || 1}</span>
                 <XPBar 
-                  currentXP={user.xp || 0} 
-                  level={user.level || 1} 
+                  currentXP={questReveal.display.xp || 0} 
+                  level={questReveal.display.level || 1} 
                   animated={false}
+                  leveledUp={questReveal.levelFlash}
                 />
               </div>
               <button className="logout-button" onClick={onLogout}>
@@ -363,21 +384,31 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                 Rules
               </button>
               
+              <button 
+                className="profile-btn"
+                onClick={() => setShowSettingsModal(true)}
+              >
+                Settings
+              </button>
+              
               <div className="quests-section">
                 <h3>Quests</h3>
                 <div className="daily-quests">
-                  <div className="quest-item">
-                    <div className="quest-text">Win 1 battle in survival mode</div>
-                    <div className="quest-progress">0/1</div>
-                  </div>
-                  <div className="quest-item">
-                    <div className="quest-text">Win 1 battle with Ninja</div>
-                    <div className="quest-progress">0/1</div>
-                  </div>
-                  <div className="quest-item">
-                    <div className="quest-text">Win 1 battle going 2nd</div>
-                    <div className="quest-progress">0/1</div>
-                  </div>
+                  {quests.map(quest => {
+                    // Pending quests stay unchecked until the reveal starts.
+                    const revealed = !pendingQuestIds.has(quest.id) || questReveal.stage !== 'idle';
+                    const isDone = quest.completed && revealed;
+                    const justRevealed = pendingQuestIds.has(quest.id) && revealed;
+                    const shownProgress = quest.completed && !revealed ? quest.target - 1 : quest.progress;
+                    return (
+                      <div key={quest.id} className={`quest-item${isDone ? ' completed' : ''}${justRevealed ? ' just-completed' : ''}`}>
+                        <div className="quest-text">{quest.text}</div>
+                        <div className="quest-progress">
+                          {isDone ? '✓' : `${shownProgress}/${quest.target}`}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -673,6 +704,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
       />
 
       {/* Rules Modal */}
+      {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
       {showRulesModal && (
         <div className="modal-overlay">
           <div className="rules-modal">
@@ -787,6 +819,10 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
       )}
 
       {/* Requirement Modal */}
+      {questReveal.stage === 'prompt' && pendingQuestReward && (
+        <QuestRewardModal reward={pendingQuestReward} onOk={questReveal.claim} />
+      )}
+
       <RequirementModal
         isOpen={showRequirementModal}
         onClose={() => setShowRequirementModal(false)}
@@ -796,8 +832,8 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
         type={requirementModalData.type}
       />
 
-      {/* Dragonflow Button - Bottom Right */}
-      {!showDragonflow && (
+      {/* Dragonflow Button - Bottom Right (hidden) */}
+      {false && !showDragonflow && (
         <button 
           className="dragonflow-access-btn"
           onClick={() => setShowDragonflow(true)}

@@ -162,6 +162,22 @@ class Database {
       }
     });
 
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS player_quests (
+        user_id INTEGER NOT NULL,
+        quest_id TEXT NOT NULL,
+        quest_date TEXT NOT NULL,
+        progress INTEGER DEFAULT 0,
+        completed INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, quest_id, quest_date),
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    `, (err) => {
+      if (err) {
+        console.error('Error creating player_quests table:', err.message);
+      }
+    });
+
     // Add favorite_heroes column to users table if it doesn't exist
     this.db.run(`ALTER TABLE users ADD COLUMN favorite_heroes TEXT DEFAULT '[]'`, (err) => {
       if (err && !err.message.includes('duplicate column')) {
@@ -404,6 +420,37 @@ class Database {
       const query = 'UPDATE users SET victory_points = victory_points + ? WHERE id = ?';
       
       this.db.run(query, [points, userId], function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(this.changes > 0);
+      });
+    });
+  }
+
+  async getQuestRows(userId, questDate) {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT quest_id, progress, completed FROM player_quests WHERE user_id = ? AND quest_date = ?',
+        [userId, questDate],
+        (err, rows) => (err ? reject(err) : resolve(rows || []))
+      );
+    });
+  }
+
+  // Resolves true only if a row was inserted/updated; already-completed quests are left untouched.
+  async saveQuestProgress(userId, questId, questDate, progress, completed) {
+    return new Promise((resolve, reject) => {
+      const query = `
+        INSERT INTO player_quests (user_id, quest_id, quest_date, progress, completed)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, quest_id, quest_date) DO UPDATE SET
+          progress = excluded.progress,
+          completed = excluded.completed
+        WHERE player_quests.completed = 0
+      `;
+      this.db.run(query, [userId, questId, questDate, progress, completed ? 1 : 0], function(err) {
         if (err) {
           reject(err);
           return;

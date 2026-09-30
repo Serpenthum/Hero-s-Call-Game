@@ -83,7 +83,7 @@ const PackOpeningAnimation: React.FC<PackOpeningAnimationProps> = ({ heroes, onC
                 <img
                   src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name
                     .toLowerCase()
-                    .replace(/[^a-z0-9]/g, '')}.png`}
+                    .replace(/[^a-z0-9]/g, '')}.webp`}
                   alt={hero.name}
                   className="hero-image"
                   onError={(e) => {

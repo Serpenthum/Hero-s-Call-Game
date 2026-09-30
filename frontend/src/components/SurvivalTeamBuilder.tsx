@@ -334,6 +334,17 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
     return availableHeroes.slice(startIndex, endIndex);
   };
 
+  // Short pages are padded to a full grid with invisible copies of the first card, so the layout keeps the same height on every page.
+  const getPageSlots = () => {
+    const heroes = getCurrentPageHeroes();
+    const slots = heroes.map(hero => ({ hero, placeholder: false }));
+    if (heroes.length === 0) return slots;
+    for (let i = heroes.length; i < HEROES_PER_PAGE; i++) {
+      slots.push({ hero: heroes[0], placeholder: true });
+    }
+    return slots;
+  };
+
   const handleNextPage = () => {
     if (isTransitioning) return;
     
@@ -458,11 +469,12 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
             ) : (
               <div className="heroes-grid-container">
                 <div className={`heroes-grid ${isTransitioning ? 'transitioning' : ''}`}>
-                  {getCurrentPageHeroes().map((hero) => (
+                  {getPageSlots().map(({ hero, placeholder }, slotIndex) => (
                     <div 
-                      key={hero.name} 
-                      className={`hero-card survival-card ${isHeroSelected(hero) ? 'selected' : ''} ${hoveredHero === hero.name ? 'hovered' : ''}`}
-                      onClick={() => handleHeroSelect(hero)}
+                      key={placeholder ? `placeholder-${slotIndex}` : hero.name} 
+                      className={`hero-card survival-card ${placeholder ? 'survival-card-placeholder' : ''} ${!placeholder && isHeroSelected(hero) ? 'selected' : ''} ${!placeholder && hoveredHero === hero.name ? 'hovered' : ''}`}
+                      aria-hidden={placeholder || undefined}
+                      onClick={() => !placeholder && handleHeroSelect(hero)}
                       onMouseEnter={() => setHoveredHero(hero.name)}
                       onMouseLeave={() => setHoveredHero(null)}
                     >
@@ -470,7 +482,9 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                         <div className="favorite-star">⭐</div>
                       )}
                       <img 
-                        src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                        src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
+                        decoding="async"
+                        loading="lazy"
                         alt={hero.name}
                         className="hero-image"
                         onError={(e) => {
@@ -500,11 +514,11 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                         </div>
                       </div>
 
-                      {isHeroSelected(hero) && (
+                      {!placeholder && isHeroSelected(hero) && (
                         <div className="selection-indicator">✓</div>
                       )}
 
-                      {hoveredHero === hero.name && (
+                      {!placeholder && hoveredHero === hero.name && (
                         <div className="hero-tooltip">
                           <div className="tooltip-section">
                             <h4>Abilities</h4>
@@ -579,7 +593,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                 {selectedTeam[index] ? (
                   <div className="selected-hero" onClick={() => handleHeroRemove(selectedTeam[index])}>
                     <img 
-                      src={`${config.IMAGE_BASE_URL}/hero-images/${selectedTeam[index].name.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                      src={`${config.IMAGE_BASE_URL}/hero-images/${selectedTeam[index].name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
                       alt={selectedTeam[index].name}
                       className="selected-hero-image"
                       onError={(e) => {

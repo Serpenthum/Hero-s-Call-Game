@@ -1,20 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { socketService } from './socketService';
-import { GameState, Player, Hero } from './types';
+import { GameState, Player, Hero, Quest, PendingQuestReward } from './types';
 import GameLobby from './components/GameLobby';
-import DraftPhase from './components/DraftPhase';
-import BattlePhase from './components/BattlePhase';
-import SurvivalMode from './components/SurvivalMode';
 import SurvivalBattleTransition from './components/SurvivalBattleTransition';
-import GauntletMode from './components/GauntletMode';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
-import FriendsOverlay from './components/FriendsOverlay';
 import MessageIcon from './components/MessageIcon';
-import MessageChat from './components/MessageChat';
 import config from './config';
+import { battleEventBus } from './battleAnimations';
 import './App.css';
+
+const DraftPhase = lazy(() => import('./components/DraftPhase'));
+const BattlePhase = lazy(() => import('./components/BattlePhase'));
+const SurvivalMode = lazy(() => import('./components/SurvivalMode'));
+const GauntletMode = lazy(() => import('./components/GauntletMode'));
+const FriendsOverlay = lazy(() => import('./components/FriendsOverlay'));
+const MessageChat = lazy(() => import('./components/MessageChat'));
 
 
 
@@ -54,9 +56,17 @@ interface BattleLogEntry {
   source?: string;
   caster?: string;
   isNonStandardLog?: boolean; // Flag for entries that shouldn't have "used" prefix
+  killed?: boolean; // Damage entry that finished off its target
   message?: string;
   description?: string;
 }
+
+// Marks damage entries whose target died, using the server's battleEvent.
+const markKills = (entries: BattleLogEntry[], event?: { targets?: Array<{ name: string; died: boolean }> }) => {
+  const dead = new Set((event?.targets || []).filter(t => t.died).map(t => t.name));
+  if (dead.size === 0) return entries;
+  return entries.map(e => (e.target && dead.has(e.target) && (e.damage || 0) > 0 ? { ...e, killed: true } : e));
+};
 
 interface User {
   id: number;
@@ -137,6 +147,9 @@ function App() {
     const stored = localStorage.getItem('heroCallVictoryPoints');
     return stored ? parseInt(stored, 10) : 0;
   };
+
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [pendingQuestReward, setPendingQuestReward] = useState<PendingQuestReward | null>(null);
 
   const [state, setState] = useState<AppState>({
     gameState: null,
@@ -600,6 +613,7 @@ function App() {
     });
 
     socket.on('attack-result', (data) => {
+      battleEventBus.emit(data.battleEvent);
       setState(prev => {
         const newLogEntries: BattleLogEntry[] = [];
         
@@ -728,7 +742,7 @@ function App() {
         return {
           ...prev,
           gameState: data.gameState || prev.gameState,
-          battleLog: [...newLogEntries, ...prev.battleLog.slice(0, 10 - newLogEntries.length)] // Keep last 10 entries
+          battleLog: [...markKills(newLogEntries, data.battleEvent), ...prev.battleLog.slice(0, 10 - newLogEntries.length)] // Keep last 10 entries
         };
       });
     });
@@ -792,6 +806,7 @@ function App() {
     });
 
     socket.on('ability-result', (data) => {
+      battleEventBus.emit(data.battleEvent);
       setState(prev => {
         const newLogEntries: BattleLogEntry[] = [];
         
@@ -1076,7 +1091,7 @@ function App() {
         return {
           ...prev,
           gameState: data.gameState || prev.gameState,
-          battleLog: [...newLogEntries.reverse(), ...prev.battleLog.slice(0, 9 - newLogEntries.length)] // Keep last 10 entries total
+          battleLog: [...markKills(newLogEntries, data.battleEvent).reverse(), ...prev.battleLog.slice(0, 9 - newLogEntries.length)] // Keep last 10 entries total
         };
       });
     });
@@ -1090,6 +1105,7 @@ function App() {
     });
 
     socket.on('turn-ended', (data) => {
+      battleEventBus.emit(data.battleEvent);
       setState(prev => {
         const newLogEntries: BattleLogEntry[] = [];
         
@@ -1554,10 +1570,38 @@ function App() {
       });
     });
 
+    socket.on('quests-update', (data) => {
+      setQuests(data.quests);
+
+      if (data.completed.length > 0) {
+        setState(prev => ({
+          ...prev,
+          victoryPoints: data.newVictoryPoints ?? prev.victoryPoints,
+          user: prev.user ? {
+            ...prev.user,
+            xp: data.newXP ?? prev.user.xp,
+            level: data.newLevel ?? prev.user.level
+          } : prev.user
+        }));
+
+        setPendingQuestReward(prev => ({
+          completed: [...(prev?.completed || []), ...data.completed],
+          xpGained: (prev?.xpGained || 0) + (data.xpGained || 0),
+          vpGained: (prev?.vpGained || 0) + (data.vpGained || 0),
+          // Keep the earliest snapshot so several wins before the lobby collapse into one reveal.
+          oldXP: prev?.oldXP ?? data.oldXP ?? 0,
+          oldLevel: prev?.oldLevel ?? data.oldLevel ?? 1,
+          oldVictoryPoints: prev?.oldVictoryPoints ?? data.oldVictoryPoints ?? 0,
+          leveledUp: (prev?.leveledUp || false) || !!data.leveledUp
+        }));
+      }
+    });
+
     socket.on('authentication-success', (data) => {
       console.log('Socket authentication successful for user:', data.userId);
       // Request current survival state after successful authentication
       socketService.getSurvivalState();
+      socketService.getQuests();
     });
 
     socket.on('authentication-failed', (data) => {
@@ -2071,6 +2115,9 @@ function App() {
           gameState={state.gameState}
           onCollectionStateChange={handleCollectionStateChange}
           onFavoritesChange={handleFavoritesChange}
+          quests={quests}
+          pendingQuestReward={pendingQuestReward}
+          onClaimQuestReward={() => setPendingQuestReward(null)}
         />
       );
     }
@@ -2199,10 +2246,11 @@ function App() {
     
     return (
       <aside className="game-sidebar">
-        <div className="sidebar-header">
-          <h2>Hero's Call</h2>
-          {!state.isConnected && <div className="connection-status">Connecting...</div>}
-        </div>
+        {!state.isConnected && (
+          <div className="sidebar-header">
+            <div className="connection-status">Connecting...</div>
+          </div>
+        )}
         
         {/* Survival Mode Information */}
         {state.isSurvivalMode && (
@@ -2247,7 +2295,7 @@ function App() {
                       return (
                         <div key={index} className="banned-card-item">
                           <img 
-                            src={`${config.IMAGE_BASE_URL}/hero-images/${cardName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`}
+                            src={`${config.IMAGE_BASE_URL}/hero-images/${cardName.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
                             alt={cardName}
                             className="banned-card-image"
                             onError={(e) => {
@@ -2372,7 +2420,7 @@ function App() {
                     <div className="log-entries">
                       {state.battleLog.length > 0 ? (
                         state.battleLog.map((entry) => (
-                          <div key={entry.id} className="log-entry">
+                          <div key={entry.id} className={`log-entry${entry.crit ? ' crit' : ''}${entry.killed ? ' killed' : ''}`}>
                             <div className="log-action">
                               {/* Check if this is a comprehensive log entry with formatted message */}
                               {typeof entry.action === 'string' && entry.action?.includes('used') && entry.action?.includes('→') ? (
@@ -2504,7 +2552,9 @@ function App() {
       <div className="app-layout" style={{ display: state.isTransitioningToBattle ? 'none' : 'flex' }}>
         {renderSidebar()}
         <main className="game-content">
-          {renderGameContent()}
+          <Suspense fallback={<div>Loading...</div>}>
+            {renderGameContent()}
+          </Suspense>
         </main>
       </div>
 
@@ -2548,6 +2598,7 @@ function App() {
             notificationCount={state.messageNotificationCount}
             hasMinimizedChats={state.minimizedMessageChats.length > 0}
           />          {/* Friends Overlay */}
+          <Suspense fallback={null}>
           {state.showFriendsOverlay && (
             <FriendsOverlay
               onClose={handleToggleFriendsOverlay}
@@ -2568,6 +2619,7 @@ function App() {
               onMinimize={() => handleMinimizeMessageChat(chat.targetUserId, chat.targetUsername)}
             />
           ))}
+          </Suspense>
         </>
       )}
 
