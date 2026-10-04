@@ -225,7 +225,38 @@ class GameManager {
     }
   }
 
-  async addPlayerToGame(gameId, playerId, playerName) {
+  // Friendly rooms: a waiting game owned by the creator and joined later by room name (never uses the matchmaking queue)
+  createFriendlyGame(playerId, playerName, roomName, profileIcon = 'Sorcerer', userId = null) {
+    const gameId = uuidv4();
+    const game = this.createNewGame(gameId, 'draft');
+    game.roomName = roomName;
+    game.players.push({
+      id: playerId,
+      name: playerName,
+      userId,
+      connected: true,
+      team: [],
+      draftCards: [],
+      bannedCard: null,
+      attackOrder: [],
+      currentHeroIndex: 0,
+      hasUsedAttack: false,
+      hasUsedAbility: false,
+      usedAbilities: [],
+      selectedTarget: null,
+      twinSpellUsed: false,
+      oneTwoPunchUsed: false,
+      monkAttacksRemaining: 1,
+      oneTwoPunchAttacksRemaining: 0,
+      profile_icon: profileIcon,
+      monkDeflectUsed: false
+    });
+    this.games.set(gameId, game);
+    this.playerGameMap.set(playerId, gameId);
+    return { success: true, gameId };
+  }
+
+  async addPlayerToGame(gameId, playerId, playerName, profileIcon = 'Sorcerer', userId = null) {
     const game = this.games.get(gameId);
     
     if (!game) {
@@ -253,6 +284,8 @@ class GameManager {
     const player = {
       id: playerId,
       name: playerName,
+      userId,
+      profile_icon: profileIcon,
       connected: true,
       team: [],
       draftCards: [],
@@ -306,6 +339,85 @@ class GameManager {
       roomName: null, // For friendly battles
       disconnectionTimers: new Map() // playerId -> { startTime, timeoutId, surrendered }
     };
+  }
+
+  // Tutorial mode: scripted 3v3 against a bot; the server drives the bot (see server.js).
+  createTutorialGame(playerId, playerName, profileIcon = 'Sorcerer', userId = null) {
+    const gameId = uuidv4();
+    const botId = `tutorial-bot-${gameId}`;
+    const game = this.createNewGame(gameId, 'tutorial');
+
+    const buildPlayer = (id, name, heroNames, icon, extra = {}) => {
+      const team = heroNames.map(n => this.resetHeroToOriginalState(this.allHeroes.find(h => h.name === n)));
+      return {
+        id,
+        name,
+        connected: true,
+        team,
+        draftCards: [],
+        bannedCard: null,
+        attackOrder: team.map(h => h.name),
+        currentHeroIndex: 0,
+        hasUsedAttack: false,
+        hasUsedAbility: false,
+        usedAbilities: [],
+        selectedTarget: null,
+        twinSpellUsed: false,
+        oneTwoPunchUsed: false,
+        monkAttacksRemaining: 1,
+        oneTwoPunchAttacksRemaining: 0,
+        monkDeflectUsed: false,
+        profile_icon: icon,
+        ...extra
+      };
+    };
+
+    game.players.push(
+      buildPlayer(playerId, playerName, ['Druid', 'Beast Tamer', 'Wizard'], profileIcon),
+      buildPlayer(botId, 'Skeleton Scout', ['Barbarian', 'Ranger', 'Assassin'], 'Barbarian', { isBot: true })
+    );
+    game.phase = 'initiative';
+    game.currentDraftPhase = 3;
+    // holds pauses the bot until the client reports the matching prompt ('intro', 'log', 'poison') was dismissed
+    game.tutorial = { userId, botId, holds: new Set(['intro']), botRunning: false, actionCount: 0, rolledActions: 0, critDone: false, poisonLanded: false, completed: false };
+
+    this.games.set(gameId, game);
+    this.playerGameMap.set(playerId, gameId);
+    this.playerGameMap.set(botId, gameId);
+    return { gameId, game };
+  }
+
+  // Rigged initiative: the player always wins the starting roll.
+  tutorialRollInitiative(playerId) {
+    const gameId = this.playerGameMap.get(playerId);
+    const game = this.games.get(gameId);
+    if (!game || game.mode !== 'tutorial' || game.phase !== 'initiative') {
+      return { success: false, error: 'Invalid game state for initiative' };
+    }
+    const [human, bot] = game.players;
+    if (human.id !== playerId || human.initiativeRoll !== undefined) {
+      return { success: false, error: 'Player already rolled initiative' };
+    }
+    human.initiativeRoll = 12 + Math.floor(Math.random() * 9);
+    bot.initiativeRoll = 1 + Math.floor(Math.random() * 8);
+    return {
+      success: true,
+      gameId,
+      rolls: { player1: human.initiativeRoll, player2: bot.initiativeRoll },
+      winner: human.id,
+      needsChoice: true,
+      gameState: this.getFullGameState(game)
+    };
+  }
+
+  endTutorialGame(playerId) {
+    const gameId = this.playerGameMap.get(playerId);
+    const game = gameId && this.games.get(gameId);
+    if (!game || game.mode !== 'tutorial') return null;
+    this.playerGameMap.delete(game.tutorial.botId);
+    this.playerGameMap.delete(playerId);
+    this.games.delete(gameId);
+    return game;
   }
 
   // Survival mode methods
@@ -4988,6 +5100,49 @@ class GameManager {
       results,
       gameState: this.getFullGameState(game)
     };
+  }
+
+  // True only when the active hero provably cannot attack, use an ability or activate a special.
+  // Target-dependent blocks (taunt, bribe, untargetable) are ignored so a turn is never ended too early.
+  hasNoActionsLeft(game) {
+    if (!game || game.phase !== 'battle') return false;
+    const info = this.getCurrentTurnInfo(game);
+    if (!info || !info.hero || game.phase !== 'battle') return false;
+    const { player, hero } = info;
+    return !this.canHeroAttack(player, hero) &&
+      !this.canHeroUseAbility(player, hero) &&
+      !this.canHeroActivateSpecial(hero);
+  }
+
+  canHeroAttack(player, hero) {
+    if (hero.BasicAttack === '—' || hasSpecialEffect(hero, 'disable_basic_attack')) return false;
+    if (hero.statusEffects?.stun?.active || hero.statusEffects?.disableAttack?.active) return false;
+    if (hero.name === 'Monk') return (player.monkAttacksRemaining || 0) > 0;
+    if (!player.hasUsedAttack) return true;
+    const attacksTwice = this.hasConditionalEffect(hero, 'extra_attack_per_turn') || this.hasSpecialEffect(hero, 'attack_twice');
+    return attacksTwice && (player.usedAttacks || 0) < 2;
+  }
+
+  canHeroUseAbility(player, hero) {
+    if (!Array.isArray(hero.Ability) || hero.Ability.length === 0) return false;
+    const silenced = hero.statusEffects?.silenced;
+    if (silenced === true || (silenced && typeof silenced === 'object' && silenced.active)) return false;
+    if (hero.permanentDisables?.abilities) return false;
+
+    const canUseTwice = hasSpecialEffect(hero, 'use_ability_twice') ||
+      hasSpecialEffect(hero, 'use_twice_per_turn') ||
+      (hero.name === 'Sorcerer' && player.twinSpellActive);
+    if (!canUseTwice) return !player.hasUsedAbility;
+
+    const used = player.usedAbilities || [];
+    if (hero.Ability.length > 1) return hero.Ability.some(a => !used.includes(a.name));
+    return used.filter(name => name === hero.Ability[0].name).length < 2;
+  }
+
+  canHeroActivateSpecial(hero) {
+    if (!hero.Special || hero.permanentDisables?.special) return false;
+    const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
+    return specials.some(s => s.category === 'activated_aoe' || s.category === 'activated_aoe_heal');
   }
 
   endTurn(playerId) {

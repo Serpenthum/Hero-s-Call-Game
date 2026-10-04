@@ -8,7 +8,7 @@ export interface AttackDisplay {
 }
 
 // Builds e.g. "1D4 + 1D6 + 1D4 + 2": base attack plus every damage bonus, each shown separately.
-export function getAttackDisplay(hero: Hero): AttackDisplay {
+export function getAttackDisplay(hero: Pick<Hero, 'BasicAttack' | 'scalingBuffs' | 'statusEffects' | 'passiveBuffs'>): AttackDisplay {
   if (!hero.BasicAttack || hero.BasicAttack === '—' || hero.BasicAttack === '-') {
     return { text: hero.BasicAttack, hasExtras: false, sources: [] };
   }

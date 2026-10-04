@@ -1,0 +1,49 @@
+.responsive-card-viewport {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.responsive-card-viewport .responsive-card-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), var(--grid-card-width));
+  grid-auto-rows: var(--grid-row-height);
+  align-content: center;
+  justify-content: center;
+  justify-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: none;
+  padding: 6px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.responsive-card-grid .hero-card.hero-layout-card {
+  --hero-card-scale: var(--grid-card-scale);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.responsive-card-grid .survival-card-slot {
+  --hero-card-scale: var(--grid-card-scale);
+}
+
+.responsive-card-grid .shop-hero-card:has(.hero-layout-card) {
+  width: var(--grid-card-width);
+  min-height: var(--grid-card-height);
+  margin: 0;
+  transform: none;
+  overflow: visible;
+}
+
+.responsive-card-grid .shop-hero-wrapper {
+  width: var(--grid-card-width);
+  margin: 0;
+}
+
+.responsive-card-grid .shop-buy-btn {
+  max-width: none;
+}

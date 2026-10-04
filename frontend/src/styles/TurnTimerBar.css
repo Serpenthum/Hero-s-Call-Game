@@ -1,0 +1,56 @@
+.turn-timer-bar {
+  position: fixed;
+  /* Horizontally centered in the fixed right action bar (same width clamp as .action-bar) */
+  right: calc(clamp(200px, 18vw, 300px) / 2);
+  transform: translateX(50%);
+  bottom: 80px;
+  width: 180px;
+  height: 14px;
+  padding: 2px;
+  box-sizing: border-box;
+  background: rgba(20, 10, 10, 0.85);
+  border: 2px solid #5a2a1a;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.turn-timer-fill {
+  position: relative;
+  height: 100%;
+  width: var(--burn-start, 100%);
+  border-radius: 5px;
+  background: linear-gradient(90deg, #ffd54a, #ff8a1f 60%, #e53935);
+  animation-name: turn-timer-burn;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* Glowing ember at the burning end */
+.turn-timer-fill::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff7c2 0%, #ffb02e 50%, rgba(255, 90, 0, 0) 75%);
+  animation: turn-timer-flicker 0.18s ease-in-out infinite alternate;
+}
+
+@keyframes turn-timer-burn {
+  from { width: var(--burn-start, 100%); }
+  to { width: 0; }
+}
+
+@keyframes turn-timer-flicker {
+  from { transform: scale(0.8); opacity: 0.8; }
+  to { transform: scale(1.4); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-timer-fill::after { animation: none; }
+}

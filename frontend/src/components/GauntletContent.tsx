@@ -155,7 +155,6 @@ const GauntletContent: React.FC<GauntletContentProps> = ({
                   hero={heroData}
                   showFullInfo={false}
                   disableHPAnimations={true}
-                  hideAbilities={true}
                 />
                 {isTemp && <div className="temp-badge">👻 TEMP</div>}
                 {isDead && <div className="dead-overlay">💀</div>}
@@ -198,7 +197,6 @@ const GauntletContent: React.FC<GauntletContentProps> = ({
                       }}
                       showFullInfo={false}
                       disableHPAnimations={true}
-                      hideAbilities={true}
                     />
                     {hero.temporary_resurrection_active && <div className="temp-badge">👻</div>}
                   </>

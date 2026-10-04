@@ -18,8 +18,7 @@
   border-radius: 12px;
   width: 95vw;
   max-width: 1400px;
-  height: 90vh;
-  max-height: 900px;
+  height: 90dvh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
@@ -70,27 +69,6 @@
   text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
 }
 
-.shop-close-btn {
-  background: transparent;
-  border: 2px solid var(--accent-red);
-  color: var(--accent-red);
-  font-size: clamp(1.2rem, 1.8vw, 1.5rem);
-  width: clamp(35px, 3vw, 40px);
-  height: clamp(35px, 3vw, 40px);
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.shop-close-btn:hover {
-  background: var(--accent-red);
-  color: white;
-  transform: scale(1.1);
-}
-
 .shop-message {
   padding: clamp(0.6rem, 1vw, 0.8rem);
   margin: clamp(0.5rem, 1vw, 1rem) clamp(1rem, 2vw, 1.5rem);
@@ -129,12 +107,13 @@
   gap: clamp(1rem, 2vw, 1.5rem);
   padding: clamp(0.8rem, 1.5vw, 1rem) clamp(1rem, 2vw, 1.5rem);
   flex: 1;
-  overflow: visible;
+  overflow: auto;
+  min-height: 0;
 }
 
 /* Left Column - Hero Sale (70%) */
 .shop-sale-section {
-  flex: 0 0 70%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: visible;
@@ -177,9 +156,11 @@
 /* Hero Sale Grid - Single row with pagination */
 .shop-sale-container {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: clamp(0.5rem, 1vw, 1rem);
   padding: clamp(0.5rem, 1vw, 1rem) 0;
+  flex: 1;
+  min-height: 0;
 }
 
 .shop-pagination-arrow {
@@ -196,6 +177,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .shop-pagination-arrow:hover:not(:disabled) {
@@ -222,7 +204,8 @@
 
 /* Right Column - Hero Packs (30%) */
 .shop-pack-section {
-  flex: 0 0 30%;
+  flex: 0 0 clamp(240px, 25%, 320px);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   padding: clamp(1rem, 1.5vw, 1.5rem);
@@ -552,26 +535,6 @@
   border-color: #666;
 }
 
-/* Pack Opening Animation */
-.pack-opening-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.95);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2000;
-  animation: fadeIn 0.3s ease;
-}
-
-.pack-opening-container {
-  text-align: center;
-  color: white;
-}
-
 .pack-animation {
   font-size: clamp(4rem, 8vw, 6rem);
   animation: packShake 0.5s infinite;
@@ -581,12 +544,6 @@
 @keyframes packShake {
   0%, 100% { transform: rotate(-5deg); }
   50% { transform: rotate(5deg); }
-}
-
-.pack-opening-container h3 {
-  font-size: clamp(1.5rem, 2.5vw, 2rem);
-  margin-bottom: clamp(1.5rem, 2.5vw, 2rem);
-  color: #a78bfa;
 }
 
 .revealed-heroes {
@@ -657,6 +614,37 @@
 }
 
 @media (max-width: 768px) {
+  .shop-main-content {
+    flex-direction: column;
+  }
+
+  .shop-sale-section {
+    flex: none;
+    height: max(520px, 75dvh);
+  }
+
+  .shop-pack-section {
+    flex: none;
+  }
+
+  .shop-section-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .shop-sale-container {
+    position: relative;
+    padding-bottom: 52px;
+  }
+
+  .shop-sale-container .shop-pagination-arrow {
+    position: absolute;
+    bottom: 0;
+  }
+
+  .shop-sale-container .shop-pagination-arrow.left { left: 0; }
+  .shop-sale-container .shop-pagination-arrow.right { right: 0; }
+
   .shop-container {
     width: 98vw;
     height: 95vh;
@@ -705,9 +693,13 @@
   border: 2px solid #a855f7;
   box-shadow: 0 8px 32px rgba(138, 43, 226, 0.3);
   padding: 24px;
-  max-width: 95vw;
-  max-height: 85vh;
-  overflow-y: auto;
+  width: min(96vw, 1600px);
+  height: 92dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   position: relative;
 }
 
@@ -715,24 +707,6 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  background: transparent;
-  border: 2px solid var(--accent-red);
-  color: var(--accent-red);
-  font-size: clamp(1.2rem, 1.8vw, 1.5rem);
-  width: clamp(35px, 3vw, 40px);
-  height: clamp(35px, 3vw, 40px);
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-close-btn:hover {
-  background: var(--accent-red);
-  color: white;
-  transform: scale(1.1);
 }
 
 .pack-contents-title {
@@ -832,6 +806,23 @@
   justify-content: center;
   gap: 40px;
   margin-top: 20px;
+  min-height: 48px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .pack-contents-container {
+    padding: 48px 12px 12px;
+    height: 96dvh;
+  }
+
+  .pack-contents-title {
+    font-size: 1.25rem;
+  }
+
+  .pack-contents-pagination {
+    gap: 12px;
+  }
 }
 
 .pagination-arrow {

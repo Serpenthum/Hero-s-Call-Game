@@ -10,6 +10,30 @@
   align-items: center;
   z-index: 10000;
   backdrop-filter: blur(8px);
+  padding: clamp(12px, 3vw, 40px);
+  box-sizing: border-box;
+}
+
+.pack-opening-overlay .pack-opening-container {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), var(--grid-card-width));
+  grid-auto-rows: var(--grid-card-height);
+  column-gap: calc(18px + var(--grid-card-width) * 0.15);
+  row-gap: calc(18px + var(--grid-card-height) * 0.15);
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  align-content: center;
+  justify-content: center;
+}
+
+.pack-opening-overlay .pack-card-slot {
+  width: var(--grid-card-width);
+  height: var(--grid-card-height);
+}
+
+.pack-opening-overlay .hero-card-back .hero-layout-card {
+  --hero-card-scale: var(--grid-card-scale);
 }
 
 .pack-opening-container {
@@ -209,23 +233,6 @@
 }
 
 /* Tooltip styling - matches HeroCard tooltip */
-.pack-hero-tooltip {
-  position: absolute;
-  top: 50%;
-  left: 110%;
-  transform: translateY(-50%);
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border: 2px solid #4a9eff;
-  border-radius: 8px;
-  padding: 1rem;
-  min-width: 280px;
-  max-width: 350px;
-  z-index: 10001;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
-  opacity: 0;
-  animation: tooltipFadeIn 0.2s ease-out forwards;
-}
 
 @keyframes tooltipFadeIn {
   from {
@@ -238,60 +245,7 @@
   }
 }
 
-.pack-hero-tooltip .tooltip-section {
-  margin-bottom: 1rem;
-}
-
-.pack-hero-tooltip .tooltip-section:last-child {
-  margin-bottom: 0;
-}
-
-.pack-hero-tooltip h4 {
-  margin: 0 0 0.5rem 0;
-  color: #4a9eff;
-  font-size: 0.9rem;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid rgba(74, 158, 255, 0.3);
-  padding-bottom: 0.25rem;
-}
-
-.pack-hero-tooltip .tooltip-ability,
-.pack-hero-tooltip .tooltip-special {
-  margin-bottom: 0.75rem;
-  padding: 0.5rem;
-  background: rgba(74, 158, 255, 0.1);
-  border-radius: 4px;
-  border-left: 3px solid #4a9eff;
-}
-
-.pack-hero-tooltip .tooltip-ability:last-child,
-.pack-hero-tooltip .tooltip-special:last-child {
-  margin-bottom: 0;
-}
-
-.pack-hero-tooltip .tooltip-ability-name,
-.pack-hero-tooltip .tooltip-special-name {
-  font-weight: bold;
-  color: #ffd700;
-  margin-bottom: 0.25rem;
-  font-size: 0.9rem;
-}
-
-.pack-hero-tooltip .tooltip-ability-description,
-.pack-hero-tooltip .tooltip-special-description {
-  color: #e0e0e0;
-  font-size: 0.8rem;
-  line-height: 1.4;
-}
-
 /* Position tooltip on left side for rightmost card */
-.pack-card-slot.pack-2 .pack-hero-tooltip {
-  left: auto;
-  right: 110%;
-  animation: tooltipFadeInLeft 0.2s ease-out forwards;
-}
 
 @keyframes tooltipFadeInLeft {
   from {

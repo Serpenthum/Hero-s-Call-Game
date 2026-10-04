@@ -60,6 +60,10 @@ export function speedFactor(speed: AnimSpeed): number { return speed === 'fast' 
 export function getSfxEnabled(): boolean { return localStorage.getItem(SFX_KEY) !== 'off'; }
 export function setSfxEnabled(on: boolean) { localStorage.setItem(SFX_KEY, on ? 'on' : 'off'); }
 
+const AUTO_END_KEY = 'heroscall.autoEndTurn';
+export function getAutoEndTurnEnabled(): boolean { return localStorage.getItem(AUTO_END_KEY) !== 'off'; }
+export function setAutoEndTurnEnabled(on: boolean) { localStorage.setItem(AUTO_END_KEY, on ? 'on' : 'off'); }
+
 // Slider position 0-1; 0.5 plays effects at their designed loudness, 1 is twice as loud.
 const VOLUME_KEY = 'heroscall.sfxVolume';
 export function getSfxVolume(): number {
@@ -93,7 +97,58 @@ function tone(freq: number, duration: number, type: OscillatorType, volume: numb
   }
 }
 
+// Crackling fuse for the turn timer; returns a stop function.
+export function startFuseSound(durationSec: number): () => void {
+  const level = 0.05 * getSfxVolume() * 2;
+  if (!getSfxEnabled() || level <= 0) return () => {};
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || (window as any).webkitAudioContext)();
+    const ctx = audioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+    const source = ctx.createBufferSource();
+    source.buffer = noise;
+    source.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 1.2;
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    filter.frequency.setValueAtTime(1500, now);
+    filter.frequency.linearRampToValueAtTime(4500, now + durationSec);
+    gain.gain.setValueAtTime(0, now);
+    // Random pops that get denser and louder as the fuse runs out
+    for (let t = 0; t < durationSec; ) {
+      const progress = t / durationSec;
+      const pop = level * (0.3 + 0.7 * Math.random()) * (0.6 + 0.8 * progress);
+      gain.gain.setValueAtTime(pop, now + t);
+      gain.gain.linearRampToValueAtTime(0, now + t + 0.04);
+      t += (0.03 + Math.random() * 0.14) * (1 - 0.6 * progress);
+    }
+    source.connect(filter).connect(gain).connect(ctx.destination);
+    source.start(now);
+    source.stop(now + durationSec);
+
+    return () => {
+      try {
+        gain.gain.cancelScheduledValues(ctx.currentTime);
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        source.stop();
+      } catch {
+        // already stopped
+      }
+    };
+  } catch {
+    return () => {};
+  }
+}
+
 export const sfx = {
+  chatter: () => tone(140 + Math.random() * 90, 0.045, 'square', 0.035),
   swing: () => tone(320, 0.14, 'sawtooth', 0.06, 120),
   hit: (crit: boolean) => tone(crit ? 140 : 110, crit ? 0.28 : 0.18, 'square', crit ? 0.12 : 0.08, 40, 0.1),
   miss: () => tone(500, 0.16, 'sine', 0.04, 250, 0.1),

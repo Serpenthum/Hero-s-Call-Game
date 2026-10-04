@@ -4,11 +4,14 @@ import { GameState, Player, Hero, Quest, PendingQuestReward } from './types';
 import GameLobby from './components/GameLobby';
 import SurvivalBattleTransition from './components/SurvivalBattleTransition';
 import LoginPage from './components/LoginPage';
+import CardLayoutTest from './components/CardLayoutTest';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
 import MessageIcon from './components/MessageIcon';
 import config from './config';
 import { battleEventBus } from './battleAnimations';
+import BattleTutorial from './components/tutorial/BattleTutorial';
+import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
 
 const DraftPhase = lazy(() => import('./components/DraftPhase'));
@@ -81,7 +84,10 @@ interface User {
   level: number;
   best_gauntlet_trial: number;
   player_id?: string;
+  tutorial_completed?: boolean;
 }
+
+type TutorialState = { stage: 'battle' | 'lobby' | null };
 
 interface AppState {
   gameState: GameState | null;
@@ -195,8 +201,17 @@ function App() {
   });
 
   const [isSearchingForSurvivalMatch, setIsSearchingForSurvivalMatch] = useState(false);
+  // Server drops queue entries on disconnect, so keep the request to re-queue after a reconnect.
+  const pendingSurvivalSearchRef = useRef<{ name: string; team: Hero[] } | null>(null);
   const [isSearchingForMatch, setIsSearchingForMatch] = useState(false);
-  const [searchMode, setSearchMode] = useState<'draft' | 'random' | null>(null);
+  const [showCardLayoutTest, setShowCardLayoutTest] = useState(false);
+  const [turnTimer, setTurnTimer] = useState<{ playerId: string; deadline: number; durationMs: number } | null>(null);
+  const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
+  // How many of the six battle heroes are visible during the tutorial intro; null = all
+  const [tutorialReveal, setTutorialReveal] = useState<number | null>(null);
+  const tutorialStartedRef = useRef(false);
+  const [searchMode, setSearchMode] = useState<'draft' | 'random' | 'friendly' | null>(null);
+  const [friendlyRoomName, setFriendlyRoomName] = useState<string | null>(null);
   
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
@@ -223,7 +238,7 @@ function App() {
 
   // Save active game state to localStorage for reconnection
   useEffect(() => {
-    if (state.gameState && state.playerId && state.user) {
+    if (state.gameState && state.playerId && state.user && state.gameState.mode !== 'tutorial') {
       const gameData = {
         gameId: state.gameState.id,
         playerId: state.playerId,
@@ -263,7 +278,7 @@ function App() {
 
   useEffect(() => {
     // Load heroes data - only load if user is authenticated
-    if (state.user) {
+    if (state.user && state.user.id > 0) {
       const url = `${config.API_BASE_URL}/api/heroes?userId=${state.user.id}`;
       fetch(url)
         .then(res => res.json())
@@ -281,8 +296,8 @@ function App() {
     // Initialize socket connection and authenticate
     const socket = socketService.connect();
     
-    // Authenticate the socket connection with user ID
-    socketService.authenticate(state.user.id);
+    // Authenticate the socket connection with user ID (the tutorial test account has no server user)
+    if (state.user.id > 0) socketService.authenticate(state.user.id);
 
     // Socket event handlers for reconnection
     socket.on('reconnect-success', (gameState) => {
@@ -367,6 +382,7 @@ function App() {
 
     socket.on('survival-search-cancelled', (data) => {
       if (data.success) {
+        pendingSurvivalSearchRef.current = null;
         setIsSearchingForSurvivalMatch(false);
         // Reset survival mode state when search is cancelled
         setState(prev => ({
@@ -411,6 +427,10 @@ function App() {
           isConnected: true,
           error: null
         }));
+        // Show the waiting state in the lobby until a friend joins
+        setIsSearchingForMatch(true);
+        setSearchMode('friendly');
+        setFriendlyRoomName(data.roomName);
       } else {
         setState(prev => ({ ...prev, error: data.message || 'Failed to create room' }));
       }
@@ -440,6 +460,7 @@ function App() {
 
     socket.on('game-start', (data) => {
       // Stop searching when game starts
+      pendingSurvivalSearchRef.current = null;
       setIsSearchingForSurvivalMatch(false);
       setIsSearchingForMatch(false);
       setSearchMode(null);
@@ -575,6 +596,12 @@ function App() {
     });
 
     socket.on('initiative-rolled', (data) => {
+      // The tutorial's rigged roll arrives with both rolls already in the full game state
+      if (data.gameState) {
+        setState(prev => ({ ...prev, gameState: data.gameState }));
+        return;
+      }
+
       // Handle tie - reset rolls and show message
       if (data.tie) {
         setState(prev => ({
@@ -610,6 +637,11 @@ function App() {
         ...prev,
         gameState: data.gameState
       }));
+    });
+
+    socket.on('turn-timer', (data) => {
+      // Server sends remaining time so client clock skew doesn't matter
+      setTurnTimer({ playerId: data.playerId, durationMs: data.durationMs, deadline: Date.now() + data.remainingMs });
     });
 
     socket.on('attack-result', (data) => {
@@ -1361,6 +1393,10 @@ function App() {
 
     socket.on('connect', () => {
       setState(prev => ({ ...prev, isConnected: true }));
+      const pending = pendingSurvivalSearchRef.current;
+      if (pending) {
+        socketService.joinSurvivalGame(pending.name, pending.team);
+      }
     });
 
     socket.on('disconnect', () => {
@@ -1651,6 +1687,13 @@ function App() {
     };
   }, [state.user?.id]); // Re-run only when user ID changes, not the entire user object
 
+  // Join the tutorial battle once the socket for the current user exists (queued until it connects)
+  useEffect(() => {
+    if (!state.user || tutorial.stage !== 'battle' || tutorialStartedRef.current) return;
+    tutorialStartedRef.current = true;
+    socketService.joinTutorial(state.user.username);
+  }, [state.user?.id, tutorial.stage]);
+
 
 
   const handleJoinGame = (mode: 'draft' | 'random') => {
@@ -1711,6 +1754,12 @@ function App() {
     
     // Clear rewards data when returning to lobby
     setRewardsData(null);
+
+    // After the tutorial battle the lobby gets its own short tour
+    if (tutorial.stage === 'battle') {
+      setTutorialReveal(null);
+      setTutorial(prev => ({ ...prev, stage: 'lobby' }));
+    }
     
     // Clear stored game state
     localStorage.removeItem('heroCallActiveGame');
@@ -1766,12 +1815,14 @@ function App() {
     }));
     
     setIsSearchingForSurvivalMatch(true);
+    pendingSurvivalSearchRef.current = { name: playerName, team };
     
     // Use survival matchmaking
     socketService.joinSurvivalGame(playerName, team);
   };
 
   const handleCancelSurvivalSearch = () => {
+    pendingSurvivalSearchRef.current = null;
     socketService.cancelSurvivalSearch();
     setIsSearchingForSurvivalMatch(false);
     setState(prev => ({ 
@@ -1803,6 +1854,13 @@ function App() {
       showRegister: false,
       victoryPoints: user.victory_points
     }));
+
+    // New accounts go straight into the tutorial battle
+    if (user.tutorial_completed === false) {
+      tutorialStartedRef.current = false;
+      setTutorialReveal(0);
+      setTutorial({ stage: 'battle' });
+    }
     
     // Check for pending level-up data from login
     const pendingLevelUpData = localStorage.getItem('pendingLevelUpData');
@@ -1846,6 +1904,18 @@ function App() {
       showLogin: true,
       showRegister: false
     }));
+  };
+
+  const finishTutorial = () => {
+    setTutorial({ stage: null });
+    setTutorialReveal(null);
+  };
+
+  const handleSkipTutorial = () => {
+    socketService.skipTutorial();
+    setRewardsData(null);
+    setState(prev => ({ ...prev, gameState: null, battleLog: [] }));
+    finishTutorial();
   };
 
   const handleBackToLogin = () => {
@@ -1897,6 +1967,7 @@ function App() {
     
     // Disconnect socket
     socketService.disconnect();
+    pendingSurvivalSearchRef.current = null;
     setIsSearchingForSurvivalMatch(false);
   };
 
@@ -2056,6 +2127,10 @@ function App() {
   };
 
   const renderGameContent = () => {
+    if (showCardLayoutTest) {
+      return <CardLayoutTest onExit={() => setShowCardLayoutTest(false)} />;
+    }
+
     // Show login/register pages if user is not authenticated
     if (!state.user) {
       if (state.showRegister) {
@@ -2070,11 +2145,17 @@ function App() {
           <LoginPage
             onLogin={handleLogin}
             onShowRegister={handleShowRegister}
+            onStartCardTest={() => setShowCardLayoutTest(true)}
           />
         );
       }
     }
     
+    // The tutorial battle is still being set up; don't flash the lobby in the meantime
+    if (tutorial.stage === 'battle' && !state.gameState) {
+      return <div className="tutorial-loading" />;
+    }
+
     if (state.showSurvival) {
       return (
         <SurvivalMode
@@ -2111,6 +2192,7 @@ function App() {
           onLogout={handleLogout}
           isSearching={isSearchingForMatch || (state.gameState?.phase === 'waiting')}
           searchMode={searchMode}
+          friendlyRoomName={friendlyRoomName}
           onCancelSearch={handleCancelSearch}
           gameState={state.gameState}
           onCollectionStateChange={handleCollectionStateChange}
@@ -2193,6 +2275,9 @@ function App() {
             spectatingPlayerId={state.spectatingPlayerId || undefined}
             onStopSpectating={handleStopSpectating}
             spectators={state.spectators}
+            turnTimer={turnTimer}
+            isTutorial={tutorial.stage === 'battle'}
+            tutorialReveal={tutorial.stage === 'battle' ? tutorialReveal : null}
             timekeeperAbilitySelection={state.timekeeperAbilitySelection}
             onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
             rewardsData={rewardsData || undefined}
@@ -2420,7 +2505,7 @@ function App() {
                     <div className="log-entries">
                       {state.battleLog.length > 0 ? (
                         state.battleLog.map((entry) => (
-                          <div key={entry.id} className={`log-entry${entry.crit ? ' crit' : ''}${entry.killed ? ' killed' : ''}`}>
+                          <div key={entry.id} data-log-id={entry.id} className={`log-entry${entry.crit ? ' crit' : ''}${entry.killed ? ' killed' : ''}`}>
                             <div className="log-action">
                               {/* Check if this is a comprehensive log entry with formatted message */}
                               {typeof entry.action === 'string' && entry.action?.includes('used') && entry.action?.includes('→') ? (
@@ -2580,8 +2665,8 @@ function App() {
         />
       )}
 
-      {/* Friends System - show everywhere except in collection */}
-      {state.user && !state.showCollection && (
+      {/* Friends System - show everywhere except in collection and during the tutorial */}
+      {state.user && !state.showCollection && tutorial.stage === null && (
         <>
           {/* Friends Icon */}
           <FriendsIcon
@@ -2621,6 +2706,20 @@ function App() {
           ))}
           </Suspense>
         </>
+      )}
+
+      {/* Tutorial overlays (skull guide) */}
+      {tutorial.stage === 'battle' && state.gameState && (
+        <BattleTutorial
+          gameState={state.gameState}
+          playerId={state.playerId}
+          battleLog={state.battleLog}
+          onRevealChange={setTutorialReveal}
+          onSkip={handleSkipTutorial}
+        />
+      )}
+      {tutorial.stage === 'lobby' && state.user && !state.gameState && !state.showSurvival && !state.showGauntlet && (
+        <LobbyTutorial onFinish={finishTutorial} />
       )}
 
       {/* Draft Abandoned Modal */}

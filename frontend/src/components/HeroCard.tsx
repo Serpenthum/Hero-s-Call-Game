@@ -1,10 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Hero } from '../types';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { Hero, Ability } from '../types';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
+import '../styles/HeroCard.css';
+
+export type HeroCardData = Omit<Hero, 'Ability' | 'Special'> & {
+  Ability: Pick<Ability, 'name' | 'description'>[];
+  Special?: Pick<Ability, 'name' | 'description'> | Pick<Ability, 'name' | 'description'>[];
+};
 
 interface HeroCardProps {
-  hero: Hero;
+  hero: HeroCardData;
   isSelectable?: boolean;
   isSelected?: boolean;
   isBanned?: boolean;
@@ -13,21 +19,11 @@ interface HeroCardProps {
   onClick?: () => void;
   showFullInfo?: boolean;
   disableHPAnimations?: boolean;
-  hideAbilities?: boolean;
-  tooltipPosition?: 'right' | 'left' | 'top'; // Add tooltip position prop
-  forceShowTooltip?: boolean; // Force tooltip to always show
   animKey?: string; // Lets the battle animation layer locate this card
+  tutorialReveal?: 'hidden' | 'grow'; // Tutorial: card is invisible, or grows in from nothing
+  className?: string;
+  children?: React.ReactNode;
 }
-
-const KEYWORD_TOOLTIPS: { [key: string]: string } = {
-  poison: "A hero who is poisoned takes damage equal to their poison stacks at the end of each turn.",
-  taunt: "Forces an enemy hero to attack the hero who taunted it instead of their intended target.",
-  inspiration: "When rolling an attack or ability, can give it advantage by expending the inspiration.",
-  silence: "Cannot use abilities while silenced.",
-  disable_attack: "Cannot make basic attacks while stunned.",
-  untargetable: "Cannot be targeted by attacks or abilities.",
-  advantage: "Roll twice and take the higher result."
-};
 
 const HeroCard: React.FC<HeroCardProps> = ({
   hero,
@@ -39,12 +35,11 @@ const HeroCard: React.FC<HeroCardProps> = ({
   onClick,
   showFullInfo = true,
   disableHPAnimations = false,
-  hideAbilities = false,
-  tooltipPosition = 'right', // Default to right
-  forceShowTooltip = false,
-  animKey
+  animKey,
+  tutorialReveal,
+  className = '',
+  children
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
   const [hpColor, setHpColor] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -57,6 +52,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const poisonAnimationRef = useRef<number | null>(null);
   const wasDismountedRef = useRef(false);
   const resurrectionProcessedRef = useRef(false); // Track if we've processed the current resurrection
+  const detailsRef = useRef<HTMLDivElement>(null);
 
   const currentHP = hero.currentHP !== undefined ? hero.currentHP : (typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP);
   const maxHP = typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP;
@@ -249,32 +245,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
     if (isEnemy) classes += ' enemy';
     if (!isEnemy) classes += ' ally';
     if (isCurrentTurn && !isDead) classes += ' current-turn'; // Don't highlight dead heroes as current turn
-    if (isHovered && showFullInfo) classes += ' hovered';
+    if (tutorialReveal) classes += ` tutorial-${tutorialReveal}`;
+    classes += ` hero-layout-card ${className}`;
     return classes;
-  };
-
-  const renderKeywordWithTooltip = (text: string) => {
-    const words = text.split(' ');
-    return words.map((word, index) => {
-      const cleanWord = word.replace(/[.,;:!?]/g, '').toLowerCase();
-      const tooltip = KEYWORD_TOOLTIPS[cleanWord];
-      
-      if (tooltip) {
-        return (
-          <span key={index} className={`keyword ${cleanWord}`}>
-            <span className="tooltip">
-              {word}
-              <span className="tooltiptext">{tooltip}</span>
-            </span>
-          </span>
-        );
-      }
-      return <span key={index}>{word}</span>;
-    }).reduce((prev: React.ReactNode[], curr, index) => {
-      if (index > 0) prev.push(' ');
-      prev.push(curr);
-      return prev;
-    }, []);
   };
 
   const renderStatusEffects = () => {
@@ -613,7 +586,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
     return '';
   };
 
-  const renderBuffedStat = (statName: string, baseValue: string, modifiedValue?: string, passiveBuffs?: any[]) => {
+  const renderBuffedStat = (statName: string, baseValue: string, modifiedValue?: string, passiveBuffs?: any[], showLabel = true) => {
     const isBuffed = modifiedValue && modifiedValue !== baseValue;
     const relevantBuffs = passiveBuffs?.filter(buff => 
       (statName === 'accuracy' && buff.stat === 'accuracy') ||
@@ -637,7 +610,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
         return (
           <span className={`buffed-stat ${glowClass || 'stat-buffed'}`}>
             <span className="buffed-text">
-              Attack: {attack.text}
+              {showLabel ? `Attack: ${attack.text}` : attack.text}
             </span>
             <span className="buff-tooltip">
               <span className="buff-tooltiptext">
@@ -650,7 +623,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
     }
 
     if (!isBuffed) {
-      return <span className={glowClass}>{statName === 'accuracy' ? `Accuracy: ${formatAccuracy(baseValue)}` : `Attack: ${baseValue}`}</span>;
+      const value = statName === 'accuracy' ? formatAccuracy(baseValue) : baseValue;
+      return <span className={glowClass}>{showLabel ? `${statName === 'accuracy' ? 'Accuracy' : 'Attack'}: ${value}` : value}</span>;
     }
 
     const tooltipText = relevantBuffs.map(buff => 
@@ -660,7 +634,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
     return (
       <span className={`buffed-stat ${glowClass}`}>
         <span className="buffed-text">
-          {statName === 'accuracy' ? `Accuracy: ${formatAccuracy(modifiedValue)}` : `Attack: ${modifiedValue}`}
+          {showLabel
+            ? `${statName === 'accuracy' ? 'Accuracy' : 'Attack'}: ${statName === 'accuracy' ? formatAccuracy(modifiedValue) : modifiedValue}`
+            : statName === 'accuracy' ? formatAccuracy(modifiedValue) : modifiedValue}
         </span>
         <span className="buff-tooltip">
           <span className="buff-tooltiptext">
@@ -671,7 +647,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
     );
   };
 
-  const renderEffectiveDefense = () => {
+  const renderEffectiveDefense = (showLabel = true) => {
     // Use modifiedDefense if available (includes scaling buffs like Champion's Last Stand)
     if ((hero as any).modifiedDefense !== undefined) {
       const modifiedDefense = (hero as any).modifiedDefense;
@@ -753,7 +729,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
           className={`buffed-stat ${glowClass}`}
           title={tooltipText}
         >
-          Defense: {modifiedDefense}
+          {showLabel ? `Defense: ${modifiedDefense}` : modifiedDefense}
         </span>
       );
     }
@@ -812,7 +788,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
     const glowClass = getStatGlowClass('Defense', hasPositiveBuffs, hasNegativeBuffs);
     
     if (defenseModifier === 0 && defenseBuffs.length === 0) {
-      return <span>Defense: {hero.Defense}</span>;
+      return <span>{showLabel ? `Defense: ${hero.Defense}` : hero.Defense}</span>;
     }
     
     const tooltip = `Base Defense: ${hero.Defense}, Effective Defense: ${effectiveDefense}\n${tooltipParts.join('\n')}`;
@@ -822,10 +798,78 @@ const HeroCard: React.FC<HeroCardProps> = ({
         className={`buffed-stat ${glowClass}`}
         title={tooltip}
       >
-        Defense: {effectiveDefense}
+        {showLabel ? `Defense: ${effectiveDefense}` : effectiveDefense}
       </span>
     );
   };
+
+  const cardSpecials = Array.isArray(hero.Special) ? hero.Special : hero.Special ? [hero.Special] : [];
+  const cardTextLength = [...(hero.Ability || []), ...cardSpecials].reduce(
+    (length, item) => length + item.name.length + item.description.length,
+    0
+  );
+  const cardDetailsClass = [
+    'card-details',
+    cardTextLength > 150 || hero.Ability.length + cardSpecials.length > 2 ? 'card-details-compact' : '',
+    cardTextLength > 180 || hero.Ability.length + cardSpecials.length > 2 ? 'card-details-dense' : ''
+  ].filter(Boolean).join(' ');
+
+  useLayoutEffect(() => {
+    const details = detailsRef.current;
+    if (!details) return;
+
+    const fitText = () => {
+      if (details.clientHeight === 0) return;
+
+      const previousOverflow = details.style.overflowY;
+      details.style.overflowY = 'hidden';
+      const lastSection = details.lastElementChild;
+      const detailsStyle = getComputedStyle(details);
+      const bottomPadding = parseFloat(detailsStyle.paddingBottom);
+      // Find the largest quarter-pixel size that fits the fixed text panel.
+      let low = 40;
+      let high = 56;
+      let best = low;
+      while (low <= high) {
+        const candidate = Math.floor((low + high) / 2);
+        details.style.setProperty('--card-text-size', `${candidate / 4}px`);
+        const contentBottom = lastSection instanceof HTMLElement ?
+          lastSection.offsetTop + lastSection.offsetHeight +
+            parseFloat(getComputedStyle(lastSection).marginBottom) + bottomPadding : 0;
+        // Reserve a pixel so fractional scaling cannot trigger a scrollbar and narrower wrapping.
+        if (details.scrollHeight <= details.clientHeight && contentBottom <= details.clientHeight - 1) {
+          best = candidate;
+          low = candidate + 1;
+        } else {
+          high = candidate - 1;
+        }
+      }
+      details.style.setProperty('--card-text-size', `${best / 4}px`);
+      details.style.overflowY = previousOverflow;
+    };
+
+    fitText();
+    const observer = new ResizeObserver(fitText);
+    observer.observe(details);
+    return () => observer.disconnect();
+  }, [hero.Ability, hero.Special, cardDetailsClass]);
+
+  const renderCardDetails = () => (
+    <div className={cardDetailsClass} ref={detailsRef}>
+      {hero.Ability?.map((ability, index) => (
+        <section key={`ability-${index}`} className="card-text-section">
+          <h4><span className="card-type-label">Ability:</span> {ability.name}</h4>
+          <p>{ability.description}</p>
+        </section>
+      ))}
+      {cardSpecials.map((special, index) => (
+        <section key={`special-${index}`} className="card-text-section card-special">
+          <h4><span className="card-type-label">Special:</span> {hero.name === 'Bomber' ? 'Explosion' : special.name}</h4>
+          <p>{special.description}</p>
+        </section>
+      ))}
+    </div>
+  );
 
   return (
     <div
@@ -833,8 +877,6 @@ const HeroCard: React.FC<HeroCardProps> = ({
       data-anim-key={animKey}
       data-hero-name={animKey ? hero.name : undefined}
       onClick={isSelectable ? onClick : undefined}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       style={{ cursor: isSelectable ? 'pointer' : 'default' }}
     >
       {renderStatusEffects()}
@@ -851,63 +893,34 @@ const HeroCard: React.FC<HeroCardProps> = ({
           (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
         }}
       />
-      
-      <div className="hero-card-content">
-        <div className="hero-stats">
-          <div className="hero-name">{hero.name}</div>
-          <div className="hero-stats-row">
-            <span className="stat-icon">❤️</span>
-            <span style={{ color: hpColor || 'inherit' }}>
-              HP: {animatedHP !== null ? `${animatedHP}/${maxHP}` : (hero.currentHP !== undefined ? `${hero.currentHP}/${hero.HP}` : hero.HP)}
-            </span>
-          </div>
-          <div className="hero-stats-row">
-            <span className="stat-icon">🛡️</span>
-            {renderEffectiveDefense()}
-          </div>
-          <div className="hero-stats-row">
-            <span className="stat-icon">🎯</span>
-            {renderBuffedStat('accuracy', hero.Accuracy, hero.modifiedAccuracy, hero.passiveBuffs)}
-          </div>
-          <div className="hero-stats-row">
-            <span className="stat-icon">⚔️</span>
-            {renderBuffedStat('attack', hero.BasicAttack, hero.modifiedBasicAttack, hero.passiveBuffs)}
-          </div>
+
+      <h3 className="card-hero-name">{hero.name}</h3>
+
+      <div className="card-stats">
+        <div className="hero-stats-row" data-tutorial="hp" role="group" aria-label="Health">
+          <span className="stat-icon card-stat-icon card-stat-icon-health" aria-hidden="true">❤️</span>
+          <span style={{ color: hpColor || 'inherit' }}>
+            {animatedHP !== null ? `${animatedHP}/${maxHP}` : `${currentHP}/${maxHP}`}
+          </span>
+        </div>
+        <div className="hero-stats-row" data-tutorial="defense" role="group" aria-label="Defense">
+          <span className="stat-icon card-stat-icon card-stat-icon-defense" aria-hidden="true">🛡️</span>
+          {renderEffectiveDefense(false)}
+        </div>
+        <div className="hero-stats-row" data-tutorial="accuracy" role="group" aria-label="Accuracy">
+          <span className="stat-icon card-stat-icon card-stat-icon-accuracy" aria-hidden="true">🎯</span>
+          {renderBuffedStat('accuracy', hero.Accuracy, hero.modifiedAccuracy, hero.passiveBuffs, false)}
+        </div>
+        <div className="hero-stats-row" data-tutorial="attack" role="group" aria-label="Attack">
+          <span className="stat-icon card-stat-icon card-stat-icon-attack" aria-hidden="true">⚔️</span>
+          {renderBuffedStat('attack', hero.BasicAttack, hero.modifiedBasicAttack, hero.passiveBuffs, false)}
         </div>
       </div>
 
-      {showFullInfo && (isHovered || forceShowTooltip) && !hideAbilities && (
-        <div className={`hero-tooltip ${tooltipPosition === 'left' ? 'tooltip-left' : tooltipPosition === 'top' ? 'tooltip-top' : 'tooltip-right'}`}>
-          <div className="tooltip-section">
-            <h4>Abilities</h4>
-            {hero.Ability.map((ability, index) => (
-              <div key={index} className="tooltip-ability">
-                <div className="tooltip-ability-name">{ability.name}</div>
-                <div className="tooltip-ability-description">{renderKeywordWithTooltip(ability.description)}</div>
-              </div>
-            ))}
-          </div>
-          
-          {hero.Special && (
-            <div className="tooltip-section">
-              <h4>Special</h4>
-              {Array.isArray(hero.Special) ? (
-                hero.Special.map((special, index) => (
-                  <div key={index} className="tooltip-special">
-                    <div className="tooltip-special-name">{hero.name === 'Bomber' ? 'Explosion' : special.name}</div>
-                    <div className="tooltip-special-description">{renderKeywordWithTooltip(special.description)}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="tooltip-special">
-                  <div className="tooltip-special-name">{hero.name === 'Bomber' ? 'Explosion' : ((hero.Special as any).name || "Special Ability")}</div>
-                  <div className="tooltip-special-description">{renderKeywordWithTooltip((hero.Special as any).description || "Special ability details not available")}</div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="hero-card-content">
+        {renderCardDetails()}
+      </div>
+      {children}
     </div>
   );
 };

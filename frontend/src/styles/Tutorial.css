@@ -1,0 +1,227 @@
+/* Hero cards while the tutorial introduces them */
+.hero-card.tutorial-hidden {
+  visibility: hidden;
+}
+
+.hero-card.tutorial-grow {
+  animation: tutorial-grow-in 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+}
+
+@keyframes tutorial-grow-in {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Click blockers: keep everything but the highlighted element inert */
+.tut-block {
+  position: fixed;
+  z-index: 4000;
+  background: transparent;
+}
+
+.tut-block.dim {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.tut-spot {
+  position: fixed;
+  z-index: 4001;
+  pointer-events: none;
+  border-radius: 10px;
+  border: 2px solid #7cff6b;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55), 0 0 18px 4px rgba(124, 255, 107, 0.65);
+  animation: tut-spot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tut-spot-pulse {
+  0%, 100% { border-color: rgba(124, 255, 107, 0.55); }
+  50% { border-color: rgba(190, 255, 170, 1); }
+}
+
+/* Glowing arrow: drawn pointing right, rotated per side, bobs along its own axis */
+.tut-arrow {
+  position: fixed;
+  z-index: 4002;
+  width: 56px;
+  height: 40px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px #7cff6b) drop-shadow(0 0 14px rgba(124, 255, 107, 0.8));
+}
+
+.tut-arrow.side-left { transform: rotate(0deg); }
+.tut-arrow.side-right { transform: rotate(180deg); }
+.tut-arrow.side-top { transform: rotate(90deg); }
+.tut-arrow.side-bottom { transform: rotate(-90deg); }
+
+.tut-arrow svg {
+  display: block;
+  animation: tut-arrow-bob 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes tut-arrow-bob {
+  from { transform: translateX(-6px); }
+  to { transform: translateX(8px); }
+}
+
+/* Skull + speech bubble */
+.tut-speaker {
+  position: fixed;
+  z-index: 4003;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 16px));
+}
+
+.tut-speaker.centered {
+  left: 50%;
+  bottom: 10vh;
+  transform: translateX(-50%);
+}
+
+.tut-speaker.middle {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.tut-speaker.topleft {
+  left: 12px;
+  top: 12px;
+}
+
+.tut-bubble {
+  position: relative;
+  background: #f4efe0;
+  color: #1b1424;
+  border: 3px solid #3a2a52;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  min-width: 190px;
+  cursor: default;
+}
+
+.tut-bubble::before {
+  content: '';
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  margin-top: -8px;
+  border: 8px solid transparent;
+  border-right-color: #3a2a52;
+  border-left: 0;
+}
+
+.tut-text {
+  position: relative;
+}
+
+.tut-text .tut-full {
+  visibility: hidden;
+}
+
+.tut-text .tut-typed {
+  position: absolute;
+  inset: 0;
+}
+
+.tut-next {
+  display: block;
+  margin: 10px 0 0 auto;
+  padding: 6px 16px;
+  background: #3a2a52;
+  color: #f4efe0;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  animation: tut-next-pulse 1.2s ease-in-out infinite;
+}
+
+.tut-next:hover {
+  background: #54397a;
+}
+
+@keyframes tut-next-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 255, 107, 0.0); }
+  50% { box-shadow: 0 0 10px 2px rgba(124, 255, 107, 0.7); }
+}
+
+.tut-skip {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 4004;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ddd;
+  border: 1px solid #666;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tut-skip:hover {
+  color: #fff;
+  border-color: #aaa;
+}
+
+/* Skull */
+.tutorial-skull {
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+  animation: skull-bob 2.6s ease-in-out infinite;
+}
+
+.tutorial-skull.talking {
+  animation: skull-bob-talk 0.32s ease-in-out infinite alternate;
+}
+
+.tutorial-skull .skull-jaw {
+  transform-origin: 60px 96px;
+}
+
+.tutorial-skull.talking .skull-jaw {
+  animation: skull-jaw 0.17s ease-in-out infinite alternate;
+}
+
+.tutorial-skull .skull-eye-glow {
+  animation: skull-eye 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes skull-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-3px) rotate(1deg); }
+}
+
+@keyframes skull-bob-talk {
+  from { transform: translateY(0) rotate(-2deg); }
+  to { transform: translateY(-2px) rotate(2deg); }
+}
+
+@keyframes skull-jaw {
+  from { transform: translateY(0) rotate(0deg); }
+  to { transform: translateY(9px) rotate(3deg); }
+}
+
+@keyframes skull-eye {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-skull,
+  .tut-arrow svg,
+  .tut-spot,
+  .tut-next {
+    animation: none;
+  }
+  .tutorial-skull.talking .skull-jaw {
+    animation: skull-jaw 0.17s ease-in-out infinite alternate;
+  }
+}

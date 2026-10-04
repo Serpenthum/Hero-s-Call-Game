@@ -21,7 +21,6 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const [draggedHero, setDraggedHero] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
-  const [hoveredHero, setHoveredHero] = useState<string | null>(null);
 
   // Reset selected card when draft phase or turn changes
   useEffect(() => {
@@ -136,7 +135,6 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
 
   const handleDragStart = (heroName: string, e: React.DragEvent) => {
     setDraggedHero(heroName);
-    setHoveredHero(null); // Hide tooltip when dragging starts
     // Create a transparent drag image to hide the default ghost
     const img = new Image();
     img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -204,14 +202,13 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         </div>
 
         <div className="draft-cards ban-phase">
-          {draftCards.map((hero, index) => (
+          {draftCards.map((hero) => (
             <HeroCard
               key={hero.name}
               hero={hero}
               isSelectable={!currentPlayer.bannedCard}
               isSelected={selectedCard === hero.name}
               onClick={() => setSelectedCard(hero.name)}
-              tooltipPosition={index >= draftCards.length - 1 ? 'left' : 'right'}
             />
           ))}
         </div>
@@ -261,12 +258,11 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
               <div className="opponent-team">
                 <h3>Opponent's Team ({opponent.team?.length || 0}/3)</h3>
                 <div className="team-cards">
-                  {(opponent.team || []).map((hero, index) => (
+                  {(opponent.team || []).map((hero) => (
                     <HeroCard
                       key={hero.name}
                       hero={hero}
                       isEnemy={true}
-                      tooltipPosition={index === 2 ? 'left' : 'right'}
                     />
                   ))}
                 </div>
@@ -275,14 +271,13 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
           </div>
 
           <div className={`draft-cards${gameState.currentDraftPhase > 1 ? ' pick-phase' : ''}`}>
-            {draftCards.map((hero, index) => (
+            {draftCards.map((hero) => (
               <HeroCard
                 key={hero.name}
                 hero={hero}
                 isSelectable={canPick()}
                 isSelected={selectedCard === hero.name}
                 onClick={() => canPick() && setSelectedCard(hero.name)}
-                tooltipPosition={index >= draftCards.length - 1 ? 'left' : 'right'}
               />
             ))}
           </div>
@@ -332,8 +327,6 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
                   onDragEnd={handleDragEnd}
                   onDragOver={handleDragOver}
                   onDrop={() => !isReady && handleDrop(index)}
-                  onMouseEnter={() => !isDragging && setHoveredHero(heroName)}
-                  onMouseLeave={() => setHoveredHero(null)}
                   style={{
                     opacity: isDragging ? 0.3 : 1,
                     transition: 'opacity 0.15s ease, transform 0.3s ease'
@@ -343,8 +336,6 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
                   <HeroCard
                     hero={hero}
                     isSelectable={false}
-                    hideAbilities={hoveredHero !== heroName}
-                    tooltipPosition="right"
                   />
                 </div>
               ) : null;
@@ -370,7 +361,6 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
             <HeroCard
               hero={getHeroByName(draggedHero)!}
               isSelectable={false}
-              hideAbilities={true}
             />
           </div>
         )}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { socketService } from '../socketService';
+import CloseButton from './CloseButton';
 import {
   AnimSpeed,
   getAnimSpeed,
@@ -8,6 +9,8 @@ import {
   setSfxEnabled,
   getSfxVolume,
   setSfxVolume,
+  getAutoEndTurnEnabled,
+  setAutoEndTurnEnabled,
   sfx
 } from '../battleAnimations';
 
@@ -25,6 +28,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [speed, setSpeed] = useState<AnimSpeed>(getAnimSpeed);
   const [sfxOn, setSfxOn] = useState(getSfxEnabled);
   const [volume, setVolume] = useState(() => Math.round(getSfxVolume() * 100));
+  const [autoEnd, setAutoEnd] = useState(getAutoEndTurnEnabled);
   // undefined = measuring, null = no answer
   const [ping, setPing] = useState<number | null | undefined>(undefined);
 
@@ -64,12 +68,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     setVolume(value);
   };
 
+  const toggleAutoEnd = () => {
+    setAutoEndTurnEnabled(!autoEnd);
+    setAutoEnd(!autoEnd);
+    socketService.setAutoEndTurn(!autoEnd);
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="rules-modal settings-modal" onClick={e => e.stopPropagation()}>
         <div className="rules-modal-header">
           <h3>⚙️ Settings</h3>
-          <button className="close-button" onClick={onClose}>×</button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <div className="settings-content">
@@ -98,6 +108,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label">
+              <span>Auto end turn</span>
+              <small>End your turn when no attack, ability or special is left</small>
+            </div>
+            <button
+              className={`settings-switch${autoEnd ? ' on' : ''}`}
+              role="switch"
+              aria-checked={autoEnd}
+              aria-label="Auto end turn"
+              onClick={toggleAutoEnd}
+            >
+              <span className="settings-switch-knob" />
+            </button>
           </div>
 
           <div className="settings-row">

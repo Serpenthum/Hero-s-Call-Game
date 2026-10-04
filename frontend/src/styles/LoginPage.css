@@ -407,3 +407,22 @@
   margin-top: 5px;
   font-style: italic;
 }
+
+.test-battle-entry {
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 11px 16px;
+  border: 1px solid #c99c55;
+  border-radius: 8px;
+  color: #fff7e8;
+  background: linear-gradient(135deg, #4a3822, #30271d);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.test-battle-entry:hover {
+  background: linear-gradient(135deg, #684c29, #45341f);
+  transform: translateY(-1px);
+}

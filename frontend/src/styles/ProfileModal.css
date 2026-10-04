@@ -66,28 +66,9 @@
 }
 
 .profile-close-btn {
-  background: transparent;
-  border: 2px solid var(--accent-red);
-  color: var(--accent-red);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   position: absolute;
   right: 30px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.profile-close-btn:hover {
-  background: var(--accent-red);
-  color: white;
-  transform: translateY(-50%) scale(1.1);
+  top: calc(50% - 18px);
 }
 
 .profile-loading {
@@ -360,25 +341,6 @@
   font-family: 'Orbitron', monospace;
   margin: 0;
   text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
-}
-
-.icon-selector-close {
-  background: transparent;
-  border: 2px solid var(--accent-red);
-  color: var(--accent-red);
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-selector-close:hover {
-  background: var(--accent-red);
-  color: white;
 }
 
 .available-icons {

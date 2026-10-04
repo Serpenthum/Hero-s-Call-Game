@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/SurvivalTeamBuilder.css';
 import config from '../config';
+import HeroCard from './HeroCard';
+import useCardGrid from '../hooks/useCardGrid';
+import '../styles/ResponsiveCardGrid.css';
 
 interface HeroAbility {
   name: string;
@@ -61,7 +64,6 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [hoveredHero, setHoveredHero] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage'>('alphabetical');
   const [isSearchingForMatch, setIsSearchingForMatch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,42 +98,13 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
     }
   }, [selectedTeam, isSearchingForMatch, searchStartTeam]);
 
-  const HEROES_PER_PAGE = 6; // 3 heroes per row, 2 rows
+  const cardGrid = useCardGrid();
+  const heroesPerPage = cardGrid.pageSize;
   const TEAM_SIZE = 3;
 
-  const KEYWORD_TOOLTIPS: { [key: string]: string } = {
-    poison: "A hero who is poisoned takes damage equal to their poison stacks at the end of each turn.",
-    taunt: "Forces an enemy hero to attack the hero who taunted it instead of their intended target.",
-    inspiration: "When rolling an attack or ability, can give it advantage by expending the inspiration.",
-    silence: "Cannot use abilities while silenced.",
-    disable_attack: "Cannot make basic attacks while stunned.",
-    untargetable: "Cannot be targeted by attacks or abilities.",
-    advantage: "Roll twice and take the higher result."
-  };
-
-  const renderKeywordWithTooltip = (text: string) => {
-    const words = text.split(' ');
-    return words.map((word, index) => {
-      const cleanWord = word.replace(/[.,;:!?]/g, '').toLowerCase();
-      const tooltip = KEYWORD_TOOLTIPS[cleanWord];
-      
-      if (tooltip) {
-        return (
-          <span key={index} className={`keyword ${cleanWord}`}>
-            <span className="tooltip">
-              {word}
-              <span className="tooltiptext">{tooltip}</span>
-            </span>
-          </span>
-        );
-      }
-      return <span key={index}>{word}</span>;
-    }).reduce((prev: React.ReactNode[], curr, index) => {
-      if (index > 0) prev.push(' ');
-      prev.push(curr);
-      return prev;
-    }, []);
-  };
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [heroesPerPage]);
 
   useEffect(() => {
     fetchHeroes();
@@ -326,11 +299,12 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
 
 
 
-  const getTotalPages = () => Math.ceil(availableHeroes.length / HEROES_PER_PAGE);
+  const getTotalPages = () => Math.ceil(availableHeroes.length / heroesPerPage);
+  const visiblePage = Math.min(currentPage, Math.max(0, getTotalPages() - 1));
   
   const getCurrentPageHeroes = () => {
-    const startIndex = currentPage * HEROES_PER_PAGE;
-    const endIndex = startIndex + HEROES_PER_PAGE;
+    const startIndex = visiblePage * heroesPerPage;
+    const endIndex = startIndex + heroesPerPage;
     return availableHeroes.slice(startIndex, endIndex);
   };
 
@@ -339,7 +313,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
     const heroes = getCurrentPageHeroes();
     const slots = heroes.map(hero => ({ hero, placeholder: false }));
     if (heroes.length === 0) return slots;
-    for (let i = heroes.length; i < HEROES_PER_PAGE; i++) {
+    for (let i = heroes.length; i < heroesPerPage; i++) {
       slots.push({ hero: heroes[0], placeholder: true });
     }
     return slots;
@@ -427,7 +401,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
           {/* Hero Browser Header */}
           <div className="hero-browser-header">
             <div className="page-indicator">
-              {getTotalPages() > 1 ? `Page ${currentPage + 1} of ${getTotalPages()}` : `${availableHeroes.length} Heroes`}
+              {getTotalPages() > 1 ? `Page ${visiblePage + 1} of ${getTotalPages()}` : `${availableHeroes.length} Heroes`}
             </div>
             <div className="survival-header-controls">
               <div className="sort-controls">
@@ -468,90 +442,35 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
               </div>
             ) : (
               <div className="heroes-grid-container">
-                <div className={`heroes-grid ${isTransitioning ? 'transitioning' : ''}`}>
+                <div className="responsive-card-viewport" ref={cardGrid.ref} style={cardGrid.style}>
+                <div className={`heroes-grid responsive-card-grid ${isTransitioning ? 'transitioning' : ''}`}>
                   {getPageSlots().map(({ hero, placeholder }, slotIndex) => (
-                    <div 
+                    <div
                       key={placeholder ? `placeholder-${slotIndex}` : hero.name} 
-                      className={`hero-card survival-card ${placeholder ? 'survival-card-placeholder' : ''} ${!placeholder && isHeroSelected(hero) ? 'selected' : ''} ${!placeholder && hoveredHero === hero.name ? 'hovered' : ''}`}
+                      className={placeholder ? 'survival-card-slot survival-card-placeholder' : 'survival-card-slot'}
                       aria-hidden={placeholder || undefined}
-                      onClick={() => !placeholder && handleHeroSelect(hero)}
-                      onMouseEnter={() => setHoveredHero(hero.name)}
-                      onMouseLeave={() => setHoveredHero(null)}
                     >
+                      <HeroCard
+                        hero={hero}
+                        className="survival-card"
+                        isSelectable={!placeholder}
+                        isSelected={!placeholder && isHeroSelected(hero)}
+                        onClick={() => handleHeroSelect(hero)}
+                        showFullInfo={false}
+                        disableHPAnimations
+                      >
                       {user?.favorite_heroes?.includes(hero.name) && (
                         <div className="favorite-star">⭐</div>
                       )}
-                      <img 
-                        src={`${config.IMAGE_BASE_URL}/hero-images/${hero.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
-                        decoding="async"
-                        loading="lazy"
-                        alt={hero.name}
-                        className="hero-image"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
-                        }}
-                      />
-                      
-                      <div className="hero-card-content">
-                        <div className="hero-stats">
-                          <div className="hero-name">{hero.name}</div>
-                          <div className="hero-stats-row">
-                            <span className="stat-icon">❤️</span>
-                            <span>HP: {hero.HP}</span>
-                          </div>
-                          <div className="hero-stats-row">
-                            <span className="stat-icon">🛡️</span>
-                            <span>Defense: {hero.Defense}</span>
-                          </div>
-                          <div className="hero-stats-row">
-                            <span className="stat-icon">🎯</span>
-                            <span>Accuracy: {hero.Accuracy}</span>
-                          </div>
-                          <div className="hero-stats-row">
-                            <span className="stat-icon">⚔️</span>
-                            <span>Attack: {hero.BasicAttack}</span>
-                          </div>
-                        </div>
-                      </div>
 
                       {!placeholder && isHeroSelected(hero) && (
                         <div className="selection-indicator">✓</div>
                       )}
 
-                      {!placeholder && hoveredHero === hero.name && (
-                        <div className="hero-tooltip">
-                          <div className="tooltip-section">
-                            <h4>Abilities</h4>
-                            {hero.Ability.map((ability, index) => (
-                              <div key={index} className="tooltip-ability">
-                                <div className="tooltip-ability-name">{ability.name}</div>
-                                <div className="tooltip-ability-description">{renderKeywordWithTooltip(ability.description)}</div>
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {hero.Special && (
-                            <div className="tooltip-section">
-                              <h4>Special</h4>
-                              {Array.isArray(hero.Special) ? (
-                                hero.Special.map((special, index) => (
-                                  <div key={index} className="tooltip-special">
-                                    <div className="tooltip-special-name">{hero.name === 'Bomber' ? 'Explosion' : special.name}</div>
-                                    <div className="tooltip-special-description">{renderKeywordWithTooltip(special.description)}</div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="tooltip-special">
-                                  <div className="tooltip-special-name">{hero.name === 'Bomber' ? 'Explosion' : ((hero.Special as any).name || "Special Ability")}</div>
-                                  <div className="tooltip-special-description">{renderKeywordWithTooltip((hero.Special as any).description || "Special ability details not available")}</div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      </HeroCard>
                     </div>
                   ))}
+                </div>
                 </div>
                 
                 {getTotalPages() > 1 && (

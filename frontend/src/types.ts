@@ -163,6 +163,7 @@ export interface Player {
 
 export interface GameState {
   id: string;
+  mode?: string;
   phase: 'waiting' | 'draft' | 'setup' | 'initiative' | 'battle' | 'ended';
   players: Player[];
   currentTurn: number;
@@ -278,6 +279,10 @@ export interface SocketEvents {
   'join-game': (data: { name: string; mode?: 'draft' | 'random' | 'friendly'; roomName?: string }) => void;
   'join-survival-game': (data: { name: string; team: Hero[] }) => void;
   'cancel-survival-search': () => void;
+  'set-auto-end-turn': (enabled: boolean) => void;
+  'join-tutorial': (data: { name: string }) => void;
+  'tutorial-continue': (data: { hold: 'intro' | 'log' | 'poison' }) => void;
+  'tutorial-skip': () => void;
   'cancel-search': () => void;
   'create-friendly-room': (data: { roomName: string; playerName: string }) => void;
   'join-friendly-room': (data: { roomName: string; playerName: string }) => void;
@@ -329,7 +334,7 @@ export interface SocketEvents {
   'authentication-success': (data: { userId: number }) => void;
   'authentication-failed': (data: { message: string }) => void;
   'force-logout': (data: { message: string }) => void;
-  'join-result': (data: { success: boolean; gameId: string; playerId: string; players: Player[]; gameReady: boolean; draftCards?: any; mode?: 'draft' | 'random' | 'friendly' | 'survival'; roomName?: string }) => void;
+  'join-result': (data: { success: boolean; gameId: string; playerId: string; players: Player[]; gameReady: boolean; draftCards?: any; mode?: 'draft' | 'random' | 'friendly' | 'survival' | 'tutorial'; roomName?: string }) => void;
   'survival-match-found': (data: { success: boolean; gameId: string; playerId: string; players: Player[]; gameReady: boolean }) => void;
   'survival-search-cancelled': (data: { success: boolean }) => void;
   'search-cancelled': (data: { success: boolean }) => void;
@@ -346,6 +351,7 @@ export interface SocketEvents {
   'ability-result': (data: any) => void;
   'special-activated': (data: any) => void;
   'turn-ended': (data: any) => void;
+  'turn-timer': (data: { gameId: string; playerId: string; durationMs: number; remainingMs: number }) => void;
   'auto-draft-complete': (data: any) => void;
   'reconnect-success': (data: GameState) => void;
   'reconnect-failed': (data: { message: string }) => void;
@@ -372,7 +378,7 @@ export interface SocketEvents {
   'gauntlet-run-abandoned': (data: { success: boolean; finalTrial: number; rewards?: GauntletRewards }) => void;
   
   // Friends system server responses
-  'online-players-response': (data: { success: boolean; onlinePlayers?: OnlinePlayer[]; totalOnline?: number; friendIds?: number[]; error?: string }) => void;
+  'online-players-response': (data: { success: boolean; onlinePlayers?: OnlinePlayer[]; totalOnline?: number; friendIds?: number[]; error?: string; rateLimited?: boolean }) => void;
   'friend-request-response': (data: { success: boolean; message?: string; error?: string }) => void;
   'friend-request-received': (data: { from: string; fromId: number }) => void;
   'friend-response-result': (data: { success: boolean; message?: string; error?: string }) => void;

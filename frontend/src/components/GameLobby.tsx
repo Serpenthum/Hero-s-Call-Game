@@ -3,7 +3,7 @@ import HeroCollection from './HeroCollection';
 import HeroCard from './HeroCard';
 import ProfileModal from './ProfileModal';
 import XPBar from './XPBar';
-import SpectatorView from './SpectatorView';
+import CloseButton from './CloseButton';
 import Shop from './Shop';
 import RequirementModal from './RequirementModal';
 import DragonflowLobby from './DragonflowLobby';
@@ -13,6 +13,7 @@ import { useQuestReveal } from '../useQuestReveal';
 import QuestRewardModal from './QuestRewardModal';
 import SettingsModal from './SettingsModal';
 import config from '../config';
+import useCardGrid from '../hooks/useCardGrid';
 import '../styles/GameLobby.css';
 
 interface User {
@@ -35,12 +36,13 @@ interface GameLobbyProps {
   onStartFriendlyGame: (action: 'create' | 'join', roomName: string) => void;
   onStartSurvival: () => void;
   onStartGauntlet: () => void;
-  onSpectateGame: (gameId: string, spectatingPlayerId: string) => void;
+  onSpectateGame?: (gameId: string, spectatingPlayerId: string) => void;
   victoryPoints: number;
   user: User;
   onLogout: () => void;
   isSearching?: boolean;
-  searchMode?: 'draft' | 'random' | null;
+  searchMode?: 'draft' | 'random' | 'friendly' | null;
+  friendlyRoomName?: string | null;
   onCancelSearch?: () => void;
   gameState?: GameState | null;
   onCollectionStateChange?: (isOpen: boolean) => void;
@@ -50,7 +52,7 @@ interface GameLobbyProps {
   onClaimQuestReward?: () => void;
 }
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onStartGauntlet, onSpectateGame, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onStartGauntlet, victoryPoints, user, onLogout, isSearching = false, searchMode = null, friendlyRoomName = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
   // Refresh on entering the lobby so a new UTC day resets the list.
   useEffect(() => {
     socketService.getQuests();
@@ -64,10 +66,11 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
   const pendingQuestIds = new Set((pendingQuestReward?.completed || []).map(q => q.id));
 
   const [showCollection, setShowCollection] = useState(false);
+  const previewGrid = useCardGrid({ singleRowOnPhone: true });
   const [showShop, setShowShop] = useState(false);
   const [showFriendlyModal, setShowFriendlyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [friendlyAction, setFriendlyAction] = useState<'create' | 'join' | 'spectate'>('create');
+  const [friendlyAction, setFriendlyAction] = useState<'create' | 'join'>('create');
   const [roomName, setRoomName] = useState('');
   const [allHeroes, setAllHeroes] = useState<Hero[]>([]);
   const [showRequirementModal, setShowRequirementModal] = useState(false);
@@ -119,11 +122,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
   };
 
   const handleFriendlySubmit = () => {
-    if (friendlyAction === 'spectate') {
-      // Spectate mode doesn't need room name validation
-      return; // SpectatorView component handles its own actions
-    }
-    
     if (roomName.trim()) {
       onStartFriendlyGame(friendlyAction, roomName.trim());
       handleCloseFriendlyModal();
@@ -499,17 +497,36 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                 </div>
                 <div className="category-modes">
                   
-                  <div className="game-mode friendly-mode" onClick={handleFriendlyBattleClick}>
+                  <div className={`game-mode friendly-mode ${isSearching && searchMode === 'friendly' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'friendly' ? undefined : handleFriendlyBattleClick}>
                     <div className="mode-overlay"></div>
                     <div className="mode-icon">🤝</div>
-                    <div className="mode-info">
-                      <h3>Friendly Battle</h3>
-                      <p>Play with friends</p>
-                    </div>
-                    <button className="mode-play-btn">
-                      <span>Create/Join</span>
-                      <div className="btn-glow"></div>
-                    </button>
+                    {isSearching && searchMode === 'friendly' ? (
+                      <div className="mode-info searching-info">
+                        <h3>Waiting for a friend...</h3>
+                        {friendlyRoomName && <p>Room: {friendlyRoomName}</p>}
+                        <div className="searching-dots">
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mode-info">
+                        <h3>Friendly Battle</h3>
+                        <p>Play with friends</p>
+                      </div>
+                    )}
+                    {isSearching && searchMode === 'friendly' ? (
+                      <button className="mode-cancel-btn" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
+                        <span>Close Room</span>
+                        <div className="btn-glow"></div>
+                      </button>
+                    ) : (
+                      <button className="mode-play-btn">
+                        <span>Create/Join</span>
+                        <div className="btn-glow"></div>
+                      </button>
+                    )}
                   </div>
 
                   <div className={`game-mode random-mode ${isSearching && searchMode === 'random' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'random' ? undefined : () => handleModeSelect('random')}>
@@ -560,10 +577,11 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                 <span>Shop</span>
                 <div className="btn-arrow">→</div>
               </button>
-              <button className="collection-btn" onClick={handleShowCollection}>
+              <button className="collection-btn" data-tutorial="collection" onClick={handleShowCollection}>
                 <span>View Collection</span>
                 <div className="btn-arrow">→</div>
               </button>
+              <div className="lobby-hero-viewport" ref={previewGrid.ref} style={previewGrid.style}>
               {currentRandomHero && (
                 <div className={`random-hero-card ${isTransitioning ? 'transitioning' : ''}`}>
                   <HeroCard 
@@ -582,6 +600,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                   />
                 </div>
               )}
+              </div>
             </div>
           </div>
 
@@ -615,12 +634,11 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
           <div className="friendly-modal">
             <div className="friendly-modal-header">
               <h3>Friendly Battle</h3>
-              <button className="close-button" onClick={handleCloseFriendlyModal}>×</button>
+              <CloseButton onClick={handleCloseFriendlyModal} />
             </div>
             
             <div className="friendly-modal-content">
-              {friendlyAction ? (
-                <>
+              <>
                   <div className="action-selection">
                     <div 
                       className={`action-option ${friendlyAction === 'create' ? 'selected' : ''}`}
@@ -638,15 +656,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                       <div className="action-icon">🚪</div>
                       <h4>Join Game</h4>
                       <p>Enter a room name to join your friend's game</p>
-                    </div>
-                    
-                    <div 
-                      className={`action-option ${friendlyAction === 'spectate' ? 'selected' : ''}`}
-                      onClick={() => setFriendlyAction('spectate')}
-                    >
-                      <div className="action-icon">👁️</div>
-                      <h4>Spectate</h4>
-                      <p>Watch an ongoing game</p>
                     </div>
                   </div>
                   
@@ -681,15 +690,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                     </button>
                   </div>
                 </>
-              ) : (
-                <SpectatorView 
-                  onSpectate={(gameId, spectatingPlayerId) => {
-                    onSpectateGame(gameId, spectatingPlayerId);
-                    handleCloseFriendlyModal();
-                  }}
-                  onClose={handleCloseFriendlyModal}
-                />
-              )}
             </div>
           </div>
         </div>
@@ -710,7 +710,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
           <div className="rules-modal">
             <div className="rules-modal-header">
               <h3>📖 Game Rules</h3>
-              <button className="close-button" onClick={() => setShowRulesModal(false)}>×</button>
+              <CloseButton onClick={() => setShowRulesModal(false)} />
             </div>
             
             <div className="rules-modal-content">

@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import HeroCard from './HeroCard';
 import PackOpeningAnimation from './PackOpeningAnimation';
+import CloseButton from './CloseButton';
 import { Hero } from '../types';
 import config from '../config';
 import '../styles/Shop.css';
+import useCardGrid from '../hooks/useCardGrid';
+import '../styles/ResponsiveCardGrid.css';
 
 interface ShopProps {
   onClose: () => void;
@@ -28,13 +31,25 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
   const [packContentHeroes, setPackContentHeroes] = useState<Hero[]>([]);
   const [packContentsPage, setPackContentsPage] = useState(0);
 
-  const heroesPerPage = 3;
+  const saleGrid = useCardGrid({ rowExtra: 60 });
+  const heroesPerPage = saleGrid.pageSize;
   const totalPages = Math.ceil(saleHeroes.length / heroesPerPage);
-  const displayedHeroes = saleHeroes.slice(currentPage * heroesPerPage, (currentPage + 1) * heroesPerPage);
+  const visibleSalePage = Math.min(currentPage, Math.max(0, totalPages - 1));
+  const displayedHeroes = saleHeroes.slice(visibleSalePage * heroesPerPage, (visibleSalePage + 1) * heroesPerPage);
 
-  const packContentsPerPage = 5;
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [heroesPerPage]);
+
+  const packContentsGrid = useCardGrid();
+  const packContentsPerPage = packContentsGrid.pageSize;
   const totalPackContentsPages = Math.ceil(packContentHeroes.length / packContentsPerPage);
-  const displayedPackContents = packContentHeroes.slice(packContentsPage * packContentsPerPage, (packContentsPage + 1) * packContentsPerPage);
+  const visiblePackPage = Math.min(packContentsPage, Math.max(0, totalPackContentsPages - 1));
+  const displayedPackContents = packContentHeroes.slice(visiblePackPage * packContentsPerPage, (visiblePackPage + 1) * packContentsPerPage);
+
+  useEffect(() => {
+    setPackContentsPage(0);
+  }, [packContentsPerPage]);
 
   const handleNextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -278,7 +293,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
               <span className="vp-icon">🏆</span>
               <span className="vp-amount">{victoryPoints} VP</span>
             </div>
-            <button className="shop-close-btn" onClick={onClose}>✕</button>
+            <CloseButton onClick={onClose} />
           </div>
         </div>
 
@@ -313,13 +328,15 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                 <button 
                   className="shop-pagination-arrow left"
                   onClick={handlePrevPage}
-                  disabled={currentPage === 0}
+                  disabled={visibleSalePage === 0}
+                  aria-label="Previous sale page"
                 >
                   ←
                 </button>
 
                 {/* Heroes Grid */}
-                <div className="shop-sale-grid">
+                <div className="responsive-card-viewport" ref={saleGrid.ref} style={saleGrid.style}>
+                <div className="shop-sale-grid responsive-card-grid">
                   {displayedHeroes.map((hero, index) => {
                     const isPurchased = purchasedHeroes.has(hero.name);
                     return (
@@ -358,11 +375,13 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                   })}
                 </div>
 
+                </div>
                 {/* Right Arrow */}
                 <button 
                   className="shop-pagination-arrow right"
                   onClick={handleNextPage}
-                  disabled={currentPage >= totalPages - 1}
+                  disabled={visibleSalePage >= totalPages - 1}
+                  aria-label="Next sale page"
                 >
                   →
                 </button>
@@ -414,11 +433,12 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
         {showPackContents && (
           <div className="pack-contents-modal" onClick={() => setShowPackContents(false)}>
             <div className="pack-contents-container" onClick={(e) => e.stopPropagation()}>
-              <button className="modal-close-btn" onClick={() => setShowPackContents(false)}>✕</button>
+              <CloseButton className="modal-close-btn" onClick={() => setShowPackContents(false)} />
               <h2 className="pack-contents-title">Adventure Pack Contents</h2>
               <p className="pack-contents-subtitle">{packContentHeroes.length} Heroes Available</p>
               
-              <div className="pack-contents-grid">
+              <div className="responsive-card-viewport" ref={packContentsGrid.ref} style={packContentsGrid.style}>
+              <div className="pack-contents-grid responsive-card-grid">
                 {displayedPackContents.map((hero) => {
                   const isOwned = availableHeroes.includes(hero.name);
                   return (
@@ -435,23 +455,24 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                   );
                 })}
               </div>
+              </div>
               
               {totalPackContentsPages > 1 && (
                 <div className="pack-contents-pagination">
                   <button 
                     className="pagination-arrow"
                     onClick={() => setPackContentsPage(prev => Math.max(0, prev - 1))}
-                    disabled={packContentsPage === 0}
+                    disabled={visiblePackPage === 0}
                   >
                     ←
                   </button>
                   <span className="pagination-info">
-                    Page {packContentsPage + 1} of {totalPackContentsPages}
+                    Page {visiblePackPage + 1} of {totalPackContentsPages}
                   </span>
                   <button 
                     className="pagination-arrow"
                     onClick={() => setPackContentsPage(prev => Math.min(totalPackContentsPages - 1, prev + 1))}
-                    disabled={packContentsPage === totalPackContentsPages - 1}
+                    disabled={visiblePackPage === totalPackContentsPages - 1}
                   >
                     →
                   </button>

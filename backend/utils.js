@@ -4,7 +4,14 @@
 const DEBUG = process.env.DEBUG_GAME === 'true' || false;
 const debugLog = DEBUG ? console.log.bind(console) : () => {};
 
+// Tutorial scripting: while rig.value is set, every d20 roll returns it. rig.rolls counts all d20 rolls.
+const rig = { value: null, rolls: 0 };
+
 function rollDice(sides) {
+  if (sides === 20) {
+    rig.rolls++;
+    if (rig.value !== null) return rig.value;
+  }
   return Math.floor(Math.random() * sides) + 1;
 }
 
@@ -477,6 +484,7 @@ function calculateEffectiveDefense(hero) {
 }
 
 module.exports = {
+  rig,
   rollDice,
   rollMultipleDice,
   parseDiceString,

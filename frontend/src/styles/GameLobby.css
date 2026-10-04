@@ -1040,6 +1040,532 @@
 
 
 
+/* Compact phone dashboard with a landscape card preview. */
+@media (max-width: 768px), (max-width: 1000px) and (max-height: 600px) {
+  .game-lobby-modern .lobby-header {
+    padding: 8px 12px;
+  }
+
+  .game-lobby-modern .header-content {
+    gap: 6px;
+  }
+
+  .game-lobby-modern .logo-text h1 {
+    font-size: 1.1rem;
+  }
+
+  .game-lobby-modern .logo-text > span {
+    display: none;
+  }
+
+  .game-lobby-modern .user-stats,
+  .game-lobby-modern .stats-row {
+    width: 100%;
+  }
+
+  .game-lobby-modern .stats-row {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .game-lobby-modern .victory-points,
+  .game-lobby-modern .xp-section,
+  .game-lobby-modern .logout-button {
+    padding: 5px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    min-width: 0;
+  }
+
+  .game-lobby-modern .xp-section {
+    min-height: 0;
+    flex: 1;
+    max-width: 160px;
+    gap: 2px;
+  }
+
+  .game-lobby-modern .xp-bar-container {
+    min-width: 0;
+  }
+
+  .game-lobby-modern .level-text {
+    font-size: 10px;
+  }
+
+  .game-lobby-modern .logout-icon {
+    display: none;
+  }
+
+  .game-lobby-modern .lobby-dashboard {
+    width: 100%;
+    max-width: none;
+    padding: 8px 10px 64px;
+  }
+
+  .game-lobby-modern .dashboard-grid {
+    min-height: 0;
+    gap: 8px;
+  }
+
+  .game-lobby-modern .panel-header {
+    padding: 7px 10px;
+  }
+
+  .game-lobby-modern .panel-header h2 {
+    font-size: 12px;
+  }
+
+  .game-lobby-modern .player-info-panel .panel-content {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .game-lobby-modern .profile-btn {
+    min-height: 36px;
+    margin: 0;
+    padding: 6px 3px;
+    border-radius: 8px;
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+
+  .game-lobby-modern .quests-section {
+    grid-column: 1 / -1;
+  }
+
+  .game-lobby-modern .quests-section h3 {
+    margin: 2px 0 4px;
+    font-size: 11px;
+  }
+
+  .game-lobby-modern .daily-quests {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .game-lobby-modern .quest-item {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 4px 7px;
+    gap: 6px;
+    border-radius: 6px;
+  }
+
+  .game-lobby-modern .quest-text {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .game-lobby-modern .quest-progress {
+    align-self: flex-end;
+    font-size: 10px;
+    padding: 2px 5px;
+  }
+
+  .game-lobby-modern .modes-container {
+    padding: 6px 8px 8px;
+    gap: 6px;
+  }
+
+  .game-lobby-modern .mode-category,
+  .game-lobby-modern .category-modes {
+    gap: 5px;
+  }
+
+  .game-lobby-modern .category-modes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-lobby-modern .category-header h3 {
+    font-size: 11px;
+  }
+
+  .game-lobby-modern .game-mode {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    min-height: 0;
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .game-lobby-modern .mode-icon {
+    font-size: 16px;
+  }
+
+  .game-lobby-modern .mode-info {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .game-lobby-modern .mode-info h3 {
+    font-size: 11px;
+    margin: 0;
+  }
+
+  .game-lobby-modern .mode-info p {
+    display: none;
+  }
+
+  .game-lobby-modern .mode-play-btn,
+  .game-lobby-modern .mode-cancel-btn {
+    width: 100%;
+    min-height: 32px;
+    padding: 5px;
+    font-size: 10px;
+    border-radius: 6px;
+    letter-spacing: 0;
+  }
+
+  .game-lobby-modern .collection-preview {
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+    min-height: 0;
+    padding: 8px;
+  }
+
+  .game-lobby-modern .collection-preview .collection-btn {
+    justify-content: center;
+    flex: 1;
+    min-height: 36px;
+    margin-bottom: 0 !important;
+    padding: 6px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+
+  .game-lobby-modern .random-hero-card {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) and (max-height: 700px) {
+  .game-lobby-modern .modes-panel > .panel-header,
+  .game-lobby-modern .collection-panel > .panel-header {
+    display: none;
+  }
+
+  .game-lobby-modern .mode-icon {
+    display: none;
+  }
+
+  .game-lobby-modern .game-mode {
+    padding: 4px;
+  }
+
+  .game-lobby-modern .mode-info {
+    flex-basis: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 1000px) and (max-height: 600px) and (orientation: landscape) {
+  .game-lobby-modern {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-lobby-modern .lobby-header {
+    flex-shrink: 0;
+  }
+
+  .game-lobby-modern .lobby-header {
+    padding: 5px 10px;
+  }
+
+  .game-lobby-modern .header-content {
+    flex-direction: row;
+  }
+
+  .game-lobby-modern .user-stats {
+    width: auto;
+    flex: 0 1 360px;
+    min-width: 0;
+  }
+
+  .game-lobby-modern .xp-section {
+    max-width: 130px;
+  }
+
+  .game-lobby-modern .lobby-dashboard {
+    display: flex;
+    flex: 1;
+    padding: 8px 10px 12px;
+  }
+
+  .game-lobby-modern .dashboard-grid {
+    flex: 1;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(120px, 0.8fr);
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .game-lobby-modern .collection-panel {
+    grid-column: auto;
+  }
+
+  .game-lobby-modern .collection-panel > .panel-header,
+  .game-lobby-modern .modes-panel > .panel-header,
+  .game-lobby-modern .mode-icon {
+    display: none;
+  }
+
+  .game-lobby-modern .panel-header {
+    padding: 5px 8px;
+  }
+
+  .game-lobby-modern .modes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 10px;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .game-lobby-modern .mode-category,
+  .game-lobby-modern .category-modes,
+  .game-lobby-modern .game-mode {
+    flex: 1;
+  }
+
+  .game-lobby-modern .player-info-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-lobby-modern .player-info-panel .panel-content {
+    flex: 1;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .game-lobby-modern .quests-section {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-lobby-modern .daily-quests {
+    flex: 1;
+    justify-content: space-evenly;
+  }
+
+  .game-lobby-modern .category-modes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-lobby-modern .game-mode {
+    padding: 5px;
+    gap: 4px;
+  }
+
+  .game-lobby-modern .mode-info {
+    flex-basis: 100%;
+    text-align: center;
+  }
+
+  .game-lobby-modern .mode-play-btn,
+  .game-lobby-modern .mode-cancel-btn {
+    min-height: 34px;
+  }
+
+  .game-lobby-modern .collection-preview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-items: center;
+    gap: 8px;
+    padding: 8px;
+    height: 100%;
+    box-sizing: border-box;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .game-lobby-modern .lobby-hero-viewport {
+    grid-column: 1 / -1;
+    align-self: stretch;
+    justify-self: stretch;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .game-lobby-modern .collection-preview .collection-btn {
+    width: 100%;
+    min-width: 0;
+    padding: 5px 3px;
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+
+  .game-lobby-modern .collection-preview .btn-arrow {
+    display: none;
+  }
+
+  .game-lobby-modern .random-hero-card {
+    display: block;
+    grid-column: 1 / -1;
+    margin: 2px 0 0;
+  }
+
+  .game-lobby-modern .random-hero-card .hero-layout-card {
+    --hero-card-scale: var(--grid-card-scale);
+  }
+
+  .game-lobby-modern .daily-quests {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .game-lobby-modern .player-info-panel .panel-content {
+    padding: 6px;
+  }
+
+  .game-lobby-modern .quest-item {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px;
+  }
+
+  .game-lobby-modern .quest-text {
+    font-size: 11px;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  .game-lobby-modern .quest-progress {
+    align-self: center;
+    padding: 2px 3px;
+  }
+
+  .game-lobby-modern .player-info-panel:hover,
+  .game-lobby-modern .modes-panel:hover,
+  .game-lobby-modern .collection-panel:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 768px), (max-width: 1000px) and (max-height: 600px) {
+  body:has(.game-lobby-modern) .friends-icon,
+  body:has(.game-lobby-modern) .message-icon {
+    width: 36px;
+    height: 36px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+  }
+
+  body:has(.game-lobby-modern) .friends-icon {
+    left: 8px;
+  }
+
+  body:has(.game-lobby-modern) .message-icon {
+    left: 50px;
+  }
+
+  body:has(.game-lobby-modern) .friends-icon-svg,
+  body:has(.game-lobby-modern) .message-icon-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  body:has(.game-lobby-modern) .friends-icon .notification-badge,
+  body:has(.game-lobby-modern) .message-icon .notification-badge {
+    min-width: 14px;
+    height: 14px;
+    padding: 0 2px;
+    top: -5px;
+    right: -5px;
+    font-size: 9px;
+  }
+
+  body:has(.game-lobby-modern) .friends-icon-tooltip,
+  body:has(.game-lobby-modern) .message-icon-tooltip {
+    bottom: 42px;
+  }
+}
+
+@media (max-width: 700px) and (max-height: 600px) and (orientation: landscape) {
+  .game-lobby-modern .dashboard-grid {
+    gap: 6px;
+  }
+
+  .game-lobby-modern .quest-text {
+    font-size: 9px;
+  }
+
+  .game-lobby-modern .quest-item {
+    padding: 4px;
+    gap: 3px;
+  }
+
+  .game-lobby-modern .quest-progress {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 1000px) and (max-height: 340px) and (orientation: landscape) {
+  .game-lobby-modern .player-info-panel .panel-content {
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .game-lobby-modern .profile-btn {
+    min-height: 32px;
+  }
+
+  .game-lobby-modern .lobby-header {
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+
+  .game-lobby-modern .panel-header {
+    padding: 3px 6px;
+  }
+
+  .game-lobby-modern .modes-container {
+    padding: 5px;
+  }
+
+  .game-lobby-modern .game-mode {
+    padding: 3px;
+  }
+
+  .game-lobby-modern .mode-play-btn,
+  .game-lobby-modern .mode-cancel-btn {
+    min-height: 26px;
+  }
+
+  .game-lobby-modern .category-header {
+    margin-bottom: 0;
+  }
+
+  .game-lobby-modern .mode-info h3 {
+    line-height: 1;
+  }
+
+  .game-lobby-modern .quest-text {
+    font-size: 9px;
+    line-height: 1.1;
+  }
+
+  .game-lobby-modern .collection-preview {
+    padding: 4px 6px;
+  }
+
+  .game-lobby-modern .daily-quests {
+    gap: 5px;
+  }
+}
+
 /* Friendly Battle Modal Styles */
 .modal-overlay {
   position: fixed;
@@ -1083,27 +1609,6 @@
   font-size: 1.5rem;
   font-weight: 700;
   font-family: 'Orbitron', monospace;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  color: var(--text-primary);
-  font-size: 1.8rem;
-  cursor: pointer;
-  padding: 0;
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.close-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.1);
 }
 
 .friendly-modal-content {

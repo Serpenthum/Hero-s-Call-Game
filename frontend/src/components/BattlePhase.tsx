@@ -4,8 +4,11 @@ import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
 import RewardsDisplay from './RewardsDisplay';
 import BattleFX from './BattleFX';
+import TurnTimerBar from './TurnTimerBar';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
+import useCardGrid from '../hooks/useCardGrid';
+import '../styles/BattlePhone.css';
 
 interface BattlePhaseProps {
   gameState: GameState;
@@ -18,6 +21,10 @@ interface BattlePhaseProps {
   spectatingPlayerId?: string;
   onStopSpectating?: () => void;
   spectators?: Array<{ socketId: string; username: string; spectatingPlayerId: string }>;
+  turnTimer?: { playerId: string; deadline: number; durationMs: number } | null;
+  isTutorial?: boolean;
+  // Tutorial: how many of the six heroes (opp0, me0, opp1, me1, ...) are shown; null/undefined = all
+  tutorialReveal?: number | null;
   timekeeperAbilitySelection?: {
     ally: string;
     target: string;
@@ -52,6 +59,9 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   isSpectating = false,
   onStopSpectating,
   spectators = [],
+  turnTimer = null,
+  isTutorial = false,
+  tutorialReveal = null,
   timekeeperAbilitySelection,
   onClearTimekeeperSelection,
   rewardsData
@@ -62,6 +72,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState<boolean>(false);
   const [showSpectatorList, setShowSpectatorList] = useState<boolean>(false);
   const [opponentDisconnectTime, setOpponentDisconnectTime] = useState<number | null>(null);
+  const playerGrid = useCardGrid({ fixedColumns: Math.max(1, currentPlayer.team.length), gap: 4, frameSpace: 2 });
+  const opponentGrid = useCardGrid({ fixedColumns: Math.max(1, opponent?.team.length ?? 0), gap: 4, frameSpace: 2 });
 
   // Poll for disconnection timer updates
   useEffect(() => {
@@ -229,6 +241,11 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     socketService.selectTarget(targetId);
   };
 
+  const revealFor = (isOpponentSide: boolean, heroIndex: number): 'hidden' | 'grow' | undefined => {
+    if (tutorialReveal === null) return undefined;
+    return heroIndex * 2 + (isOpponentSide ? 0 : 1) < tutorialReveal ? 'grow' : 'hidden';
+  };
+
   const handleRollInitiative = () => {
     socketService.rollInitiative();
   };
@@ -262,6 +279,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             <button
               onClick={handleRollInitiative}
               className="action-button"
+              data-tutorial="initiative-roll"
               disabled={currentPlayer.initiativeRoll !== undefined}
             >
               {currentPlayer.initiativeRoll !== undefined ? 
@@ -293,7 +311,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             <div className="turn-order-choice">
               <h3>🎉 You won the starting roll!</h3>
               <p>Choose whether you want to go first or second:</p>
-              <div className="choice-buttons">
+              <div className="choice-buttons" data-tutorial="turn-choice">
                 <button 
                   onClick={() => handleChooseTurnOrder(true)}
                   className="action-button"
@@ -333,7 +351,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         <div className="game-board">
           <div className="opponent-area">
             <div className="team-label-container">
-              <h3 className="team-label opponent-label">{opponent?.name || 'Opponent Player'}</h3>
+              <h3 className="team-label opponent-label" title={opponent?.name || 'Opponent Player'}>{opponent?.name || 'Opponent Player'}</h3>
               <div className="player-profile-icon">
                 <img 
                   src={`${config.IMAGE_BASE_URL}/hero-images/${(opponent?.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
@@ -352,11 +370,12 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
               </div>
             </div>
 
-            <div className="team-display">
+            <div className="team-display" ref={opponentGrid.ref} style={opponentGrid.style}>
               {opponent?.team.map((hero, heroIndex) => (
                 <HeroCard
                   key={`${hero.name}-${heroIndex}`}
                   animKey={`${opponent?.id}:${heroIndex}`}
+                  tutorialReveal={revealFor(true, heroIndex)}
                   hero={hero}
                   isCurrentTurn={(() => {
                     if (!gameState.activeHero) return false;
@@ -381,7 +400,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
           <div className="player-area">
             <div className="team-label-container">
-              <h3 className="team-label player-label">{currentPlayer.name || 'Your Team'}</h3>
+              <h3 className="team-label player-label" title={currentPlayer.name || 'Your Team'}>{currentPlayer.name || 'Your Team'}</h3>
               <div className="player-profile-icon">
                 <img 
                   src={`${config.IMAGE_BASE_URL}/hero-images/${(currentPlayer.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
@@ -399,11 +418,12 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                 />
               </div>
             </div>
-            <div className="team-display">
+            <div className="team-display" ref={playerGrid.ref} style={playerGrid.style}>
               {currentPlayer.team.map((hero, heroIndex) => (
                 <HeroCard
                   key={`${hero.name}-${heroIndex}`}
                   animKey={`${currentPlayer.id}:${heroIndex}`}
+                  tutorialReveal={revealFor(false, heroIndex)}
                   hero={hero}
                   isCurrentTurn={(() => {
                     if (!gameState.activeHero) return false;
@@ -630,6 +650,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       <button 
                         className={`action-button ${isStunned ? 'disable-attack' : ''}`}
                         disabled={isAttackDisabled}
+                        data-tutorial="attack"
                         onClick={() => {
                           socketService.basicAttack(myPlayerData.selectedTarget!);
                         }}
@@ -713,6 +734,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       key={index}
                       className={`action-button ${isSilenced ? 'silenced' : ''} ${isPermanentlyDisabled ? 'permanently-disabled' : ''}`}
                       disabled={isDisabled}
+                      data-tutorial="ability"
                       onClick={() => {
                         // Special case for Timekeeper's Chrono Shift - needs to select ally to command
                         if (activeHero.hero.name === 'Timekeeper' && ability.name === 'Chrono Shift') {
@@ -805,6 +827,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                 
                 <button 
                   className="action-button end-turn-button"
+                  data-tutorial="end-turn"
                   onClick={() => {
                     socketService.endTurn();
                   }}
@@ -865,10 +888,12 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         <div className="game-over-modal">
           <div className="game-over-content">
             <h2 className={`game-over-title ${isWinner ? 'winner' : 'loser'}`}>
-              {isWinner ? 'You Win!' : 'You Lose!'}
+              {isTutorial ? 'Tutorial Complete!' : isWinner ? 'You Win!' : 'You Lose!'}
             </h2>
             <p className="game-over-message">
-              {isWinner 
+              {isTutorial
+                ? (isWinner ? 'You defeated the skeleton scout and completed the tutorial!' : 'You were defeated, but you completed the tutorial!')
+                : isWinner 
                 ? 'Congratulations! You have defeated your opponent!' 
                 : 'Better luck next time! Your opponent was victorious.'}
             </p>
@@ -1036,7 +1061,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         <div 
           style={{
             position: 'fixed',
-            bottom: '100px',
+            bottom: '130px',
             right: '20px',
             backgroundColor: 'rgba(255, 193, 7, 0.95)',
             color: '#000',
@@ -1063,8 +1088,13 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         </div>
       )}
       
+      {/* Turn timer - bottom right above Surrender, active player only */}
+      {!isSpectating && turnTimer && turnTimer.playerId === playerId && gameState.phase === 'battle' && !gameState.winner && (
+        <TurnTimerBar key={turnTimer.deadline} deadline={turnTimer.deadline} durationMs={turnTimer.durationMs} />
+      )}
+
       {/* Floating Surrender Button - Bottom Right (only for players, not spectators) */}
-      {!isSpectating && (
+      {!isSpectating && !isTutorial && (
         <button 
           className="floating-surrender-button"
           onClick={handleSurrenderClick}

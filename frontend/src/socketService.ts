@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { SocketEvents } from './types';
 import config from './config';
+import { getAutoEndTurnEnabled } from './battleAnimations';
 
 class SocketService {
   private socket: Socket<SocketEvents> | null = null;
@@ -23,6 +24,7 @@ class SocketService {
     this.socket.on('connect', () => {
       console.log('Connected to server');
       this.reconnectAttempts = 0;
+      this.setAutoEndTurn(getAutoEndTurnEnabled());
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -81,6 +83,22 @@ class SocketService {
 
   cancelSurvivalSearch() {
     this.socket?.emit('cancel-survival-search');
+  }
+
+  setAutoEndTurn(enabled: boolean) {
+    this.socket?.emit('set-auto-end-turn', enabled);
+  }
+
+  joinTutorial(name: string) {
+    this.socket?.emit('join-tutorial', { name });
+  }
+
+  tutorialContinue(hold: 'intro' | 'log' | 'poison') {
+    this.socket?.emit('tutorial-continue', { hold });
+  }
+
+  skipTutorial() {
+    this.socket?.emit('tutorial-skip');
   }
 
   cancelSearch() {

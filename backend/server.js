@@ -18,7 +18,7 @@ const GameManager = require('./gameManager');
 const { snapshotBattle, buildBattleEvent, classifyCast } = require('./battleEvents');
 const { QuestService } = require('./quests');
 console.log('Loading utils...');
-const { rollDice, shuffleArray } = require('./utils');
+const { rollDice, shuffleArray, rig } = require('./utils');
 console.log('Loading Database...');
 const Database = require('./database');
 console.log('Game logic modules loaded successfully');
@@ -88,6 +88,16 @@ setTimeout(() => {
 const userSessions = new Map(); // socketId -> userId
 const loggedInUsers = new Map(); // userId -> socketId (to track who is logged in)
 const onlinePlayersCache = new Map(); // socketId -> last request time (for rate limiting)
+const usernameCache = new Map(); // userId -> username, so presence lookups never hit the DB twice
+
+async function getCachedUsername(userId) {
+  let name = usernameCache.get(userId);
+  if (!name) {
+    name = await database.getUsername(userId);
+    if (name) usernameCache.set(userId, name);
+  }
+  return name;
+}
 
 // Test endpoint first
 app.get('/api/test', (req, res) => {
@@ -107,10 +117,31 @@ app.post('/api/register', async (req, res) => {
       });
     }
 
+    if (typeof username !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password must be text'
+      });
+    }
+
     if (username.length < 3) {
       return res.status(400).json({ 
         success: false, 
         message: 'Username must be at least 3 characters long' 
+      });
+    }
+
+    if (username.length > 12) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username must be at most 12 characters long'
+      });
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username can only contain letters, numbers, and underscores'
       });
     }
 
@@ -228,7 +259,8 @@ app.post('/api/login', async (req, res) => {
         level: playerStats.level || 1,
         total_wins: playerStats.total_wins || 0,
         total_losses: playerStats.total_losses || 0,
-        highest_survival_run: playerStats.highest_survival_run || 0
+        highest_survival_run: playerStats.highest_survival_run || 0,
+        tutorial_completed: user.tutorial_completed
       }
     };
     
@@ -872,6 +904,262 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
   }
   return result;
 }
+
+const TURN_TIME_MS = 30000;
+const turnTimers = new Map(); // gameId -> { timeout, deadline }
+
+function clearTurnTimer(gameId) {
+  const timer = turnTimers.get(gameId);
+  if (timer) {
+    clearTimeout(timer.timeout);
+    turnTimers.delete(gameId);
+  }
+}
+
+// Tells clients whose turn it is and how long is left; only the active player renders the bar.
+function emitTurnTimer(target, gameId) {
+  const timer = turnTimers.get(gameId);
+  const game = gameManager.games.get(gameId);
+  if (!timer || !game || game.phase !== 'battle') return;
+  const info = gameManager.getCurrentTurnInfo(game);
+  if (!info) return;
+  target.emit('turn-timer', {
+    gameId,
+    playerId: info.player.id,
+    durationMs: TURN_TIME_MS,
+    remainingMs: Math.max(0, timer.deadline - Date.now())
+  });
+}
+
+function startTurnTimer(gameId) {
+  clearTurnTimer(gameId);
+  const game = gameManager.games.get(gameId);
+  if (!game || game.phase !== 'battle' || game.mode === 'gauntlet' || game.mode === 'tutorial') return;
+
+  const timeout = setTimeout(() => {
+    turnTimers.delete(gameId);
+    const current = gameManager.games.get(gameId);
+    if (!current || current.phase !== 'battle') return;
+    const info = gameManager.getCurrentTurnInfo(current);
+    if (info) {
+      processEndTurn(info.player.id).catch(err => console.error('Auto end-turn failed:', err.message));
+    }
+  }, TURN_TIME_MS);
+  turnTimers.set(gameId, { timeout, deadline: Date.now() + TURN_TIME_MS });
+  emitTurnTimer(io.to(gameId), gameId);
+}
+
+async function processEndTurn(socketId) {
+  const result = withBattleEvent(socketId, 'tick', null, () => gameManager.endTurn(socketId));
+  if (!result.success) return result;
+
+  io.to(result.gameId).emit('turn-ended', result);
+
+  if (result.gameState && result.gameState.winner) {
+    clearTurnTimer(result.gameId);
+    clearAutoEndTimer(result.gameId);
+    if (result.gameState.mode === 'survival') {
+      await checkSurvivalGameCompletion(result);
+    } else if (result.gameState.mode === 'gauntlet') {
+      await checkGauntletGameCompletion(result);
+    } else {
+      await handleRegularGameCompletion(result);
+    }
+  } else {
+    startTurnTimer(result.gameId);
+    scheduleAutoEndTurn(result.gameId);
+    tutorialBotLoop(result.gameId);
+  }
+  return result;
+}
+
+const AUTO_END_DELAY_MS = 3000;
+const autoEndTimers = new Map(); // gameId -> timeout
+const autoEndTurnPrefs = new Map(); // socketId -> boolean (missing = on)
+
+function clearAutoEndTimer(gameId) {
+  clearTimeout(autoEndTimers.get(gameId));
+  autoEndTimers.delete(gameId);
+}
+
+// Ends the turn shortly after the active hero has nothing left to do (see hasNoActionsLeft).
+function scheduleAutoEndTurn(gameId) {
+  clearAutoEndTimer(gameId);
+  const game = gameManager.games.get(gameId);
+  if (!game || game.phase !== 'battle' || game.mode === 'gauntlet' || game.mode === 'tutorial') return;
+  if (!gameManager.hasNoActionsLeft(game)) return;
+  const info = gameManager.getCurrentTurnInfo(game);
+  if (!info || autoEndTurnPrefs.get(info.player.id) === false) return;
+
+  const playerId = info.player.id;
+  autoEndTimers.set(gameId, setTimeout(() => {
+    autoEndTimers.delete(gameId);
+    const current = gameManager.games.get(gameId);
+    if (!current || current.phase !== 'battle') return;
+    const now = gameManager.getCurrentTurnInfo(current);
+    if (!now || now.player.id !== playerId || !gameManager.hasNoActionsLeft(current)) return;
+    processEndTurn(playerId).catch(err => console.error('Auto end-turn failed:', err.message));
+  }, AUTO_END_DELAY_MS));
+}
+
+// ==================== TUTORIAL ====================
+const TUTORIAL_BOT_DELAY_MS = 1400;
+const TUTORIAL_REWARD_VP = 100;
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Force d20s so the first hit, the assassin's poison and the player's first crit always happen.
+function tutorialD20Value(game, isPlayer) {
+  const t = game.tutorial;
+  if (isPlayer) {
+    if (!t.critDone && t.rolledActions >= 2) return 20;
+    return t.rolledActions === 0 ? 18 : null;
+  }
+  const info = gameManager.getCurrentTurnInfo(game);
+  return info && info.hero.name === 'Assassin' && !t.poisonLanded ? 18 : null;
+}
+
+// Runs a battle action for either side of a tutorial game with scripted dice; plain pass-through otherwise.
+function withTutorialRig(actorId, run) {
+  const game = gameManager.games.get(gameManager.playerGameMap.get(actorId));
+  const t = game && game.mode === 'tutorial' ? game.tutorial : null;
+  if (!t) return run();
+
+  const isPlayer = actorId !== t.botId;
+  const value = tutorialD20Value(game, isPlayer);
+  rig.value = value;
+  rig.rolls = 0;
+  let result;
+  try {
+    result = run();
+  } finally {
+    rig.value = null;
+  }
+
+  if (result && result.success) {
+    if (isPlayer && rig.rolls > 0) {
+      t.rolledActions++;
+      if (value === 20) t.critDone = true;
+    }
+    if (!isPlayer) {
+      // The client shows a prompt for the first log entry and the first poison, so pause the bot for each
+      if (t.actionCount === 0) t.holds.add('log');
+      if (!t.poisonLanded && game.players[0].team.some(h => (h.statusEffects?.poison || 0) > 0)) {
+        t.poisonLanded = true;
+        t.holds.add('poison');
+      }
+    }
+    t.actionCount++;
+  }
+  return result;
+}
+
+async function tutorialBotStep(game, t, info) {
+  const { player, hero } = info;
+  const enemy = game.players.find(p => p.id !== t.botId);
+  const alive = enemy.team.filter(h => h.currentHP > 0);
+  // The assassin's opening turn goes at the Beast Tamer so the poison lesson can't kill the Druid
+  const assassinOpening = hero.name === 'Assassin' && !t.assassinActed;
+  const target = (assassinOpening && alive.find(h => h.name === 'Beast Tamer')) ||
+    alive.find(h => h.name === 'Druid') ||
+    alive.reduce((lowest, h) => (!lowest || h.currentHP < lowest.currentHP ? h : lowest), null);
+  if (target) gameManager.selectTarget(t.botId, target.name);
+
+  // Ability first, then attack
+  let kind = null;
+  if (target && gameManager.canHeroUseAbility(player, hero)) kind = 'ability';
+  else if (target && gameManager.canHeroAttack(player, hero)) kind = 'attack';
+
+  if (kind) {
+    const result = withTutorialRig(t.botId, () => kind === 'ability'
+      ? withBattleEvent(t.botId, 'ability', 0, () => gameManager.useAbility(t.botId, 0, target.name))
+      : withBattleEvent(t.botId, 'attack', null, () => gameManager.basicAttack(t.botId, target.name)));
+    if (result.success) {
+      io.to(result.gameId).emit(kind === 'ability' ? 'ability-result' : 'attack-result', result);
+      await handleRegularGameCompletion(result);
+      return;
+    }
+  }
+  if (hero.name === 'Assassin') t.assassinActed = true;
+  await processEndTurn(t.botId);
+}
+
+// Plays the bot's turn one action at a time; stops while the tutorial has it on hold.
+async function tutorialBotLoop(gameId) {
+  const game = gameManager.games.get(gameId);
+  const t = game && game.tutorial;
+  if (!t || t.botRunning) return;
+
+  t.botRunning = true;
+  try {
+    for (;;) {
+      if (t.holds.size > 0) return;
+      await sleep(TUTORIAL_BOT_DELAY_MS);
+      if (gameManager.games.get(gameId) !== game || game.phase !== 'battle' || t.holds.size > 0) return;
+      const info = gameManager.getCurrentTurnInfo(game);
+      if (!info || info.player.id !== t.botId) return;
+      await tutorialBotStep(game, t, info);
+    }
+  } catch (err) {
+    console.error('Tutorial bot failed:', err.message);
+  } finally {
+    t.botRunning = false;
+  }
+}
+
+async function handleTutorialCompletion(result) {
+  const game = gameManager.games.get(result.gameId);
+  const t = game && game.tutorial;
+  if (!t || t.completed || !result.gameState || !result.gameState.winner) return;
+  t.completed = true;
+
+  // Fake numbers for the no-account test run so the reward screen can be previewed
+  let rewards = { xpGained: 25, newXP: 0, newLevel: 2, levelsGained: 1, oldVP: 0, newVP: TUTORIAL_REWARD_VP };
+
+  if (t.userId) {
+    try {
+      if (await database.isTutorialCompleted(t.userId)) return;
+      const stats = await database.getPlayerStats(t.userId);
+      const before = await database.getUserById(t.userId);
+      const xpGained = Math.max(0, database.getXPRequiredForLevel(stats.level) - stats.xp);
+      const xpUpdate = await database.updatePlayerXP(t.userId, xpGained);
+      // Level-ups already grant VP, so only top up to the fixed reward
+      const topUp = Math.max(0, TUTORIAL_REWARD_VP - (xpUpdate.vpGained || 0));
+      if (topUp > 0) await database.updateUserVictoryPoints(t.userId, topUp);
+      await database.markTutorialCompleted(t.userId);
+      const after = await database.getUserById(t.userId);
+      rewards = {
+        xpGained,
+        newXP: xpUpdate.xp,
+        newLevel: xpUpdate.level,
+        levelsGained: xpUpdate.levelsGained || 0,
+        oldVP: before.victory_points,
+        newVP: after.victory_points
+      };
+    } catch (err) {
+      console.error('Failed to award tutorial rewards:', err.message);
+      return;
+    }
+  }
+
+  const humanId = game.players[0].id;
+  io.to(humanId).emit('xp-update', {
+    xpGained: rewards.xpGained,
+    newXP: rewards.newXP,
+    newLevel: rewards.newLevel,
+    leveledUp: rewards.levelsGained > 0,
+    levelsGained: rewards.levelsGained,
+    vpGained: rewards.newVP - rewards.oldVP,
+    message: 'Tutorial complete!'
+  });
+  io.to(humanId).emit('victory-points-update', {
+    type: 'tutorial',
+    oldVictoryPoints: rewards.oldVP,
+    newVictoryPoints: rewards.newVP,
+    victoryPointsGained: rewards.newVP - rewards.oldVP,
+    totalVictoryPoints: rewards.newVP,
+    pointsAwarded: rewards.newVP - rewards.oldVP
+  });
+}
 // Inject the io instance into gameManager for disconnection countdown events
 // This will be done after io is defined
 
@@ -880,6 +1168,10 @@ const friendlyRooms = new Map(); // roomName -> { gameId, creator, players, game
 
 // Helper function to check and handle regular game completion (draft/random modes)
 async function handleRegularGameCompletion(result) {
+  if (result.success && result.gameState && result.gameState.mode === 'tutorial') {
+    return handleTutorialCompletion(result);
+  }
+
   // Handle tie games
   if (result.success && result.gameState && result.gameState.winner === 'TIE' && result.gameState.mode !== 'survival') {
     console.log(`🤝 TIE game (${result.gameState.mode})! Both players eliminated!`);
@@ -1480,11 +1772,11 @@ io.on('connection', (socket) => {
       
       // Broadcast to all other online users that a new player came online
       // This allows friends lists to update in real-time
-      database.getUserById(userId).then(user => {
-        if (user) {
+      getCachedUsername(userId).then(username => {
+        if (username) {
           socket.broadcast.emit('player-online-status-changed', {
-            userId: user.id,
-            username: user.username,
+            userId,
+            username,
             online: true
           });
         }
@@ -1598,6 +1890,9 @@ io.on('connection', (socket) => {
       }
     }
     
+    // Drop queue entries whose sockets are gone so a live player is never paired with a ghost
+    gameManager.survivalQueue = gameManager.survivalQueue.filter(p => io.sockets.sockets.has(p.playerId));
+
     const result = gameManager.addSurvivalPlayer(socket.id, data.name, data.team, profileIcon);
     
     if (result.success) {
@@ -1663,6 +1958,57 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Tutorial: scripted battle against a bot (works without an account for the test button)
+  socket.on('join-tutorial', async (data) => {
+    gameManager.endTutorialGame(socket.id);
+
+    const userId = userSessions.get(socket.id) || null;
+    let profileIcon = 'Sorcerer';
+    if (userId) {
+      try {
+        const playerStats = await database.getPlayerStats(userId);
+        if (playerStats && playerStats.profile_icon) profileIcon = playerStats.profile_icon;
+      } catch (error) {
+        console.log('Failed to fetch profile icon for tutorial user:', userId, error);
+      }
+    }
+
+    const name = String((data && data.name) || 'Hero').slice(0, 32);
+    const { gameId, game } = gameManager.createTutorialGame(socket.id, name, profileIcon, userId);
+    socket.join(gameId);
+    socket.emit('join-result', {
+      success: true,
+      gameId,
+      playerId: socket.id,
+      players: game.players.map(p => ({ id: p.id, name: p.name })),
+      gameReady: true,
+      mode: 'tutorial'
+    });
+    socket.emit('game-start', { players: game.players, gameState: gameManager.getFullGameState(game) });
+  });
+
+  // The client reports a tutorial prompt was dismissed ('intro', 'log' or 'poison'), releasing that hold on the bot
+  socket.on('tutorial-continue', (data) => {
+    const game = gameManager.games.get(gameManager.playerGameMap.get(socket.id));
+    const t = game && game.mode === 'tutorial' ? game.tutorial : null;
+    if (!t) return;
+    t.holds.delete(data && data.hold);
+    if (t.holds.size === 0) tutorialBotLoop(game.id);
+  });
+
+  socket.on('tutorial-skip', async () => {
+    const game = gameManager.endTutorialGame(socket.id);
+    if (!game) return;
+    socket.leave(game.id);
+    if (game.tutorial.userId) {
+      try {
+        await database.markTutorialCompleted(game.tutorial.userId);
+      } catch (err) {
+        console.error('Failed to mark tutorial skipped:', err.message);
+      }
+    }
+  });
+
   // Handle survival search cancellation
   socket.on('cancel-survival-search', () => {
     const result = gameManager.cancelSurvivalSearch(socket.id);
@@ -1672,12 +2018,32 @@ io.on('connection', (socket) => {
   // Handle general search cancellation (draft/random modes)
   socket.on('cancel-search', () => {
     const result = gameManager.cancelSearch(socket.id);
+    // Closing a waiting friendly room must also free its name
+    if (result.success) {
+      for (const [roomName, room] of friendlyRooms.entries()) {
+        if (room.creator === socket.id && !room.gameStarted) {
+          friendlyRooms.delete(roomName);
+          break;
+        }
+      }
+    }
     socket.emit('search-cancelled', { success: result.success });
   });
 
   // Handle friendly battle room creation
-  socket.on('create-friendly-room', (data) => {
+  socket.on('create-friendly-room', async (data) => {
     console.log('Creating friendly room:', data.roomName, 'by player:', data.playerName);
+
+    const userId = userSessions.get(socket.id) || null;
+    let profileIcon = 'Sorcerer';
+    if (userId) {
+      try {
+        const playerStats = await database.getPlayerStats(userId);
+        if (playerStats && playerStats.profile_icon) profileIcon = playerStats.profile_icon;
+      } catch (error) {
+        console.log('Failed to fetch profile icon for user:', userId, error);
+      }
+    }
     
     // Check if room name already exists
     if (friendlyRooms.has(data.roomName)) {
@@ -1688,16 +2054,9 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Create the game through GameManager with draft mode
-    const result = gameManager.addPlayer(socket.id, data.playerName, 'draft');
+    const result = gameManager.createFriendlyGame(socket.id, data.playerName, data.roomName, profileIcon, userId);
     
     if (result.success) {
-      // Store the room name in the game object for spectator visibility
-      const game = gameManager.games.get(result.gameId);
-      if (game) {
-        game.roomName = data.roomName;
-      }
-
       // Store the friendly room information
       friendlyRooms.set(data.roomName, {
         gameId: result.gameId,
@@ -1725,8 +2084,19 @@ io.on('connection', (socket) => {
   });
 
   // Handle friendly battle room joining
-  socket.on('join-friendly-room', (data) => {
+  socket.on('join-friendly-room', async (data) => {
     console.log('Joining friendly room:', data.roomName, 'by player:', data.playerName);
+
+    const userId = userSessions.get(socket.id) || null;
+    let profileIcon = 'Sorcerer';
+    if (userId) {
+      try {
+        const playerStats = await database.getPlayerStats(userId);
+        if (playerStats && playerStats.profile_icon) profileIcon = playerStats.profile_icon;
+      } catch (error) {
+        console.log('Failed to fetch profile icon for user:', userId, error);
+      }
+    }
     
     // Check if room exists
     if (!friendlyRooms.has(data.roomName)) {
@@ -1757,7 +2127,7 @@ io.on('connection', (socket) => {
     }
 
     // Add player to the existing game
-    const result = gameManager.addPlayerToGame(room.gameId, socket.id, data.playerName);
+    const result = await gameManager.addPlayerToGame(room.gameId, socket.id, data.playerName, profileIcon, userId);
     
     if (result.success) {
       // Update room information
@@ -1776,9 +2146,11 @@ io.on('connection', (socket) => {
       // Start the draft phase since we now have 2 players
       if (result.gameReady) {
         room.gameStarted = true;
+        const fullGameState = gameManager.getGameState(room.gameId);
         io.to(room.gameId).emit('game-start', {
-          players: result.players,
-          draftCards: result.draftCards
+          players: fullGameState ? fullGameState.players : result.players,
+          draftCards: result.draftCards,
+          gameState: fullGameState
         });
       }
       
@@ -1882,7 +2254,10 @@ io.on('connection', (socket) => {
 
   // Handle battle actions
   socket.on('roll-initiative', () => {
-    const result = gameManager.rollInitiative(socket.id);
+    const game = gameManager.games.get(gameManager.playerGameMap.get(socket.id));
+    const result = game && game.mode === 'tutorial'
+      ? gameManager.tutorialRollInitiative(socket.id)
+      : gameManager.rollInitiative(socket.id);
     if (result.success) {
       io.to(result.gameId).emit('initiative-rolled', result);
     } else {
@@ -1894,6 +2269,9 @@ io.on('connection', (socket) => {
     const result = gameManager.chooseTurnOrder(socket.id, data.goFirst);
     if (result.success) {
       io.to(result.gameId).emit('battle-start', result);
+      startTurnTimer(result.gameId);
+      scheduleAutoEndTurn(result.gameId);
+      tutorialBotLoop(result.gameId);
     } else {
       socket.emit('error', { message: result.error });
     }
@@ -1912,9 +2290,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('basic-attack', async (data) => {
-    const result = withBattleEvent(socket.id, 'attack', null, () => gameManager.basicAttack(socket.id, data.targetId));
+    const result = withTutorialRig(socket.id, () => withBattleEvent(socket.id, 'attack', null, () => gameManager.basicAttack(socket.id, data.targetId)));
     if (result.success) {
       io.to(result.gameId).emit('attack-result', result);
+      scheduleAutoEndTurn(result.gameId);
       
       // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
@@ -1930,9 +2309,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('use-ability', async (data) => {
-    const result = withBattleEvent(socket.id, 'ability', data.abilityIndex, () => gameManager.useAbility(socket.id, data.abilityIndex, data.targetId, data.allyTargetId));
+    const result = withTutorialRig(socket.id, () => withBattleEvent(socket.id, 'ability', data.abilityIndex, () => gameManager.useAbility(socket.id, data.abilityIndex, data.targetId, data.allyTargetId)));
     if (result.success) {
       io.to(result.gameId).emit('ability-result', result);
+      scheduleAutoEndTurn(result.gameId);
       
       // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
@@ -1951,6 +2331,7 @@ io.on('connection', (socket) => {
     const result = withBattleEvent(socket.id, 'ability', null, () => gameManager.useTimekeeperSelectedAbility(socket.id, data.timekeeperTargetId, data.allyTargetId, data.selectedAbilityIndex));
     if (result.success) {
       io.to(result.gameId).emit('ability-result', result);
+      scheduleAutoEndTurn(result.gameId);
       
       // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
@@ -1966,21 +2347,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('end-turn', async () => {
-    const result = withBattleEvent(socket.id, 'tick', null, () => gameManager.endTurn(socket.id));
-    if (result.success) {
-      io.to(result.gameId).emit('turn-ended', result);
-      
-      // Handle game completion for all game modes
-      if (result.gameState && result.gameState.winner) {
-        if (result.gameState.mode === 'survival') {
-          await checkSurvivalGameCompletion(result);
-        } else if (result.gameState.mode === 'gauntlet') {
-          await checkGauntletGameCompletion(result);
-        } else {
-          await handleRegularGameCompletion(result);
-        }
-      }
-    } else {
+    const result = await processEndTurn(socket.id);
+    if (!result.success) {
       socket.emit('error', { message: result.error });
     }
   });
@@ -1989,6 +2357,7 @@ io.on('connection', (socket) => {
     const result = gameManager.activateSpecial(socket.id);
     if (result.success) {
       io.to(result.gameId).emit('special-activated', result);
+      scheduleAutoEndTurn(result.gameId);
       
       // Handle game completion for all game modes
       if (result.gameState && result.gameState.mode === 'survival') {
@@ -2006,6 +2375,8 @@ io.on('connection', (socket) => {
   socket.on('surrender-game', async () => {
     const result = gameManager.surrenderGame(socket.id);
     if (result.success) {
+      clearTurnTimer(result.gameId);
+      clearAutoEndTimer(result.gameId);
       io.to(result.gameId).emit('game-surrendered', result);
       
       // Handle game completion for all game modes
@@ -2026,6 +2397,7 @@ io.on('connection', (socket) => {
     const result = gameManager.reconnectPlayer(socket.id, data.gameId, data.playerName);
     if (result.success) {
       socket.join(result.gameId);
+      emitTurnTimer(socket, result.gameId);
       socket.emit('reconnect-success', result.gameState);
     } else {
       socket.emit('reconnect-failed', { message: result.error });
@@ -2035,6 +2407,10 @@ io.on('connection', (socket) => {
   // Handle survival state requests
   socket.on('latency-ping', (ack) => {
     if (typeof ack === 'function') ack();
+  });
+
+  socket.on('set-auto-end-turn', (enabled) => {
+    autoEndTurnPrefs.set(socket.id, enabled !== false);
   });
 
   socket.on('get-quests', async () => {
@@ -2087,6 +2463,7 @@ io.on('connection', (socket) => {
 
   socket.on('return-to-lobby', async () => {
     console.log('🏠 Player returning to lobby:', socket.id);
+    gameManager.endTutorialGame(socket.id);
     
     // Remove player from any active game but preserve survival state
     const result = await gameManager.returnToLobby(socket.id);
@@ -2295,55 +2672,37 @@ io.on('connection', (socket) => {
   socket.on('get-online-players', async () => {
     try {
       const currentUserId = userSessions.get(socket.id);
-      console.log('🟢 get-online-players request from socket:', socket.id, 'userId:', currentUserId);
-      console.log('🟢 Current loggedInUsers:', Array.from(loggedInUsers.entries()));
       
       if (!currentUserId) {
-        console.log('❌ User not authenticated for socket:', socket.id);
         socket.emit('online-players-response', { success: false, error: 'Not authenticated' });
         return;
       }
 
-      // Rate limiting: allow one request per 2 seconds per socket
+      // Clients poll this while the friends list is open, so just skip requests that arrive too fast
       const now = Date.now();
       const lastRequest = onlinePlayersCache.get(socket.id) || 0;
-      if (now - lastRequest < 2000) {
-        console.log('🟡 Rate limited get-online-players request from socket:', socket.id);
-        socket.emit('online-players-response', { success: false, error: 'Rate limited. Please wait before requesting again.' });
+      if (now - lastRequest < 1000) {
+        socket.emit('online-players-response', { success: false, rateLimited: true });
         return;
       }
       onlinePlayersCache.set(socket.id, now);
 
-      // Get list of online players
-      const onlinePlayers = [];
-      for (const [userId, socketId] of loggedInUsers.entries()) {
-        if (userId !== currentUserId) {
-          const user = await database.getUserById(userId);
-          if (user) {
-            onlinePlayers.push({
-              id: user.id,
-              username: user.username,
-              isInGame: gameManager.isPlayerInActiveGame(socketId)
-            });
-          }
-        }
-      }
+      const others = Array.from(loggedInUsers.entries()).filter(([userId]) => userId !== currentUserId);
+      const [onlinePlayers, friends] = await Promise.all([
+        Promise.all(others.map(async ([userId, socketId]) => ({
+          id: userId,
+          username: await getCachedUsername(userId),
+          isInGame: gameManager.isPlayerInActiveGame(socketId)
+        }))),
+        database.getFriends(currentUserId)
+      ]);
 
-      console.log('🟢 Found online players:', onlinePlayers);
-
-      // Get user's friends list
-      const friends = await database.getFriends(currentUserId);
-      const friendIds = friends.map(f => f.id);
-
-      const response = {
+      socket.emit('online-players-response', {
         success: true,
-        onlinePlayers,
+        onlinePlayers: onlinePlayers.filter(p => p.username),
         totalOnline: onlinePlayers.length + 1, // +1 for current user
-        friendIds
-      };
-      
-      console.log('🟢 Sending online-players-response:', response);
-      socket.emit('online-players-response', response);
+        friendIds: friends.map(f => f.id)
+      });
     } catch (error) {
       console.error('❌ Error getting online players:', error);
       socket.emit('online-players-response', { success: false, error: 'Failed to get online players' });
@@ -2720,6 +3079,8 @@ io.on('connection', (socket) => {
     console.log('Player disconnected:', socket.id, 'Reason:', reason);
     
     // Remove player from any matchmaking queues
+    autoEndTurnPrefs.delete(socket.id);
+    gameManager.endTutorialGame(socket.id);
     gameManager.cancelSearch(socket.id);
     gameManager.cancelSurvivalSearch(socket.id);
     
@@ -2800,11 +3161,11 @@ io.on('connection', (socket) => {
       
       // Broadcast to all other online users that this player went offline
       // This allows friends lists to update in real-time
-      database.getUserById(userId).then(user => {
-        if (user) {
+      getCachedUsername(userId).then(username => {
+        if (username) {
           socket.broadcast.emit('player-online-status-changed', {
-            userId: user.id,
-            username: user.username,
+            userId,
+            username,
             online: false
           });
         }

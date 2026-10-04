@@ -19,9 +19,10 @@ interface User {
 interface LoginPageProps {
   onLogin: (user: User) => void;
   onShowRegister: () => void;
+  onStartCardTest: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartCardTest }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -186,6 +187,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister }) => {
           </button>
           <div className="admin-login-hint">Auto-creates next available admin account</div>
         </div>
+
+        <button
+          type="button"
+          className="test-battle-entry"
+          onClick={onStartCardTest}
+        >
+          Open Card Layout Test
+        </button>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">

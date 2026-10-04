@@ -1,0 +1,50 @@
+/* Shared red close button: neon-outlined circle that fills red on hover */
+.game-close-btn {
+  --close-red: var(--accent-red, #ff4757);
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--close-red);
+  background: rgba(255, 71, 87, 0.1);
+  color: var(--close-red);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(255, 71, 87, 0.35), inset 0 0 6px rgba(255, 71, 87, 0.15);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.game-close-btn svg {
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.game-close-btn:hover {
+  background: var(--close-red);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(255, 71, 87, 0.75);
+  transform: scale(1.08);
+}
+
+.game-close-btn:hover svg {
+  transform: rotate(90deg);
+}
+
+.game-close-btn:active {
+  transform: scale(0.94);
+}
+
+.game-close-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-close-btn,
+  .game-close-btn svg {
+    transition: none;
+  }
+}

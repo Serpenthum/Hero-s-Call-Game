@@ -204,6 +204,15 @@ class Database {
         console.log('Added player_id column to users table');
       }
     });
+
+    // Existing accounts default to 1 (tutorial done); createUser inserts 0 for new accounts
+    this.db.run(`ALTER TABLE users ADD COLUMN tutorial_completed INTEGER DEFAULT 1`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('Error adding tutorial_completed column:', err.message);
+      } else if (!err) {
+        console.log('Added tutorial_completed column to users table');
+      }
+    });
   }
 
   // DISABLED: No longer automatically giving all heroes to users
@@ -251,8 +260,8 @@ class Database {
 
             // Insert new user
             const insertQuery = `
-              INSERT INTO users (username, password_hash, available_heroes)
-              VALUES (?, ?, ?)
+              INSERT INTO users (username, password_hash, available_heroes, tutorial_completed)
+              VALUES (?, ?, ?, 0)
             `;
 
             this.db.run(insertQuery, [username, hash, heroesJson], function(insertErr) {
@@ -283,7 +292,7 @@ class Database {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT id, username, password_hash, victory_points, survival_wins, 
-               survival_losses, survival_used_heroes, available_heroes
+               survival_losses, survival_used_heroes, available_heroes, tutorial_completed
         FROM users 
         WHERE username = ?
       `;
@@ -337,6 +346,7 @@ class Database {
               survival_losses: row.survival_losses,
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
+              tutorial_completed: row.tutorial_completed !== 0,
               xp: playerStats.xp,
               level: playerStats.level
             });
@@ -351,6 +361,7 @@ class Database {
               survival_losses: row.survival_losses,
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
+              tutorial_completed: row.tutorial_completed !== 0,
               xp: 0,
               level: 1
             });
@@ -411,6 +422,24 @@ class Database {
           best_gauntlet_trial: row.best_gauntlet_trial || 0,
           player_id: row.player_id || null
         });
+      });
+    });
+  }
+
+  async isTutorialCompleted(userId) {
+    return new Promise((resolve, reject) => {
+      this.db.get('SELECT tutorial_completed FROM users WHERE id = ?', [userId], (err, row) => {
+        if (err) return reject(err);
+        resolve(!row || row.tutorial_completed !== 0);
+      });
+    });
+  }
+
+  async markTutorialCompleted(userId) {
+    return new Promise((resolve, reject) => {
+      this.db.run('UPDATE users SET tutorial_completed = 1 WHERE id = ?', [userId], function(err) {
+        if (err) return reject(err);
+        resolve(this.changes > 0);
       });
     });
   }
@@ -625,6 +654,15 @@ class Database {
         }
 
         resolve({ success: true });
+      });
+    });
+  }
+
+  async getUsername(userId) {
+    return new Promise((resolve, reject) => {
+      this.db.get('SELECT username FROM users WHERE id = ?', [userId], (err, row) => {
+        if (err) return reject(err);
+        resolve(row ? row.username : null);
       });
     });
   }

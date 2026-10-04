@@ -1,0 +1,319 @@
+@media (max-width: 600px), (max-width: 1000px) and (max-height: 600px) {
+  .App:has(.battle-layout) {
+    --phone-actions-width: clamp(100px, 14vw, 136px);
+  }
+
+  @media (max-width: 1000px) and (max-height: 340px) {
+    .App .battle-layout .hero-info > div {
+      display: none;
+    }
+  }
+
+  .App:has(.battle-layout) .app-layout {
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .App:has(.battle-layout) .game-content {
+    min-width: 0;
+  }
+
+  .App:has(.battle-layout) .game-sidebar {
+    width: clamp(136px, 21vw, 206px);
+    height: 100dvh;
+    max-height: none;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 48px;
+    transition: none;
+    font-size: 11px;
+  }
+
+  .App:has(.battle-layout) .game-sidebar > * {
+    padding: 5px;
+  }
+
+  .App:has(.battle-layout) .game-info {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .App:has(.battle-layout) .survival-info {
+    margin-bottom: 4px;
+  }
+
+  .App:has(.battle-layout) .survival-stats {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .App:has(.battle-layout) .battle-combined-info {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+  }
+
+  .App:has(.battle-layout) .battle-combined-info > h3 {
+    margin: 0 0 4px;
+    font-size: 13px;
+  }
+
+  .App:has(.battle-layout) .current-turn,
+  .App:has(.battle-layout) .opponent-turn {
+    font-size: 11px;
+    padding: 4px;
+    margin-bottom: 4px;
+  }
+
+  .App:has(.battle-layout) .active-hero {
+    padding: 4px;
+    margin-top: 4px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 4px;
+  }
+
+  .App:has(.battle-layout) .active-hero h4 {
+    grid-column: 1 / -1;
+  }
+
+  .App:has(.battle-layout) .active-hero .hero-name {
+    margin-bottom: 0;
+  }
+
+  .App:has(.battle-layout) .active-hero h4,
+  .App:has(.battle-layout) .active-hero .hero-hp {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+
+  .App:has(.battle-layout) .battle-log-section {
+    flex: 1;
+    min-height: 60px;
+    min-width: 0;
+    max-height: none;
+    margin-top: 5px;
+    padding: 12px 5px;
+  }
+
+  .App:has(.battle-layout) .battle-log-section h4 {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .App:has(.battle-layout) .battle-log-section .log-entries {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    font-size: 11px;
+  }
+
+  .App:has(.battle-layout) .log-entry {
+    font-size: 11px;
+    padding: 5px;
+    margin-bottom: 4px;
+    overflow-wrap: anywhere;
+  }
+
+  .App .battle-layout.battle-layout {
+    flex-direction: row;
+    min-height: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin-right: var(--phone-actions-width);
+    overflow: visible;
+  }
+
+  .App .battle-layout .action-bar {
+    position: fixed;
+    width: var(--phone-actions-width);
+    height: 100dvh;
+    box-sizing: border-box;
+    border-left: 1px solid #007bff;
+    padding-top: 0;
+    padding-bottom: 66px;
+  }
+
+  .App .battle-layout .action-bar > * {
+    padding: 5px;
+  }
+
+  .App .battle-layout .action-bar h3 {
+    font-size: 14px;
+    padding: 6px 3px;
+  }
+
+  .App .battle-layout .action-buttons,
+  .App .battle-layout .ability-selection,
+  .App .battle-layout .ability-options {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .App .battle-layout .action-prompt,
+  .App .battle-layout .hero-info,
+  .App .battle-layout .selected-target,
+  .App .battle-layout .ability-description {
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+
+  .App .battle-layout .action-button,
+  .App .battle-layout .ability-option-button {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 3px;
+    font-size: 11px;
+    min-height: 30px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .App .battle-layout .ability-name {
+    font-size: 11px;
+  }
+
+  .App .battle-layout .game-board {
+    min-height: 0;
+    min-width: 0;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .App .battle-layout .game-board .opponent-area,
+  .App .battle-layout .game-board .player-area {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 3px;
+    gap: 4px;
+  }
+
+  .App .battle-layout .game-board .team-label-container {
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: clamp(52px, 8vw, 72px);
+    height: auto;
+    flex-shrink: 0;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+  }
+
+  .App .battle-layout .team-label {
+    min-width: 0;
+    max-width: 100%;
+    padding: 2px 6px;
+    border-width: 1px;
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .App .battle-layout .player-profile-icon {
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .App .battle-layout .game-board .profile-icon-small {
+    width: 32px;
+    height: 32px;
+  }
+
+  .App .battle-layout .game-board .team-display {
+    flex: 1;
+    min-height: 0;
+    position: static;
+    top: auto;
+    right: auto;
+    width: 0;
+    transform: none;
+    container-type: normal;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .App .battle-layout .game-board .hero-layout-card {
+    --hero-card-scale: var(--grid-card-scale);
+    --hero-card-height-scale: var(--grid-card-scale);
+    flex-shrink: 0;
+    transition-property: border-color, box-shadow, opacity;
+  }
+
+  .App:has(.battle-layout) .friends-icon,
+  .App:has(.battle-layout) .message-icon {
+    width: 36px;
+    height: 36px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+  }
+
+  .App:has(.battle-layout) .friends-icon { left: 8px; }
+  .App:has(.battle-layout) .message-icon { left: 50px; }
+
+  .App:has(.battle-layout) .friends-icon-svg,
+  .App:has(.battle-layout) .message-icon-svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .App:has(.battle-layout) .friends-icon .notification-badge,
+  .App:has(.battle-layout) .message-icon .notification-badge {
+    min-width: 14px;
+    height: 14px;
+    padding: 0 2px;
+    top: -5px;
+    right: -5px;
+    font-size: 9px;
+  }
+
+  .App:has(.battle-layout) .friends-icon-tooltip,
+  .App:has(.battle-layout) .message-icon-tooltip {
+    bottom: 42px;
+  }
+
+  .App:has(.battle-layout) .floating-surrender-button {
+    bottom: max(6px, env(safe-area-inset-bottom)) !important;
+    right: 6px !important;
+    padding: 7px 5px !important;
+    font-size: 11px !important;
+    max-width: calc(var(--phone-actions-width) - 12px);
+    min-height: 30px;
+  }
+
+  .App:has(.battle-layout) .turn-timer-bar {
+    right: calc(var(--phone-actions-width) / 2);
+    width: calc(var(--phone-actions-width) - 16px);
+    bottom: 44px;
+    height: 10px;
+  }
+
+  .App:has(.battle-layout) .spectator-count-button {
+    width: 30px !important;
+    height: 30px !important;
+    bottom: 6px !important;
+    right: calc(var(--phone-actions-width) + 6px) !important;
+    font-size: 14px !important;
+  }
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Message } from '../types';
 import { socketService } from '../socketService';
+import CloseButton from './CloseButton';
 
 interface MessageChatProps {
   targetUserId: number;
@@ -162,9 +163,7 @@ const MessageChat: React.FC<MessageChatProps> = ({
           <button className="chat-minimize-button" onClick={onMinimize} title="Minimize">
             −
           </button>
-          <button className="chat-close-button" onClick={onClose} title="Close">
-            ×
-          </button>
+          <CloseButton onClick={onClose} />
         </div>
       </div>
 

@@ -24,8 +24,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBackTo
       return 'Username must be at least 3 characters long';
     }
     
-    if (username.length > 20) {
-      return 'Username must be less than 20 characters';
+    if (username.length > 12) {
+      return 'Username must be at most 12 characters long';
     }
     
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
@@ -115,10 +115,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBackTo
               placeholder="Choose a unique username"
               className="form-input"
               disabled={isLoading}
-              maxLength={20}
+              maxLength={12}
             />
             <div className="form-hint">
-              3-20 characters, letters, numbers, and underscores only
+              3-12 characters, letters, numbers, and underscores only
             </div>
           </div>
 

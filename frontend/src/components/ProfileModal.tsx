@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import HeroCard from './HeroCard';
 import XPBar from './XPBar';
+import CloseButton from './CloseButton';
 import { Hero } from '../types';
 import config from '../config';
 import '../styles/ProfileModal.css';
@@ -111,7 +112,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
       <div className="profile-modal" onClick={e => e.stopPropagation()}>
         <div className="profile-header">
           <h2>{user.username}</h2>
-          <button className="profile-close-btn" onClick={onClose}>✕</button>
+          <CloseButton className="profile-close-btn" onClick={onClose} />
         </div>
 
         {loading ? (
@@ -217,12 +218,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                 <div className="icon-selector">
                   <div className="icon-selector-header">
                     <h3>Choose Profile Icon</h3>
-                    <button 
-                      className="icon-selector-close"
-                      onClick={() => setShowIconSelector(false)}
-                    >
-                      ✕
-                    </button>
+                    <CloseButton onClick={() => setShowIconSelector(false)} />
                   </div>
                   <div className="available-icons">
                     {getAvailableHeroes().map(hero => (

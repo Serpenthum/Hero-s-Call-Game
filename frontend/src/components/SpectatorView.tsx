@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { socketService } from '../socketService';
+import CloseButton from './CloseButton';
 import '../styles/SpectatorView.css';
 
 interface SpectatorGame {
@@ -115,7 +116,7 @@ const SpectatorView: React.FC<SpectatorViewProps> = ({ onSpectate, onClose }) =>
       <div className="spectator-view">
         <div className="spectator-view-header">
           <h3>Spectate a Game</h3>
-          <button className="close-button" onClick={onClose}>×</button>
+          <CloseButton onClick={onClose} />
         </div>
         <div className="spectator-view-loading">
           <p>Loading games...</p>
@@ -128,7 +129,7 @@ const SpectatorView: React.FC<SpectatorViewProps> = ({ onSpectate, onClose }) =>
     <div className="spectator-view">
       <div className="spectator-view-header">
         <h3>Spectate a Game</h3>
-        <button className="close-button" onClick={onClose}>×</button>
+        <CloseButton onClick={onClose} />
       </div>
 
       <div className="spectator-view-content">
