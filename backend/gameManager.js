@@ -81,6 +81,9 @@ class GameManager {
     // Reset companions/summons
     resetHero.companions = [];
     
+    // Clear enemies tracked for Arcane Arrows
+    delete resetHero.damagedEnemies;
+    
     // Clear any battle-specific flags
     delete resetHero.diedFromBomberExplosion;
     delete resetHero.diedFromCounterAttack;
@@ -2418,7 +2421,7 @@ class GameManager {
     
     if (hit && !monkDeflected) {
       damageRollResult = calculateDamage(currentHero.BasicAttack, attackRoll.isCritical, false, currentHero, true);
-      damage = damageRollResult.total;
+      damage = damageRollResult.total + this.rollArcaneArrowsBonus(currentHero, target, attackRoll.isCritical);
       
       // Process damage reduction specials (like Wizard's Arcane Shield)
       const damageReductionResult = this.processDamageReductionSpecials(game, target, currentHero, damage);
@@ -2426,6 +2429,7 @@ class GameManager {
       statusEffects.push(...damageReductionResult.specialEffects);
       
       target.currentHP = Math.max(0, target.currentHP - damage);
+      this.recordArcaneArrowsTarget(currentHero, target, damage);
       
       // Check HP-based conditions after taking damage
       this.checkHPConditions(game, target);
@@ -3297,7 +3301,15 @@ class GameManager {
     // Process all effects based on whether the ability hit or missed
     const originalTarget = primaryTarget; // Store the original target for conditional effects
     
+    // Splash-on-kill (Pyromancer's Incinerate) needs the enemy line-up and primary HP as they were before damage
+    const killSplashEffect = allEffects.find(effect => effect.type === 'on_kill_splash');
+    const enemyOrderBeforeDamage = killSplashEffect ? opponent.team.filter(hero => hero.currentHP > 0) : null;
+    const primaryWasAlive = primaryTarget.currentHP > 0;
+    
     for (const effect of allEffects) {
+      // Handled after the primary damage resolves, or as part of the primary damage roll
+      if (effect.type === 'on_kill_splash' || effect.type === 'conditional_damage') continue;
+      
       // Resolve the correct target for this effect
       let target = this.resolveEffectTarget(effect, primaryTarget, caster, casterPlayer, opponent, game, allyTarget);
       if (!target) continue; // Skip if no valid target found
@@ -3327,6 +3339,19 @@ class GameManager {
               debugLog(` Crit bonus damage: +${critBonusDamageRoll.total} [CRIT]`);
             }
             
+            // Bonus damage while the caster is at full HP (Arcane Archer's Far Shot)
+            for (const bonusEffect of allEffects) {
+              if (bonusEffect.type === 'conditional_damage' && bonusEffect.condition === 'owner_at_full_hp' &&
+                  caster.currentHP >= caster.HP) {
+                const fullHpBonus = calculateDamage(bonusEffect.value, attackRoll?.isCritical || false, false, caster);
+                damage += fullHpBonus.total;
+                debugLog(` Full HP bonus damage: +${fullHpBonus.total}${attackRoll?.isCritical ? ' [CRIT]' : ''}`);
+              }
+            }
+            
+            // Arcane Arrows: bonus damage against enemies the caster has already damaged
+            damage += this.rollArcaneArrowsBonus(caster, target, attackRoll?.isCritical || false);
+            
             const oldHP = target.currentHP;
             
             // Process damage reduction specials (like Wizard's Arcane Shield)
@@ -3335,6 +3360,7 @@ class GameManager {
             results.push(...damageReductionResult.specialEffects);
             
             target.currentHP = Math.max(0, target.currentHP - damage);
+            this.recordArcaneArrowsTarget(caster, target, damage);
             
             // Process Angel's Health Link reflection if target is Angel
             if (target.name === 'Angel' && damage > 0) {
@@ -3862,6 +3888,12 @@ class GameManager {
       }
     }
     
+    // If the primary target was killed by this ability, spread to adjacent enemies (each needs its own roll to hit)
+    let killSplashEntries = [];
+    if (killSplashEffect && abilityHit && primaryWasAlive && primaryTarget.currentHP <= 0 && !primaryTarget.statusEffects?.justResurrected) {
+      killSplashEntries = this.processOnKillSplash(killSplashEffect, ability, caster, primaryTarget, enemyOrderBeforeDamage, game);
+    }
+    
     // Check for Twin Spell (Sorcerer's special ability)
     const specials = Array.isArray(caster.Special) ? caster.Special : [caster.Special];
     const hasTwinSpell = caster.Special && specials.some(special => 
@@ -3963,9 +3995,85 @@ class GameManager {
       
       // Add comprehensive entry at the beginning
       filteredResults.unshift(comprehensiveLogEntry);
+      
+      // Splash hits are logged after the main ability entry
+      filteredResults.push(...killSplashEntries.filter(entry =>
+        entry.type === 'ability_comprehensive' || entry.type === 'special_comprehensive'
+      ));
     }
     
     return filteredResults;
+  }
+
+  // Pyromancer's Incinerate: when the target dies, roll to hit the enemies adjacent to it (chaining on further kills).
+  // Adjacency follows the enemy line-up as it was before the ability, skipping heroes that were already dead.
+  processOnKillSplash(effect, ability, caster, killedHero, enemyOrder, game) {
+    const entries = [];
+    const visited = new Set([killedHero]);
+    const queue = [killedHero];
+    
+    while (queue.length > 0) {
+      const fallen = queue.shift();
+      const index = enemyOrder.indexOf(fallen);
+      
+      for (const neighbor of [enemyOrder[index - 1], enemyOrder[index + 1]]) {
+        if (!neighbor || visited.has(neighbor) || neighbor.currentHP <= 0) continue;
+        visited.add(neighbor);
+        
+        const advantageState = this.hasAdvantageDisadvantage(caster, neighbor, true, game);
+        const attackRoll = calculateAttackRoll(caster.modifiedAccuracy, advantageState.advantage, advantageState.disadvantage, caster);
+        const hit = attackRoll.total >= calculateEffectiveDefense(neighbor);
+        this.consumeAdvantageEffects(caster, neighbor);
+        
+        let damage = 0;
+        let died = false;
+        
+        if (hit) {
+          const damageRoll = calculateDamage(effect.value, attackRoll.isCritical || false, false, caster);
+          damage = damageRoll.total;
+          
+          // Process damage reduction specials (like Wizard's Arcane Shield)
+          const reduction = this.processDamageReductionSpecials(game, neighbor, caster, damage);
+          damage = reduction.finalDamage;
+          entries.push(...reduction.specialEffects);
+          
+          neighbor.currentHP = Math.max(0, neighbor.currentHP - damage);
+          
+          if (neighbor.name === 'Angel' && damage > 0) {
+            this.processHealthLinkReflection(game, neighbor, damage);
+          }
+          
+          entries.push(...this.processAfterDamageEffects(game, neighbor, caster, damage));
+          entries.push(...this.processOnTakeDamageEffects(game, neighbor, caster, damage));
+          this.checkHPConditions(game, neighbor);
+          this.checkPaladinShieldOfFaith(game, caster, neighbor, damage);
+          
+          died = neighbor.currentHP <= 0 && !neighbor.statusEffects?.justResurrected;
+          if (died) {
+            this.updatePassiveEffectsOnDeath(game, neighbor, caster, 'damage');
+            queue.push(neighbor);
+          }
+        }
+        
+        entries.push({
+          type: 'ability_comprehensive',
+          caster: caster.name,
+          abilityName: ability.name,
+          target: neighbor.name,
+          message: `${caster.name}'s ${ability.name} spreads to ${neighbor.name}`,
+          hit,
+          isCritical: attackRoll.isCritical || false,
+          damage: damage > 0 ? damage : undefined,
+          attackRoll: attackRoll.roll,
+          attackTotal: attackRoll.displayTotal || attackRoll.total,
+          advantageInfo: attackRoll.advantageInfo,
+          accuracy: caster.modifiedAccuracy,
+          isSplash: true
+        });
+      }
+    }
+    
+    return entries;
   }
 
   resolveEffectTarget(effect, primaryTarget, caster, casterPlayer, opponent, game, allyTarget = null) {
@@ -5345,6 +5453,47 @@ class GameManager {
           console.log(`💉 No damaged allies found for Emergency Heal`);
         }
       }
+
+      // Pyromancer Endless Burn: Pyromancer and all enemies take one shared damage roll at end of its turn
+      const endTurnHero = currentTurnInfo.hero;
+      if (endTurnHero.currentHP > 0 && !endTurnHero.permanentDisables?.special && endTurnHero.Special) {
+        const endTurnSpecials = Array.isArray(endTurnHero.Special) ? endTurnHero.Special : [endTurnHero.Special];
+        const burnSpecial = endTurnSpecials.find(s => s.trigger === 'owner_turn_end' &&
+          s.effects?.some(e => e.type === 'damage' && e.target === 'all_enemies'));
+        
+        if (burnSpecial) {
+          const burnEffect = burnSpecial.effects.find(e => e.type === 'damage' && e.target === 'all_enemies');
+          const { rollDiceString } = require('./utils');
+          const burnDamage = rollDiceString(burnEffect.value).total;
+          const burnOpponent = currentTurnInfo.player === game.players[0] ? game.players[1] : game.players[0];
+          
+          for (const enemy of burnOpponent.team.filter(h => h.currentHP > 0)) {
+            const reduction = this.processDamageReductionSpecials(game, enemy, endTurnHero, burnDamage);
+            endTurnEffects.push(...reduction.specialEffects);
+            endTurnEffects.push(...this.applyDamageToHero(game, enemy, reduction.finalDamage, endTurnHero, burnSpecial.name));
+            
+            if (enemy.currentHP <= 0 && !enemy.statusEffects?.justResurrected) {
+              this.updatePassiveEffectsOnDeath(game, enemy, endTurnHero, 'special_damage');
+            }
+          }
+          
+          endTurnEffects.push(...this.applyDamageToHero(game, endTurnHero, burnDamage, null, burnSpecial.name));
+          if (endTurnHero.currentHP <= 0 && !endTurnHero.statusEffects?.justResurrected) {
+            this.updatePassiveEffectsOnDeath(game, endTurnHero, null, 'self_burn');
+          }
+          
+          endTurnEffects.push({
+            type: 'special_comprehensive',
+            caster: endTurnHero.name,
+            specialName: burnSpecial.name,
+            target: 'All enemies',
+            damage: burnDamage,
+            hit: true,
+            message: `${endTurnHero.name} used ${burnSpecial.name} and dealt ${burnDamage} damage to itself and all enemies`,
+            timestamp: Date.now()
+          });
+        }
+      }
     }
 
     // Reset turn actions
@@ -6170,6 +6319,30 @@ class GameManager {
     }
     
     return specialLogEntries;
+  }
+
+  // Arcane Archer's Arcane Arrows: bonus damage against enemies the owner has already damaged
+  getArcaneArrowsSpecial(hero) {
+    if (!hero || !hero.Special) return null;
+    const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
+    return specials.find(s => s && s.condition === 'target_previously_damaged_by_owner') || null;
+  }
+
+  rollArcaneArrowsBonus(attacker, target, isCritical = false) {
+    const special = this.getArcaneArrowsSpecial(attacker);
+    const effect = special?.effects?.find(e => e.type === 'damage_modifier');
+    if (!effect || !target || !attacker.damagedEnemies?.includes(target.name)) return 0;
+    
+    // No caster passed so damage stacks and passive buffs are not applied a second time
+    const bonus = calculateDamage(String(effect.value).replace('+', ''), isCritical, false, null).total;
+    debugLog(` ${attacker.name}'s ${special.name}: +${bonus} damage against previously damaged ${target.name}`);
+    return bonus;
+  }
+
+  recordArcaneArrowsTarget(attacker, target, damage) {
+    if (damage <= 0 || !target || !this.getArcaneArrowsSpecial(attacker)) return;
+    if (!attacker.damagedEnemies) attacker.damagedEnemies = [];
+    if (!attacker.damagedEnemies.includes(target.name)) attacker.damagedEnemies.push(target.name);
   }
 
   applyDamageToHero(game, target, damage, attacker = null, damageSource = 'unknown') {
@@ -7115,12 +7288,13 @@ class GameManager {
       if (attackHit && primaryTarget.currentHP > 0) {
         // Calculate damage
         const damageRoll = calculateDamage(ally.BasicAttack, attackRoll.isCritical, false, ally);
-        let damage = damageRoll.total;
+        let damage = damageRoll.total + this.rollArcaneArrowsBonus(ally, primaryTarget, attackRoll.isCritical);
         
         const oldHP = primaryTarget.currentHP;
         
         // Apply damage
         const onDamageTriggers = this.applyDamageToHero(game, primaryTarget, damage, ally, 'Basic Attack');
+        this.recordArcaneArrowsTarget(ally, primaryTarget, damage);
         
         debugLog(` ${ally.name} deals ${damage} damage to ${primaryTarget.name} (${oldHP} → ${primaryTarget.currentHP})`);
         

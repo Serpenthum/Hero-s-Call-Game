@@ -275,6 +275,11 @@
 
 /* Collection Grid */
 
+/* Fixed rows so a partly filled last page keeps the same layout as a full page */
+.responsive-card-viewport .collection-grid.responsive-card-grid {
+  grid-template-rows: repeat(var(--grid-rows), var(--grid-row-height));
+}
+
 .collection-grid.transitioning {
   opacity: 0;
 }

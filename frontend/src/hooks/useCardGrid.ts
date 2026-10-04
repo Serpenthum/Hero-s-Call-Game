@@ -9,6 +9,7 @@ const MINIMUM_CARD_HEIGHT = 280;
 
 type CardGridStyle = CSSProperties & {
   '--grid-columns': number;
+  '--grid-rows': number;
   '--grid-card-width': string;
   '--grid-card-height': string;
   '--grid-row-height': string;
@@ -82,6 +83,7 @@ export default function useCardGrid({ packCount, rowExtra = 0, singleRowOnPhone 
 
   const style: CardGridStyle = {
     '--grid-columns': layout.columns,
+    '--grid-rows': layout.rows,
     '--grid-card-width': `${CARD_WIDTH * layout.scale}px`,
     '--grid-card-height': `${CARD_HEIGHT * layout.scale}px`,
     '--grid-row-height': `${CARD_HEIGHT * layout.scale + rowExtra}px`,
