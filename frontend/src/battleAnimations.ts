@@ -23,6 +23,7 @@ export interface BattleEvent {
   hit: boolean;
   crit: boolean;
   targetName: string | null;
+  targetKey?: string | null;
   targets: BattleEventTarget[];
 }
 
@@ -97,47 +98,44 @@ function tone(freq: number, duration: number, type: OscillatorType, volume: numb
   }
 }
 
-// Crackling fuse for the turn timer; returns a stop function.
-export function startFuseSound(durationSec: number): () => void {
-  const level = 0.05 * getSfxVolume() * 2;
+// Clock ticking down for the turn timer: one tick-tock per second; returns a stop function.
+export function startClockSound(durationSec: number): () => void {
+  const level = 0.16 * getSfxVolume() * 2;
   if (!getSfxEnabled() || level <= 0) return () => {};
   try {
     audioCtx = audioCtx || new (window.AudioContext || (window as any).webkitAudioContext)();
     const ctx = audioCtx;
     if (ctx.state === 'suspended') ctx.resume();
 
-    const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const data = noise.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-
-    const source = ctx.createBufferSource();
-    source.buffer = noise;
-    source.loop = true;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.Q.value = 1.2;
-    const gain = ctx.createGain();
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
     const now = ctx.currentTime;
-    filter.frequency.setValueAtTime(1500, now);
-    filter.frequency.linearRampToValueAtTime(4500, now + durationSec);
-    gain.gain.setValueAtTime(0, now);
-    // Random pops that get denser and louder as the fuse runs out
-    for (let t = 0; t < durationSec; ) {
-      const progress = t / durationSec;
-      const pop = level * (0.3 + 0.7 * Math.random()) * (0.6 + 0.8 * progress);
-      gain.gain.setValueAtTime(pop, now + t);
-      gain.gain.linearRampToValueAtTime(0, now + t + 0.04);
-      t += (0.03 + Math.random() * 0.14) * (1 - 0.6 * progress);
+    const sources: OscillatorNode[] = [];
+
+    for (let i = 0; i < Math.floor(durationSec); i++) {
+      const start = now + i;
+      const isTick = i % 2 === 0;
+      // Short wooden click: a quickly decaying tone, higher for "tick" and lower for "tock"
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(isTick ? 1900 : 1350, start);
+      osc.frequency.exponentialRampToValueAtTime(isTick ? 900 : 650, start + 0.05);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.linearRampToValueAtTime(level, start + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.07);
+      osc.connect(gain).connect(master);
+      osc.start(start);
+      osc.stop(start + 0.08);
+      sources.push(osc);
     }
-    source.connect(filter).connect(gain).connect(ctx.destination);
-    source.start(now);
-    source.stop(now + durationSec);
 
     return () => {
       try {
-        gain.gain.cancelScheduledValues(ctx.currentTime);
-        gain.gain.setValueAtTime(0, ctx.currentTime);
-        source.stop();
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        master.gain.setValueAtTime(0, ctx.currentTime);
+        sources.forEach(o => { try { o.stop(); } catch { /* already stopped */ } });
+        master.disconnect();
       } catch {
         // already stopped
       }
@@ -146,7 +144,6 @@ export function startFuseSound(durationSec: number): () => void {
     return () => {};
   }
 }
-
 export const sfx = {
   chatter: () => tone(140 + Math.random() * 90, 0.045, 'square', 0.035),
   swing: () => tone(320, 0.14, 'sawtooth', 0.06, 120),

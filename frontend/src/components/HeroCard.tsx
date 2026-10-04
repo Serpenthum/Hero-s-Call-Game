@@ -16,6 +16,7 @@ interface HeroCardProps {
   isBanned?: boolean;
   isEnemy?: boolean;
   isCurrentTurn?: boolean;
+  isBlocked?: boolean; // Alive but cannot be targeted right now (taunt, untargetable, ...)
   onClick?: () => void;
   showFullInfo?: boolean;
   disableHPAnimations?: boolean;
@@ -32,6 +33,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
   isBanned = false,
   isEnemy = false,
   isCurrentTurn = false,
+  isBlocked = false,
   onClick,
   showFullInfo = true,
   disableHPAnimations = false,
@@ -241,6 +243,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
     if (isDead) classes += ' dead';
     if (isSelectable) classes += ' selectable';
     if (isSelected) classes += ' selected';
+    if (isBlocked && !isDead && !isSelectable) classes += ' target-blocked';
     if (isBanned) classes += ' banned';
     if (isEnemy) classes += ' enemy';
     if (!isEnemy) classes += ' ally';

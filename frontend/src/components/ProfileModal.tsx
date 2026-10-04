@@ -4,6 +4,7 @@ import XPBar from './XPBar';
 import CloseButton from './CloseButton';
 import { Hero } from '../types';
 import config from '../config';
+import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ProfileModal.css';
 
 interface User {
@@ -41,6 +42,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
   const [loading, setLoading] = useState(true);
   const [showIconSelector, setShowIconSelector] = useState(false);
   const [selectedIcon, setSelectedIcon] = useState<string>('Sorcerer');
+  const favoriteGrid = useCardGrid({ fixedColumns: 1, gap: 0, frameSpace: 4 });
 
   useEffect(() => {
     if (isOpen) {
@@ -123,6 +125,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
         ) : (
           <>
             <div className="profile-main">
+              <div className="profile-left">
               <div className="profile-identity">
                 <div className="profile-icon-section">
                   <div className="profile-icon-container">
@@ -167,7 +170,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                 </div>
               </div>
 
-              <div className="profile-content-section">
                 <div className="profile-stats">
                   <h4>Quick Stats</h4>
                   <div className="stats-grid">
@@ -194,22 +196,24 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="favorite-hero-section">
-                  <h4>Favorite Hero</h4>
-                  {getFavoriteHero() ? (
-                    <div className="favorite-hero-display">
+              <div className="favorite-hero-section">
+                <h4>Favorite Hero</h4>
+                {getFavoriteHero() ? (
+                  <div className="favorite-hero-display">
+                    <div className="responsive-card-viewport" ref={favoriteGrid.ref} style={favoriteGrid.style}>
                       <HeroCard hero={getFavoriteHero()!} />
-                      <div className="favorite-hero-stats">
-                        <p>Used {playerStats?.hero_usage_count[playerStats.favorite_hero!] || 0} times</p>
-                      </div>
                     </div>
-                  ) : (
-                    <div className="no-favorite-hero">
-                      <p>Play some ranked games to discover your favorite hero!</p>
+                    <div className="favorite-hero-stats">
+                      <p>Used {playerStats?.hero_usage_count[playerStats.favorite_hero!] || 0} times</p>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="no-favorite-hero">
+                    <p>Play some ranked games to discover your favorite hero!</p>
+                  </div>
+                )}
               </div>
             </div>
 

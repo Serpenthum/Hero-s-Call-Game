@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { startFuseSound } from '../battleAnimations';
+import { startClockSound } from '../battleAnimations';
 import '../styles/TurnTimerBar.css';
 
 const WARNING_MS = 10000;
@@ -21,7 +21,7 @@ const TurnTimerBar: React.FC<TurnTimerBarProps> = ({ deadline, durationMs }) => 
       const remaining = Math.min(warningMs, deadline - Date.now());
       if (remaining <= 0) return;
       setBurnMs(remaining);
-      stopSound = startFuseSound(remaining / 1000);
+      stopSound = startClockSound(remaining / 1000);
     };
 
     const delay = deadline - Date.now() - warningMs;

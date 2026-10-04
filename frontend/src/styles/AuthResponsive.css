@@ -1,0 +1,206 @@
+.login-page.login-page,
+.register-page.register-page {
+  height: 100dvh;
+  width: 100%;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  box-sizing: border-box;
+  align-items: flex-start;
+  overflow-x: hidden;
+}
+
+.login-page .login-background,
+.register-page .register-background {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.login-page .login-container,
+.register-page .register-container {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 480px;
+  margin: auto;
+  padding: clamp(18px, 4vw, 32px);
+  transform: none;
+}
+
+.register-page .register-container {
+  max-width: 520px;
+}
+
+.login-page .form-input,
+.register-page .form-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  font-size: 16px;
+}
+
+.login-page .game-title,
+.register-page .game-title {
+  font-size: clamp(24px, 4vw, 40px);
+}
+
+.login-page .login-header,
+.register-page .register-header {
+  margin-bottom: 18px;
+}
+
+.login-page .login-form,
+.register-page .register-form {
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.login-page .form-actions,
+.register-page .form-actions {
+  gap: 12px;
+  margin-top: 0;
+}
+
+.login-page .remember-me-group {
+  margin-bottom: 0;
+}
+
+.login-page .admin-quick-login,
+.login-page .test-battle-entry {
+  margin-bottom: 12px;
+}
+
+.login-page .register-section {
+  padding-top: 10px;
+}
+
+.login-page .form-group,
+.register-page .form-group {
+  min-width: 0;
+  gap: 5px;
+}
+
+.login-page .error-message,
+.register-page .error-message,
+.register-page .success-message {
+  overflow-wrap: anywhere;
+}
+
+@media (max-height: 600px) and (min-width: 520px) and (orientation: landscape) {
+  .login-page .login-container,
+  .register-page .register-container {
+    display: grid;
+    grid-template-columns: minmax(160px, 0.8fr) minmax(0, 1.2fr);
+    column-gap: 20px;
+    max-width: 820px;
+    padding: 14px 18px;
+    border-radius: 14px;
+  }
+
+  .login-page .login-header {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    margin-bottom: 10px;
+  }
+
+  .login-page .admin-quick-login {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    margin-bottom: 0;
+  }
+
+  .login-page .test-battle-entry {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: start;
+    margin: 10px 0 0;
+  }
+
+  .login-page .login-form {
+    grid-column: 2;
+    grid-row: 1 / 4;
+  }
+
+  .register-page .register-header {
+    align-self: center;
+    margin: 0;
+  }
+
+  .login-page .game-title,
+  .register-page .game-title {
+    font-size: clamp(23px, 3vw, 32px);
+  }
+
+  .register-page .game-subtitle {
+    font-size: 14px;
+  }
+
+  .login-page .login-form,
+  .register-page .register-form,
+  .login-page .form-actions,
+  .register-page .form-actions {
+    gap: 7px;
+  }
+
+  .login-page .form-input,
+  .register-page .form-input {
+    padding: 7px 10px;
+    min-height: 36px;
+  }
+
+  .login-page .form-group label,
+  .register-page .form-group label {
+    font-size: 12px;
+  }
+
+  .register-page .form-hint,
+  .login-page .auto-filled-notice {
+    font-size: 11px;
+    margin-top: 0;
+  }
+
+  .login-page .login-button,
+  .register-page .register-button,
+  .register-page .back-button,
+  .login-page .register-link,
+  .login-page .admin-login-btn,
+  .login-page .test-battle-entry {
+    min-height: 36px;
+    padding: 7px 8px;
+    font-size: 13px;
+  }
+
+  .register-page .form-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .login-page .register-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 7px;
+  }
+
+  .login-page .register-section p {
+    margin: 0;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 520px) and (max-height: 340px) and (orientation: landscape) {
+  .register-page .register-container {
+    padding: 8px 12px;
+  }
+
+  .register-page .register-form,
+  .register-page .form-actions {
+    gap: 5px;
+  }
+
+  .register-page .form-group {
+    gap: 3px;
+  }
+}

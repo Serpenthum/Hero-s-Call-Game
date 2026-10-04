@@ -84,6 +84,8 @@
   overflow: visible;
   cursor: default;
   border: 2px solid #666a6b;
+  /* Matches the inner corner radius of the steel frame so no gap shows at the corners. */
+  border-radius: 5px;
   background: linear-gradient(180deg, #30281f, #171717);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   zoom: min(var(--hero-card-scale, 1), var(--hero-card-height-scale, var(--hero-card-scale, 1)));
@@ -117,6 +119,17 @@
   z-index: auto;
   border-color: #666a6b;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Legacy hover rules outrank the ones above and tint the card border blue. */
+.hero-card.hero-layout-card.hero-layout-card:hover:not(.shop-hero-card) {
+  border-color: #666a6b;
+}
+
+/* The chosen enemy target stays enlarged until the attacker's turn ends. */
+.battle-layout .hero-card.hero-layout-card.hero-layout-card.selected:not(.dead) {
+  transform: scale(1.1);
+  z-index: 15;
 }
 
 .hero-card.hero-layout-card.hero-layout-card .hero-image {
@@ -289,14 +302,50 @@
   font-size: var(--card-text-size, 11.5px);
 }
 
-.hero-card.hero-layout-card.current-turn::after {
-  outline: 2px solid #ffd700;
-  box-shadow: 0 0 16px rgba(255, 215, 0, 0.65);
+/* The frame is masked to a ring, so outlines on it are clipped; recolor the ring itself. */
+.hero-card.hero-layout-card.hero-layout-card.current-turn,
+.battle-layout .hero-card.hero-layout-card.hero-layout-card.current-turn.current-turn {
+  border-color: #ffd700 !important;
+  box-shadow: 0 0 0 7px rgba(255, 215, 0, 0.35), 0 0 22px 8px rgba(255, 215, 0, 0.75);
 }
 
-.hero-card.hero-layout-card.selected::after,
-.hero-card.hero-layout-card.selectable:hover::after {
+.hero-card.hero-layout-card.current-turn::after,
+.battle-layout .hero-card.hero-layout-card.current-turn.current-turn::after {
+  background:
+    linear-gradient(#25282b, #25282b) padding-box,
+    linear-gradient(135deg, #fff2a8, #ffd700 45%, #f2b600 100%) border-box;
+  box-shadow: inset 0 0 0 1px #fff7c2;
+}
+
+.hero-card.hero-layout-card.selected::after {
   outline: 2px solid #65c77c;
+}
+
+/* Battle targeting: recolor the masked frame itself (outlines on it get clipped). */
+.battle-layout .hero-card.hero-layout-card.hero-layout-card.selectable {
+  border-color: #2ee06b !important;
+  box-shadow: 0 0 0 5px rgba(46, 224, 107, 0.3), 0 0 20px 6px rgba(46, 224, 107, 0.7);
+  cursor: pointer;
+}
+
+.battle-layout .hero-card.hero-layout-card.selectable::after {
+  background:
+    linear-gradient(#25282b, #25282b) padding-box,
+    linear-gradient(135deg, #a8ffc6, #2ee06b 45%, #12a644 100%) border-box;
+  box-shadow: inset 0 0 0 1px #d4ffe2;
+}
+
+.battle-layout .hero-card.hero-layout-card.hero-layout-card.target-blocked {
+  border-color: #ff3b3b !important;
+  box-shadow: 0 0 0 5px rgba(255, 59, 59, 0.3), 0 0 20px 6px rgba(255, 59, 59, 0.7);
+  cursor: not-allowed;
+}
+
+.battle-layout .hero-card.hero-layout-card.target-blocked::after {
+  background:
+    linear-gradient(#25282b, #25282b) padding-box,
+    linear-gradient(135deg, #ffb0b0, #ff3b3b 45%, #b81414 100%) border-box;
+  box-shadow: inset 0 0 0 1px #ffd0d0;
 }
 
 .hero-card.hero-layout-card .status-effects-buffs,

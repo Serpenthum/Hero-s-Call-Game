@@ -52,6 +52,12 @@ interface GameLobbyProps {
   onClaimQuestReward?: () => void;
 }
 
+const RANKED_MODES = ['draft', 'survival'] as const;
+type RankedMode = typeof RANKED_MODES[number];
+const DRAFT_UNLOCK_LEVEL = 3;
+const SURVIVAL_UNLOCK_HEROES = 21;
+const RANKED_MODE_NAMES: Record<RankedMode, string> = { draft: 'Draft Mode', survival: 'Survival Mode' };
+
 const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onStartGauntlet, victoryPoints, user, onLogout, isSearching = false, searchMode = null, friendlyRoomName = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
   // Refresh on entering the lobby so a new UTC day resets the list.
   useEffect(() => {
@@ -66,7 +72,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
   const pendingQuestIds = new Set((pendingQuestReward?.completed || []).map(q => q.id));
 
   const [showCollection, setShowCollection] = useState(false);
-  const previewGrid = useCardGrid({ singleRowOnPhone: true });
+  const previewGrid = useCardGrid({ fixedColumns: 1 });
   const [showShop, setShowShop] = useState(false);
   const [showFriendlyModal, setShowFriendlyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -86,6 +92,63 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [userRefreshTrigger, setUserRefreshTrigger] = useState(0);
   const [showDragonflow, setShowDragonflow] = useState(false);
+
+  // Ranked modes stay hidden until unlocked; unlocking shows a notification and animates the mode in.
+  // The level shown in the XP bar is used so the unlock lands with the level-up animation.
+  const modeUnlocked: Record<RankedMode, boolean> = {
+    draft: questReveal.display.level >= DRAFT_UNLOCK_LEVEL,
+    survival: (user.available_heroes?.length || 0) >= SURVIVAL_UNLOCK_HEROES
+  };
+  const seenModesKey = `heroscall.seenModes.${user.id}`;
+  const [revealedModes, setRevealedModes] = useState<RankedMode[]>(() => {
+    try {
+      const stored = localStorage.getItem(seenModesKey);
+      if (stored) return JSON.parse(stored) as RankedMode[];
+    } catch {
+      // fall through to a silent first-time initialisation
+    }
+    // First visit with this feature: players who already unlocked modes keep them without a notification.
+    const initial = RANKED_MODES.filter(m => modeUnlocked[m]);
+    try { localStorage.setItem(seenModesKey, JSON.stringify(initial)); } catch { /* storage unavailable */ }
+    return initial;
+  });
+  const [justUnlocked, setJustUnlocked] = useState<RankedMode[]>([]);
+  const [unlockToast, setUnlockToast] = useState<RankedMode[] | null>(null);
+
+  useEffect(() => {
+    const fresh = RANKED_MODES.filter(m => modeUnlocked[m] && !revealedModes.includes(m));
+    if (fresh.length === 0) return;
+    setUnlockToast(fresh);
+    // Let the notification land first, then add the mode to the lobby with its entrance animation.
+    const timer = window.setTimeout(() => {
+      const next = [...revealedModes, ...fresh];
+      try { localStorage.setItem(seenModesKey, JSON.stringify(next)); } catch { /* storage unavailable */ }
+      setRevealedModes(next);
+      setJustUnlocked(fresh);
+    }, 900);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeUnlocked.draft, modeUnlocked.survival, revealedModes]);
+
+  useEffect(() => {
+    if (justUnlocked.length === 0) return;
+    const timer = window.setTimeout(() => setJustUnlocked([]), 2200);
+    return () => window.clearTimeout(timer);
+  }, [justUnlocked]);
+
+  useEffect(() => {
+    if (!unlockToast) return;
+    const timer = window.setTimeout(() => setUnlockToast(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [unlockToast]);
+
+  const draftVisible = revealedModes.includes('draft');
+  const survivalVisible = revealedModes.includes('survival');
+  const rankedVisible = draftVisible || survivalVisible;
+  const visibleRanked = RANKED_MODES.filter(m => revealedModes.includes(m));
+  // Animate the whole section when it first appears, otherwise just the newly added mode.
+  const rankedAnimates = visibleRanked.length > 0 && visibleRanked.every(m => justUnlocked.includes(m));
+  const modeAnimates = (mode: RankedMode) => justUnlocked.includes(mode) && !rankedAnimates;
 
   const handleModeSelect = (mode: 'draft' | 'random') => {
     // Check if player meets level requirement for Draft mode
@@ -420,75 +483,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
             </div>
             <div className="modes-container">
               
-              {/* Ranked Section */}
-              <div className="mode-category">
-                <div className="category-header">
-                  <h3>Ranked</h3>
-                  <div className="category-divider"></div>
-                </div>
-                <div className="category-modes">
-                  
-                  <div className={`game-mode draft-mode ${isSearching && searchMode === 'draft' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'draft' ? undefined : () => handleModeSelect('draft')}>
-                    <div className="mode-overlay"></div>
-                    <div className="mode-icon">⚔️</div>
-                    {isSearching && searchMode === 'draft' ? (
-                      <div className="mode-info searching-info">
-                        <h3>Finding Opponent...</h3>
-                        <div className="searching-dots">
-                          <span className="dot"></span>
-                          <span className="dot"></span>
-                          <span className="dot"></span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mode-info">
-                        <h3>Draft Mode</h3>
-                        <p>Strategic hero selection</p>
-                      </div>
-                    )}
-                    {isSearching && searchMode === 'draft' ? (
-                      <button className="mode-cancel-btn" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
-                        <span>Leave Queue</span>
-                        <div className="btn-glow"></div>
-                      </button>
-                    ) : (
-                      <button className="mode-play-btn">
-                        <span>Play Draft</span>
-                        <div className="btn-glow"></div>
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="game-mode survival-mode" onClick={handleSurvivalClick}>
-                    <div className="mode-overlay"></div>
-                    <div className="mode-icon">🔥</div>
-                    <div className="mode-info">
-                      <h3>Survival Mode</h3>
-                      <p>Test your endurance</p>
-                    </div>
-                    <button className="mode-play-btn">
-                      <span>Enter Survival</span>
-                      <div className="btn-glow"></div>
-                    </button>
-                  </div>
-
-                  {/* Gauntlet Mode - Hidden for now */}
-                  {/* <div className="game-mode gauntlet-mode" onClick={handleGauntletClick}>
-                    <div className="mode-overlay"></div>
-                    <div className="mode-icon">⚔️</div>
-                    <div className="mode-info">
-                      <h3>Gauntlet Mode</h3>
-                      <p>Face 13 trials</p>
-                    </div>
-                    <button className="mode-play-btn">
-                      <span>Enter Gauntlet</span>
-                      <div className="btn-glow"></div>
-                    </button>
-                  </div> */}
-
-                </div>
-              </div>
-
               {/* Casual Section */}
               <div className="mode-category">
                 <div className="category-header">
@@ -562,6 +556,81 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
 
                 </div>
               </div>
+
+              {/* Ranked Section - each mode stays hidden until the player unlocks it */}
+              {rankedVisible && (
+              <div className={`mode-category${rankedAnimates ? ' mode-unlock-reveal' : ''}`}>
+                <div className="category-header">
+                  <h3>Ranked</h3>
+                  <div className="category-divider"></div>
+                </div>
+                <div className="category-modes">
+                  
+                  {draftVisible && (
+                  <div className={`game-mode draft-mode ${isSearching && searchMode === 'draft' ? 'searching' : ''}${modeAnimates('draft') ? ' mode-unlock-reveal' : ''}`} onClick={isSearching && searchMode === 'draft' ? undefined : () => handleModeSelect('draft')}>
+                    <div className="mode-overlay"></div>
+                    <div className="mode-icon">⚔️</div>
+                    {isSearching && searchMode === 'draft' ? (
+                      <div className="mode-info searching-info">
+                        <h3>Finding Opponent...</h3>
+                        <div className="searching-dots">
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                          <span className="dot"></span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mode-info">
+                        <h3>Draft Mode</h3>
+                        <p>Strategic hero selection</p>
+                      </div>
+                    )}
+                    {isSearching && searchMode === 'draft' ? (
+                      <button className="mode-cancel-btn" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
+                        <span>Leave Queue</span>
+                        <div className="btn-glow"></div>
+                      </button>
+                    ) : (
+                      <button className="mode-play-btn">
+                        <span>Play Draft</span>
+                        <div className="btn-glow"></div>
+                      </button>
+                    )}
+                  </div>
+                  )}
+
+                  {survivalVisible && (
+                  <div className={`game-mode survival-mode${modeAnimates('survival') ? ' mode-unlock-reveal' : ''}`} onClick={handleSurvivalClick}>
+                    <div className="mode-overlay"></div>
+                    <div className="mode-icon">🔥</div>
+                    <div className="mode-info">
+                      <h3>Survival Mode</h3>
+                      <p>Test your endurance</p>
+                    </div>
+                    <button className="mode-play-btn">
+                      <span>Enter Survival</span>
+                      <div className="btn-glow"></div>
+                    </button>
+                  </div>
+                  )}
+
+                  {/* Gauntlet Mode - Hidden for now */}
+                  {/* <div className="game-mode gauntlet-mode" onClick={handleGauntletClick}>
+                    <div className="mode-overlay"></div>
+                    <div className="mode-icon">⚔️</div>
+                    <div className="mode-info">
+                      <h3>Gauntlet Mode</h3>
+                      <p>Face 13 trials</p>
+                    </div>
+                    <button className="mode-play-btn">
+                      <span>Enter Gauntlet</span>
+                      <div className="btn-glow"></div>
+                    </button>
+                  </div> */}
+
+                </div>
+              </div>
+              )}
 
             </div>
           </div>
@@ -814,6 +883,17 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
               </div>
 
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mode unlock notification */}
+      {unlockToast && (
+        <div className="mode-unlock-toast" role="status" onClick={() => setUnlockToast(null)}>
+          <div className="mode-unlock-toast-icon">🔓</div>
+          <div className="mode-unlock-toast-text">
+            <strong>New Mode Unlocked!</strong>
+            <span>{unlockToast.map(m => RANKED_MODE_NAMES[m]).join(' & ')} {unlockToast.length > 1 ? 'are' : 'is'} now available in Ranked.</span>
           </div>
         </div>
       )}

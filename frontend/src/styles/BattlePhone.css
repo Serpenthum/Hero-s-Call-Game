@@ -1,6 +1,30 @@
-@media (max-width: 600px), (max-width: 1000px) and (max-height: 600px) {
+/* Phones, plus short desktop windows where the labels and avatars would crowd out the log and heroes */
+@media (max-width: 600px), (max-width: 1000px) and (max-height: 600px), (max-width: 1400px) and (max-height: 720px) {
+  /*
+   * Cards are sized by height, so whatever width they don't need is shared out:
+   * the log sidebar gets most of it, then the labels/avatars and the action bar.
+   */
   .App:has(.battle-layout) {
-    --phone-actions-width: clamp(100px, 14vw, 136px);
+    /* Cards are kept a little under full row height so the sidebar and actions can be wider */
+    --phone-card-shrink: 0.85;
+    --phone-card-h: min(calc((50dvh - 8px) * var(--phone-card-shrink)), 469px);
+    /* 3 cards at 260/391 aspect plus gaps and frame */
+    --phone-cards-w: calc(3 * 0.665 * var(--phone-card-h) + 10px);
+    /* Minimum sidebar + actions + label widths (136 + 100 + 52) and breathing room */
+    --phone-spare: calc(100vw - var(--phone-cards-w) - 288px - 32px);
+    --phone-sidebar-width: clamp(136px, calc(136px + var(--phone-spare) * 0.4), 320px);
+    --phone-actions-width: clamp(100px, calc(100px + var(--phone-spare) * 0.3), 220px);
+    --phone-label-width: clamp(52px, calc(52px + var(--phone-spare) * 0.3), 220px);
+    --phone-sidebar-font: clamp(11px, calc(var(--phone-sidebar-width) / 18), 14px);
+    --phone-actions-font: clamp(11px, calc(var(--phone-actions-width) / 12), 14px);
+    --phone-avatar: clamp(32px, calc(var(--phone-label-width) - 12px), calc(50dvh - 56px));
+  }
+
+  /* Very short screens need every pixel for the cards */
+  @media (max-height: 480px) {
+    .App:has(.battle-layout) {
+      --phone-card-shrink: 1;
+    }
   }
 
   @media (max-width: 1000px) and (max-height: 340px) {
@@ -19,7 +43,7 @@
   }
 
   .App:has(.battle-layout) .game-sidebar {
-    width: clamp(136px, 21vw, 206px);
+    width: var(--phone-sidebar-width);
     height: 100dvh;
     max-height: none;
     box-sizing: border-box;
@@ -27,7 +51,7 @@
     flex-direction: column;
     padding-bottom: 48px;
     transition: none;
-    font-size: 11px;
+    font-size: var(--phone-sidebar-font);
   }
 
   .App:has(.battle-layout) .game-sidebar > * {
@@ -67,7 +91,7 @@
 
   .App:has(.battle-layout) .current-turn,
   .App:has(.battle-layout) .opponent-turn {
-    font-size: 11px;
+    font-size: var(--phone-sidebar-font);
     padding: 4px;
     margin-bottom: 4px;
   }
@@ -90,7 +114,7 @@
 
   .App:has(.battle-layout) .active-hero h4,
   .App:has(.battle-layout) .active-hero .hero-hp {
-    font-size: 11px;
+    font-size: var(--phone-sidebar-font);
     margin-bottom: 2px;
   }
 
@@ -112,11 +136,11 @@
     flex: 1;
     min-height: 0;
     max-height: none;
-    font-size: 11px;
+    font-size: var(--phone-sidebar-font);
   }
 
   .App:has(.battle-layout) .log-entry {
-    font-size: 11px;
+    font-size: var(--phone-sidebar-font);
     padding: 5px;
     margin-bottom: 4px;
     overflow-wrap: anywhere;
@@ -146,7 +170,7 @@
   }
 
   .App .battle-layout .action-bar h3 {
-    font-size: 14px;
+    font-size: calc(var(--phone-actions-font) + 3px);
     padding: 6px 3px;
   }
 
@@ -161,7 +185,7 @@
   .App .battle-layout .hero-info,
   .App .battle-layout .selected-target,
   .App .battle-layout .ability-description {
-    font-size: 11px;
+    font-size: var(--phone-actions-font);
     overflow-wrap: anywhere;
   }
 
@@ -171,14 +195,14 @@
     width: 100%;
     box-sizing: border-box;
     padding: 7px 3px;
-    font-size: 11px;
+    font-size: var(--phone-actions-font);
     min-height: 30px;
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
   .App .battle-layout .ability-name {
-    font-size: 11px;
+    font-size: var(--phone-actions-font);
   }
 
   .App .battle-layout .game-board {
@@ -195,6 +219,7 @@
     display: flex;
     flex-direction: row;
     align-items: stretch;
+    justify-content: center;
     padding: 3px;
     gap: 4px;
   }
@@ -204,7 +229,7 @@
     top: auto;
     left: auto;
     right: auto;
-    width: clamp(52px, 8vw, 72px);
+    width: var(--phone-label-width);
     height: auto;
     flex-shrink: 0;
     transform: none;
@@ -217,11 +242,13 @@
   }
 
   .App .battle-layout .team-label {
+    box-sizing: border-box;
+    width: 100%;
     min-width: 0;
     max-width: 100%;
     padding: 2px 6px;
     border-width: 1px;
-    font-size: 9px;
+    font-size: clamp(9px, calc(var(--phone-label-width) / 8), 16px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -233,8 +260,8 @@
   }
 
   .App .battle-layout .game-board .profile-icon-small {
-    width: 32px;
-    height: 32px;
+    width: var(--phone-avatar);
+    height: var(--phone-avatar);
   }
 
   .App .battle-layout .game-board .team-display {
@@ -244,6 +271,7 @@
     top: auto;
     right: auto;
     width: 0;
+    max-width: var(--phone-cards-w);
     transform: none;
     container-type: normal;
     display: flex;
@@ -297,7 +325,7 @@
     bottom: max(6px, env(safe-area-inset-bottom)) !important;
     right: 6px !important;
     padding: 7px 5px !important;
-    font-size: 11px !important;
+    font-size: var(--phone-actions-font) !important;
     max-width: calc(var(--phone-actions-width) - 12px);
     min-height: 30px;
   }

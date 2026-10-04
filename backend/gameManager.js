@@ -5534,6 +5534,20 @@ class GameManager {
     }
 
     const opponentIndex = 1 - surrenderingPlayerIndex;
+
+    // The opponent already left (returned to lobby), so there is nobody to forfeit to; just close the game
+    if (!game.players[opponentIndex]) {
+      game.phase = 'ended';
+      game.winner = null;
+      return {
+        success: true,
+        gameId,
+        winner: null,
+        surrenderedBy: playerId,
+        gameState: this.getFullGameState(game)
+      };
+    }
+
     const opponentId = game.players[opponentIndex].id;
 
     // Set game as ended with opponent as winner

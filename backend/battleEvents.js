@@ -78,6 +78,7 @@ function buildBattleEvent(before, game, meta) {
     hit: meta.hit !== false,
     crit: !!meta.crit,
     targetName: meta.targetName || null,
+    targetKey: meta.targetKey || null,
     targets
   };
 }

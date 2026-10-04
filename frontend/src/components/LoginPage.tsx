@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/LoginPage.css';
+import '../styles/AuthResponsive.css';
 import config from '../config';
 
 interface User {

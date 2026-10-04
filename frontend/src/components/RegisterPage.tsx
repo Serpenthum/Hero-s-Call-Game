@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import '../styles/RegisterPage.css';
+import '../styles/AuthResponsive.css';
 import config from '../config';
 
 interface RegisterPageProps {

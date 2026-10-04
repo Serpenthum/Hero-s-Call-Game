@@ -15,7 +15,7 @@ console.log('Basic modules loaded successfully');
 // Import game logic
 console.log('Loading GameManager...');
 const GameManager = require('./gameManager');
-const { snapshotBattle, buildBattleEvent, classifyCast } = require('./battleEvents');
+const { snapshotBattle, buildBattleEvent, classifyCast, heroKey } = require('./battleEvents');
 const { QuestService } = require('./quests');
 console.log('Loading utils...');
 const { rollDice, shuffleArray, rig } = require('./utils');
@@ -869,7 +869,7 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
     before = snapshotBattle(game);
     const turn = game && game.phase === 'battle' ? gameManager.getCurrentTurnInfo(game) : null;
     if (turn && kind !== 'tick') {
-      actor = { playerId: turn.player.id, heroIndex: turn.player.team.indexOf(turn.hero) };
+      actor = { playerId: turn.player.id, playerIndex: turn.playerIndex, heroIndex: turn.player.team.indexOf(turn.hero) };
       ability = abilityIndex != null ? turn.hero.Ability?.[abilityIndex] : null;
     }
   } catch (err) {
@@ -889,14 +889,25 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
       const abilityHit = comprehensive
         ? comprehensive.hit !== false
         : !(results.length > 0 && results.every(r => r.type === 'miss'));
+      const targetName = kind === 'attack' ? result.target : abilityTarget;
+      // Resolve the attacked hero's exact slot (enemy team first) so the client never guesses by damage order.
+      let targetKey = null;
+      if (actor && targetName) {
+        const sides = [game.players[1 - actor.playerIndex], game.players[actor.playerIndex]];
+        for (const side of sides) {
+          const idx = side ? (side.team || []).findIndex(h => h.name === targetName) : -1;
+          if (idx !== -1) { targetKey = heroKey(side.id, idx); break; }
+        }
+      }
       result.battleEvent = buildBattleEvent(before, game, {
+        targetKey,
         kind,
         cast: kind === 'ability' ? classifyCast(ability) : null,
         actorPlayerId: actor?.playerId,
         actorHeroIndex: actor?.heroIndex,
         hit: kind === 'attack' ? result.hit !== false : kind === 'tick' || abilityHit,
         crit: kind === 'attack' ? !!result.isCritical : kind === 'ability' && results.some(r => r.isCritical),
-        targetName: kind === 'attack' ? result.target : abilityTarget
+        targetName
       });
     } catch (err) {
       console.error('battleEvent build failed:', err.message);

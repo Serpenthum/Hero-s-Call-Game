@@ -201,11 +201,8 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
     // Random side for the dodge and the attacker's whiff.
     const dodgeDir = Math.random() < 0.5 ? -1 : 1;
 
-    // Primary enemy target: first damaged target, or by name for a missed attack.
-    let primaryEl: HTMLElement | undefined;
-    for (const t of ev.targets) {
-      if (t.delta < 0 && t.key !== ev.actor?.key) { primaryEl = nodes.get(t.key); break; }
-    }
+    // Primary target: the exact hero the server says was attacked, falling back to a name match on the enemy team.
+    let primaryEl: HTMLElement | undefined = ev.targetKey ? nodes.get(ev.targetKey) : undefined;
     if (!primaryEl && ev.targetName && ev.actor) {
       for (const [key, node] of Array.from(nodes.entries())) {
         if (node.dataset.heroName === ev.targetName && !key.startsWith(`${ev.actor.playerId}:`)) {

@@ -345,6 +345,11 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
   const renderBattlePhase = () => {
     const targetableEnemies = getTargetableEnemies();
+    const selectedEnemyTarget = gameState.players.find(p => p.id === playerId)?.selectedTarget ?? null;
+    const choosingEnemyTarget = !isSpectating && isMyTurn() && !selectedEnemyTarget;
+    const isAllySelectable = (hero: Hero) => !!selectingAllyForAbility && (hero.currentHP ?? 0) > 0 && (
+      !isTimekeeperChronoShift() || (hero.name !== 'Timekeeper' && !!hero.Ability && hero.Ability.length > 0)
+    );
 
     return (
       <div className="battle-layout">
@@ -388,6 +393,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   })()}
                   isEnemy={true}
                   isSelectable={isMyTurn() && targetableEnemies.includes(hero)}
+                  isBlocked={choosingEnemyTarget && !targetableEnemies.includes(hero)}
+                  isSelected={selectedEnemyTarget === hero.name}
                   onClick={() => {
                     if (isMyTurn() && targetableEnemies.includes(hero)) {
                       handleTargetSelection(hero.name);
@@ -434,9 +441,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                            gameState.activeHero.playerIndex === currentPlayerIndex && // Active hero is ours
                            gameState.activeHero.heroIndex === heroIndex; // Match exact hero position
                   })()}
-                  isSelectable={!!selectingAllyForAbility && (hero.currentHP ?? 0) > 0 && (
-                    !isTimekeeperChronoShift() || (hero.name !== 'Timekeeper' && hero.Ability && hero.Ability.length > 0)
-                  )}
+                  isSelectable={isAllySelectable(hero)}
+                  isBlocked={!!selectingAllyForAbility && !isAllySelectable(hero)}
                   onClick={() => {
                     if (selectingAllyForAbility && (hero.currentHP ?? 0) > 0) {
                       // Check if this is Timekeeper's Chrono Shift
