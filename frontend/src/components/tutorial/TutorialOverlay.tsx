@@ -205,8 +205,9 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ step: stepProp, onNex
         ]
       : [{ left: 0, top: 0, width: '100vw', height: '100vh' }];
 
+  // No confirmation: skipping pays the same rewards, and window.confirm is blocked in some embedded browsers
   const handleSkip = () => {
-    if (window.confirm('Skip the tutorial? You will not receive the tutorial rewards.')) onSkip?.();
+    onSkip?.();
   };
 
   return createPortal(

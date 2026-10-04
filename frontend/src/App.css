@@ -3689,31 +3689,43 @@ body, html {
   align-items: center;
 }
 
+/* Matches the shared .game-close-btn: neon-outlined circle that fills on hover, in blue */
 .chat-minimize-button {
-  background: none;
-  border: none;
-  color: #999;
-  font-size: 1.2rem;
-  cursor: pointer;
+  --minimize-blue: #4da3ff;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: all 0.2s ease;
+  border: 2px solid var(--minimize-blue);
+  background: rgba(77, 163, 255, 0.1);
+  color: var(--minimize-blue);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(77, 163, 255, 0.35), inset 0 0 6px rgba(77, 163, 255, 0.15);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.chat-minimize-button {
-  font-size: 1.4rem;
-  font-weight: bold;
-  line-height: 1;
+.chat-minimize-button svg {
+  display: block;
 }
 
 .chat-minimize-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: var(--minimize-blue);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(77, 163, 255, 0.75);
+  transform: scale(1.08);
+}
+
+.chat-minimize-button:active {
+  transform: scale(0.94);
+}
+
+.chat-minimize-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .chat-body {

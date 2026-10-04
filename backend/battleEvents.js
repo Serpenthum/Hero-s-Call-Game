@@ -27,7 +27,7 @@ function collectEffectTypes(ability) {
 }
 
 // Priority decides which single cast style the client plays.
-function classifyCast(ability) {
+function castStyle(ability) {
   const types = collectEffectTypes(ability);
   if (types.some(t => t.includes('summon'))) return 'summon';
   if (types.some(t => t.includes('damage'))) return 'damage';
@@ -35,6 +35,16 @@ function classifyCast(ability) {
   if (types.includes('apply_buff')) return 'buff';
   if (types.includes('apply_debuff')) return 'debuff';
   return 'generic';
+}
+
+// Must be called before the action resolves: Beast Tamer's first use summons the beast, later uses command an attack.
+function classifyCast(ability, hero) {
+  if (hero && hero.name === 'Beast Tamer' && ability?.name === 'Call Beast / Command Attack') {
+    return hero.statusEffects?.beast_active
+      ? { cast: 'damage', variant: 'beast_attack' }
+      : { cast: 'summon', variant: null };
+  }
+  return { cast: castStyle(ability), variant: null };
 }
 
 /**
@@ -72,6 +82,7 @@ function buildBattleEvent(before, game, meta) {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     kind: meta.kind,
     cast: meta.cast || null,
+    variant: meta.variant || null,
     actor: meta.actorPlayerId != null
       ? { playerId: meta.actorPlayerId, heroIndex: meta.actorHeroIndex, key: heroKey(meta.actorPlayerId, meta.actorHeroIndex) }
       : null,

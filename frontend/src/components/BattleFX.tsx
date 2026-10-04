@@ -217,8 +217,9 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
 
     let impactDelay: number;
 
-    if (ev.kind === 'attack') {
-      impactDelay = 160 * f;
+    // Beast Tamer's command attack plays like a basic attack lunge toward the target.
+    if (ev.kind === 'attack' || ev.variant === 'beast_attack') {
+      impactDelay = (ev.kind === 'attack' ? 160 : 200) * f;
       sfx.swing();
       if (actorEl && primaryEl && actorEl !== primaryEl) {
         const a = center(actorEl);

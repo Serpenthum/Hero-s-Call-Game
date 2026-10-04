@@ -360,6 +360,7 @@ export interface SocketEvents {
   'survival-state-update': (data: { type: 'win' | 'loss' | 'reset'; state: { wins: number; losses: number; usedHeroes: string[]; isActive: boolean }; message: string; victoryPoints?: number }) => void;
   'victory-points-update': (data: { type?: string; pointsAwarded?: number; totalVictoryPoints?: number; gameMode?: string; message?: string; oldVictoryPoints?: number; newVictoryPoints?: number; victoryPointsGained?: number }) => void;
   'xp-update': (data: { xpGained: number; newXP: number; newLevel: number; leveledUp: boolean; message: string; vpGained?: number; oldLevel?: number; levelsGained?: number }) => void;
+  'tutorial-skipped': (data: { newXP: number; newLevel: number; newVictoryPoints: number }) => void;
   'quests-update': (data: QuestsUpdate) => void;
   'game-surrendered': (data: { success: boolean; gameId: string; winner: string; surrenderedBy: string; gameState: GameState }) => void;
   'draft-abandoned': (data: { message: string; isOpponent?: boolean }) => void;

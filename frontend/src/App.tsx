@@ -1606,6 +1606,15 @@ function App() {
       });
     });
 
+    // Skipping the tutorial still pays the rewards, but silently: no reward modal, just updated totals
+    socket.on('tutorial-skipped', (data) => {
+      setState(prev => ({
+        ...prev,
+        victoryPoints: data.newVictoryPoints,
+        user: prev.user ? { ...prev.user, xp: data.newXP, level: data.newLevel, victory_points: data.newVictoryPoints } : prev.user
+      }));
+    });
+
     socket.on('quests-update', (data) => {
       setQuests(data.quests);
 
@@ -2676,13 +2685,16 @@ function App() {
             isOpen={state.showFriendsOverlay}
           />
           
-          {/* Message Icon */}
-          <MessageIcon 
-            onClick={handleMessageIconClick}
-            hasNotifications={state.messageNotificationCount > 0}
-            notificationCount={state.messageNotificationCount}
-            hasMinimizedChats={state.minimizedMessageChats.length > 0}
-          />          {/* Friends Overlay */}
+          {/* Message Icon: only shown when there are unread or minimized chats */}
+          {(state.messageNotificationCount > 0 || state.unreadMessageChats.size > 0 || state.minimizedMessageChats.length > 0) && (
+            <MessageIcon 
+              onClick={handleMessageIconClick}
+              hasNotifications={state.messageNotificationCount > 0}
+              notificationCount={state.messageNotificationCount}
+              hasMinimizedChats={state.minimizedMessageChats.length > 0}
+            />
+          )}
+          {/* Friends Overlay */}
           <Suspense fallback={null}>
           {state.showFriendsOverlay && (
             <FriendsOverlay

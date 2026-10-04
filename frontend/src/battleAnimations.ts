@@ -19,6 +19,7 @@ export interface BattleEvent {
   id: string;
   kind: 'attack' | 'ability' | 'tick';
   cast: CastType | null;
+  variant?: 'beast_attack' | null;
   actor: { playerId: string; heroIndex: number; key: string } | null;
   hit: boolean;
   crit: boolean;

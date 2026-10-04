@@ -43,6 +43,47 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
   const [showIconSelector, setShowIconSelector] = useState(false);
   const [selectedIcon, setSelectedIcon] = useState<string>('Sorcerer');
   const favoriteGrid = useCardGrid({ fixedColumns: 1, gap: 0, frameSpace: 4 });
+  const [iconGridEl, setIconGridEl] = useState<HTMLDivElement | null>(null);
+  const [iconLayout, setIconLayout] = useState<{ cols: number; size: number; names: boolean } | null>(null);
+  const iconCount = allHeroes.length;
+
+  // Pick the column count that lets every icon fit at the largest size (no scrolling unless it gets tiny).
+  useEffect(() => {
+    if (!iconGridEl || iconCount === 0) return;
+    const GAP = 8;
+    const CELL_EXTRA_W = 16;
+    const CELL_EXTRA_H = 46;
+    const CELL_EXTRA_H_NO_NAME = 26;
+    const NAMES_MIN_SIZE = 48;
+    const MIN_SIZE = 36;
+    const MAX_SIZE = 110;
+    const update = () => {
+      const width = iconGridEl.clientWidth - 8;
+      const height = iconGridEl.clientHeight - 8;
+      if (width <= 0 || height <= 0) return;
+      const fit = (extraH: number) => {
+        let best = { cols: 1, size: 0 };
+        for (let cols = 1; cols <= iconCount; cols++) {
+          const rows = Math.ceil(iconCount / cols);
+          const sizeW = (width - (cols - 1) * GAP) / cols - CELL_EXTRA_W;
+          const sizeH = (height - (rows - 1) * GAP) / rows - extraH;
+          const size = Math.min(sizeW, sizeH, MAX_SIZE);
+          if (size > best.size) best = { cols, size };
+        }
+        return best;
+      };
+      // Names are dropped (still in the tooltip) when icons would otherwise get too small to label
+      const withNames = fit(CELL_EXTRA_H);
+      const showNames = withNames.size >= NAMES_MIN_SIZE;
+      const best = showNames ? withNames : fit(CELL_EXTRA_H_NO_NAME);
+      const next = { cols: best.cols, size: Math.max(MIN_SIZE, Math.floor(best.size)), names: showNames };
+      setIconLayout(prev => prev && prev.cols === next.cols && prev.size === next.size && prev.names === next.names ? prev : next);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(iconGridEl);
+    return () => observer.disconnect();
+  }, [iconGridEl, iconCount]);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +109,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
   };
 
   const handleIconChange = async (heroName: string) => {
+    if (!isOwned(heroName)) return;
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/update-profile-icon`, {
         method: 'POST',
@@ -91,10 +133,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
     }
   };
 
-  const getAvailableHeroes = () => {
-    return allHeroes
-      .filter(hero => user.available_heroes.includes(hero.name))
-      .sort((a, b) => a.name.localeCompare(b.name));
+  const isOwned = (heroName: string) => user.available_heroes.includes(heroName);
+
+  // Owned heroes first; the rest are shown locked
+  const getIconHeroes = () => {
+    return [...allHeroes].sort((a, b) =>
+      Number(isOwned(b.name)) - Number(isOwned(a.name)) || a.name.localeCompare(b.name));
   };
 
   const getFavoriteHero = () => {
@@ -224,12 +268,23 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                     <h3>Choose Profile Icon</h3>
                     <CloseButton onClick={() => setShowIconSelector(false)} />
                   </div>
-                  <div className="available-icons">
-                    {getAvailableHeroes().map(hero => (
+                  <div
+                    className={`available-icons${iconLayout && !iconLayout.names ? ' no-names' : ''}`}
+                    ref={setIconGridEl}
+                    style={iconLayout ? {
+                      ['--icon-size' as string]: `${iconLayout.size}px`,
+                      gridTemplateColumns: `repeat(${iconLayout.cols}, minmax(0, 1fr))`
+                    } : undefined}
+                  >
+                    {getIconHeroes().map(hero => {
+                      const owned = isOwned(hero.name);
+                      return (
                       <div 
                         key={hero.name} 
-                        className={`icon-option ${selectedIcon === hero.name ? 'selected' : ''}`}
-                        onClick={() => handleIconChange(hero.name)}
+                        className={`icon-option ${selectedIcon === hero.name ? 'selected' : ''} ${owned ? '' : 'locked'}`}
+                        onClick={owned ? () => handleIconChange(hero.name) : undefined}
+                        title={owned ? hero.name : `${hero.name} (not owned)`}
+                        aria-disabled={!owned}
                       >
                         <div className="icon-option-image">
                           <img 
@@ -246,10 +301,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                               `)}`;
                             }}
                           />
+                          {!owned && <span className="icon-lock" aria-hidden="true">🔒</span>}
                         </div>
                         <span className="icon-option-name">{hero.name}</span>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

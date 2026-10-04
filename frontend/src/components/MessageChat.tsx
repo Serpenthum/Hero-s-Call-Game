@@ -160,8 +160,10 @@ const MessageChat: React.FC<MessageChatProps> = ({
           {targetUsername}
         </div>
         <div className="chat-controls">
-          <button className="chat-minimize-button" onClick={onMinimize} title="Minimize">
-            −
+          <button type="button" className="chat-minimize-button" onClick={onMinimize} aria-label="Minimize" title="Minimize">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path d="M6 12 L18 12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
           </button>
           <CloseButton onClick={onClose} />
         </div>

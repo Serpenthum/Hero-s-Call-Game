@@ -145,11 +145,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.profile-icon-container:hover .profile-icon {
-  transform: scale(1.1);
 }
 
 .change-icon-btn {
@@ -255,17 +250,10 @@
   padding: 6px 10px;
   min-height: 0;
   text-align: center;
-  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-}
-
-.profile-stats .stat-item:hover {
-  background: rgba(15, 30, 50, 0.8);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
 }
 
 .profile-stats .stat-label {
@@ -324,6 +312,13 @@
   --hero-card-height-scale: var(--grid-card-scale);
 }
 
+.favorite-hero-section .favorite-hero-display .hero-card.hero-layout-card:hover:not(.shop-hero-card) {
+  transform: none;
+  z-index: auto;
+  border-color: #666a6b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
 .favorite-hero-stats {
   flex-shrink: 0;
   color: var(--text-secondary);
@@ -358,43 +353,56 @@
 }
 
 .icon-selector {
+  --icon-size: clamp(44px, min(13dvh, 9vw), 110px);
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   border: 2px solid var(--primary-blue);
   border-radius: 15px;
-  padding: 30px;
+  padding: clamp(10px, 2.5dvh, 30px) clamp(10px, 2.5vw, 30px);
+  width: 96%;
   max-width: 900px;
-  width: 95%;
-  max-height: 700px;
-  overflow-y: auto;
+  max-height: calc(100% - 20px);
+  height: calc(100% - 20px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .icon-selector-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
-  padding-bottom: 15px;
+  margin-bottom: clamp(8px, 2dvh, 25px);
+  padding-bottom: clamp(6px, 1.5dvh, 15px);
   border-bottom: 1px solid rgba(0, 212, 255, 0.3);
 }
 
 .icon-selector-header h3 {
   color: var(--primary-blue);
   font-family: 'Orbitron', monospace;
+  font-size: clamp(0.9rem, 2.4dvh, 1.17rem);
   margin: 0;
   text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
 }
 
+/* Icons shrink with the window; the grid only scrolls when they can't all fit */
 .available-icons {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--icon-size) + 24px), 1fr));
+  gap: 8px;
+  padding: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 212, 255, 0.5) transparent;
 }
 
 .icon-option {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
+  padding: 6px 4px;
   border: 2px solid transparent;
   border-radius: 15px;
   cursor: pointer;
@@ -420,11 +428,12 @@
 }
 
 .icon-option-image {
-  width: 120px;
-  height: 120px;
+  position: relative;
+  width: var(--icon-size);
+  height: var(--icon-size);
   border-radius: 50%;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   border: 3px solid rgba(0, 212, 255, 0.3);
   box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
 }
@@ -437,7 +446,12 @@
 
 .icon-option-name {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: clamp(0.5rem, calc(var(--icon-size) * 0.15), 0.9rem);
+  line-height: 1.2;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: center;
   font-family: 'Orbitron', monospace;
 }
@@ -446,10 +460,39 @@
   color: var(--accent-orange);
 }
 
-/* Icon picker stays inside the (height-limited) modal */
-.icon-selector {
-  max-height: calc(100% - 24px);
-  box-sizing: border-box;
+/* Tiny icons: names live in the tooltip instead */
+.available-icons.no-names .icon-option-name {
+  display: none;
+}
+
+.available-icons.no-names .icon-option-image {
+  margin-bottom: 0;
+}
+
+/* Heroes the player doesn't own yet */
+.icon-option.locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.icon-option.locked:hover {
+  border-color: transparent;
+  background: rgba(0, 212, 255, 0.05);
+  transform: none;
+}
+
+.icon-option.locked .icon-option-image img {
+  filter: grayscale(1) brightness(0.45);
+}
+
+.icon-lock {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--icon-size) * 0.4);
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.8));
 }
 
 @media (max-width: 560px) {
@@ -460,10 +503,5 @@
   .profile-identity {
     flex-direction: column;
     text-align: center;
-  }
-
-  .available-icons {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 10px;
   }
 }

@@ -530,6 +530,14 @@ app.post('/api/update-profile-icon', async (req, res) => {
       });
     }
 
+    const owner = await database.getUserById(userId);
+    if (!owner || !Array.isArray(owner.available_heroes) || !owner.available_heroes.includes(heroName)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only use icons of heroes you own'
+      });
+    }
+
     await database.updateProfileIcon(userId, heroName);
     res.json({ 
       success: true, 
@@ -865,12 +873,16 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
   let before = null;
   let actor = null;
   let ability = null;
+  let cast = null;
+  let variant = null;
   try {
     before = snapshotBattle(game);
     const turn = game && game.phase === 'battle' ? gameManager.getCurrentTurnInfo(game) : null;
     if (turn && kind !== 'tick') {
       actor = { playerId: turn.player.id, playerIndex: turn.playerIndex, heroIndex: turn.player.team.indexOf(turn.hero) };
       ability = abilityIndex != null ? turn.hero.Ability?.[abilityIndex] : null;
+      // Classified before the action runs, since casting changes the hero's status (e.g. beast_active).
+      if (kind === 'ability') ({ cast, variant } = classifyCast(ability, turn.hero));
     }
   } catch (err) {
     console.error('battleEvent snapshot failed:', err.message);
@@ -902,7 +914,8 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
       result.battleEvent = buildBattleEvent(before, game, {
         targetKey,
         kind,
-        cast: kind === 'ability' ? classifyCast(ability) : null,
+        cast,
+        variant,
         actorPlayerId: actor?.playerId,
         actorHeroIndex: actor?.heroIndex,
         hit: kind === 'attack' ? result.hit !== false : kind === 'tick' || abilityHit,
@@ -1117,6 +1130,29 @@ async function tutorialBotLoop(gameId) {
   }
 }
 
+// Levels the account up to the tutorial's fixed reward and marks the tutorial done.
+// Returns null if the tutorial was already completed.
+async function grantTutorialRewards(userId) {
+  if (await database.isTutorialCompleted(userId)) return null;
+  const stats = await database.getPlayerStats(userId);
+  const before = await database.getUserById(userId);
+  const xpGained = Math.max(0, database.getXPRequiredForLevel(stats.level) - stats.xp);
+  const xpUpdate = await database.updatePlayerXP(userId, xpGained);
+  // Level-ups already grant VP, so only top up to the fixed reward
+  const topUp = Math.max(0, TUTORIAL_REWARD_VP - (xpUpdate.vpGained || 0));
+  if (topUp > 0) await database.updateUserVictoryPoints(userId, topUp);
+  await database.markTutorialCompleted(userId);
+  const after = await database.getUserById(userId);
+  return {
+    xpGained,
+    newXP: xpUpdate.xp,
+    newLevel: xpUpdate.level,
+    levelsGained: xpUpdate.levelsGained || 0,
+    oldVP: before.victory_points,
+    newVP: after.victory_points
+  };
+}
+
 async function handleTutorialCompletion(result) {
   const game = gameManager.games.get(result.gameId);
   const t = game && game.tutorial;
@@ -1128,24 +1164,9 @@ async function handleTutorialCompletion(result) {
 
   if (t.userId) {
     try {
-      if (await database.isTutorialCompleted(t.userId)) return;
-      const stats = await database.getPlayerStats(t.userId);
-      const before = await database.getUserById(t.userId);
-      const xpGained = Math.max(0, database.getXPRequiredForLevel(stats.level) - stats.xp);
-      const xpUpdate = await database.updatePlayerXP(t.userId, xpGained);
-      // Level-ups already grant VP, so only top up to the fixed reward
-      const topUp = Math.max(0, TUTORIAL_REWARD_VP - (xpUpdate.vpGained || 0));
-      if (topUp > 0) await database.updateUserVictoryPoints(t.userId, topUp);
-      await database.markTutorialCompleted(t.userId);
-      const after = await database.getUserById(t.userId);
-      rewards = {
-        xpGained,
-        newXP: xpUpdate.xp,
-        newLevel: xpUpdate.level,
-        levelsGained: xpUpdate.levelsGained || 0,
-        oldVP: before.victory_points,
-        newVP: after.victory_points
-      };
+      const granted = await grantTutorialRewards(t.userId);
+      if (!granted) return;
+      rewards = granted;
     } catch (err) {
       console.error('Failed to award tutorial rewards:', err.message);
       return;
@@ -2013,9 +2034,22 @@ io.on('connection', (socket) => {
     socket.leave(game.id);
     if (game.tutorial.userId) {
       try {
-        await database.markTutorialCompleted(game.tutorial.userId);
+        // Same rewards as finishing, delivered silently so the client just lands in the lobby
+        const granted = await grantTutorialRewards(game.tutorial.userId);
+        if (granted) {
+          socket.emit('tutorial-skipped', {
+            newXP: granted.newXP,
+            newLevel: granted.newLevel,
+            newVictoryPoints: granted.newVP
+          });
+        }
       } catch (err) {
-        console.error('Failed to mark tutorial skipped:', err.message);
+        console.error('Failed to award skipped tutorial rewards:', err.message);
+        try {
+          await database.markTutorialCompleted(game.tutorial.userId);
+        } catch (markErr) {
+          console.error('Failed to mark tutorial skipped:', markErr.message);
+        }
       }
     }
   });
