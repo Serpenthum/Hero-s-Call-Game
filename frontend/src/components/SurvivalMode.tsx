@@ -3,6 +3,7 @@ import SurvivalTeamBuilder from './SurvivalTeamBuilder';
 import SurvivalProgress from './SurvivalProgress';
 import SurvivalUsedHeroes from './SurvivalUsedHeroes';
 import RewardsDisplay from './RewardsDisplay';
+import Coin from './Coin';
 import '../styles/SurvivalMode.css';
 
 interface Hero {
@@ -64,7 +65,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
   });
 
   const [showEndModal, setShowEndModal] = useState(false);
-  const [endMessage, setEndMessage] = useState('');
+  const [endMessage, setEndMessage] = useState<React.ReactNode>('');
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
 
   // Update survival state when user data changes
@@ -132,7 +133,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
           // For resets (abandoned runs) with victory points, show the end modal with rewards
           if (data.type === 'reset' && data.victoryPoints && data.victoryPoints > 0) {
             // Show end modal for abandoned run
-            setEndMessage(`Survival run abandoned! You earned ${data.victoryPoints} victory point${data.victoryPoints !== 1 ? 's' : ''} for your wins.`);
+            setEndMessage(<>Survival run abandoned! You earned {data.victoryPoints} <Coin /> for your wins.</>);
             setShowEndModal(true);
           }
           
@@ -229,7 +230,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
           <p>Are you sure you want to abandon your current survival run? This will reset your wins ({survivalState.wins}), losses ({survivalState.losses}), and used heroes.</p>
           {survivalState.wins > 0 && (
             <p className="survival-victory-points-info">
-              <strong>You will receive {survivalState.wins} victory point{survivalState.wins !== 1 ? 's' : ''} for your current wins!</strong>
+              <strong>You will receive {survivalState.wins} <Coin /> for your current wins!</strong>
             </p>
           )}
           <div className="survival-end-buttons">

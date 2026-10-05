@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import HeroCollection from './HeroCollection';
 import HeroCard from './HeroCard';
 import ProfileModal from './ProfileModal';
+import { ShopIcon, BinderIcon } from './LobbyIcons';
+import Coin from './Coin';
 import XPBar from './XPBar';
 import CloseButton from './CloseButton';
 import Shop from './Shop';
@@ -33,7 +35,6 @@ interface User {
 
 interface GameLobbyProps {
   onStartGame: (gameMode: 'draft' | 'random') => void;
-  onStartFriendlyGame: (action: 'create' | 'join', roomName: string) => void;
   onStartSurvival: () => void;
   onStartGauntlet: () => void;
   onSpectateGame?: (gameId: string, spectatingPlayerId: string) => void;
@@ -41,8 +42,7 @@ interface GameLobbyProps {
   user: User;
   onLogout: () => void;
   isSearching?: boolean;
-  searchMode?: 'draft' | 'random' | 'friendly' | null;
-  friendlyRoomName?: string | null;
+  searchMode?: 'draft' | 'random' | null;
   onCancelSearch?: () => void;
   gameState?: GameState | null;
   onCollectionStateChange?: (isOpen: boolean) => void;
@@ -58,7 +58,7 @@ const DRAFT_UNLOCK_LEVEL = 3;
 const SURVIVAL_UNLOCK_HEROES = 21;
 const RANKED_MODE_NAMES: Record<RankedMode, string> = { draft: 'Draft Mode', survival: 'Survival Mode' };
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame, onStartSurvival, onStartGauntlet, victoryPoints, user, onLogout, isSearching = false, searchMode = null, friendlyRoomName = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onStartGauntlet, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
   // Refresh on entering the lobby so a new UTC day resets the list.
   useEffect(() => {
     socketService.getQuests();
@@ -74,11 +74,20 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
   const [showCollection, setShowCollection] = useState(false);
   const previewGrid = useCardGrid({ fixedColumns: 1 });
   const [showShop, setShowShop] = useState(false);
-  const [showFriendlyModal, setShowFriendlyModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [friendlyAction, setFriendlyAction] = useState<'create' | 'join'>('create');
-  const [roomName, setRoomName] = useState('');
   const [allHeroes, setAllHeroes] = useState<Hero[]>([]);
+  const [profileIcon, setProfileIcon] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${config.API_BASE_URL}/api/player-stats/${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && data.success) setProfileIcon(data.stats.profile_icon);
+      })
+      .catch(err => console.error('Failed to load profile icon:', err));
+    return () => { cancelled = true; };
+  }, [user.id]);
   const [showRequirementModal, setShowRequirementModal] = useState(false);
   const [requirementModalData, setRequirementModalData] = useState({
     message: '',
@@ -168,27 +177,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
       onCancelSearch();
     }
     onStartGame(mode);
-  };
-
-  const handleFriendlyBattleClick = () => {
-    // Cancel any existing search first
-    if (isSearching && onCancelSearch) {
-      onCancelSearch();
-    }
-    setShowFriendlyModal(true);
-  };
-
-  const handleCloseFriendlyModal = () => {
-    setShowFriendlyModal(false);
-    setRoomName('');
-    setFriendlyAction('create');
-  };
-
-  const handleFriendlySubmit = () => {
-    if (roomName.trim()) {
-      onStartFriendlyGame(friendlyAction, roomName.trim());
-      handleCloseFriendlyModal();
-    }
   };
 
   const handleShowCollection = () => {
@@ -399,8 +387,8 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
           <div className="user-stats">
             <div className="stats-row">
               <div className="victory-points">
-                <span className="trophy-icon">🏆</span>
-                <span className={`points-text${questReveal.counting ? ' vp-bump' : ''}`}>Victory Points: {questReveal.display.vp}</span>
+                <Coin className="trophy-icon" />
+                <span className={`points-text${questReveal.counting ? ' vp-bump' : ''}`}>{questReveal.display.vp}</span>
               </div>
               <div className="xp-section">
                 <span className="level-text">Level {questReveal.display.level || 1}</span>
@@ -426,32 +414,24 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
           
           {/* Player Info Panel */}
           <div className="player-info-panel">
-            <div className="panel-header">
+            <div className="panel-header player-header">
               <h2>{user.username}</h2>
+              <button
+                className="profile-avatar-btn"
+                onClick={() => setShowProfileModal(true)}
+                aria-label="Open profile"
+                title="Profile"
+              >
+                {profileIcon && (
+                  <img
+                    src={`${config.IMAGE_BASE_URL}/hero-images/${profileIcon.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
+                    alt={profileIcon}
+                  />
+                )}
+              </button>
               <div className="header-accent"></div>
             </div>
             <div className="panel-content">
-              <button 
-                className="profile-btn"
-                onClick={() => setShowProfileModal(true)}
-              >
-                Profile
-              </button>
-              
-              <button 
-                className="profile-btn"
-                onClick={() => setShowRulesModal(true)}
-              >
-                Rules
-              </button>
-              
-              <button 
-                className="profile-btn"
-                onClick={() => setShowSettingsModal(true)}
-              >
-                Settings
-              </button>
-              
               <div className="quests-section">
                 <h3>Quests</h3>
                 <div className="daily-quests">
@@ -483,45 +463,13 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
             </div>
             <div className="modes-container">
               
-              {/* Casual Section */}
+              {/* Normal Section */}
               <div className="mode-category">
                 <div className="category-header">
-                  <h3>Casual</h3>
+                  <h3>Normal</h3>
                   <div className="category-divider"></div>
                 </div>
                 <div className="category-modes">
-                  
-                  <div className={`game-mode friendly-mode ${isSearching && searchMode === 'friendly' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'friendly' ? undefined : handleFriendlyBattleClick}>
-                    <div className="mode-overlay"></div>
-                    <div className="mode-icon">🤝</div>
-                    {isSearching && searchMode === 'friendly' ? (
-                      <div className="mode-info searching-info">
-                        <h3>Waiting for a friend...</h3>
-                        {friendlyRoomName && <p>Room: {friendlyRoomName}</p>}
-                        <div className="searching-dots">
-                          <span className="dot"></span>
-                          <span className="dot"></span>
-                          <span className="dot"></span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mode-info">
-                        <h3>Friendly Battle</h3>
-                        <p>Play with friends</p>
-                      </div>
-                    )}
-                    {isSearching && searchMode === 'friendly' ? (
-                      <button className="mode-cancel-btn" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
-                        <span>Close Room</span>
-                        <div className="btn-glow"></div>
-                      </button>
-                    ) : (
-                      <button className="mode-play-btn">
-                        <span>Create/Join</span>
-                        <div className="btn-glow"></div>
-                      </button>
-                    )}
-                  </div>
 
                   <div className={`game-mode random-mode ${isSearching && searchMode === 'random' ? 'searching' : ''}`} onClick={isSearching && searchMode === 'random' ? undefined : () => handleModeSelect('random')}>
                     <div className="mode-overlay"></div>
@@ -642,14 +590,16 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
               <div className="header-accent"></div>
             </div>
             <div className="collection-preview">
-              <button className="collection-btn shop-btn" onClick={handleShowShop} style={{ marginBottom: '10px' }}>
-                <span>Shop</span>
-                <div className="btn-arrow">→</div>
-              </button>
-              <button className="collection-btn" data-tutorial="collection" onClick={handleShowCollection}>
-                <span>View Collection</span>
-                <div className="btn-arrow">→</div>
-              </button>
+              <div className="collection-tiles">
+                <button className="lobby-tile shop-tile" onClick={handleShowShop}>
+                  <ShopIcon className="lobby-tile-icon" />
+                  <span className="lobby-tile-label">Shop</span>
+                </button>
+                <button className="lobby-tile binder-tile" data-tutorial="collection" onClick={handleShowCollection}>
+                  <BinderIcon className="lobby-tile-icon" />
+                  <span className="lobby-tile-label">Binder</span>
+                </button>
+              </div>
               <div className="lobby-hero-viewport" ref={previewGrid.ref} style={previewGrid.style}>
               {currentRandomHero && (
                 <div className={`random-hero-card ${isTransitioning ? 'transitioning' : ''}`}>
@@ -697,89 +647,25 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
         />
       )}
 
-      {/* Friendly Battle Modal */}
-      {showFriendlyModal && (
-        <div className="modal-overlay">
-          <div className="friendly-modal">
-            <div className="friendly-modal-header">
-              <h3>Friendly Battle</h3>
-              <CloseButton onClick={handleCloseFriendlyModal} />
-            </div>
-            
-            <div className="friendly-modal-content">
-              <>
-                  <div className="action-selection">
-                    <div 
-                      className={`action-option ${friendlyAction === 'create' ? 'selected' : ''}`}
-                      onClick={() => setFriendlyAction('create')}
-                    >
-                      <div className="action-icon">🏗️</div>
-                      <h4>Create Game</h4>
-                      <p>Create a new room and wait for a friend to join</p>
-                    </div>
-                    
-                    <div 
-                      className={`action-option ${friendlyAction === 'join' ? 'selected' : ''}`}
-                      onClick={() => setFriendlyAction('join')}
-                    >
-                      <div className="action-icon">🚪</div>
-                      <h4>Join Game</h4>
-                      <p>Enter a room name to join your friend's game</p>
-                    </div>
-                  </div>
-                  
-                  <div className="room-input-section">
-                    <label htmlFor="room-name">
-                      {friendlyAction === 'create' ? 'Room Name:' : 'Enter Room Name:'}
-                    </label>
-                    <input
-                      id="room-name"
-                      type="text"
-                      value={roomName}
-                      onChange={(e) => setRoomName(e.target.value)}
-                      placeholder={friendlyAction === 'create' ? 'Choose a room name...' : 'Enter room name to join...'}
-                      className="room-input"
-                      maxLength={20}
-                    />
-                  </div>
-                  
-                  <div className="friendly-modal-actions">
-                    <button 
-                      className="friendly-submit-button"
-                      onClick={handleFriendlySubmit}
-                      disabled={!roomName.trim()}
-                    >
-                      {friendlyAction === 'create' ? 'Create Room' : 'Join Room'}
-                    </button>
-                    <button 
-                      className="friendly-cancel-button"
-                      onClick={handleCloseFriendlyModal}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Profile Modal */}
       <ProfileModal
         user={user}
         allHeroes={allHeroes}
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
+        onIconChange={setProfileIcon}
+        onOpenHowToPlay={() => { setShowProfileModal(false); setShowRulesModal(true); }}
+        onOpenSettings={() => { setShowProfileModal(false); setShowSettingsModal(true); }}
       />
 
       {/* Rules Modal */}
-      {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+      {showSettingsModal && <SettingsModal onClose={() => { setShowSettingsModal(false); setShowProfileModal(true); }} />}
       {showRulesModal && (
         <div className="modal-overlay">
           <div className="rules-modal">
             <div className="rules-modal-header">
-              <h3>📖 Game Rules</h3>
-              <CloseButton onClick={() => setShowRulesModal(false)} />
+              <h3>📖 How to Play</h3>
+              <CloseButton onClick={() => { setShowRulesModal(false); setShowProfileModal(true); }} />
             </div>
             
             <div className="rules-modal-content">
@@ -857,8 +743,8 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartFriendlyGame,
                   <span className="rule-value">Fight other players using Survival Mode decks. Heroes that win in this battle cannot be used again</span>
                 </div>
                 <div className="rule-item">
-                  <span className="rule-label">Friendly Battle:</span>
-                  <span className="rule-value">Create/join custom rooms to play with friends</span>
+                  <span className="rule-label">Friend Challenges:</span>
+                  <span className="rule-value">Challenge an online friend from your friends list to a draft battle. XP only</span>
                 </div>
               </div>
 

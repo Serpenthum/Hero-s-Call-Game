@@ -235,6 +235,18 @@ class SocketService {
     this.socket?.emit('remove-friend', { friendId });
   }
 
+  challengeFriend(friendId: number) {
+    this.socket?.emit('challenge-friend', { friendId });
+  }
+
+  cancelChallenge() {
+    this.socket?.emit('cancel-challenge');
+  }
+
+  respondToChallenge(challengerId: number, accept: boolean) {
+    this.socket?.emit('respond-challenge', { challengerId, accept });
+  }
+
   sendMessage(targetUserId: number, message: string) {
     this.socket?.emit('send-message', { targetUserId, message });
   }

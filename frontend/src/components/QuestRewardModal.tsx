@@ -1,5 +1,6 @@
 import React from 'react';
 import { PendingQuestReward } from '../types';
+import Coin from './Coin';
 
 interface QuestRewardModalProps {
   reward: PendingQuestReward;
@@ -21,7 +22,7 @@ const QuestRewardModal: React.FC<QuestRewardModalProps> = ({ reward, onOk }) => 
       </ul>
       <div className="quest-reward-chips">
         <span className="quest-reward-chip xp">+{reward.xpGained} XP</span>
-        <span className="quest-reward-chip vp">+{reward.vpGained} VP</span>
+        <span className="quest-reward-chip vp">+{reward.vpGained} <Coin /></span>
       </div>
       {reward.leveledUp && <div className="quest-reward-levelup">Level up!</div>}
       <button className="quest-reward-ok" onClick={onOk} autoFocus>OK</button>

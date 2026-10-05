@@ -1,0 +1,440 @@
+/* Binder: opening animation and the open-binder look of the hero collection */
+
+.binder-intro,
+.collection-fullscreen.binder-theme {
+  --leather:
+    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.5px) 0 0 / 7px 7px,
+    radial-gradient(rgba(0, 0, 0, 0.2) 1px, transparent 1.5px) 3px 3px / 7px 7px,
+    linear-gradient(135deg, #6b4126 0%, #46280f 55%, #301a09 100%);
+  --paper: linear-gradient(135deg, #f0e5ca 0%, #e2d2ae 100%);
+  --gold: #d9a82b;
+  --gold-light: #ffd966;
+}
+
+/* ---------- Opening animation ---------- */
+
+.binder-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  background: radial-gradient(ellipse at center, #3a2414 0%, #120a05 85%);
+  animation: biOverlay 1.7s linear forwards;
+}
+
+@keyframes biOverlay {
+  0%, 82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.binder-intro-stage {
+  --bw: min(30vw, 36vh);
+  --bh: calc(var(--bw) * 1.3);
+  perspective: 1800px;
+  animation: biStage 1.7s ease-in-out forwards;
+}
+
+@keyframes biStage {
+  0% { transform: scale(0.85); opacity: 0; }
+  12% { transform: scale(1); opacity: 1; }
+  62% { transform: scale(1); }
+  100% { transform: scale(1.9); }
+}
+
+.binder-intro-book {
+  position: relative;
+  width: var(--bw);
+  height: var(--bh);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.6));
+  animation: biBook 1.7s ease-in-out forwards;
+}
+
+@keyframes biBook {
+  0%, 12% { transform: translateX(0) rotateY(-18deg); }
+  62%, 100% { transform: translateX(calc(var(--bw) / 2)) rotateY(0deg); }
+}
+
+.bi-cover {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  animation: biCover 1.7s ease-in-out forwards;
+}
+
+@keyframes biCover {
+  0%, 14% { transform: rotateY(0deg); }
+  58%, 100% { transform: rotateY(-180deg); }
+}
+
+.bi-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 4px 12px 12px 4px;
+  overflow: hidden;
+}
+
+.bi-cover-back {
+  transform: rotateY(180deg);
+}
+
+.bi-cover-front {
+  background: var(--leather);
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.35), inset 0 0 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6%;
+}
+
+.bi-cover-front::before {
+  content: '';
+  position: absolute;
+  inset: 5%;
+  border: 2px dashed var(--gold);
+  border-radius: 6px;
+  opacity: 0.8;
+}
+
+.bi-rings {
+  position: absolute;
+  left: 3%;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+.bi-rings span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fafafa, #8c8c8c 60%, #4a4a4a);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.bi-crest {
+  width: 42%;
+  filter: drop-shadow(0 0 6px rgba(255, 200, 60, 0.45));
+}
+
+.bi-crest svg {
+  display: block;
+  width: 100%;
+}
+
+.bi-title {
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  font-size: clamp(0.8rem, 1.6vw, 1.4rem);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.bi-page {
+  position: absolute;
+  inset: 0;
+  background: var(--leather);
+  padding: 7%;
+  box-sizing: border-box;
+  border-radius: 4px 12px 12px 4px;
+}
+
+.bi-page-right {
+  transform: translateZ(-1px);
+}
+
+.bi-page-left {
+  border-radius: 12px 4px 4px 12px;
+}
+
+.bi-pocket-grid {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6%;
+  padding: 6%;
+  background: var(--paper);
+  border-radius: 4px;
+  box-shadow: inset 0 0 12px rgba(80, 50, 10, 0.35);
+}
+
+.bi-pocket {
+  border-radius: 4px;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.15));
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 3px rgba(60, 40, 10, 0.35);
+}
+
+/* ---------- Open binder ---------- */
+
+.collection-fullscreen.binder-theme {
+  background-color: #140b05;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 7px),
+    radial-gradient(ellipse at center, #3a2414 0%, #140b05 80%);
+}
+
+.binder-theme .collection-header {
+  background: linear-gradient(#3b2414, #28160b);
+  border-bottom: 2px solid var(--gold);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.binder-theme .collection-header h2 {
+  color: var(--gold-light);
+  font-family: 'Orbitron', monospace;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.binder-theme .filter-controls label {
+  color: #f3deb0;
+}
+
+.binder-theme .sort-dropdown,
+.binder-theme .filter-dropdown,
+.binder-theme .search-input {
+  background: rgba(217, 168, 43, 0.14);
+  border: 2px solid var(--gold);
+  color: #fff3d0;
+}
+
+.binder-theme .sort-dropdown:hover,
+.binder-theme .filter-dropdown:hover,
+.binder-theme .search-input:hover {
+  background: rgba(217, 168, 43, 0.28);
+  box-shadow: 0 0 10px rgba(217, 168, 43, 0.5);
+}
+
+.binder-theme .sort-dropdown:focus,
+.binder-theme .filter-dropdown:focus,
+.binder-theme .search-input:focus {
+  box-shadow: 0 0 14px rgba(255, 217, 102, 0.7);
+}
+
+.binder-theme .sort-dropdown option,
+.binder-theme .filter-dropdown option {
+  background: #2a180d;
+  color: #fff3d0;
+}
+
+.binder-theme .search-input::placeholder {
+  color: rgba(255, 243, 208, 0.5);
+}
+
+.binder-theme .loading-state {
+  color: var(--gold-light);
+}
+
+.binder-theme .loading-spinner {
+  border-color: rgba(217, 168, 43, 0.3);
+  border-top-color: var(--gold-light);
+}
+
+.binder-theme .collection-grid-container {
+  padding: 14px 60px 44px;
+}
+
+.binder-cover {
+  flex: 1;
+  min-width: 0;
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  padding: clamp(10px, 1.6vw, 20px);
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 16px;
+  background: var(--leather);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), inset 0 0 0 2px rgba(0, 0, 0, 0.4), inset 0 0 50px rgba(0, 0, 0, 0.45);
+}
+
+.binder-cover::before {
+  content: '';
+  position: absolute;
+  inset: clamp(4px, 0.7vw, 8px);
+  border: 2px dashed var(--gold);
+  border-radius: 11px;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.binder-pages {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  position: relative;
+  perspective: 2200px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
+}
+
+.binder-page {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  box-sizing: border-box;
+  padding: clamp(8px, 1vw, 14px);
+}
+
+.binder-page.left {
+  padding-right: clamp(26px, 3vw, 40px);
+  background: linear-gradient(90deg, #f0e5ca 0%, #e6d8b8 82%, #c9b78d 100%);
+}
+
+.binder-page.right {
+  padding-left: clamp(26px, 3vw, 40px);
+  background: linear-gradient(270deg, #f0e5ca 0%, #e6d8b8 82%, #c9b78d 100%);
+}
+
+.binder-spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 56px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 10;
+  background: linear-gradient(90deg, transparent, rgba(60, 35, 10, 0.28) 42%, rgba(40, 22, 5, 0.4) 50%, rgba(60, 35, 10, 0.28) 58%, transparent);
+}
+
+.binder-ring {
+  position: absolute;
+  left: 50%;
+  width: 52px;
+  height: 20px;
+  transform: translateX(-50%);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f5f5f5 0%, #a8a8a8 42%, #e2e2e2 58%, #6e6e6e 100%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.binder-ring:nth-child(1) { top: 14%; }
+.binder-ring:nth-child(2) { top: calc(50% - 10px); }
+.binder-ring:nth-child(3) { bottom: 14%; }
+
+/* Card pockets: clear sleeves around each hero */
+.binder-pocket {
+  position: relative;
+  width: var(--grid-card-width);
+  height: var(--grid-card-height);
+}
+
+.binder-pocket::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.1) 100%);
+  box-shadow: 0 2px 6px rgba(60, 40, 10, 0.4), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.binder-pocket.empty::before {
+  background: rgba(70, 45, 10, 0.07);
+  border-color: rgba(120, 90, 40, 0.35);
+  box-shadow: inset 0 2px 5px rgba(60, 40, 10, 0.25);
+}
+
+/* Turning leaf: front is the page being lifted, back is the page it lands on */
+.binder-leaf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 15;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.binder-leaf.next {
+  right: 0;
+  transform-origin: left center;
+  animation: binderFlipNext 0.48s ease-in-out forwards;
+}
+
+.binder-leaf.prev {
+  left: 0;
+  transform-origin: right center;
+  animation: binderFlipPrev 0.48s ease-in-out forwards;
+}
+
+.binder-leaf-face {
+  position: absolute;
+  inset: 0;
+  flex: none;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.binder-leaf-face.back {
+  transform: rotateY(180deg);
+}
+
+@keyframes binderFlipNext {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-180deg); }
+}
+
+@keyframes binderFlipPrev {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(180deg); }
+}
+
+.collection-fullscreen.binder-theme .collection-grid-container .pagination-arrow-overlay {
+  background: rgba(40, 22, 11, 0.85) !important;
+  border: 2px solid var(--gold) !important;
+  color: var(--gold-light) !important;
+}
+
+.collection-fullscreen.binder-theme .collection-grid-container .pagination-arrow-overlay:hover {
+  background: var(--gold) !important;
+  color: #2a180d !important;
+}
+
+.binder-theme .page-indicator-overlay {
+  background: rgba(40, 22, 11, 0.9);
+  border-color: var(--gold);
+  color: var(--gold-light);
+  box-shadow: 0 0 8px rgba(217, 168, 43, 0.4);
+}
+
+@media (max-width: 480px) {
+  .binder-theme .collection-grid-container {
+    padding: 8px 8px 56px;
+  }
+
+  .binder-ring {
+    width: 36px;
+    height: 14px;
+  }
+
+  .binder-spine {
+    width: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .binder-leaf {
+    animation-duration: 0.01s;
+  }
+}

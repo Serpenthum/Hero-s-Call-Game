@@ -35,9 +35,12 @@ interface ProfileModalProps {
   allHeroes: Hero[];
   isOpen: boolean;
   onClose: () => void;
+  onIconChange?: (heroName: string) => void;
+  onOpenHowToPlay?: () => void;
+  onOpenSettings?: () => void;
 }
 
-const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, onClose }) => {
+const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, onClose, onIconChange, onOpenHowToPlay, onOpenSettings }) => {
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showIconSelector, setShowIconSelector] = useState(false);
@@ -125,6 +128,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
       const data = await response.json();
       if (data.success) {
         setSelectedIcon(heroName);
+        onIconChange?.(heroName);
         setPlayerStats(prev => prev ? { ...prev, profile_icon: heroName } : null);
         setShowIconSelector(false);
       }
@@ -157,6 +161,23 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
     <div className="profile-modal-overlay" onClick={onClose}>
       <div className="profile-modal" onClick={e => e.stopPropagation()}>
         <div className="profile-header">
+          <div className="profile-header-tools">
+            {onOpenHowToPlay && (
+              <button className="profile-tool-btn" onClick={onOpenHowToPlay} aria-label="How to Play" title="How to Play">
+                ?
+              </button>
+            )}
+            {onOpenSettings && (
+              <button className="profile-tool-btn" onClick={onOpenSettings} aria-label="Settings" title="Settings">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.07.63-.07.94s.03.63.07.94L2.82 14.52a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
           <h2>{user.username}</h2>
           <CloseButton className="profile-close-btn" onClick={onClose} />
         </div>

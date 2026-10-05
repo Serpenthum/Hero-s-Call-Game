@@ -210,8 +210,10 @@ function App() {
   // How many of the six battle heroes are visible during the tutorial intro; null = all
   const [tutorialReveal, setTutorialReveal] = useState<number | null>(null);
   const tutorialStartedRef = useRef(false);
-  const [searchMode, setSearchMode] = useState<'draft' | 'random' | 'friendly' | null>(null);
-  const [friendlyRoomName, setFriendlyRoomName] = useState<string | null>(null);
+  const [searchMode, setSearchMode] = useState<'draft' | 'random' | null>(null);
+  const [incomingChallenge, setIncomingChallenge] = useState<{ fromId: number; from: string } | null>(null);
+  const [challengeNotice, setChallengeNotice] = useState<{ text: string; cancellable: boolean } | null>(null);
+  const challengeNoticeTimeoutRef = useRef<number | null>(null);
   
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
@@ -410,34 +412,10 @@ function App() {
       }
     });
 
-    socket.on('friendly-room-created', (data) => {
-      if (data.success) {
-        setState(prev => ({
-          ...prev,
-          playerId: data.playerId,
-          gameState: {
-            id: data.gameId,
-            phase: 'waiting',
-            players: [],
-            currentTurn: 0,
-            currentDraftPhase: 0,
-            draftTurn: 0,
-            winner: null
-          },
-          isConnected: true,
-          error: null
-        }));
-        // Show the waiting state in the lobby until a friend joins
-        setIsSearchingForMatch(true);
-        setSearchMode('friendly');
-        setFriendlyRoomName(data.roomName);
-      } else {
-        setState(prev => ({ ...prev, error: data.message || 'Failed to create room' }));
-      }
-    });
-
     socket.on('friendly-room-joined', (data) => {
       if (data.success) {
+        setIncomingChallenge(null);
+        setChallengeNotice(null);
         setState(prev => ({
           ...prev,
           playerId: data.playerId,
@@ -1675,6 +1653,30 @@ function App() {
       }));
     });
 
+    socket.on('challenge-received', (data) => {
+      setIncomingChallenge({ fromId: data.fromId, from: data.from });
+    });
+
+    socket.on('challenge-cancelled', (data) => {
+      setIncomingChallenge(prev => (prev && prev.fromId === data.fromId ? null : prev));
+    });
+
+    socket.on('challenge-result', (data) => {
+      if (challengeNoticeTimeoutRef.current) {
+        window.clearTimeout(challengeNoticeTimeoutRef.current);
+        challengeNoticeTimeoutRef.current = null;
+      }
+      if (data.success && data.status === 'sent') {
+        setChallengeNotice({ text: `Challenge sent to ${data.name}. Waiting for a response...`, cancellable: true });
+        return;
+      }
+      let text = data.error || 'Challenge failed';
+      if (data.status === 'declined') text = data.name ? `${data.name} declined your challenge.` : 'Your challenge was declined.';
+      if (data.status === 'expired') text = `${data.name} didn't respond to your challenge.`;
+      setChallengeNotice({ text, cancellable: false });
+      challengeNoticeTimeoutRef.current = window.setTimeout(() => setChallengeNotice(null), 4000);
+    });
+
     socket.on('message-received', (message) => {
       console.log('Message received from:', message.sender_username);
       setState(prev => {
@@ -1721,25 +1723,6 @@ function App() {
     setIsSearchingForMatch(true);
     setSearchMode(mode);
     socketService.joinGame(playerName, mode);
-  };
-
-  const handleFriendlyGame = (action: 'create' | 'join', roomName: string) => {
-    // Ensure user is properly authenticated before joining
-    if (!state.user || !state.user.username) {
-      console.error('❌ Cannot join friendly game: User not authenticated or username missing', state.user);
-      setState(prev => ({ ...prev, error: 'Please login first to join a game.' }));
-      return;
-    }
-
-    const playerName = state.user.username;
-    
-    setState(prev => ({ ...prev, playerName }));
-    
-    if (action === 'create') {
-      socketService.createFriendlyRoom(roomName, playerName);
-    } else {
-      socketService.joinFriendlyRoom(roomName, playerName);
-    }
   };
 
   // Survival win/loss handling is now managed by the backend via WebSocket
@@ -2192,7 +2175,6 @@ function App() {
       return (
         <GameLobby
           onStartGame={handleJoinGame}
-          onStartFriendlyGame={handleFriendlyGame}
           onStartSurvival={handleStartSurvival}
           onStartGauntlet={handleStartGauntlet}
           onSpectateGame={handleSpectateGame}
@@ -2201,7 +2183,6 @@ function App() {
           onLogout={handleLogout}
           isSearching={isSearchingForMatch || (state.gameState?.phase === 'waiting')}
           searchMode={searchMode}
-          friendlyRoomName={friendlyRoomName}
           onCancelSearch={handleCancelSearch}
           gameState={state.gameState}
           onCollectionStateChange={handleCollectionStateChange}
@@ -2732,6 +2713,51 @@ function App() {
       )}
       {tutorial.stage === 'lobby' && state.user && !state.gameState && !state.showSurvival && !state.showGauntlet && (
         <LobbyTutorial onFinish={finishTutorial} />
+      )}
+
+      {/* Friend challenge prompts */}
+      {state.user && incomingChallenge && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Challenge!</h2>
+            <p>{incomingChallenge.from} challenges you to a draft battle. XP only.</p>
+            <div className="challenge-actions">
+              <button
+                className="action-button"
+                onClick={() => {
+                  socketService.respondToChallenge(incomingChallenge.fromId, true);
+                  setIncomingChallenge(null);
+                }}
+              >
+                Accept
+              </button>
+              <button
+                className="action-button secondary"
+                onClick={() => {
+                  socketService.respondToChallenge(incomingChallenge.fromId, false);
+                  setIncomingChallenge(null);
+                }}
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {state.user && challengeNotice && (
+        <div className="challenge-notice">
+          <span>{challengeNotice.text}</span>
+          {challengeNotice.cancellable && (
+            <button
+              onClick={() => {
+                socketService.cancelChallenge();
+                setChallengeNotice(null);
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       )}
 
       {/* Draft Abandoned Modal */}

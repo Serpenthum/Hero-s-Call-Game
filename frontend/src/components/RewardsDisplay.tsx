@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import XPBar from './XPBar';
+import Coin from './Coin';
 import '../styles/RewardsDisplay.css';
 
 interface RewardsDisplayProps {
@@ -98,14 +99,13 @@ const RewardsDisplay: React.FC<RewardsDisplayProps> = ({
           {/* Victory Points Section */}
           <div className="reward-section vp-section">
             <div className="reward-label">
-              <span className="label-text">Victory Points</span>
               {victoryPointsGained > 0 && (
                 <span className="reward-gain vp-gain">+{victoryPointsGained}</span>
               )}
             </div>
             <div className="vp-display">
               <div className={`vp-counter ${isVPAnimating ? 'animating' : ''}`}>
-                <span className="vp-icon">🏆</span>
+                <Coin className="vp-icon" />
                 <span className="vp-number">{displayVP}</span>
               </div>
             </div>

@@ -9,6 +9,7 @@ const root = document.documentElement;
 root.style.setProperty('--image-base-url', config.IMAGE_BASE_URL);
 root.style.setProperty('--login-background-image', `url('${config.IMAGE_BASE_URL}/login-images/login1.png') center center / cover no-repeat`);
 root.style.setProperty('--register-background-image', `url('${config.IMAGE_BASE_URL}/login-images/charactercreate1.png') center center / cover no-repeat`);
+root.style.setProperty('--lobby-background-image', `url('${config.IMAGE_BASE_URL}/login-images/lobby1.png') center center / cover no-repeat`);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

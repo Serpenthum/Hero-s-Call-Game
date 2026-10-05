@@ -1198,8 +1198,35 @@ async function handleTutorialCompletion(result) {
 // Friendly rooms management
 const friendlyRooms = new Map(); // roomName -> { gameId, creator, players, gameStarted }
 
+// Friend challenges waiting on an answer; challenges are draft games that grant XP but no victory points
+const CHALLENGE_TIMEOUT_MS = 30000;
+const pendingChallenges = new Map(); // challengerUserId -> { targetId, timeoutId }
+
+function clearPendingChallenge(challengerId) {
+  const entry = pendingChallenges.get(challengerId);
+  if (!entry) return null;
+  clearTimeout(entry.timeoutId);
+  pendingChallenges.delete(challengerId);
+  return entry;
+}
+
+async function getProfileIconForUser(userId) {
+  try {
+    const stats = await database.getPlayerStats(userId);
+    if (stats && stats.profile_icon) return stats.profile_icon;
+  } catch (error) {
+    console.log('Failed to fetch profile icon for user:', userId, error);
+  }
+  return 'Sorcerer';
+}
+
 // Helper function to check and handle regular game completion (draft/random modes)
 async function handleRegularGameCompletion(result) {
+  // Friend challenges grant XP but never victory points
+  const emitVictoryPoints = (to, payload) => {
+    if (!result.gameState?.isFriendly) io.to(to).emit('victory-points-update', payload);
+  };
+
   if (result.success && result.gameState && result.gameState.mode === 'tutorial') {
     return handleTutorialCompletion(result);
   }
@@ -1234,7 +1261,7 @@ async function handleRegularGameCompletion(result) {
         const player1User = await database.getUserById(player1UserId);
         
         // Emit victory points update (1 point for tie)
-        io.to(player1.id).emit('victory-points-update', {
+        emitVictoryPoints(player1.id, {
           type: 'game_tie',
           pointsAwarded: 1,
           totalVictoryPoints: player1User.victory_points,
@@ -1268,7 +1295,7 @@ async function handleRegularGameCompletion(result) {
         const player2User = await database.getUserById(player2UserId);
         
         // Emit victory points update (1 point for tie)
-        io.to(player2.id).emit('victory-points-update', {
+        emitVictoryPoints(player2.id, {
           type: 'game_tie',
           pointsAwarded: 1,
           totalVictoryPoints: player2User.victory_points,
@@ -1327,7 +1354,7 @@ async function handleRegularGameCompletion(result) {
           const oldVictoryPoints = winnerUser.victory_points - 1; // Subtract the point we just added
           
           // Emit victory points update to the winner
-          io.to(result.gameState.winner).emit('victory-points-update', {
+          emitVictoryPoints(result.gameState.winner, {
             oldVictoryPoints: oldVictoryPoints,
             newVictoryPoints: winnerUser.victory_points,
             victoryPointsGained: 1,
@@ -2205,6 +2232,144 @@ io.on('connection', (socket) => {
         success: false,
         message: result.error || 'Failed to join room'
       });
+    }
+  });
+
+  // Leaves any matchmaking queue the socket is in and tells that client its search is over
+  const leaveQueuesForChallenge = (targetSocketId) => {
+    const left = gameManager.cancelQueues(targetSocketId);
+    if (left.draft) io.to(targetSocketId).emit('search-cancelled', { success: true });
+    if (left.survival) io.to(targetSocketId).emit('survival-search-cancelled', { success: true });
+  };
+
+  // Challenge a friend to a draft game (no victory points, normal XP)
+  socket.on('challenge-friend', async (data) => {
+    const fail = (error) => socket.emit('challenge-result', { success: false, error });
+    try {
+      const userId = userSessions.get(socket.id);
+      const friendId = parseInt(data?.friendId, 10);
+      if (!userId) return fail('Not authenticated');
+      if (!friendId || friendId === userId) return fail('Invalid challenge target');
+
+      const friends = await database.getFriends(userId);
+      if (!friends.some(f => f.id === friendId)) return fail('You can only challenge friends');
+
+      const targetSocketId = loggedInUsers.get(friendId);
+      if (!targetSocketId) return fail('That friend is offline');
+      const targetName = await getCachedUsername(friendId);
+
+      if (gameManager.isPlayerInActiveGame(socket.id)) return fail('Finish your current game first');
+      if (gameManager.isPlayerInActiveGame(targetSocketId)) return fail(`${targetName} is in a game`);
+      for (const entry of pendingChallenges.values()) {
+        if (entry.targetId === friendId) return fail(`${targetName} already has a pending challenge`);
+      }
+
+      // Replace any earlier challenge from this player
+      const previous = clearPendingChallenge(userId);
+      if (previous) {
+        const previousSocketId = loggedInUsers.get(previous.targetId);
+        if (previousSocketId) io.to(previousSocketId).emit('challenge-cancelled', { fromId: userId });
+      }
+
+      leaveQueuesForChallenge(socket.id);
+
+      const timeoutId = setTimeout(() => {
+        if (!clearPendingChallenge(userId)) return;
+        io.to(targetSocketId).emit('challenge-cancelled', { fromId: userId });
+        const challengerSocketId = loggedInUsers.get(userId);
+        if (challengerSocketId) {
+          io.to(challengerSocketId).emit('challenge-result', { success: false, status: 'expired', name: targetName });
+        }
+      }, CHALLENGE_TIMEOUT_MS);
+      pendingChallenges.set(userId, { targetId: friendId, timeoutId });
+
+      const challengerName = await getCachedUsername(userId);
+      io.to(targetSocketId).emit('challenge-received', { fromId: userId, from: challengerName });
+      socket.emit('challenge-result', { success: true, status: 'sent', name: targetName });
+    } catch (error) {
+      console.error('Error sending challenge:', error);
+      fail('Failed to send challenge');
+    }
+  });
+
+  socket.on('cancel-challenge', () => {
+    const userId = userSessions.get(socket.id);
+    const entry = userId ? clearPendingChallenge(userId) : null;
+    if (!entry) return;
+    const targetSocketId = loggedInUsers.get(entry.targetId);
+    if (targetSocketId) io.to(targetSocketId).emit('challenge-cancelled', { fromId: userId });
+  });
+
+  socket.on('respond-challenge', async (data) => {
+    const fail = (error) => socket.emit('challenge-result', { success: false, error });
+    try {
+      const userId = userSessions.get(socket.id);
+      if (!userId) return fail('Not authenticated');
+
+      const challengerId = parseInt(data?.challengerId, 10);
+      const entry = pendingChallenges.get(challengerId);
+      if (!entry || entry.targetId !== userId) return fail('That challenge is no longer available');
+      clearPendingChallenge(challengerId);
+
+      const challengerSocketId = loggedInUsers.get(challengerId);
+      if (!challengerSocketId) return fail('Your challenger went offline');
+
+      const [challengerName, playerName] = await Promise.all([getCachedUsername(challengerId), getCachedUsername(userId)]);
+
+      if (!data.accept) {
+        io.to(challengerSocketId).emit('challenge-result', { success: false, status: 'declined', name: playerName });
+        return;
+      }
+
+      if (gameManager.isPlayerInActiveGame(socket.id) || gameManager.isPlayerInActiveGame(challengerSocketId)) {
+        io.to(challengerSocketId).emit('challenge-result', { success: false, error: 'The challenge could not start because a player is in a game' });
+        return fail('The challenge could not start because a player is in a game');
+      }
+
+      leaveQueuesForChallenge(challengerSocketId);
+      leaveQueuesForChallenge(socket.id);
+
+      const [challengerIcon, playerIcon] = await Promise.all([getProfileIconForUser(challengerId), getProfileIconForUser(userId)]);
+      const created = gameManager.createFriendlyGame(challengerSocketId, challengerName, `challenge-${challengerId}-${userId}`, challengerIcon, challengerId);
+      if (!created.success) {
+        io.to(challengerSocketId).emit('challenge-result', { success: false, error: 'Failed to start challenge' });
+        return fail('Failed to start challenge');
+      }
+      const joined = await gameManager.addPlayerToGame(created.gameId, socket.id, playerName, playerIcon, userId);
+      if (!joined.success) {
+        io.to(challengerSocketId).emit('challenge-result', { success: false, error: joined.error || 'Failed to start challenge' });
+        return fail(joined.error || 'Failed to start challenge');
+      }
+
+      socket.join(created.gameId);
+      io.sockets.sockets.get(challengerSocketId)?.join(created.gameId);
+
+      // Same client events as joining a room so both players land in the draft
+      io.to(challengerSocketId).emit('friendly-room-joined', {
+        success: true,
+        roomName: 'challenge',
+        gameId: created.gameId,
+        playerId: challengerSocketId,
+        players: joined.players
+      });
+      socket.emit('friendly-room-joined', {
+        success: true,
+        roomName: 'challenge',
+        gameId: created.gameId,
+        playerId: socket.id,
+        players: joined.players
+      });
+
+      const fullGameState = gameManager.getGameState(created.gameId);
+      io.to(created.gameId).emit('game-start', {
+        players: fullGameState ? fullGameState.players : joined.players,
+        draftCards: joined.draftCards,
+        gameState: fullGameState
+      });
+      console.log(`Challenge accepted: ${challengerName} vs ${playerName}, gameId: ${created.gameId}`);
+    } catch (error) {
+      console.error('Error responding to challenge:', error);
+      fail('Failed to respond to challenge');
     }
   });
 
@@ -3203,6 +3368,19 @@ io.on('connection', (socket) => {
       loggedInUsers.delete(userId);
       userSessions.delete(socket.id);
       console.log('User logged out:', userId);
+
+      // Withdraw their outgoing challenge and decline any aimed at them
+      const outgoing = clearPendingChallenge(userId);
+      if (outgoing) {
+        const outgoingTargetSocketId = loggedInUsers.get(outgoing.targetId);
+        if (outgoingTargetSocketId) io.to(outgoingTargetSocketId).emit('challenge-cancelled', { fromId: userId });
+      }
+      for (const [challengerId, entry] of Array.from(pendingChallenges.entries())) {
+        if (entry.targetId !== userId) continue;
+        clearPendingChallenge(challengerId);
+        const challengerSocketId = loggedInUsers.get(challengerId);
+        if (challengerSocketId) io.to(challengerSocketId).emit('challenge-result', { success: false, status: 'declined' });
+      }
       
       // Broadcast to all other online users that this player went offline
       // This allows friends lists to update in real-time

@@ -319,6 +319,9 @@ export interface SocketEvents {
   'respond-friend-request': (data: { requesterId: number; accept: boolean }) => void;
   'get-friend-requests': () => void;
   'remove-friend': (data: { friendId: number }) => void;
+  'challenge-friend': (data: { friendId: number }) => void;
+  'cancel-challenge': () => void;
+  'respond-challenge': (data: { challengerId: number; accept: boolean }) => void;
   'send-message': (data: { targetUserId: number; message: string }) => void;
   'get-messages': (data: { targetUserId: number; limit?: number }) => void;
   'get-quests': () => void;
@@ -390,6 +393,9 @@ export interface SocketEvents {
   'messages-response': (data: { success: boolean; messages?: Message[]; error?: string }) => void;
   'remove-friend-response': (data: { success: boolean; message?: string; error?: string }) => void;
   'friend-removed': (data: { from: string; fromId: number }) => void;
+  'challenge-received': (data: { fromId: number; from: string }) => void;
+  'challenge-cancelled': (data: { fromId: number }) => void;
+  'challenge-result': (data: { success: boolean; status?: 'sent' | 'declined' | 'expired'; name?: string; error?: string }) => void;
 
   // Spectator server responses
   'spectatable-games-list': (data: { success: boolean; games: Array<{

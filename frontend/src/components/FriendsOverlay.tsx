@@ -190,8 +190,13 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
     };
   }, []); // Empty dependency array means this runs once when component mounts and cleanup when unmounts
 
-  const handlePlayerAction = (player: OnlinePlayer, action: 'addFriend' | 'message' | 'watchGame' | 'removeFriend') => {
+  const handlePlayerAction = (player: OnlinePlayer, action: 'addFriend' | 'message' | 'watchGame' | 'removeFriend' | 'challenge') => {
     switch (action) {
+      case 'challenge':
+        socketService.challengeFriend(player.id);
+        setSelectedPlayer(null);
+        onClose();
+        break;
       case 'addFriend':
         socketService.sendFriendRequest(player.username);
         setSelectedPlayer(null);
@@ -371,6 +376,16 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
               >
                 💬 Message
               </button>
+
+              {friendIds.includes(selectedPlayer.id) && (
+                <button 
+                  className={`tooltip-action challenge-action ${selectedPlayer.isInGame ? 'disabled' : ''}`}
+                  onClick={() => handlePlayerAction(selectedPlayer, 'challenge')}
+                  disabled={selectedPlayer.isInGame}
+                >
+                  ⚔️ Challenge
+                </button>
+              )}
               
               {!friendIds.includes(selectedPlayer.id) ? (
                 <button 

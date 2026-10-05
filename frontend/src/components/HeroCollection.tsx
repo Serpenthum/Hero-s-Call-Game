@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import '../styles/HeroCollection.css';
 import CloseButton from './CloseButton';
+import Coin from './Coin';
 import config from '../config';
 import SharedHeroCard from './HeroCard';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ResponsiveCardGrid.css';
+import '../styles/Binder.css';
+import BinderOpening from './BinderOpening';
 
 interface HeroAbility {
   name: string;
@@ -39,6 +42,9 @@ interface HeroCollectionProps {
 }
 
 type SortOption = 'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage';
+
+// Matches the page-turn animation in Binder.css
+const FLIP_MS = 480;
 type FilterOption = 'available' | 'not-owned' | 'all' | 'favorites' | 'disabled';
 
 // Memoized HeroCard component to prevent unnecessary re-renders
@@ -81,13 +87,17 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
   const [sortOption, setSortOption] = useState<SortOption>('alphabetical');
   const [filterOption, setFilterOption] = useState<FilterOption>('available');
   const [currentPage, setCurrentPage] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [favoriteHeroes, setFavoriteHeroes] = useState<string[]>([]);
   const [availableHeroes, setAvailableHeroes] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [introDone, setIntroDone] = useState(false);
+  // While a page turns: which way, and the spread being left behind
+  const [flip, setFlip] = useState<{ direction: 'next' | 'prev'; from: number } | null>(null);
   
   const cardGrid = useCardGrid({ singleRowOnPhone: true });
-  const heroesPerPage = cardGrid.pageSize;
+  // The grid measures one page of the binder; the open binder shows two
+  const pageSize = cardGrid.pageSize;
+  const heroesPerPage = pageSize * 2;
 
   useEffect(() => {
     setCurrentPage(0);
@@ -357,41 +367,48 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
   );
   const visiblePage = Math.min(currentPage, Math.max(0, getTotalPages - 1));
   
-  const getCurrentPageHeroes = useMemo(() => {
-    const startIndex = visiblePage * heroesPerPage;
-    const endIndex = startIndex + heroesPerPage;
-    return sortedHeroes.slice(startIndex, endIndex);
-  }, [sortedHeroes, visiblePage, heroesPerPage]);
+  const getPageHeroes = useCallback((page: number) => {
+    const startIndex = page * heroesPerPage;
+    return sortedHeroes.slice(startIndex, startIndex + heroesPerPage);
+  }, [sortedHeroes, heroesPerPage]);
 
-  const handleNextPage = useCallback(() => {
-    if (isTransitioning) return; // Prevent rapid clicking
-    
-    setIsTransitioning(true);
-    setSelectedHeroIndex(null); // Clear selection when changing pages
-    
-    setTimeout(() => {
-      setCurrentPage((prev) => (prev + 1) % getTotalPages);
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 50); // Small delay to ensure page change happens before fade in
-    }, 200); // Fade out duration
-  }, [isTransitioning, getTotalPages]);
+  const turnPage = useCallback((direction: 'next' | 'prev') => {
+    if (flip) return; // Prevent rapid clicking
 
-  const handlePrevPage = useCallback(() => {
-    if (isTransitioning) return; // Prevent rapid clicking
-    
-    setIsTransitioning(true);
     setSelectedHeroIndex(null); // Clear selection when changing pages
-    
-    setTimeout(() => {
-      setCurrentPage((prev) => (prev - 1 + getTotalPages) % getTotalPages);
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 50); // Small delay to ensure page change happens before fade in
-    }, 200); // Fade out duration
-  }, [isTransitioning, getTotalPages]);
+    setFlip({ direction, from: visiblePage });
+    setCurrentPage(direction === 'next' ? (visiblePage + 1) % getTotalPages : (visiblePage - 1 + getTotalPages) % getTotalPages);
+    setTimeout(() => setFlip(null), FLIP_MS);
+  }, [flip, visiblePage, getTotalPages]);
+
+  const handleNextPage = useCallback(() => turnPage('next'), [turnPage]);
+  const handlePrevPage = useCallback(() => turnPage('prev'), [turnPage]);
+
+  // One page of pockets (side 0 = left, 1 = right) for the given binder spread
+  const renderHalf = (page: number, side: 0 | 1, measure = false) => (
+    <div className="responsive-card-viewport" ref={measure ? cardGrid.ref : undefined}>
+      <div className="collection-grid responsive-card-grid">
+        {Array.from({ length: pageSize }, (_, slot) => {
+          const pageOffset = side * pageSize + slot;
+          const hero = getPageHeroes(page)[pageOffset];
+          if (!hero) return <div key={`empty-${pageOffset}`} className="binder-pocket empty" />;
+          const actualIndex = page * heroesPerPage + pageOffset;
+          return (
+            <div key={hero.name} className="binder-pocket">
+              <HeroCard
+                hero={hero}
+                actualIndex={actualIndex}
+                isSelected={selectedHeroIndex === actualIndex}
+                isFavorite={favoriteHeroes.includes(hero.name)}
+                isOwned={availableHeroes.includes(hero.name)}
+                onClick={handleHeroClick}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setFilterOption(e.target.value as FilterOption);
@@ -405,13 +422,14 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
 
   if (loading) {
     return (
-      <div className="collection-fullscreen">
+      <div className="collection-fullscreen binder-theme">
+        {!introDone && <BinderOpening onDone={() => setIntroDone(true)} />}
         <div className="collection-header">
-          <h2>Hero Collection</h2>
+          <h2>Binder</h2>
           <div className="header-right">
             <div className="victory-points">
-              <span className="trophy-icon">🏆</span>
-              <span className="points-text">Victory Points: {victoryPoints}</span>
+              <Coin className="trophy-icon" />
+              <span className="points-text">{victoryPoints}</span>
             </div>
             <CloseButton onClick={onClose} />
           </div>
@@ -425,9 +443,10 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
   }
 
   return (
-    <div className="collection-fullscreen">
+    <div className="collection-fullscreen binder-theme">
+      {!introDone && <BinderOpening onDone={() => setIntroDone(true)} />}
       <div className="collection-header">
-        <h2>Hero Collection</h2>
+        <h2>Binder</h2>
         <div className="header-controls">
           <div className="filter-controls">
             <div className="control-group">
@@ -473,8 +492,8 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
             </div>
           </div>
           <div className="victory-points">
-            <span className="trophy-icon">🏆</span>
-            <span className="points-text">Victory Points: {victoryPoints}</span>
+            <Coin className="trophy-icon" />
+            <span className="points-text">{victoryPoints}</span>
           </div>
           <CloseButton onClick={onClose} />
         </div>
@@ -505,40 +524,48 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       )}
       
       <div className="collection-content">
-        <div className="collection-grid-container">
-          <div className="responsive-card-viewport" ref={cardGrid.ref} style={cardGrid.style}>
-          <div className={`collection-grid responsive-card-grid ${isTransitioning ? 'transitioning' : ''}`}>
-            {getCurrentPageHeroes.map((hero: Hero, index: number) => {
-              const actualIndex = visiblePage * heroesPerPage + index;
-              return (
-                <HeroCard
-                  key={hero.name} // Use hero name as key since it's unique and stable
-                  hero={hero}
-                  actualIndex={actualIndex}
-                  isSelected={selectedHeroIndex === actualIndex}
-                  isFavorite={favoriteHeroes.includes(hero.name)}
-                  isOwned={availableHeroes.includes(hero.name)}
-                  onClick={handleHeroClick}
-                />
-              );
-            })}
-          </div>
+        <div className="collection-grid-container binder-book" style={cardGrid.style}>
+          <div className="binder-cover">
+            <div className="binder-pages">
+              <div className="binder-page left">
+                {renderHalf(flip?.direction === 'next' ? flip.from : visiblePage, 0, true)}
+              </div>
+              <div className="binder-page right">
+                {renderHalf(flip?.direction === 'prev' ? flip.from : visiblePage, 1)}
+              </div>
+              <div className="binder-spine" aria-hidden="true">
+                <span className="binder-ring" />
+                <span className="binder-ring" />
+                <span className="binder-ring" />
+              </div>
+              {/* One leaf turns: its front is the page being lifted, its back is the page it lands on */}
+              {flip && (
+                <div className={`binder-leaf ${flip.direction}`} aria-hidden="true">
+                  <div className={`binder-leaf-face binder-page ${flip.direction === 'next' ? 'right' : 'left'}`}>
+                    {renderHalf(flip.from, flip.direction === 'next' ? 1 : 0)}
+                  </div>
+                  <div className={`binder-leaf-face back binder-page ${flip.direction === 'next' ? 'left' : 'right'}`}>
+                    {renderHalf(visiblePage, flip.direction === 'next' ? 0 : 1)}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           
           {getTotalPages > 1 && (
             <>
               <button 
-                className={`pagination-arrow-overlay left-arrow ${isTransitioning ? 'disabled' : ''}`}
+                className={`pagination-arrow-overlay left-arrow ${flip ? 'disabled' : ''}`}
                 onClick={handlePrevPage}
-                disabled={isTransitioning}
+                disabled={!!flip}
                 title="Previous page"
               >
                 ‹
               </button>
               <button 
-                className={`pagination-arrow-overlay right-arrow ${isTransitioning ? 'disabled' : ''}`}
+                className={`pagination-arrow-overlay right-arrow ${flip ? 'disabled' : ''}`}
                 onClick={handleNextPage}
-                disabled={isTransitioning}
+                disabled={!!flip}
                 title="Next page"
               >
                 ›

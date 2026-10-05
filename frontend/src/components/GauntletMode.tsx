@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Coin from './Coin';
 import GauntletContent from './GauntletContent';
 import GauntletBattleTransition from './GauntletBattleTransition';
 import BattlePhase from './BattlePhase';
@@ -161,7 +162,7 @@ const GauntletMode: React.FC<GauntletModeProps> = ({ onReturnToLobby, user }) =>
             {rewards && (
               <div className="rewards-summary">
                 <p>🎁 XP Earned: {rewards.xp}</p>
-                <p>🏆 Victory Points: {rewards.victoryPoints}</p>
+                <p><Coin /> {rewards.victoryPoints}</p>
               </div>
             )}
             {user?.best_gauntlet_trial && (

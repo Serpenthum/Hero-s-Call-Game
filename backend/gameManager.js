@@ -5967,6 +5967,22 @@ class GameManager {
     return game.phase !== 'waiting' && game.phase !== 'ended';
   }
 
+  // Drops the player from any matchmaking queue; returns which queues they were in
+  cancelQueues(playerId) {
+    const result = { draft: false, survival: false };
+    const draftIndex = this.draftQueue.findIndex(p => p.playerId === playerId);
+    if (draftIndex !== -1) {
+      this.draftQueue.splice(draftIndex, 1);
+      result.draft = true;
+    }
+    const survivalIndex = this.survivalQueue.findIndex(p => p.playerId === playerId);
+    if (survivalIndex !== -1) {
+      this.survivalQueue.splice(survivalIndex, 1);
+      result.survival = true;
+    }
+    return result;
+  }
+
   getFullGameState(game) {
     const currentTurnInfo = this.getCurrentTurnInfo(game);
     const expectedCurrentTurn = currentTurnInfo ? currentTurnInfo.playerIndex : 0;
@@ -7687,6 +7703,12 @@ class GameManager {
     if (game.mode === 'survival') {
       console.log(`🏆 Survival mode detected - victory points will be handled when run ends, not per battle`);
       return { success: true, message: 'Survival mode - victory points handled on run end' };
+    }
+
+    // Friend challenges (rooms) are played for XP only
+    if (game.roomName) {
+      console.log(`🤝 Friend challenge - no victory points awarded`);
+      return { success: true, message: 'Friend challenge - no victory points' };
     }
 
     // Handle tie games

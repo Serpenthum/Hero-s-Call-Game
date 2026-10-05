@@ -14,7 +14,7 @@ const STEPS: OverlayStep[] = [
   },
   {
     key: 'lobby-collection',
-    text: 'This is your Hero Collection. Every hero you own lives here, so come back any time to read about their abilities and specials.',
+    text: 'This is your Binder. Every hero you own lives here, so come back any time to read about their abilities and specials.',
     target: ['[data-tutorial="collection"]'],
     showNext: true,
     nextLabel: 'Got it ▶'

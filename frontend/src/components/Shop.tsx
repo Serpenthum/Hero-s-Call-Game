@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import HeroCard from './HeroCard';
 import PackOpeningAnimation from './PackOpeningAnimation';
 import CloseButton from './CloseButton';
+import Coin from './Coin';
 import { Hero } from '../types';
 import config from '../config';
 import '../styles/Shop.css';
@@ -290,8 +291,8 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
           <h2>🏪 Hero Shop</h2>
           <div className="shop-header-right">
             <div className="shop-vp-display">
-              <span className="vp-icon">🏆</span>
-              <span className="vp-amount">{victoryPoints} VP</span>
+              <Coin className="vp-icon" />
+              <span className="vp-amount">{victoryPoints}</span>
             </div>
             <CloseButton onClick={onClose} />
           </div>
@@ -342,7 +343,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                     return (
                       <div key={index} className="shop-hero-wrapper">
                         <div className="shop-vp-badge">
-                          <span>🏆 5</span>
+                          <span><Coin /> 5</span>
                         </div>
                         
                         <div 
@@ -368,7 +369,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                           }}
                           disabled={purchasing || victoryPoints < 5 || isPurchased}
                         >
-                          {isPurchased ? 'Purchased' : victoryPoints < 5 ? 'Not Enough VP' : 'Buy Hero'}
+                          {isPurchased ? 'Purchased' : victoryPoints < 5 ? 'Not Enough' : 'Buy Hero'}
                         </button>
                       </div>
                     );
@@ -398,7 +399,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
             
             <div className="shop-hero-wrapper pack-wrapper">
               <div className="shop-vp-badge pack-vp-badge">
-                <span>🏆 12</span>
+                <span><Coin /> 12</span>
               </div>
               
               <div className="shop-hero-card pack-card-display">
@@ -416,7 +417,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                 disabled={purchasing || victoryPoints < 12 || unownedHeroes.length === 0}
               >
                 {unownedHeroes.length === 0 ? 'All Heroes Owned!' : 
-                 victoryPoints < 12 ? 'Not Enough VP' : 'Buy Pack'}
+                 victoryPoints < 12 ? 'Not Enough' : 'Buy Pack'}
               </button>
               
               <button 
