@@ -47,20 +47,6 @@
 .opponent-turn { color: var(--bone-dim); }
 .spectator-turn, .spectator-label { color: var(--bone); }
 
-/* Battle log */
-.log-entry { background: var(--leather); border: 1px solid var(--brass-dim); border-left: 3px solid var(--brass-dim); border-radius: var(--radius-control); color: var(--bone); }
-.log-entry.crit { border-left-color: var(--brass-hi); }
-.log-entry.killed { border-left-color: var(--ember); }
-.log-placeholder { color: var(--bone-dim); }
-.log-entries .hero-name { color: var(--bone); font-weight: 700; }
-.log-entries .ability-name, .log-entries .special-name { color: var(--brass-hi); }
-.log-entries .special-name { font-style: italic; }
-.log-entries .target-name { color: var(--bone); }
-.log-entries .hit { color: var(--ember-hi); }
-.log-entries .miss { color: var(--bone-dim); }
-.log-entries .heal { color: var(--verdigris); }
-.log-entries .crit { color: var(--brass-hi); font-weight: 700; }
-
 /* Overlays: initiative roll and game over */
 .initiative-overlay, .game-over-overlay { background: var(--scrim); backdrop-filter: none; }
 .initiative-phase, .game-over-modal {

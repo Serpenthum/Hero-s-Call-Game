@@ -23,6 +23,7 @@ const MIGRATED = [
   'styles/TurnTimerBar.css',
   'styles/RewardsDisplay.css',
   'styles/GameTheme.css',
+  'styles/BattleLog.css',
   'components/DraftClock.tsx',
   'components/RotatePrompt.tsx',
 ];
