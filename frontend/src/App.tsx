@@ -5,6 +5,7 @@ import GameLobby from './components/GameLobby';
 import SurvivalBattleTransition from './components/SurvivalBattleTransition';
 import LoginPage from './components/LoginPage';
 import CardLayoutTest from './components/CardLayoutTest';
+import UiKit from './components/ui/UiKit';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
 import MessageIcon from './components/MessageIcon';
@@ -2121,6 +2122,10 @@ function App() {
   };
 
   const renderGameContent = () => {
+    if (import.meta.env.DEV && window.location.hash === '#ui-kit') {
+      return <UiKit />;
+    }
+
     if (showCardLayoutTest) {
       return <CardLayoutTest onExit={() => setShowCardLayoutTest(false)} />;
     }

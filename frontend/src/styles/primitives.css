@@ -1,1 +1,167 @@
 /* Reusable ui-* primitives built on tokens.css. */
+
+/* Buttons. The global `button` rules in index.css set a hover lift; neutralised here. */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: 0 var(--space-5);
+  font: 700 var(--text-md) / 1 var(--font-ui);
+  color: var(--bone);
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.ui-btn:hover:not(:disabled) { background: var(--leather-hi); border-color: var(--brass); transform: none; box-shadow: none; }
+.ui-btn:active:not(:disabled) { transform: translateY(1px); }
+.ui-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.ui-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-btn--primary { background: var(--brass); border-color: var(--brass-hi); color: var(--felt-deep); }
+.ui-btn--primary:hover:not(:disabled) { background: var(--brass-hi); border-color: var(--brass-hi); }
+.ui-btn--danger { background: transparent; border-color: var(--ember); color: var(--ember-hi); }
+.ui-btn--danger:hover:not(:disabled) { background: var(--ember); border-color: var(--ember); color: var(--bone); }
+.ui-btn--quiet { background: transparent; border-color: transparent; color: var(--bone-dim); }
+.ui-btn--quiet:hover:not(:disabled) { background: var(--leather); border-color: transparent; color: var(--bone); }
+.ui-btn--sm { min-height: 2rem; padding: 0 var(--space-3); font-size: var(--text-sm); }
+.ui-btn--block { width: 100%; }
+
+/* Form fields */
+.ui-field { text-align: left; display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-label { font: 700 var(--text-sm) / 1.2 var(--font-ui); color: var(--bone); }
+.ui-hint { font-size: var(--text-xs); line-height: 1.35; color: var(--bone-dim); }
+.ui-input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 var(--space-3);
+  font: 400 var(--text-md) / 1.2 var(--font-ui);
+  color: var(--bone);
+  background: var(--felt-deep);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 2px 4px var(--shade);
+  transition: border-color var(--dur) var(--ease);
+}
+.ui-input::placeholder { color: var(--bone-dim); opacity: 0.7; }
+.ui-input:hover:not(:disabled) { border-color: var(--brass); }
+.ui-input:focus-visible { outline: var(--focus-outline); outline-offset: 1px; border-color: var(--brass-hi); }
+.ui-input:disabled { opacity: 0.55; cursor: not-allowed; }
+.ui-check { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); color: var(--bone); cursor: pointer; }
+.ui-check input { width: 1.125rem; height: 1.125rem; margin: 0; padding: 0; accent-color: var(--brass); }
+.ui-check input:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+
+/* Surfaces */
+.ui-panel {
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  color: var(--bone);
+}
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.125rem var(--space-2);
+  font: 700 var(--text-xs) / 1.4 var(--font-ui);
+  color: var(--bone);
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-control);
+}
+.ui-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--felt-deep);
+  border: 1px solid var(--brass-dim);
+  border-radius: 999px;
+  color: var(--bone);
+  font: 700 var(--text-md) / 1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tabs */
+.ui-tab {
+  padding: var(--space-2) var(--space-4);
+  font: 700 var(--text-md) / 1 var(--font-ui);
+  color: var(--bone-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+}
+.ui-tab:hover { color: var(--bone); background: var(--leather); transform: none; box-shadow: none; }
+.ui-tab[aria-selected='true'] { color: var(--bone); border-bottom-color: var(--brass-hi); background: var(--leather); }
+.ui-tab:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+
+/* Modal shell (the Modal component arrives with the phase that migrates the modals) */
+.ui-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--scrim);
+}
+.ui-modal {
+  position: relative;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--space-6);
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  color: var(--bone);
+}
+
+/* HP bar: ally in verdigris, foe in ember. Set the fill width inline. */
+.ui-hpbar { height: 0.5rem; background: var(--felt-deep); border: 1px solid var(--brass-dim); border-radius: 999px; overflow: hidden; }
+.ui-hpbar__fill { height: 100%; background: var(--verdigris); transition: width 300ms var(--ease); }
+.ui-hpbar--foe .ui-hpbar__fill { background: var(--ember); }
+
+/* Feedback */
+.ui-notice {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--bone);
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-left-width: 4px;
+  border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.ui-notice svg { flex-shrink: 0; margin-top: 0.125rem; }
+.ui-notice--error { border-color: var(--ember); }
+.ui-notice--error svg { color: var(--ember-hi); }
+.ui-notice--success { border-color: var(--verdigris); }
+.ui-notice--success svg { color: var(--verdigris); }
+.ui-notice--info svg { color: var(--brass-hi); }
+
+.ui-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--brass-dim);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: ui-spin 0.8s linear infinite;
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ui-spinner { animation: none; }
+  .ui-btn, .ui-input, .ui-hpbar__fill { transition: none; }
+}

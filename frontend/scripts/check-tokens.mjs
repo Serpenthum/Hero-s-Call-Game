@@ -8,6 +8,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 // Each task appends the files it migrates; later phases extend this list.
 const MIGRATED = [
   'styles/primitives.css',
+  'components/ui/Icon.tsx',
+  'components/ui/UiKit.tsx',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
