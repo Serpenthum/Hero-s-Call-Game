@@ -1,50 +1,46 @@
 import React from 'react';
 
-// Gold tile icons for the lobby; drawn as SVG so they stay sharp at any size.
-const GOLD_LIGHT = '#ffe680';
-const GOLD = '#ffc61a';
-const GOLD_DARK = '#c98a00';
-const OUTLINE = '#4a3000';
+// Lobby tile icons: a market stall and a leather tome. Colours come from the table palette
+// through the lobby-icon-* classes in Lobby.css, so they follow the tokens.
 
 export const ShopIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} viewBox="0 0 64 64" aria-hidden="true">
-    <defs>
-      <linearGradient id="shopBag" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor={GOLD_LIGHT} />
-        <stop offset="0.55" stopColor={GOLD} />
-        <stop offset="1" stopColor={GOLD_DARK} />
-      </linearGradient>
-    </defs>
-    <g stroke={OUTLINE} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
-      <path d="M22 13 C26 8 38 8 42 13 L40 19 L24 19 Z" fill={GOLD} />
-      <path d="M24 19 L40 19 L45 27 C52 34 55 43 52 50 C49 58 40 60 32 60 C24 60 15 58 12 50 C9 43 12 34 19 27 Z" fill="url(#shopBag)" />
-      <path d="M19 27 L45 27" fill="none" />
-      <path d="M21 25 C28 29 36 29 43 25" fill="none" stroke={GOLD_DARK} strokeWidth="3" />
-      <circle cx="32" cy="43" r="9" fill={GOLD_LIGHT} />
-      <circle cx="32" cy="43" r="5.5" fill="none" stroke={GOLD_DARK} />
-      <path d="M32 39.5 L33.2 42 L36 42.3 L33.9 44.2 L34.5 47 L32 45.6 L29.5 47 L30.1 44.2 L28 42.3 L30.8 42 Z" fill={GOLD_DARK} stroke="none" />
+    <g strokeLinejoin="round" strokeLinecap="round" strokeWidth="1.6">
+      {/* posts and counter */}
+      <path className="li-wood" d="M12 26 V56 M52 26 V56" fill="none" strokeWidth="3" />
+      <rect className="li-wood-fill" x="10" y="42" width="44" height="14" rx="1.5" />
+      <path className="li-line" d="M10 48 H54" fill="none" />
+      {/* wares on the counter */}
+      <path className="li-brass-fill" d="M20 42 q0-8 6-8 t6 8 z" />
+      <circle className="li-brass-fill" cx="40" cy="38" r="4.5" />
+      <circle className="li-brass-fill" cx="46" cy="40.5" r="3.5" />
+      {/* striped awning with scalloped edge */}
+      <path className="li-ember-fill" d="M8 12 H20 V26 a4 4 0 0 1 -8 0 a4 4 0 0 1 -4 -4 z" />
+      <path className="li-bone-fill" d="M20 12 H32 V26 a4 4 0 0 1 -8 0 a4 4 0 0 1 -4 0 z" />
+      <path className="li-ember-fill" d="M32 12 H44 V26 a4 4 0 0 1 -8 0 a4 4 0 0 1 -4 0 z" />
+      <path className="li-bone-fill" d="M44 12 H56 V22 a4 4 0 0 1 -4 4 a4 4 0 0 1 -8 0 z" />
+      <path className="li-brass-fill" d="M6 8 H58 L56 12 H8 z" />
     </g>
   </svg>
 );
 
 export const BinderIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} viewBox="0 0 64 64" aria-hidden="true">
-    <defs>
-      <linearGradient id="binderCover" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor={GOLD_LIGHT} />
-        <stop offset="0.55" stopColor={GOLD} />
-        <stop offset="1" stopColor={GOLD_DARK} />
-      </linearGradient>
-    </defs>
-    <g stroke={OUTLINE} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
-      <rect x="47" y="10" width="8" height="46" rx="2" fill="#fff3c4" />
-      <path d="M50 16 L52 16 M50 22 L52 22 M50 28 L52 28 M50 34 L52 34 M50 40 L52 40 M50 46 L52 46" fill="none" strokeWidth="1.2" />
-      <rect x="9" y="6" width="43" height="52" rx="4" fill="url(#binderCover)" />
-      <rect x="9" y="6" width="9" height="52" rx="3" fill={GOLD_DARK} />
-      <path d="M13.5 14 L13.5 18 M13.5 28 L13.5 32 M13.5 42 L13.5 46" fill="none" stroke={GOLD_LIGHT} strokeWidth="2.5" />
-      <rect x="23" y="13" width="23" height="31" rx="2.5" fill="#2a1d00" />
-      <path d="M34.5 20 L41 28.5 L34.5 37 L28 28.5 Z" fill={GOLD_LIGHT} stroke={GOLD_DARK} />
-      <rect x="25" y="48" width="19" height="5" rx="2" fill={GOLD_LIGHT} />
+    <g strokeLinejoin="round" strokeLinecap="round" strokeWidth="1.6">
+      {/* page block */}
+      <path className="li-bone-fill" d="M14 10 H51 a2 2 0 0 1 2 2 V52 a2 2 0 0 1 -2 2 H14 z" />
+      <path className="li-line" d="M17 54 V58 H50 M17 12 H50" fill="none" strokeWidth="1" />
+      {/* leather cover with spine */}
+      <path className="li-leather-fill" d="M10 6 H46 a3 3 0 0 1 3 3 V49 a3 3 0 0 1 -3 3 H10 a3 3 0 0 1 -3 -3 V9 a3 3 0 0 1 3 -3 z" />
+      <path className="li-spine" d="M7 9 a3 3 0 0 1 3 -3 H17 V52 H10 a3 3 0 0 1 -3 -3 z" />
+      <path className="li-brass" d="M17 6 V52 M10 14 H17 M10 24 H17 M10 34 H17 M10 44 H17" fill="none" />
+      {/* corner caps */}
+      <path className="li-brass-fill" d="M49 6 V15 M49 6 H40 L49 15 z" />
+      <path className="li-brass-fill" d="M49 52 V43 L40 52 z" />
+      {/* diamond emblem and clasp */}
+      <path className="li-brass-fill" d="M31 18 L38 28 L31 38 L24 28 z" />
+      <path className="li-line" d="M31 22 L34 28 L31 34 L28 28 z" fill="none" strokeWidth="1" />
+      <rect className="li-brass-fill" x="45" y="25" width="8" height="7" rx="1.5" />
     </g>
   </svg>
 );

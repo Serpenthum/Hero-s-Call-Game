@@ -144,13 +144,86 @@
 }
 .lobby-tile:hover { background: var(--leather); border-color: var(--brass); transform: none; box-shadow: var(--inset-frame); }
 .lobby-tile:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
-.lobby-tile-icon { width: 3.5rem; height: 3.5rem; }
+.lobby-tile-icon { width: 5.5rem; height: 5.5rem; filter: drop-shadow(0 3px 4px var(--shade)); }
+.lobby-tile-icon .li-brass-fill { fill: var(--brass-hi); stroke: var(--brass-dim); }
+.lobby-tile-icon .li-brass { stroke: var(--brass-hi); }
+.lobby-tile-icon .li-ember-fill { fill: var(--ember); stroke: var(--felt-deep); }
+.lobby-tile-icon .li-bone-fill { fill: var(--bone); stroke: var(--bone-dim); }
+.lobby-tile-icon .li-wood { stroke: var(--leather-hi); }
+.lobby-tile-icon .li-wood-fill { fill: var(--leather); stroke: var(--brass-dim); }
+.lobby-tile-icon .li-leather-fill { fill: var(--ember); stroke: var(--felt-deep); }
+.lobby-tile-icon .li-spine { fill: color-mix(in srgb, var(--ember) 60%, var(--felt-deep)); stroke: var(--felt-deep); }
+.lobby-tile-icon .li-line { stroke: var(--brass-dim); }
+.lobby-tile:hover .lobby-tile-icon { transform: translateY(-2px); }
+.lobby-tile-icon { transition: transform var(--dur) var(--ease); }
 
 .lobby-hero-viewport { align-self: stretch; min-height: 20rem; display: flex; align-items: center; justify-content: center; }
 .random-hero-card { transition: opacity 300ms var(--ease), transform 300ms var(--ease); }
 .random-hero-card.transitioning { opacity: 0; transform: scale(0.97); }
 .random-hero-card .hero-card,
 .random-hero-card .hero-card:hover { transform: none !important; transition: none !important; z-index: auto !important; }
+
+/* The featured hero sits on a lit pedestal: candle glow behind, a brass ring on the felt beneath */
+.lobby-hero-viewport { position: relative; isolation: isolate; }
+.lobby-hero-viewport::before {
+  content: '';
+  position: absolute;
+  inset: -4% -12%;
+  z-index: -2;
+  background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--brass-hi) 22%, transparent), transparent 62%);
+  pointer-events: none;
+}
+.random-hero-card { position: relative; }
+.random-hero-card::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -1.6rem;
+  width: 125%;
+  height: 4rem;
+  transform: translateX(-50%) rotate(1.5deg);
+  z-index: -1;
+  border: 1px solid var(--brass-dim);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--felt-deep) 85%, transparent), transparent 72%);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--brass-dim) 25%, transparent), inset 0 0 0 5px var(--felt);
+  pointer-events: none;
+}
+.random-hero-card { transform: rotate(-1.5deg); filter: drop-shadow(0 14px 18px var(--shade)); }
+.random-hero-card.transitioning { transform: rotate(-1.5deg) scale(0.97); }
+
+/* Tiles read as hanging banners */
+.lobby-tile { position: relative; padding-top: var(--space-5); gap: var(--space-3); font: 400 var(--text-lg) / 1 var(--font-display); background: linear-gradient(var(--walnut), color-mix(in srgb, var(--walnut) 80%, var(--felt-deep))); }
+.lobby-tile::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 18%;
+  right: 18%;
+  height: 3px;
+  background: var(--brass);
+  border-radius: 0 0 3px 3px;
+}
+.lobby-tile:hover::before { background: var(--brass-hi); }
+
+/* Title and ledger */
+.lobby-title::before, .lobby-title::after { content: ''; display: inline-block; width: 0.45em; height: 0.45em; margin: 0 0.45em 0.12em 0; background: var(--brass); transform: rotate(45deg); }
+.lobby-title::after { margin: 0 0 0.12em 0.45em; }
+.lobby-section-title { font: 400 var(--text-lg) / 1 var(--font-display); }
+.lobby-ledger { background: linear-gradient(var(--walnut), color-mix(in srgb, var(--walnut) 85%, var(--felt-deep))); }
+
+/* Placards catch the light along the top edge */
+.placard::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: var(--space-5);
+  right: var(--space-5);
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brass-hi), transparent);
+  opacity: 0.7;
+}
+.placard:hover::before { opacity: 1; }
 
 /* Mode placards */
 .lobby-placards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--space-4); }
