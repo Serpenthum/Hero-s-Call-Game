@@ -1,0 +1,269 @@
+/* Lobby: the felt table. Ledger on the left, the featured hero and mode placards on the table. */
+.lobby {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--felt-surface);
+  color: var(--bone);
+  font-family: var(--font-ui);
+  text-align: left;
+  font-variant-numeric: lining-nums;
+}
+
+/* Top bar */
+.lobby-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--walnut);
+  border-bottom: 1px solid var(--brass-dim);
+  box-shadow: 0 6px 18px var(--shade);
+}
+.lobby-title {
+  margin: 0;
+  font: 400 var(--text-xl) / 1 var(--font-display);
+  letter-spacing: 0.01em;
+  color: var(--bone);
+}
+.lobby-status { display: flex; align-items: center; gap: var(--space-5); }
+.lobby-coins .coin-icon { width: 1.25em; height: 1.25em; align-self: center; }
+.lobby-coins-amount { display: inline-block; }
+.lobby-coins-amount.vp-bump { animation: lobby-bump 420ms var(--ease); }
+@keyframes lobby-bump {
+  40% { transform: scale(1.3); color: var(--brass-hi); }
+}
+.lobby-level { display: flex; flex-direction: column; gap: var(--space-1); min-width: 11rem; }
+.lobby-level-text { font: 700 var(--text-sm) / 1 var(--font-ui); color: var(--bone-dim); }
+
+/* Layout */
+.lobby-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+/* Ledger */
+.lobby-ledger {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+.lobby-player { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.lobby-player h2 {
+  margin: 0;
+  min-width: 0;
+  font: 700 var(--text-xl) / 1.1 var(--font-ui);
+  overflow-wrap: anywhere;
+}
+.profile-avatar-btn {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
+  overflow: hidden;
+  background: var(--felt-deep);
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.profile-avatar-btn:hover { transform: none; box-shadow: none; border-color: var(--brass-hi); }
+.profile-avatar-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.profile-avatar-btn img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.lobby-section-title {
+  margin: 0;
+  padding-bottom: var(--space-2);
+  font: 700 var(--text-md) / 1 var(--font-ui);
+  color: var(--bone);
+  border-bottom: 1px solid var(--brass-dim);
+}
+.lobby-quests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.lobby-quest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.3;
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-control);
+}
+.lobby-quest-text { min-width: 0; overflow-wrap: anywhere; }
+.lobby-quest-progress {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--brass-hi);
+}
+.lobby-quest.completed { border-color: var(--verdigris); color: var(--bone-dim); }
+.lobby-quest.completed .lobby-quest-text { text-decoration: line-through; }
+.lobby-quest.completed .lobby-quest-progress { color: var(--verdigris); }
+.lobby-quest.just-completed { animation: lobby-quest-pop 600ms var(--ease); }
+@keyframes lobby-quest-pop {
+  50% { transform: scale(1.03); }
+}
+.lobby-empty { margin: 0; font-size: var(--text-sm); color: var(--bone-dim); }
+
+/* Table */
+.lobby-table { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; min-height: 0; }
+.lobby-stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) 9rem;
+  align-items: center;
+  gap: var(--space-5);
+}
+.lobby-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  font: 700 var(--text-md) / 1 var(--font-ui);
+  color: var(--bone);
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--inset-frame);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.lobby-tile:hover { background: var(--leather); border-color: var(--brass); transform: none; box-shadow: var(--inset-frame); }
+.lobby-tile:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.lobby-tile-icon { width: 3.5rem; height: 3.5rem; }
+
+.lobby-hero-viewport { align-self: stretch; min-height: 20rem; display: flex; align-items: center; justify-content: center; }
+.random-hero-card { transition: opacity 300ms var(--ease), transform 300ms var(--ease); }
+.random-hero-card.transitioning { opacity: 0; transform: scale(0.97); }
+.random-hero-card .hero-card,
+.random-hero-card .hero-card:hover { transform: none !important; transition: none !important; z-index: auto !important; }
+
+/* Mode placards */
+.lobby-placards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--space-4); }
+.placard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease);
+}
+.placard:hover { border-color: var(--brass); }
+.placard-head { display: flex; align-items: center; gap: var(--space-3); }
+.placard-icon { flex-shrink: 0; color: var(--brass-hi); }
+.placard-title { flex: 1; margin: 0; font: 400 var(--text-lg) / 1.1 var(--font-display); }
+.placard-text { margin: 0; min-height: 1.4em; font-size: var(--text-sm); color: var(--bone-dim); }
+.placard--searching { border-color: var(--brass-hi); cursor: default; }
+.placard-dots { display: inline-flex; gap: var(--space-1); margin-left: var(--space-2); }
+.placard-dots .dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  background: var(--brass-hi);
+  border-radius: 50%;
+  animation: lobby-dot 1.2s var(--ease) infinite;
+}
+.placard-dots .dot:nth-child(2) { animation-delay: 0.2s; }
+.placard-dots .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes lobby-dot {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+
+/* An unlocked mode rises onto the table once */
+.mode-unlock-reveal { animation: lobby-rise 700ms var(--ease) both; }
+@keyframes lobby-rise {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: none; }
+}
+
+.mode-unlock-toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-7);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: max-content;
+  max-width: min(28rem, calc(100vw - 2rem));
+  padding: var(--space-4) var(--space-5);
+  transform: translateX(-50%);
+  background: var(--walnut);
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  cursor: pointer;
+  animation: lobby-fade 400ms var(--ease) both;
+}
+.mode-unlock-toast-icon { color: var(--brass-hi); }
+.mode-unlock-toast-text { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-sm); color: var(--bone-dim); }
+.mode-unlock-toast-text strong { font-size: var(--text-md); color: var(--bone); }
+@keyframes lobby-fade { from { opacity: 0; } }
+
+/* Friends and messages dock: smaller on phones so it clears the placards */
+@media (max-width: 768px), (max-width: 1000px) and (max-height: 600px) {
+  body:has(.game-lobby-modern) .friends-icon,
+  body:has(.game-lobby-modern) .message-icon {
+    width: 36px;
+    height: 36px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+  }
+  body:has(.game-lobby-modern) .friends-icon { left: 8px; }
+  body:has(.game-lobby-modern) .message-icon { left: 50px; }
+  body:has(.game-lobby-modern) .friends-icon-svg,
+  body:has(.game-lobby-modern) .message-icon-svg { width: 18px; height: 18px; }
+  body:has(.game-lobby-modern) .friends-icon .notification-badge,
+  body:has(.game-lobby-modern) .message-icon .notification-badge {
+    min-width: 14px;
+    height: 14px;
+    padding: 0 2px;
+    top: -5px;
+    right: -5px;
+    font-size: 9px;
+  }
+  body:has(.game-lobby-modern) .friends-icon-tooltip,
+  body:has(.game-lobby-modern) .message-icon-tooltip { bottom: 42px; }
+}
+
+/* Narrow or short windows: one column; the featured hero is decorative, so it steps aside */
+@media (max-width: 1000px), (max-height: 700px) {
+  .lobby-main { grid-template-columns: minmax(0, 1fr); padding: var(--space-4); gap: var(--space-4); }
+  .lobby-ledger { align-self: stretch; }
+  .lobby-stage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lobby-hero-viewport { display: none; }
+  .lobby { padding-bottom: 3.5rem; }
+}
+@media (max-width: 600px) {
+  .lobby-bar { flex-wrap: wrap; padding: var(--space-3) var(--space-4); }
+  .lobby-status { width: 100%; justify-content: space-between; gap: var(--space-3); }
+  .lobby-level { flex: 1; min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lobby-coins-amount.vp-bump,
+  .lobby-quest.just-completed,
+  .mode-unlock-reveal,
+  .mode-unlock-toast,
+  .placard-dots .dot { animation: none; }
+  .random-hero-card,
+  .placard,
+  .lobby-tile { transition: none; }
+}

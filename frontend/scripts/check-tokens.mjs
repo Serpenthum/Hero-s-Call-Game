@@ -15,6 +15,9 @@ const MIGRATED = [
   'components/LoginPage.tsx',
   'components/RegisterPage.tsx',
   'components/HowToPlayModal.tsx',
+  'styles/Lobby.css',
+  'styles/XPBar.css',
+  'components/GameLobby.tsx',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;

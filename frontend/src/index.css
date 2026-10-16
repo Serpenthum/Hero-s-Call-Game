@@ -34,6 +34,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: var(--felt-surface);
   color: var(--bone);
+  font-variant-numeric: lining-nums;
   min-height: 100vh;
 }
 
