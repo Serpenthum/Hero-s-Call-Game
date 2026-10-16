@@ -233,8 +233,8 @@ app.post('/api/login', async (req, res) => {
           levelsGained: levelUpResult.levelsGained,
           vpGained: levelUpResult.vpGained,
           message: levelUpResult.levelsGained > 1 ? 
-            `Level up! You're now level ${levelUpResult.level}! Gained ${levelUpResult.levelsGained} levels and ${levelUpResult.vpGained} VP!` :
-            `Level up! You're now level ${levelUpResult.level}! Gained ${levelUpResult.vpGained} VP!`
+            `Level up! You're now level ${levelUpResult.level}! Gained ${levelUpResult.levelsGained} levels!` :
+            `Level up! You're now level ${levelUpResult.level}!`
         });
         
         // Send VP update event
@@ -1292,7 +1292,7 @@ async function checkSurvivalGameCompletion(result) {
       runEnded: player1State.runEnded || false,
       victoryPoints: player1VictoryPoints,
       message: player1State.runEnded ? 
-        `Run ended in a tie! You earned ${player1State.settlement?.vpAwarded ?? 0} victory points for your ${player1State.wins} wins.` :
+        `Run ended in a tie after ${player1State.wins} wins.` :
         `Tie game! You now have ${player1State.wins} wins and ${player1State.losses} losses. No heroes banned.`
     });
     
@@ -1302,7 +1302,7 @@ async function checkSurvivalGameCompletion(result) {
       runEnded: player2State.runEnded || false,
       victoryPoints: player2VictoryPoints,
       message: player2State.runEnded ? 
-        `Run ended in a tie! You earned ${player2State.settlement?.vpAwarded ?? 0} victory points for your ${player2State.wins} wins.` :
+        `Run ended in a tie after ${player2State.wins} wins.` :
         `Tie game! You now have ${player2State.wins} wins and ${player2State.losses} losses. No heroes banned.`
     });
     
@@ -1385,7 +1385,7 @@ async function checkSurvivalGameCompletion(result) {
           runEnded: winnerState.runEnded || false,
           victoryPoints: winnerVictoryPoints,
           message: winnerState.runEnded ? 
-            `Perfect run! You earned ${winnerState.settlement?.vpAwarded ?? 0} victory points for your 7 wins!` :
+            `Perfect run! 7 wins.` :
             `Victory! You now have ${winnerState.wins} wins and ${winnerState.losses} losses.`
         });
         
@@ -1395,7 +1395,7 @@ async function checkSurvivalGameCompletion(result) {
           runEnded: loserState.runEnded || false,
           victoryPoints: loserVictoryPoints,
           message: loserState.runEnded ? 
-            `Run ended! You earned ${loserState.settlement?.vpAwarded ?? 0} victory points for your ${loserState.wins} wins.` :
+            `Run ended after ${loserState.wins} wins.` :
             `Defeat! You now have ${loserState.wins} wins and ${loserState.losses} losses.`
         });
         
@@ -1416,7 +1416,7 @@ async function checkSurvivalGameCompletion(result) {
           state: loserState,
           runEnded: loserState.runEnded || false,
           message: loserState.runEnded ? 
-            `Run ended! You earned ${loserState.settlement?.vpAwarded ?? 0} victory points for your ${loserState.wins} wins.` :
+            `Run ended after ${loserState.wins} wins.` :
             `Defeat! You now have ${loserState.wins} wins and ${loserState.losses} losses.`
         });
       }
@@ -1457,7 +1457,7 @@ async function announceGauntletPayout(playerId, payout, trialsWon) {
       type: 'gauntlet_complete',
       pointsAwarded: payout.victoryPoints,
       totalVictoryPoints: user.victory_points,
-      message: `Gauntlet run over after ${trialsWon} win${trialsWon === 1 ? '' : 's'}! Earned ${payout.victoryPoints} victory points!`
+      message: `Gauntlet run over after ${trialsWon} win${trialsWon === 1 ? '' : 's'}! Rewards paid.`
     });
   }
 }
@@ -2395,7 +2395,7 @@ io.on('connection', (socket) => {
     // Create appropriate message based on whether victory points were awarded
     let message = 'Survival run reset successfully!';
     if (victoryPointsAwarded > 0) {
-      message = `Survival run abandoned! You earned ${victoryPointsAwarded} victory points for your wins.`;
+      message = `Survival run abandoned. Rewards for your wins have been paid.`;
       
       // Also send a victory points update with the new total
       const userId = userSessions.get(socket.id);
@@ -2406,7 +2406,7 @@ io.on('connection', (socket) => {
             type: 'survival_abandon',
             pointsAwarded: victoryPointsAwarded,
             totalVictoryPoints: user.victory_points,
-            message: `Survival run abandoned! You earned ${victoryPointsAwarded} victory points. Total: ${user.victory_points}`
+            message: `Survival run abandoned. Rewards for your wins have been paid.`
           });
         } catch (error) {
           console.error('❌ Error sending victory points update for survival abandon:', error);

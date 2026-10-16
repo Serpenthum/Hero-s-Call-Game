@@ -10,6 +10,8 @@ Dragonflow was removed beforehand (commit 84df0e3, archived in `Businesses/Drago
 
 **Card acceptance rule (user):** a hero card must show its image exactly as now, show its stats, and show ALL ability and special text. If those three hold the card passes; card CSS is still left alone unless a phase needs a fix for one of them.
 
+**Currency rule (user):** the currency has no name. Anywhere it is shown, use the coin image (`Coin.tsx`) next to a number: never the words "VP", "victory points" or "coins", in UI text or server messages. Prices and balances are `<Coin /> 340`. An unaffordable purchase says "Not enough to buy this." Database and API field names (`victory_points`) stay as they are; they are not user-facing. Server notification text no longer states amounts; reward screens show them with the coin.
+
 ## Constraints and assumptions
 - Stated: keep cards as built; Gauntlet is PvP by bracket, HP persists across trials, `buy_pack` stays as a fifth shop action, Gauntlet is un-hidden in the lobby (done at the end of phase 5, once its backend fixes land).
 - Assumed (change in review): fonts are IM Fell English + Alegreya Sans, self-hosted via `@fontsource`; Gauntlet stays untimed.
@@ -21,7 +23,7 @@ Type: IM Fell English for titles and large numerals; Alegreya Sans for all UI te
 Shape: 4px radius controls, 8px panels, 1px brass hairline plus inner shadow (inset-leather look). No stock Bootstrap colours (`#007bff`, `#28a745`, `#dc3545`).
 Motion: only in response to actions, one orchestrated moment per screen, `prefers-reduced-motion` respected.
 Quality floor: responsive down to phone width, visible keyboard focus, sufficient contrast.
-Primitives (shared classes/components): panel, button (primary/secondary/danger), tab, modal shell, input, badge, close button, resource pill (VP, XP), HP bar.
+Primitives (shared classes/components): panel, button (primary/secondary/danger), tab, modal shell, input, badge, close button, resource pill (coin + number, XP), HP bar.
 Copy rule: action buttons say what happens ("Save changes"); the same action keeps its name through the flow; errors say what went wrong and how to fix it.
 
 ## Screens (each has one memorable element)

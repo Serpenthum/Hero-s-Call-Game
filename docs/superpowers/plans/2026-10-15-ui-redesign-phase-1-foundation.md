@@ -18,6 +18,7 @@
 - Motion only in response to actions, plus one orchestrated moment per screen; `prefers-reduced-motion` respected.
 - Quality floor: works down to phone width (320px), visible keyboard focus on every control, sufficient contrast.
 - Copy: buttons say what happens ("Sign in", "Create account"); the same action keeps one name through the flow; errors say what went wrong and how to fix it.
+- Currency (user rule): never name it. Show the coin image (`components/Coin.tsx`, leave its file as is) beside a number. No "VP", "victory points" or "coins" in UI text or server messages. Unaffordable: "Not enough to buy this." Done for server text on 2026-10-15 (commit after Task 3); later phases apply it to each screen they restyle.
 - Hero cards: do NOT edit `HeroCard.tsx` or `HeroCard.css`. A card must still show its image as now, its stats, and ALL ability and special text.
 - Push straight to `main` (project convention). Commit trailer: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
 - `frontend/dist` is tracked in git: never commit build output. Verification builds use `--outDir` in the temp directory.

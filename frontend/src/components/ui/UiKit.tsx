@@ -1,5 +1,6 @@
 import React from 'react';
 import Icon from './Icon';
+import Coin from '../Coin';
 import CloseButton from '../CloseButton';
 
 const UiKit: React.FC = () => (
@@ -23,7 +24,7 @@ const UiKit: React.FC = () => (
       <label className="ui-check"><input type="checkbox" defaultChecked /> Keep me signed in</label>
       <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
         <span className="ui-badge">Level 12</span>
-        <span className="ui-pill"><Icon name="check" /> 340 VP</span>
+        <span className="ui-pill"><Coin /> 340</span>
         <span className="ui-btn ui-btn--quiet ui-btn--sm"><span className="ui-spinner" /> Loading</span>
       </div>
       <div role="tablist" style={{ display: 'flex', gap: 'var(--space-1)' }}>

@@ -11,6 +11,8 @@ const MIGRATED = [
   'components/ui/Icon.tsx',
   'components/ui/UiKit.tsx',
   'styles/CloseButton.css',
+  'styles/auth.css',
+  'components/LoginPage.tsx',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;

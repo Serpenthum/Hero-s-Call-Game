@@ -1130,7 +1130,7 @@ class Database {
   async purchaseHeroes(userId, cost, heroNames) {
     const user = await this.getUserById(userId);
     if (!user) return { success: false, error: 'User not found' };
-    if (user.victory_points < cost) return { success: false, error: 'Not enough Victory Points' };
+    if (user.victory_points < cost) return { success: false, error: 'Not enough to buy this.' };
     
     const updatedHeroes = [...new Set([...user.available_heroes, ...heroNames])];
     return new Promise((resolve, reject) => {
@@ -1139,7 +1139,7 @@ class Database {
         [cost, JSON.stringify(updatedHeroes), userId, cost],
         function(err) {
           if (err) return reject(err);
-          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough Victory Points' });
+          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough to buy this.' });
           resolve({ success: true, newVP: user.victory_points - cost, available_heroes: updatedHeroes });
         }
       );

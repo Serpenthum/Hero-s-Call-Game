@@ -1,0 +1,112 @@
+/* Login and register: a leather-bound book with a brass clasp, lying on the felt table */
+.auth-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: max(var(--space-4), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
+    max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
+  background: var(--felt-surface);
+  color: var(--bone);
+  font-family: var(--font-ui);
+}
+
+.auth-backdrop {
+  position: fixed;
+  inset: 0;
+  opacity: 0.16;
+  filter: saturate(0.4);
+  pointer-events: none;
+}
+.auth-page--login .auth-backdrop { background: var(--login-background-image); }
+.auth-page--register .auth-backdrop { background: var(--register-background-image); }
+
+.auth-book {
+  position: relative;
+  width: 100%;
+  max-width: 26rem;
+  margin: auto;
+  padding: var(--space-8) var(--space-7) var(--space-7);
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+}
+
+/* The clasp: the one moment on this screen. It drops into place when the book appears. */
+.auth-book::before {
+  content: '';
+  position: absolute;
+  top: -0.65rem;
+  left: 50%;
+  width: 3.5rem;
+  height: 1.3rem;
+  transform: translateX(-50%);
+  background: var(--brass);
+  border-radius: 3px 3px 7px 7px;
+  box-shadow: inset 0 -3px 0 var(--brass-dim), 0 2px 6px var(--shade);
+  animation: auth-clasp 520ms var(--ease) both;
+}
+.auth-book::after {
+  content: '';
+  position: absolute;
+  top: -0.2rem;
+  left: 50%;
+  width: 0.4rem;
+  height: 0.4rem;
+  transform: translateX(-50%);
+  background: var(--felt-deep);
+  border-radius: 50%;
+}
+@keyframes auth-clasp {
+  from { transform: translateX(-50%) translateY(1.1rem); }
+  to { transform: translateX(-50%) translateY(0); }
+}
+
+.auth-title {
+  margin: 0;
+  text-align: center;
+  font: 400 var(--text-3xl) / 1.05 var(--font-display);
+  letter-spacing: 0.01em;
+  color: var(--bone);
+}
+.auth-lede {
+  margin: var(--space-2) 0 var(--space-6);
+  text-align: center;
+  font-size: var(--text-md);
+  color: var(--bone-dim);
+}
+
+.auth-form { display: flex; flex-direction: column; gap: var(--space-5); }
+.auth-actions { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-2); }
+.auth-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--bone-dim);
+}
+
+.auth-devtools {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--leather-hi);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.auth-devtools .ui-hint { text-align: center; }
+
+@media (max-width: 480px) {
+  .auth-book { padding: var(--space-8) var(--space-5) var(--space-6); }
+  .auth-title { font-size: var(--text-2xl); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-book::before { animation: none; }
+}

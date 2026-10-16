@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import '../styles/LoginPage.css';
-import '../styles/AuthResponsive.css';
+import '../styles/auth.css';
+import Icon from './ui/Icon';
 import config from '../config';
 import { setAuthToken } from '../authSession';
 
@@ -68,7 +68,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartC
     e.preventDefault();
     
     if (!username.trim() || !password.trim()) {
-      setError('Please fill in all fields');
+      setError('Enter your username and password.');
       return;
     }
 
@@ -107,14 +107,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartC
       } else {
         // Handle specific error cases
         if (response.status === 409) {
-          setError('⚠️ Account Already Active\n\nThis account is currently logged in from another session. You can either:\n• Close the other session and try again\n• Use a different account');
+          setError('This account is already signed in on another session. Close that session, or use a different account.');
         } else {
-          setError(data.message || 'Login failed');
+          setError(data.message || 'Sign in failed. Check your username and password.');
         }
       }
     } catch (error) {
       console.error('Login error:', error);
-      setError('Connection failed. Please try again.');
+      setError('Could not reach the server. Check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -154,56 +154,27 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartC
         setAuthToken(data.token);
         onLogin(data.user);
       } else {
-        setError(data.message || 'Failed to login as admin');
+        setError(data.message || 'Could not sign in as admin.');
       }
     } catch (error) {
       console.error('Admin login error:', error);
-      setError('Connection failed. Please try again.');
+      setError('Could not reach the server. Check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
-      <div className="login-background">
-        <div className="background-heroes">
-          {/* Decorative hero silhouettes */}
-          <div className="hero-silhouette hero-1"></div>
-          <div className="hero-silhouette hero-2"></div>
-          <div className="hero-silhouette hero-3"></div>
-        </div>
-      </div>
-      
-      <div className="login-container">
-        <div className="login-header">
-          <h1 className="game-title">Hero's Call</h1>
-        </div>
+    <div className="auth-page auth-page--login">
+      <div className="auth-backdrop" aria-hidden="true"></div>
 
-        {/* Admin Quick Login Button */}
-        <div className="admin-quick-login">
-          <button 
-            type="button"
-            className="admin-login-btn"
-            onClick={handleAdminLogin}
-            disabled={isLoading}
-          >
-            🔑 Quick Admin Login
-          </button>
-          <div className="admin-login-hint">Auto-creates next available admin account</div>
-        </div>
+      <main className="auth-book">
+        <h1 className="auth-title">Hero's Call</h1>
+        <p className="auth-lede">Sign in to continue your run.</p>
 
-        <button
-          type="button"
-          className="test-battle-entry"
-          onClick={onStartCardTest}
-        >
-          Open Card Layout Test
-        </button>
-
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="ui-field">
+            <label className="ui-label" htmlFor="username">Username</label>
             <input
               type="text"
               id="username"
@@ -212,14 +183,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartC
                 setUsername(e.target.value);
                 setAutoFilled(false);
               }}
-              placeholder="Enter your username"
-              className="form-input"
+              placeholder="Your username"
+              className="ui-input"
+              autoComplete="username"
               disabled={isLoading}
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
+          <div className="ui-field">
+            <label className="ui-label" htmlFor="password">Password</label>
             <input
               type="password"
               id="password"
@@ -228,64 +200,71 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartC
                 setPassword(e.target.value);
                 setAutoFilled(false);
               }}
-              placeholder="Enter your password"
-              className="form-input"
+              placeholder="Your password"
+              className="ui-input"
+              autoComplete="current-password"
               disabled={isLoading}
             />
           </div>
 
-          <div className="form-group remember-me-group">
-            <label className="remember-me-label">
+          <div className="ui-field">
+            <label className="ui-check" htmlFor="remember-me">
               <input
                 type="checkbox"
                 id="remember-me"
                 checked={rememberMe}
                 onChange={(e) => handleRememberMeChange(e.target.checked)}
-                className="remember-me-checkbox"
                 disabled={isLoading}
               />
-              <span className="checkbox-custom"></span>
-              Remember my login information
+              Remember my login on this device
             </label>
             {autoFilled && (
-              <div className="auto-filled-notice">
-                ✓ Login information loaded from saved data
+              <div className="ui-notice ui-notice--info" role="status">
+                <Icon name="check" />
+                Login information loaded from saved data.
               </div>
             )}
           </div>
 
-          {error && <div className="error-message">{error}</div>}
+          {error && (
+            <div className="ui-notice ui-notice--error" role="alert">
+              <Icon name="warning" />
+              <span>{error}</span>
+            </div>
+          )}
 
-          <div className="form-actions">
-            <button 
-              type="submit" 
-              className="login-button"
-              disabled={isLoading}
-            >
+          <div className="auth-actions">
+            <button type="submit" className="ui-btn ui-btn--primary ui-btn--block" disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <span className="loading-spinner"></span>
-                  Logging in...
+                  <span className="ui-spinner" aria-hidden="true"></span>
+                  Signing in...
                 </>
               ) : (
-                'Login'
+                'Sign in'
               )}
             </button>
 
-            <div className="register-section">
-              <p>Don't have an account?</p>
-              <button 
-                type="button" 
-                className="register-link"
-                onClick={onShowRegister}
-                disabled={isLoading}
-              >
-                Create Account
+            <div className="auth-switch">
+              <span>New here?</span>
+              <button type="button" className="ui-btn ui-btn--quiet ui-btn--sm" onClick={onShowRegister} disabled={isLoading}>
+                Create account
               </button>
             </div>
           </div>
         </form>
-      </div>
+
+        <div className="auth-devtools">
+          <button type="button" className="ui-btn ui-btn--quiet ui-btn--sm" onClick={handleAdminLogin} disabled={isLoading}>
+            <Icon name="key" />
+            Quick admin login
+          </button>
+          <span className="ui-hint">Uses the next free admin account.</span>
+          <button type="button" className="ui-btn ui-btn--quiet ui-btn--sm" onClick={onStartCardTest}>
+            Open card layout test
+          </button>
+        </div>
+      </main>
     </div>
   );
 };

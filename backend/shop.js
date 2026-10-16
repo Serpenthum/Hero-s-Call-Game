@@ -61,7 +61,7 @@ function createShopRouter({ database, getHeroes, auth, now = () => Date.now() })
 
       const user = await database.getUserById(req.userId);
       if (!user) return fail(res, 404, 'User not found');
-      if (user.victory_points < HERO_PRICE) return fail(res, 400, 'Not enough Victory Points');
+      if (user.victory_points < HERO_PRICE) return fail(res, 400, 'Not enough to buy this.');
 
       const hero = getHeroes().find(h => h.name === heroName);
       if (!hero || hero.disabled) return fail(res, 400, 'Hero not available');
@@ -90,7 +90,7 @@ function createShopRouter({ database, getHeroes, auth, now = () => Date.now() })
     runExclusive(req.userId, async () => {
       const user = await database.getUserById(req.userId);
       if (!user) return fail(res, 404, 'User not found');
-      if (user.victory_points < PACK_PRICE) return fail(res, 400, 'Not enough Victory Points');
+      if (user.victory_points < PACK_PRICE) return fail(res, 400, 'Not enough to buy this.');
 
       const unowned = getHeroes().filter(h => !h.disabled && !user.available_heroes.includes(h.name));
       if (unowned.length === 0) return fail(res, 400, 'All heroes already owned');
