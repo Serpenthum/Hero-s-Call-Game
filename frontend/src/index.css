@@ -37,11 +37,6 @@ body {
   min-height: 100vh;
 }
 
-/* Cards are exempt from the UI font: every stat and ability line must fit as designed */
-.hero-card {
-  font-family: var(--font-card);
-}
-
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

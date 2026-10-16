@@ -48,6 +48,17 @@ const CardLayoutTest: React.FC<CardLayoutTestProps> = ({ onExit }) => {
         }
 
         const heroList = data.filter(isHero);
+        // Dev only: #all-cards shows every hero, three to a row, to check text fit across the roster
+        if (import.meta.env.DEV && window.location.hash === '#all-cards') {
+          const rows: Array<{ name: string; heroes: Hero[]; isEnemy: boolean }> = [];
+          for (let i = 0; i < heroList.length; i += 3) {
+            const heroes = heroList.slice(i, i + 3).map(hero => ({ ...hero, currentHP: hero.HP, maxHP: hero.HP }));
+            rows.push({ name: `Heroes ${i / 3 + 1}`, heroes, isEnemy: false });
+          }
+          if (!controller.signal.aborted) setTeams(rows);
+          return;
+        }
+
         const loadedTeams = TEST_TEAMS.map(team => {
           const selectedHeroes = team.heroes.map(name => {
             const hero = heroList.find(candidate => candidate.name === name);

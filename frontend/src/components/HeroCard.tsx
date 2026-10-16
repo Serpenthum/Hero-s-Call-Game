@@ -830,7 +830,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       const detailsStyle = getComputedStyle(details);
       const bottomPadding = parseFloat(detailsStyle.paddingBottom);
       // Find the largest quarter-pixel size that fits the fixed text panel.
-      let low = 40;
+      let low = 36;
       let high = 56;
       let best = low;
       while (low <= high) {

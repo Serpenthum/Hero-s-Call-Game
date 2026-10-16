@@ -32,8 +32,6 @@
   /* Type */
   --font-display: 'IM Fell English', Georgia, 'Times New Roman', serif;
   --font-ui: 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
-  /* Hero cards keep the system stack they were designed with; their layout depends on its metrics */
-  --font-card: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   --text-xs: 0.875rem;
   --text-sm: 1rem;
   --text-md: 1.125rem;
