@@ -1,0 +1,83 @@
+/* How-to-play and settings modal frame. Carved from GameLobby.css unchanged; restyled in phase 4. */
+
+/* Rules Modal Styling */
+.rules-modal {
+  background: var(--card-bg);
+  border: 2px solid var(--border-glow);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 700px;
+  width: 90%;
+  max-height: 85vh;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px);
+}
+
+.rules-modal-header {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.3) 0%, rgba(139, 92, 246, 0.4) 100%);
+  padding: 20px 30px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rules-modal-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'Orbitron', monospace;
+}
+
+.rules-modal-content {
+  padding: 25px 30px;
+  max-height: calc(85vh - 80px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-blue) rgba(255, 255, 255, 0.1);
+}
+
+.rules-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.rules-modal-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.rules-modal-content::-webkit-scrollbar-thumb {
+  background: var(--primary-blue);
+  border-radius: 10px;
+}
+
+.rules-modal-content::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-purple);
+}
+
+/* Responsive adjustments for Rules Modal */
+@media (max-width: 768px) {
+  .rules-modal {
+    max-width: 95%;
+    max-height: 90vh;
+  }
+
+  .rules-modal-content {
+    padding: 20px;
+  }
+
+  .rules-category {
+    padding: 15px 18px;
+  }
+
+  .rule-item {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .rule-label {
+    min-width: auto;
+  }
+}

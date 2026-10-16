@@ -1,0 +1,39 @@
+/* Global base the older screens still rely on (fonts, variables, reset, overlay). Removed in phase 5. Carved from GameLobby.css unchanged; restyled in phase 4. */
+
+/* Modern Game Lobby - Complete Redesign */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary-blue: #00d4ff;
+  --primary-purple: #8b5cf6;
+  --accent-gold: #ffd700;
+  --accent-green: #00ff88;
+  --accent-red: #ff4757;
+  --dark-bg: #0a0e1a;
+  --card-bg: rgba(15, 23, 42, 0.8);
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --border-glow: rgba(0, 212, 255, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Friendly Battle Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}

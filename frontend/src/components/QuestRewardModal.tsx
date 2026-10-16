@@ -1,6 +1,7 @@
 import React from 'react';
 import { PendingQuestReward } from '../types';
 import Coin from './Coin';
+import '../styles/QuestRewardModal.css';
 
 interface QuestRewardModalProps {
   reward: PendingQuestReward;
