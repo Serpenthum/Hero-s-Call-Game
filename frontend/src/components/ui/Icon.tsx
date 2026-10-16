@@ -9,6 +9,12 @@ const PATHS = {
   back: 'M14 6l-6 6 6 6',
   lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
   info: 'M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0M12 11v5M12 8v.01',
+  dice: 'M5 5h14v14H5zM9 9v.01M15 9v.01M12 12v.01M9 15v.01M15 15v.01',
+  swords: 'M5 19L19 5M14 5h5v5M19 19L5 5M10 5H5v5',
+  flame: 'M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3 0-6 1-8.5z',
+  tower: 'M5 20V6h3v2h2V6h4v2h2V6h3v14zM10 20v-4h4v4',
+  logout: 'M10 5H5v14h5M14 8l4 4-4 4M18 12H9',
+  unlock: 'M6 11h12v9H6zM9 11V8a3 3 0 0 1 5.6-1.5',
 } as const;
 
 export type IconName = keyof typeof PATHS;

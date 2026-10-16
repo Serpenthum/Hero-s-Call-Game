@@ -14,6 +14,7 @@ const MIGRATED = [
   'styles/auth.css',
   'components/LoginPage.tsx',
   'components/RegisterPage.tsx',
+  'components/HowToPlayModal.tsx',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
