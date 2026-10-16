@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
+import Icon from './ui/Icon';
 
 interface DraftPhaseProps {
   gameState: GameState;
@@ -185,7 +186,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         {/* Show teams display for consistency */}
         <div className="teams-display">
           <div className="current-team">
-            <h3>Your Team (0/3)</h3>
+            <h3>Your team (0/3)</h3>
             <div className="team-cards">
               {/* Empty during ban phase */}
             </div>
@@ -193,7 +194,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
           
           {opponent && (
             <div className="opponent-team">
-              <h3>Opponent's Team (0/3)</h3>
+              <h3>Opponent's team (0/3)</h3>
               <div className="team-cards">
                 {/* Empty during ban phase */}
               </div>
@@ -219,7 +220,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
             disabled={!selectedCard || !!currentPlayer.bannedCard || gameState.phase !== 'draft' || gameState.currentDraftPhase !== 0}
             className="action-button"
           >
-            Ban Selected Card
+            Ban card
           </button>
         </div>
 
@@ -243,7 +244,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         <div className="draft-main-content">
           <div className="teams-display">
             <div className="current-team">
-              <h3>Your Team ({currentPlayer.team?.length || 0}/3)</h3>
+              <h3>Your team ({currentPlayer.team?.length || 0}/3)</h3>
               <div className="team-cards">
                 {(currentPlayer.team || []).map((hero) => (
                   <HeroCard
@@ -256,7 +257,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
             
             {opponent && (
               <div className="opponent-team">
-                <h3>Opponent's Team ({opponent.team?.length || 0}/3)</h3>
+                <h3>Opponent's team ({opponent.team?.length || 0}/3)</h3>
                 <div className="team-cards">
                   {(opponent.team || []).map((hero) => (
                     <HeroCard
@@ -288,7 +289,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
               disabled={!selectedCard || !canPick()}
               className="action-button"
             >
-              Pick Selected Card
+              Pick card
             </button>
           </div>
         </div>
@@ -304,7 +305,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         
         {opponent && opponent.isReady && (
           <div className="opponent-ready-indicator">
-            <span>✓ Opponent is ready</span>
+            <span><Icon name="check" /> Opponent is ready</span>
           </div>
         )}
         
@@ -376,7 +377,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
             </button>
           ) : (
             <div className="ready-status">
-              <span className="ready-indicator">✓ You are ready - Waiting for opponent...</span>
+              <span className="ready-indicator"><Icon name="check" /> You are ready. Waiting for opponent...</span>
             </div>
           )}
         </div>

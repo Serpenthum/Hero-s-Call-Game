@@ -16,6 +16,7 @@ import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
 import './styles/GameScreens.css';
+import './styles/GameTheme.css';
 
 const DraftPhase = lazy(() => import('./components/DraftPhase'));
 const BattlePhase = lazy(() => import('./components/BattlePhase'));
@@ -2339,8 +2340,8 @@ function App() {
         {state.isSurvivalMode && (
           <div className="survival-info">
             <div className="survival-stats">
-              <div className="survival-wins">🏆 Wins: {state.survivalWins}</div>
-              <div className="survival-losses">💀 Losses: {state.survivalLosses}</div>
+              <div className="survival-wins">Wins: {state.survivalWins}</div>
+              <div className="survival-losses">Losses: {state.survivalLosses}</div>
             </div>
           </div>
         )}
@@ -2359,15 +2360,15 @@ function App() {
               {currentPlayer && (
                 <div className="turn-status">
                   {(currentPlayer.team?.length || 0) < state.gameState.currentDraftPhase 
-                    ? "● Your turn to pick" 
-                    : "⏳ Waiting for opponent"}
+                    ? "Your turn to pick" 
+                    : "Waiting for opponent"}
                 </div>
               )}
               
               {/* Banned Cards Section */}
               {currentPlayer?.bannedCard && opponent?.bannedCard && (
                 <div className="banned-cards-section">
-                  <h3>BANNED CARDS</h3>
+                  <h3>Banned cards</h3>
                   <div className="banned-cards-subtitle">
                     These cards cannot be picked
                   </div>
@@ -2406,7 +2407,7 @@ function App() {
                 className="abandon-draft-button"
                 title="Return to lobby without rewards"
               >
-                ✕ ABANDON DRAFT
+                Abandon draft
               </button>
             </div>
           )}
@@ -2425,10 +2426,10 @@ function App() {
               {currentPlayer && opponent && (
                 <div className="turn-status">
                   {!currentPlayer.attackOrder || currentPlayer.attackOrder.length !== 3
-                    ? "⚔️ Set your attack order"
+                    ? "Set your attack order"
                     : opponent.attackOrder && opponent.attackOrder.length === 3
-                    ? "✅ Both players ready!"
-                    : "⏳ Waiting for opponent"}
+                    ? "Both players are ready"
+                    : "Waiting for opponent"}
                 </div>
               )}
               
@@ -2440,7 +2441,7 @@ function App() {
                 className="abandon-draft-button"
                 title="Return to lobby without rewards"
               >
-                ✕ ABANDON DRAFT
+                Abandon draft
               </button>
             </div>
           )}
@@ -2460,15 +2461,15 @@ function App() {
                         const activePlayerIndex = state.gameState.currentTurn;
                         const activePlayer = state.gameState.players[activePlayerIndex];
                         return activePlayer ? (
-                          <div className="spectator-turn">👁️ Watching: {activePlayer.name}'s Turn</div>
+                          <div className="spectator-turn">Watching: {activePlayer.name}'s turn</div>
                         ) : null;
                       }
                       
                       const playerIndex = state.gameState.players.findIndex(p => p.id === state.playerId);
                       return state.gameState.currentTurn === playerIndex ? (
-                        <div className="current-turn">🔥 Your Turn</div>
+                        <div className="current-turn">Your turn</div>
                       ) : (
-                        <div className="opponent-turn">⏳ Opponent's Turn</div>
+                        <div className="opponent-turn">Opponent's turn</div>
                       );
                     })()}
                   </div>
@@ -2556,21 +2557,21 @@ function App() {
                               {entry.type === 'special_activation' ? (
                                 // Special ability activation
                                 <span className="special-ability">
-                                  ✨ <span className="special-name">{entry.specialName}</span> activated!
+                                  <span className="special-name">{entry.specialName}</span> activated!
                                 </span>
                               ) : entry.action?.includes('Twin Spell') ? (
                                 // Twin Spell activation
-                                <span className="special-ability">🔮 Twin Spell activated! Casting again...</span>
+                                <span className="special-ability">Twin Spell activated. Casting again...</span>
                               ) : entry.type === 'resurrection' ? (
                                 // Angel Resurrection
                                 <span className="heal">
-                                  👼 <span className="hero-name">{entry.caster}</span> used <span className="special-name">Resurrection</span> and restored <span className="target-name">{entry.target}</span> to {entry.healing} HP
+                                  <span className="hero-name">{entry.caster}</span> used <span className="special-name">Resurrection</span> and restored <span className="target-name">{entry.target}</span> to {entry.healing} HP
                                   {entry.description && <span className="heal-info"> - {entry.description}</span>}
                                 </span>
                               ) : entry.type === 'health_link_reflection' ? (
                                 // Angel Health Link reflection
                                 <span className="special-reflection">
-                                  💫 <span className="special-name">Health Link</span> reflected {entry.damage} damage from <span className="hero-name">{entry.source}</span> to <span className="target-name">{entry.target}</span>
+                                  <span className="special-name">Health Link</span> reflected {entry.damage} damage from <span className="hero-name">{entry.source}</span> to <span className="target-name">{entry.target}</span>
                                 </span>
                               ) : entry.action?.includes('heals') ? (
                                 // Healing abilities
@@ -2589,7 +2590,7 @@ function App() {
                               ) : entry.hit ? (
                                 // Damage abilities
                                 <>
-                                  {entry.crit && <span className="crit">CRITICAL HIT! </span>}
+                                  {entry.crit && <span className="crit">Critical hit! </span>}
                                   {entry.damage !== undefined && (
                                     <>
                                       <span className="hit">Hit <span className="target-name">{entry.target || 'Unknown'}</span> for {entry.damage} damage</span>

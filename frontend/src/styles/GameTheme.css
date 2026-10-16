@@ -1,0 +1,164 @@
+/* Draft and battle identity. Loaded after GameScreens.css, so these win at equal specificity. */
+
+/* The draft content may shrink next to the sidebar instead of pushing the page sideways */
+.game-content { min-width: 0; }
+.draft-phase, .setup-phase { box-sizing: border-box; }
+
+/* Halves of the board: the opponent's side is warm, yours is green */
+.opponent-area { background: color-mix(in srgb, var(--ember) 14%, transparent); }
+.player-area { background: color-mix(in srgb, var(--verdigris) 12%, transparent); }
+.team-label { font-family: var(--font-display); font-weight: 400; color: var(--bone); text-shadow: none; }
+.player-profile-icon img, .profile-icon-small { border: 1px solid var(--brass); border-radius: var(--radius-control); }
+
+/* Sidebars: the log on the left, the actions on the right, both walnut with a brass edge */
+.game-sidebar { background: var(--walnut); border-right: 1px solid var(--brass-dim); color: var(--bone); font-family: var(--font-ui); }
+.action-bar { background: var(--walnut); border-left: 1px solid var(--brass-dim); color: var(--bone); font-family: var(--font-ui); }
+.game-sidebar h3, .game-sidebar h4, .action-bar h3 { font-family: var(--font-display); font-weight: 400; color: var(--bone); text-shadow: none; }
+.connection-status { background: var(--leather); color: var(--bone); border: 1px solid var(--brass-dim); }
+
+/* Buttons everywhere on these screens read as brass; secondary ones as outlines */
+.action-button {
+  background: var(--brass);
+  color: var(--felt-deep);
+  border: 1px solid var(--brass-hi);
+  border-radius: var(--radius-control);
+  font: 700 var(--text-md) / 1.1 var(--font-ui);
+  box-shadow: none;
+}
+.action-button:hover:not(:disabled) { background: var(--brass-hi); transform: none; box-shadow: none; }
+.action-button:focus-visible, .return-to-lobby-button:focus-visible, .abandon-draft-button:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.action-button:disabled, .action-button.used {
+  background: var(--leather);
+  color: var(--bone-dim);
+  border-color: var(--brass-dim);
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.action-button.end-turn-button, .action-button.cancel-ability-selection { background: transparent; color: var(--bone); border-color: var(--brass); }
+.action-button.end-turn-button:hover:not(:disabled), .action-button.cancel-ability-selection:hover:not(:disabled) { background: var(--leather); }
+.ability-option-button { background: var(--leather); color: var(--bone); border: 1px solid var(--brass-dim); border-radius: var(--radius-control); }
+.ability-option-button:hover:not(:disabled) { border-color: var(--brass); background: var(--leather-hi); }
+.abandon-draft-button { background: transparent; color: var(--ember-hi); border: 1px solid var(--ember); border-radius: var(--radius-control); text-transform: none; letter-spacing: 0; font-family: var(--font-ui); }
+.abandon-draft-button:hover { background: var(--ember); color: var(--bone); transform: none; box-shadow: none; }
+
+/* Turn banner and status lines */
+.current-turn, .turn-status { color: var(--bone); font-weight: 700; }
+.current-turn { color: var(--verdigris); }
+.opponent-turn { color: var(--bone-dim); }
+.spectator-turn, .spectator-label { color: var(--bone); }
+
+/* Battle log */
+.log-entry { background: var(--leather); border: 1px solid var(--brass-dim); border-left: 3px solid var(--brass-dim); border-radius: var(--radius-control); color: var(--bone); }
+.log-entry.crit { border-left-color: var(--brass-hi); }
+.log-entry.killed { border-left-color: var(--ember); }
+.log-placeholder { color: var(--bone-dim); }
+.log-entries .hero-name { color: var(--bone); font-weight: 700; }
+.log-entries .ability-name, .log-entries .special-name { color: var(--brass-hi); }
+.log-entries .special-name { font-style: italic; }
+.log-entries .target-name { color: var(--bone); }
+.log-entries .hit { color: var(--ember-hi); }
+.log-entries .miss { color: var(--bone-dim); }
+.log-entries .heal { color: var(--verdigris); }
+.log-entries .crit { color: var(--brass-hi); font-weight: 700; }
+
+/* Overlays: initiative roll and game over */
+.initiative-overlay, .game-over-overlay { background: var(--scrim); backdrop-filter: none; }
+.initiative-phase, .game-over-modal {
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  color: var(--bone);
+  font-family: var(--font-ui);
+}
+.initiative-phase h2, .initiative-phase h3, .game-over-title { font-family: var(--font-display); font-weight: 400; text-shadow: none; }
+.game-over-title { animation: none; filter: none; }
+.game-over-title.winner { color: var(--verdigris); border-bottom-color: var(--verdigris); }
+.game-over-title.loser { color: var(--ember-hi); border-bottom-color: var(--ember); }
+.game-over-message { color: var(--bone-dim); }
+.return-to-lobby-button {
+  background: var(--brass);
+  color: var(--felt-deep);
+  border: 1px solid var(--brass-hi);
+  border-radius: var(--radius-control);
+  font: 700 var(--text-md) / 1.1 var(--font-ui);
+  box-shadow: none;
+}
+.return-to-lobby-button:hover { background: var(--brass-hi); transform: none; box-shadow: none; }
+.game-over-content > .return-to-lobby-button { margin-top: var(--space-5); }
+.return-to-lobby-button.secondary { background: transparent; color: var(--bone); border-color: var(--brass); }
+.return-to-lobby-button.danger { background: transparent; color: var(--ember-hi); border-color: var(--ember); }
+.return-to-lobby-button.danger:hover { background: var(--ember); color: var(--bone); }
+
+.game-over-content .button-group { display: flex; gap: var(--space-3); justify-content: center; margin-top: var(--space-5); }
+.surrender-title { margin: 0; font: 400 var(--text-xl) / 1.1 var(--font-display); }
+.surrender-message { margin: var(--space-3) 0 0; color: var(--bone-dim); }
+
+/* Draft and setup */
+.current-team, .opponent-team { background: color-mix(in srgb, var(--leather) 70%, transparent); border: 1px solid var(--brass-dim); }
+.draggable-hero-slot { cursor: grab; }
+.position-badge { background: var(--brass); color: var(--felt-deep); border: 2px solid var(--walnut); font-family: var(--font-ui); }
+.ready-status, .opponent-ready-indicator { background: color-mix(in srgb, var(--verdigris) 18%, transparent); border: 1px solid var(--verdigris); color: var(--bone); }
+.ready-indicator, .opponent-ready-indicator span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.ready-button { background: var(--brass); }
+.banned-cards-section h3 { color: var(--ember-hi); text-shadow: none; letter-spacing: 0; }
+
+/* Floating controls in the corners of the battle screen */
+.floating-surrender-button, .spectator-count-button, .spectator-list-modal, .opponent-disconnect-notice { position: fixed; z-index: 1000; }
+.floating-surrender-button { right: 20px; bottom: 20px; }
+.spectator-count-button {
+  right: 220px;
+  bottom: 20px;
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0;
+  font: 700 var(--text-sm) / 1 var(--font-ui);
+  color: var(--bone);
+  background: var(--walnut);
+  border: 1px solid var(--brass);
+  border-radius: 50%;
+  box-shadow: var(--shadow-panel);
+}
+.spectator-count-button:hover { background: var(--leather); transform: none; }
+.spectator-list-modal {
+  right: 220px;
+  bottom: 90px;
+  min-width: 220px;
+  max-width: 300px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--walnut);
+  color: var(--bone);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+}
+.spectator-list-modal h3 { margin: 0 0 var(--space-3); padding-bottom: var(--space-2); font: 400 var(--text-lg) / 1.1 var(--font-display); border-bottom: 1px solid var(--brass-dim); }
+.spectator-list-modal ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.spectator-list-modal li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--leather); border-radius: var(--radius-control); font-size: var(--text-sm); }
+.opponent-disconnect-notice {
+  right: 20px;
+  bottom: 130px;
+  min-width: 200px;
+  padding: var(--space-3) var(--space-5);
+  text-align: center;
+  color: var(--bone);
+  background: var(--walnut);
+  border: 1px solid var(--ember);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+.opponent-disconnect-notice .notice-title { display: flex; align-items: center; justify-content: center; gap: var(--space-2); font-size: var(--text-sm); margin-bottom: var(--space-1); }
+.opponent-disconnect-notice .notice-count { font: 400 var(--text-2xl) / 1 var(--font-display); color: var(--ember-hi); }
+.opponent-disconnect-notice .notice-hint { font-size: var(--text-xs); color: var(--bone-dim); margin-top: var(--space-1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-indicator, .game-over-title { animation: none; }
+  .action-button, .return-to-lobby-button { transition: none; }
+}

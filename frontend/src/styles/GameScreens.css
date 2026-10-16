@@ -371,7 +371,7 @@
   margin-bottom: 0.5rem;
 }
 
-.setup-phase p {
+.setup-phase > p {
   margin-bottom: 2rem;
   color: var(--bone-dim);
 }
@@ -1225,7 +1225,7 @@
 }
 
 .heal-roll-info {
-  color: var(--leather-hi);
+  color: var(--bone-dim);
   font-size: 0.8rem;
   margin-left: 8px;
 }
@@ -1236,13 +1236,13 @@
 }
 
 .damage-roll-info {
-  color: var(--leather-hi);
+  color: var(--bone-dim);
   font-size: 0.8rem;
   margin-left: 8px;
 }
 
 .roll-info {
-  color: var(--leather-hi);
+  color: var(--bone-dim);
   font-size: 0.8rem;
   margin-left: 8px;
 }

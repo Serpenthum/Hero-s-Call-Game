@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
+import Icon from './ui/Icon';
 import RewardsDisplay from './RewardsDisplay';
 import BattleFX from './BattleFX';
 import TurnTimerBar from './TurnTimerBar';
@@ -289,7 +290,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             >
               {currentPlayer.initiativeRoll !== undefined ? 
                 `You rolled: ${currentPlayer.initiativeRoll}` : 
-                'Roll Initiative'
+                'Roll initiative'
               }
             </button>
           </div>
@@ -303,7 +304,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
            opponent?.initiativeRoll !== undefined &&
            currentPlayer.initiativeRoll === opponent.initiativeRoll && (
             <div className="tie-message">
-              <h3>🎲 Tie! Both rolled {currentPlayer.initiativeRoll}</h3>
+              <h3>Tie! Both rolled {currentPlayer.initiativeRoll}</h3>
               <p>Rolling again...</p>
             </div>
           )}
@@ -314,20 +315,20 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
            opponent?.initiativeRoll !== undefined &&
            currentPlayer.initiativeRoll > opponent.initiativeRoll && (
             <div className="turn-order-choice">
-              <h3>🎉 You won the starting roll!</h3>
+              <h3>You won the starting roll!</h3>
               <p>Choose whether you want to go first or second:</p>
               <div className="choice-buttons" data-tutorial="turn-choice">
                 <button 
                   onClick={() => handleChooseTurnOrder(true)}
                   className="action-button"
                 >
-                  Go First
+                  Go first
                 </button>
                 <button 
                   onClick={() => handleChooseTurnOrder(false)}
                   className="action-button"
                 >
-                  Go Second
+                  Go second
                 </button>
               </div>
             </div>
@@ -479,35 +480,14 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             // Spectator mode - show minimal UI with stop spectating button
             <div className="spectator-controls">
               <div className="spectator-info">
-                <div className="spectator-label">👁️ Watching {currentPlayer.name}'s perspective</div>
-                <div style={{ fontSize: '12px', color: '#888', marginTop: '5px' }}>
-                  You cannot interact with the game
-                </div>
+                <div className="spectator-label"><Icon name="eye" /> Watching {currentPlayer.name}'s perspective</div>
+                <div className="ui-hint">You cannot interact with the game</div>
               </div>
-              <button 
-                className="stop-spectating-button"
+              <button
+                className="ui-btn ui-btn--danger ui-btn--block stop-spectating-button"
                 onClick={onStopSpectating}
-                style={{
-                  marginTop: '15px',
-                  padding: '12px 24px',
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  width: '100%',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#c82333';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#dc3545';
-                }}
               >
-                Stop Spectating
+                Stop spectating
               </button>
             </div>
           ) : (
@@ -899,7 +879,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         <div className="game-over-modal">
           <div className="game-over-content">
             <h2 className={`game-over-title ${isWinner ? 'winner' : 'loser'}`}>
-              {isTutorial ? 'Tutorial Complete!' : isWinner ? 'You Win!' : 'You Lose!'}
+              {isTutorial ? 'Tutorial complete!' : isWinner ? 'You win!' : 'You lose!'}
             </h2>
             <p className="game-over-message">
               {isTutorial
@@ -973,132 +953,40 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
       
       {/* Spectator Count Indicator - Bottom Right (only visible to players, not spectators) */}
       {!isSpectating && spectators.length > 0 && (
-        <button 
+        <button
           className="spectator-count-button"
           onClick={() => setShowSpectatorList(!showSpectatorList)}
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '220px',
-            backgroundColor: '#4a90e2',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50%',
-            width: '56px',
-            height: '56px',
-            fontSize: '24px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
-            zIndex: 1000,
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#357abd';
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#4a90e2';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            <div>👁️</div>
-            <div style={{ fontSize: '14px', marginTop: '-4px' }}>{spectators.length}</div>
-          </button>
+          aria-label={`Spectators: ${spectators.length}`}
+        >
+          <Icon name="eye" size={22} />
+          <span>{spectators.length}</span>
+        </button>
       )}
 
       {/* Spectator List Modal */}
       {!isSpectating && showSpectatorList && spectators.length > 0 && (
-        <div 
-          className="spectator-list-modal"
-          style={{
-            position: 'fixed',
-            bottom: '90px',
-            right: '220px',
-            backgroundColor: 'rgba(30, 30, 30, 0.95)',
-            color: 'white',
-            border: '2px solid #4a90e2',
-            borderRadius: '8px',
-            padding: '16px',
-            minWidth: '220px',
-            maxWidth: '300px',
-            maxHeight: '300px',
-            overflowY: 'auto',
-            boxShadow: '0 6px 12px rgba(0, 0, 0, 0.5)',
-            zIndex: 1001,
-          }}
-        >
-          <h3 style={{ 
-            margin: '0 0 12px 0', 
-            fontSize: '18px', 
-            borderBottom: '1px solid #4a90e2',
-            paddingBottom: '8px'
-          }}>
-            Spectators ({spectators.length})
-          </h3>
-          <ul style={{ 
-            listStyle: 'none', 
-            padding: 0, 
-            margin: 0 
-          }}>
+        <div className="spectator-list-modal">
+          <h3>Spectators ({spectators.length})</h3>
+          <ul>
             {spectators.map((spectator) => (
-              <li 
-                key={spectator.socketId}
-                style={{
-                  padding: '8px 12px',
-                  marginBottom: '4px',
-                  backgroundColor: 'rgba(74, 144, 226, 0.2)',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <span style={{ fontSize: '16px' }}>👤</span>
+              <li key={spectator.socketId}>
+                <Icon name="user" />
                 <span>{spectator.username}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
-      
+
       {/* Opponent Disconnection Countdown - Bottom Right above Surrender */}
       {!isSpectating && opponent && !opponent.connected && opponentDisconnectTime !== null && opponentDisconnectTime > 0 && gameState.phase === 'battle' && (
-        <div 
-          style={{
-            position: 'fixed',
-            bottom: '130px',
-            right: '20px',
-            backgroundColor: 'rgba(255, 193, 7, 0.95)',
-            color: '#000',
-            border: '2px solid #ffc107',
-            borderRadius: '8px',
-            padding: '12px 20px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
-            zIndex: 1000,
-            textAlign: 'center',
-            minWidth: '200px'
-          }}
-        >
-          <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-            ⚠️ {opponent.name} Disconnected
-          </div>
-          <div style={{ fontSize: '24px', color: '#dc3545' }}>
-            {opponentDisconnectTime}s
-          </div>
-          <div style={{ fontSize: '12px', marginTop: '4px', color: '#555' }}>
-            Auto-forfeit in progress
-          </div>
+        <div className="opponent-disconnect-notice" role="status">
+          <div className="notice-title"><Icon name="warning" /> {opponent.name} disconnected</div>
+          <div className="notice-count">{opponentDisconnectTime}s</div>
+          <div className="notice-hint">Auto-forfeit in progress</div>
         </div>
       )}
-      
+
       {/* Turn timer - bottom right above Surrender, active player only */}
       {!isSpectating && turnTimer && turnTimer.playerId === playerId && gameState.phase === 'battle' && !gameState.winner && (
         <TurnTimerBar key={turnTimer.deadline} deadline={turnTimer.deadline} durationMs={turnTimer.durationMs} />
@@ -1106,38 +994,15 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
       {/* Floating Surrender Button - Bottom Right (only for players, not spectators) */}
       {!isSpectating && !isTutorial && (
-        <button 
-          className="floating-surrender-button"
+        <button
+          className="ui-btn ui-btn--danger floating-surrender-button"
           onClick={handleSurrenderClick}
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            backgroundColor: '#dc3545',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 20px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
-            zIndex: 1000,
-            transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#c82333';
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#dc3545';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            🏳️ Surrender
-          </button>
+        >
+          <Icon name="flag" />
+          Surrender
+        </button>
       )}
-        
+
         {showSurrenderConfirm && (
           <div className="game-over-overlay">
             <div className="game-over-modal">
@@ -1147,12 +1012,11 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   Are you sure you want to surrender? This will immediately end the battle and your opponent will be declared the winner.
                 </p>
                 <div className="button-group">
-                  <button 
-                    className="return-to-lobby-button"
+                  <button
+                    className="return-to-lobby-button danger"
                     onClick={handleConfirmSurrender}
-                    style={{ backgroundColor: '#dc3545' }}
                   >
-                    Yes, Surrender
+                    Yes, surrender
                   </button>
                   <button 
                     className="return-to-lobby-button secondary"

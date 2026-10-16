@@ -15,6 +15,9 @@ const PATHS = {
   tower: 'M5 20V6h3v2h2V6h4v2h2V6h3v14zM10 20v-4h4v4',
   logout: 'M10 5H5v14h5M14 8l4 4-4 4M18 12H9',
   unlock: 'M6 11h12v9H6zM9 11V8a3 3 0 0 1 5.6-1.5',
+  eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
+  user: 'M5 20a7 7 0 0 1 14 0M8.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0',
+  flag: 'M6 21V4M6 5h11l-2 4 2 4H6',
 } as const;
 
 export type IconName = keyof typeof PATHS;

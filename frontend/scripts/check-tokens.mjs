@@ -22,6 +22,7 @@ const MIGRATED = [
   'styles/BattlePhone.css',
   'styles/TurnTimerBar.css',
   'styles/RewardsDisplay.css',
+  'styles/GameTheme.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
