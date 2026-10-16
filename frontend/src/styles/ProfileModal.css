@@ -25,7 +25,7 @@
 
 .profile-modal {
   background: linear-gradient(135deg, var(--walnut) 0%, var(--walnut) 50%, var(--walnut) 100%);
-  border: 2px solid var(--primary-blue);
+  border: 2px solid var(--brass-hi);
   border-radius: 20px;
   width: min(94vw, 980px);
   height: min(720px, 94dvh);
@@ -60,7 +60,7 @@
   position: relative;
 }
 .profile-header h2 {
-  color: var(--primary-blue);
+  color: var(--brass-hi);
   font-family: var(--font-ui);
   font-size: 1.8rem;
   margin: 0;
@@ -93,7 +93,7 @@
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--brass) 40%, transparent);
   background: color-mix(in srgb, var(--brass) 12%, transparent);
-  color: var(--primary-blue);
+  color: var(--brass-hi);
   font-family: var(--font-ui);
   font-size: 1.15rem;
   font-weight: 700;
@@ -119,14 +119,14 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: var(--text-secondary);
+  color: var(--bone-dim);
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
   border: 3px solid color-mix(in srgb, var(--brass) 30%, transparent);
-  border-top: 3px solid var(--primary-blue);
+  border-top: 3px solid var(--brass-hi);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 20px;
@@ -175,7 +175,7 @@
   width: clamp(64px, 15dvh, 110px);
   height: clamp(64px, 15dvh, 110px);
   border-radius: 50%;
-  border: 3px solid var(--primary-blue);
+  border: 3px solid var(--brass-hi);
   overflow: hidden;
   box-shadow: 0 0 20px color-mix(in srgb, var(--felt-deep) 40%, transparent);
   position: relative;
@@ -188,7 +188,7 @@
 }
 
 .change-icon-btn {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--brass) 100%);
+  background: linear-gradient(135deg, var(--brass-hi) 0%, var(--brass) 100%);
   border: none;
   color: var(--bone);
   padding: clamp(4px, 0.8dvh, 8px) clamp(10px, 1.4vw, 16px);
@@ -223,7 +223,7 @@
 }
 
 .level-label {
-  color: var(--text-secondary);
+  color: var(--bone-dim);
   font-size: clamp(0.8rem, 1.8dvh, 1rem);
 }
 
@@ -267,7 +267,7 @@
 .profile-stats h4,
 .favorite-hero-section h4 {
   flex-shrink: 0;
-  color: var(--primary-blue);
+  color: var(--brass-hi);
   font-family: var(--font-ui);
   font-size: clamp(1rem, 2.4dvh, 1.4rem);
   margin: 0 0 clamp(6px, 1.4dvh, 16px) 0;
@@ -361,7 +361,7 @@
 
 .favorite-hero-stats {
   flex-shrink: 0;
-  color: var(--text-secondary);
+  color: var(--bone-dim);
   font-size: clamp(0.75rem, 1.7dvh, 1rem);
 }
 
@@ -375,7 +375,7 @@
   border-radius: 10px;
   padding: 20px;
   text-align: center;
-  color: var(--text-secondary);
+  color: var(--bone-dim);
 }
 /* Icon Selector Overlay */
 .icon-selector-overlay {
@@ -395,7 +395,7 @@
 .icon-selector {
   --icon-size: clamp(44px, min(13dvh, 9vw), 110px);
   background: linear-gradient(135deg, var(--walnut) 0%, var(--walnut) 100%);
-  border: 2px solid var(--primary-blue);
+  border: 2px solid var(--brass-hi);
   border-radius: 15px;
   padding: clamp(10px, 2.5dvh, 30px) clamp(10px, 2.5vw, 30px);
   width: 96%;
@@ -418,7 +418,7 @@
 }
 
 .icon-selector-header h3 {
-  color: var(--primary-blue);
+  color: var(--brass-hi);
   font-family: var(--font-ui);
   font-size: clamp(0.9rem, 2.4dvh, 1.17rem);
   margin: 0;
@@ -451,7 +451,7 @@
 }
 
 .icon-option:hover {
-  border-color: var(--primary-blue);
+  border-color: var(--brass-hi);
   background: color-mix(in srgb, var(--brass) 10%, transparent);
   transform: translateY(-5px);
 }
@@ -485,7 +485,7 @@
 }
 
 .icon-option-name {
-  color: var(--text-secondary);
+  color: var(--bone-dim);
   font-size: clamp(0.5rem, calc(var(--icon-size) * 0.15), 0.9rem);
   line-height: 1.2;
   max-width: 100%;

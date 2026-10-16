@@ -1647,7 +1647,7 @@ function App() {
       console.error('Socket authentication failed:', data.message);
       // If authentication fails due to duplicate login, log out the user
       if (data.message.includes('already logged in')) {
-        alert('⚠️ Multiple Sessions Detected\n\n' + data.message);
+        alert('Multiple sessions detected\n\n' + data.message);
         handleLogout();
       } else {
         setState(prev => ({ ...prev, error: data.message || 'Authentication failed' }));

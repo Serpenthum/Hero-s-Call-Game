@@ -514,9 +514,9 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
           </div>
 
           <div className="lobby-placards">
-            {renderPlacard({ mode: 'random', title: 'Random mode', text: 'Quick battle with random teams.', icon: 'dice', tag: 'Normal', onActivate: () => handleModeSelect('random'), playLabel: 'Play random' })}
-            {draftVisible && renderPlacard({ mode: 'draft', title: 'Draft mode', text: 'Ban, then pick your team.', icon: 'swords', tag: 'Ranked', extraClass: modeAnimates('draft') || rankedAnimates ? ' mode-unlock-reveal' : '', onActivate: () => handleModeSelect('draft'), playLabel: 'Play draft' })}
-            {survivalVisible && renderPlacard({ mode: 'survival', title: 'Survival mode', text: 'Win with each hero once.', icon: 'flame', tag: 'Ranked', extraClass: modeAnimates('survival') || rankedAnimates ? ' mode-unlock-reveal' : '', onActivate: handleSurvivalClick, playLabel: 'Enter survival' })}
+            {renderPlacard({ mode: 'random', title: 'Random', text: 'Quick battle with random teams.', icon: 'dice', tag: 'Normal', onActivate: () => handleModeSelect('random'), playLabel: 'Play random' })}
+            {draftVisible && renderPlacard({ mode: 'draft', title: 'Draft', text: 'Ban, then pick your team.', icon: 'swords', tag: 'Ranked', extraClass: modeAnimates('draft') || rankedAnimates ? ' mode-unlock-reveal' : '', onActivate: () => handleModeSelect('draft'), playLabel: 'Play draft' })}
+            {survivalVisible && renderPlacard({ mode: 'survival', title: 'Survival', text: 'Win with each hero once.', icon: 'flame', tag: 'Ranked', extraClass: modeAnimates('survival') || rankedAnimates ? ' mode-unlock-reveal' : '', onActivate: handleSurvivalClick, playLabel: 'Enter survival' })}
             {SHOW_GAUNTLET && renderPlacard({ mode: 'gauntlet', title: 'Gauntlet', text: 'Face 13 trials with a roster of six.', icon: 'tower', tag: 'Ranked', onActivate: handleGauntletClick, playLabel: 'Enter gauntlet' })}
           </div>
         </section>

@@ -1,6 +1,14 @@
 /* Panels: one frame, one overlay, one set of buttons for every modal and overlay in the game. */
 
 /* Overlays dim the table */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
 .shop-overlay, .profile-modal-overlay, .friends-overlay-backdrop, .requirement-modal-overlay,
 .quest-reward-overlay, .pack-opening-overlay, .icon-selector-overlay, .modal-overlay {
   background: var(--scrim);

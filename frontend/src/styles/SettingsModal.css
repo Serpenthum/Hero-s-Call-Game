@@ -33,12 +33,12 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: var(--text-primary);
+  color: var(--bone);
   font-weight: 600;
 }
 
 .settings-label small {
-  color: var(--text-secondary);
+  color: var(--bone-dim);
   font-weight: 400;
   font-size: 0.8rem;
 }
@@ -55,7 +55,7 @@
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  color: var(--bone-dim);
   background: transparent;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
@@ -104,7 +104,7 @@
   font-family: var(--font-ui);
   font-size: 0.9rem;
   font-weight: 700;
-  color: var(--text-secondary);
+  color: var(--bone-dim);
   background: color-mix(in srgb, var(--felt-deep) 35%, transparent);
 }
 

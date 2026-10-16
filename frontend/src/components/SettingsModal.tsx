@@ -161,7 +161,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               onChange={e => changeVolume(Number(e.target.value))}
               onPointerUp={() => sfx.hit(false)}
               onKeyUp={() => sfx.hit(false)}
-              style={{ background: `linear-gradient(90deg, #4ade80 ${volume}%, rgba(255,255,255,0.15) ${volume}%)` }}
+              style={{ background: `linear-gradient(90deg, var(--verdigris) ${volume}%, color-mix(in srgb, var(--bone) 15%, transparent) ${volume}%)` }}
             />
           </div>
         </div>

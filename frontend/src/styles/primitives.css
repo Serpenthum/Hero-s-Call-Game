@@ -1,3 +1,10 @@
+/* Base reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 /* Reusable ui-* primitives built on tokens.css. */
 
 /* Buttons. The global `button` rules in index.css set a hover lift; neutralised here. */
