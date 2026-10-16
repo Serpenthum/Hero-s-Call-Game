@@ -477,14 +477,20 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
               })}
             </ul>
           )}
-        </aside>
-
-        <section className="lobby-table">
-          <div className="lobby-stage">
+          <div className="lobby-tiles">
             <button className="lobby-tile shop-tile" onClick={handleShowShop}>
               <ShopIcon className="lobby-tile-icon" />
               <span>Shop</span>
             </button>
+            <button className="lobby-tile binder-tile" data-tutorial="collection" onClick={handleShowCollection}>
+              <BinderIcon className="lobby-tile-icon" />
+              <span>Binder</span>
+            </button>
+          </div>
+        </aside>
+
+        <section className="lobby-table">
+          <div className="lobby-stage">
             <div className="lobby-hero-viewport" ref={previewGrid.ref} style={previewGrid.style}>
               {currentRandomHero && (
                 <div className={`random-hero-card ${isTransitioning ? 'transitioning' : ''}`}>
@@ -505,10 +511,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
                 </div>
               )}
             </div>
-            <button className="lobby-tile binder-tile" data-tutorial="collection" onClick={handleShowCollection}>
-              <BinderIcon className="lobby-tile-icon" />
-              <span>Binder</span>
-            </button>
           </div>
 
           <div className="lobby-placards">

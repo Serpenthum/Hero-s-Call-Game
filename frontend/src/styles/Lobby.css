@@ -51,11 +51,11 @@
 
 /* Ledger */
 .lobby-ledger {
-  align-self: start;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-5) 5.25rem; /* clears the friends button */
 }
 .lobby-player { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .lobby-player h2 {
@@ -123,10 +123,10 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 9rem minmax(0, 1fr) 9rem;
   align-items: center;
-  gap: var(--space-5);
+  justify-content: center;
 }
+.lobby-tiles { margin-top: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .lobby-tile {
   display: flex;
   flex-direction: column;
@@ -320,9 +320,8 @@
 /* Narrow or short windows: one column; the featured hero is decorative, so it steps aside */
 @media (max-width: 1000px), (max-height: 700px) {
   .lobby-main { grid-template-columns: minmax(0, 1fr); align-content: start; padding: var(--space-4); gap: var(--space-4); }
-  .lobby-ledger { align-self: stretch; }
-  .lobby-stage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .lobby-hero-viewport { display: none; }
+  .lobby-ledger { align-self: stretch; padding-bottom: var(--space-5); }
+  .lobby-stage { display: none; }
   .lobby { padding-bottom: 3.5rem; }
 }
 @media (max-width: 600px) {
