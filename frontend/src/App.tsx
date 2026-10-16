@@ -6,6 +6,7 @@ import SurvivalBattleTransition from './components/SurvivalBattleTransition';
 import LoginPage from './components/LoginPage';
 import CardLayoutTest from './components/CardLayoutTest';
 import UiKit from './components/ui/UiKit';
+import DevScreens from './components/ui/DevScreens';
 import RotatePrompt from './components/RotatePrompt';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
@@ -2133,6 +2134,10 @@ function App() {
   const renderGameContent = () => {
     if (import.meta.env.DEV && window.location.hash === '#ui-kit') {
       return <UiKit />;
+    }
+
+    if (import.meta.env.DEV && window.location.hash.startsWith('#screens')) {
+      return <DevScreens />;
     }
 
     if (showCardLayoutTest) {
