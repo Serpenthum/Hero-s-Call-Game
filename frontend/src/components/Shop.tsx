@@ -5,6 +5,7 @@ import CloseButton from './CloseButton';
 import Coin from './Coin';
 import { Hero } from '../types';
 import config from '../config';
+import { authHeaders } from '../authSession';
 import '../styles/Shop.css';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ResponsiveCardGrid.css';
@@ -135,7 +136,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       setLoading(true);
       
       // Fetch rotation heroes
-      const rotationResponse = await fetch(`${config.API_BASE_URL}/api/shop/rotation?userId=${userId}`);
+      const rotationResponse = await fetch(`${config.API_BASE_URL}/api/shop/rotation?userId=${userId}`, { headers: authHeaders() });
       const rotationData = await rotationResponse.json();
       
       // Fetch ALL enabled heroes and user data to check total unowned count for packs
@@ -179,7 +180,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/shop/purchase-hero`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userId, heroName })
       });
 
@@ -211,7 +212,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/shop/purchase-pack`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userId })
       });
 

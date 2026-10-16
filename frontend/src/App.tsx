@@ -9,6 +9,7 @@ import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
 import MessageIcon from './components/MessageIcon';
 import config from './config';
+import { authHeaders, setAuthToken } from './authSession';
 import { battleEventBus } from './battleAnimations';
 import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
@@ -371,7 +372,9 @@ function App() {
           // If game is not ready, keep searching state active
         }
       } else {
-        setState(prev => ({ ...prev, error: 'Failed to join game' }));
+        // Show the server's reason (e.g. Draft unlock level, not enough heroes) when it gives one
+        const reason = (data as any).error || (data as any).message;
+        setState(prev => ({ ...prev, error: reason || 'Failed to join game' }));
         // Clear searching state on failure
         setIsSearchingForMatch(false);
         setSearchMode(null);
@@ -1947,11 +1950,10 @@ function App() {
       try {
         await fetch(`${config.API_BASE_URL}/api/logout`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ userId: currentUser.id }),
         });
+        setAuthToken(null);
       } catch (error) {
         console.error('Logout API call failed:', error);
       }

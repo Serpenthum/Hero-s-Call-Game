@@ -5,6 +5,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
 console.log('Basic modules loaded successfully');
@@ -17,6 +18,8 @@ console.log('Loading GameManager...');
 const GameManager = require('./gameManager');
 const { snapshotBattle, buildBattleEvent, classifyCast, heroKey } = require('./battleEvents');
 const { QuestService } = require('./quests');
+const { createAuth } = require('./auth');
+const { createShopRouter } = require('./shop');
 console.log('Loading utils...');
 const { rollDice, shuffleArray, rig } = require('./utils');
 console.log('Loading Database...');
@@ -74,6 +77,9 @@ const getHeroes = () => {
 };
 
 const heroes = getHeroes();
+
+// Login tokens: proves a request or socket really belongs to the account it names
+const auth = createAuth();
 
 // Initialize database
 const database = new Database();
@@ -246,6 +252,7 @@ app.post('/api/login', async (req, res) => {
     const response = { 
       success: true, 
       message: 'Login successful',
+      token: auth.issueToken(user.id),
       user: {
         id: user.id,
         username: user.username,
@@ -399,6 +406,7 @@ app.post('/api/admin-login', async (req, res) => {
     const response = { 
       success: true, 
       user: user,
+      token: auth.issueToken(user.id),
       message: `Logged in as ${user.username}`
     };
     
@@ -425,9 +433,10 @@ app.post('/api/admin-login', async (req, res) => {
   }
 });
 
-app.post('/api/logout', (req, res) => {
+app.post('/api/logout', auth.requireUser, (req, res) => {
   try {
     const { userId } = req.body;
+    auth.revokeUser(userId);
     
     if (!userId) {
       return res.status(400).json({ 
@@ -519,7 +528,7 @@ app.get('/api/player-stats/:userId', async (req, res) => {
 });
 
 // API endpoint to update profile icon
-app.post('/api/update-profile-icon', async (req, res) => {
+app.post('/api/update-profile-icon', auth.requireUser, async (req, res) => {
   try {
     const { userId, heroName } = req.body;
     
@@ -553,7 +562,7 @@ app.post('/api/update-profile-icon', async (req, res) => {
 });
 
 // API endpoint to toggle favorite hero
-app.post('/api/toggle-favorite-hero', async (req, res) => {
+app.post('/api/toggle-favorite-hero', auth.requireUser, async (req, res) => {
   try {
     const { userId, heroName } = req.body;
     
@@ -598,210 +607,9 @@ app.get('/api/favorite-heroes/:userId', async (req, res) => {
   }
 });
 
-// Shop API endpoints
+// Shop API endpoints (see shop.js): login token required, rotation of 6 heroes, 5 VP hero / 12 VP pack
+app.use('/api/shop', createShopRouter({ database, getHeroes, auth }));
 
-// Get current shop rotation (6 heroes that refresh every 6 hours)
-app.get('/api/shop/rotation', async (req, res) => {
-  try {
-    const { userId } = req.query;
-    
-    if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User ID is required' 
-      });
-    }
-
-    // Get user data to know which heroes they own
-    const user = await database.getUserById(parseInt(userId));
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    // Get all enabled heroes that the user doesn't own
-    const enabledHeroes = heroes.filter(h => !h.disabled && !user.available_heroes.includes(h.name));
-    
-    // Calculate current rotation seed (changes every 15 minutes)
-    const now = new Date();
-    const rotationSeed = Math.floor(now.getTime() / (15 * 60 * 1000));
-    
-    // Shuffle unowned enabled heroes using the rotation seed
-    const shuffled = [...enabledHeroes];
-    let seed = rotationSeed;
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      seed = (seed * 9301 + 49297) % 233280;
-      const j = Math.floor((seed / 233280) * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    
-    // Take the first 6 heroes from the shuffled list (this is the rotation)
-    const rotationHeroes = shuffled.slice(0, Math.min(6, shuffled.length));
-    
-    // All heroes in rotation are unowned
-    const rotationWithStatus = rotationHeroes.map(hero => ({
-      ...hero,
-      owned: false
-    }));
-
-    res.json({ 
-      success: true, 
-      heroes: rotationWithStatus,
-      rotationSeed 
-    });
-  } catch (error) {
-    console.error('Get shop rotation error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to get shop rotation' 
-    });
-  }
-});
-
-app.post('/api/shop/purchase-hero', async (req, res) => {
-  try {
-    const { userId, heroName } = req.body;
-    
-    if (!userId || !heroName) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User ID and hero name are required' 
-      });
-    }
-
-    // Get user data
-    const user = await database.getUserById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    // Check if user has enough VP
-    if (user.victory_points < 5) {
-      return res.status(400).json({ success: false, message: 'Not enough Victory Points' });
-    }
-
-    // Check if hero is enabled
-    const hero = heroes.find(h => h.name === heroName);
-    if (!hero || hero.disabled) {
-      return res.status(400).json({ success: false, message: 'Hero not available' });
-    }
-
-    // Check if user already owns the hero
-    if (user.available_heroes.includes(heroName)) {
-      return res.status(400).json({ success: false, message: 'Hero already owned' });
-    }
-
-    // Deduct VP and add hero
-    const updatedHeroes = [...user.available_heroes, heroName];
-    const newVP = user.victory_points - 5;
-
-    await new Promise((resolve, reject) => {
-      database.db.run(
-        'UPDATE users SET available_heroes = ?, victory_points = ? WHERE id = ?',
-        [JSON.stringify(updatedHeroes), newVP, userId],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
-
-    console.log(`✅ User ${userId} purchased ${heroName} for 5 VP`);
-    res.json({ 
-      success: true, 
-      message: `${heroName} purchased successfully!`,
-      newVP,
-      heroName,
-      available_heroes: updatedHeroes,
-      heroCount: updatedHeroes.length
-    });
-  } catch (error) {
-    console.error('Purchase hero error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to purchase hero' 
-    });
-  }
-});
-
-app.post('/api/shop/purchase-pack', async (req, res) => {
-  try {
-    const { userId } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User ID is required' 
-      });
-    }
-
-    // Get user data
-    const user = await database.getUserById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    // Check if user has enough VP
-    if (user.victory_points < 12) {
-      return res.status(400).json({ success: false, message: 'Not enough Victory Points' });
-    }
-
-    // Get all unowned enabled heroes
-    const enabledHeroes = heroes.filter(h => !h.disabled);
-    const unownedHeroes = enabledHeroes.filter(h => !user.available_heroes.includes(h.name));
-
-    if (unownedHeroes.length === 0) {
-      return res.status(400).json({ success: false, message: 'All heroes already owned' });
-    }
-
-    // Select 3 random heroes (or fewer if less than 3 remaining)
-    const heroesToGive = Math.min(3, unownedHeroes.length);
-    const shuffled = unownedHeroes.sort(() => Math.random() - 0.5);
-    const selectedHeroes = shuffled.slice(0, heroesToGive);
-    const heroNames = selectedHeroes.map(h => h.name);
-
-    // Deduct VP and add heroes
-    const updatedHeroes = [...user.available_heroes, ...heroNames];
-    const newVP = user.victory_points - 12;
-
-    await new Promise((resolve, reject) => {
-      database.db.run(
-        'UPDATE users SET available_heroes = ?, victory_points = ? WHERE id = ?',
-        [JSON.stringify(updatedHeroes), newVP, userId],
-        function(err) {
-          if (err) {
-            console.error('❌ Failed to update user after pack purchase:', err);
-            reject(err);
-          } else {
-            console.log(`✅ Database updated: User ${userId} now has ${updatedHeroes.length} heroes, ${newVP} VP`);
-            resolve();
-          }
-        }
-      );
-    });
-
-    // Verify the update by reading back from database
-    const verifyUser = await database.getUserById(userId);
-    console.log(`✅ Verified user ${userId} heroes count: ${verifyUser.available_heroes.length}`);
-
-    console.log(`✅ User ${userId} purchased pack for 12 VP, received: ${heroNames.join(', ')}`);
-    res.json({ 
-      success: true, 
-      message: `Pack opened! Received ${heroesToGive} hero${heroesToGive > 1 ? 'es' : ''}`,
-      newVP,
-      heroesReceived: heroNames,
-      available_heroes: updatedHeroes,
-      heroCount: updatedHeroes.length
-    });
-  } catch (error) {
-    console.error('Purchase pack error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to purchase pack' 
-    });
-  }
-});
-
-// API endpoint to get heroes data
 app.get('/api/heroes', (req, res) => {
   try {
     console.log('API call received for /api/heroes');
@@ -1410,7 +1218,32 @@ async function handleRegularGameCompletion(result) {
 }
 
 // Helper function to check and handle survival game completion
+// Tells a player about the XP a finished Survival run just paid. The payout itself is made once by
+// gameManager.settleSurvivalRun when the run ends; this only reports it.
+function emitSurvivalSettlement(socketId, settlement, label) {
+  const xp = settlement && settlement.xpUpdate;
+  if (!xp || !settlement.xpGained) return;
+  io.to(socketId).emit('xp-update', {
+    xpGained: xp.xpGained,
+    newXP: xp.xp,
+    newLevel: xp.level,
+    leveledUp: xp.leveledUp,
+    levelsGained: xp.levelsGained,
+    vpGained: xp.vpGained,
+    message: xp.leveledUp ?
+      `Level up! You're now level ${xp.level}! (+${xp.xpGained} XP from ${label})` :
+      `+${xp.xpGained} XP from ${label}! (${xp.xp} total)`
+  });
+}
+
 async function checkSurvivalGameCompletion(result) {
+  // A finished match changes the run (win/loss, bans, payout) exactly once, however often completion is reported
+  const finishedGame = result.success && result.gameState && result.gameState.winner ? gameManager.games.get(result.gameId) : null;
+  if (finishedGame) {
+    if (finishedGame.survivalSettled) return;
+    finishedGame.survivalSettled = true;
+  }
+
   console.log('🔍 Checking survival game completion. Result success:', result.success);
   console.log('🔍 Result gameState exists:', !!result.gameState);
   console.log('🔍 Result gameState winner:', result.gameState?.winner);
@@ -1430,6 +1263,10 @@ async function checkSurvivalGameCompletion(result) {
     // For survival ties, both players get a loss (no heroes are banned, no wins incremented)
     const player1State = await gameManager.updateSurvivalLoss(player1.id, player1.team);
     const player2State = await gameManager.updateSurvivalLoss(player2.id, player2.team);
+    
+    // A tie can end a run (3rd loss), which pays out like any other run end
+    if (player1State.runEnded) emitSurvivalSettlement(player1.id, player1State.settlement, `your ${player1State.wins}-win survival run`);
+    if (player2State.runEnded) emitSurvivalSettlement(player2.id, player2State.settlement, `your ${player2State.wins}-win survival run`);
     
     console.log('🤝 Player 1 tie state:', player1State);
     console.log('🤝 Player 2 tie state:', player2State);
@@ -1455,7 +1292,7 @@ async function checkSurvivalGameCompletion(result) {
       runEnded: player1State.runEnded || false,
       victoryPoints: player1VictoryPoints,
       message: player1State.runEnded ? 
-        `Run ended in a tie! You earned ${player1State.wins} victory points for your ${player1State.wins} wins.` :
+        `Run ended in a tie! You earned ${player1State.settlement?.vpAwarded ?? 0} victory points for your ${player1State.wins} wins.` :
         `Tie game! You now have ${player1State.wins} wins and ${player1State.losses} losses. No heroes banned.`
     });
     
@@ -1465,7 +1302,7 @@ async function checkSurvivalGameCompletion(result) {
       runEnded: player2State.runEnded || false,
       victoryPoints: player2VictoryPoints,
       message: player2State.runEnded ? 
-        `Run ended in a tie! You earned ${player2State.wins} victory points for your ${player2State.wins} wins.` :
+        `Run ended in a tie! You earned ${player2State.settlement?.vpAwarded ?? 0} victory points for your ${player2State.wins} wins.` :
         `Tie game! You now have ${player2State.wins} wins and ${player2State.losses} losses. No heroes banned.`
     });
     
@@ -1509,57 +1346,22 @@ async function checkSurvivalGameCompletion(result) {
             await database.updateHeroUsage(winnerUserId, hero.name);
           }
           
-          // If winner reached 7 wins (run complete), update their survival stats
+          // The run payout (VP, XP, highest-run record) was already made when the run ended; just tell the player
           if (winnerState.runEnded) {
-            console.log(`🏆 Winner reached 7 wins - updating survival stats for user ${winnerUserId}`);
-            const winnerSurvivalStats = await database.updateSurvivalStats(winnerUserId, winnerState.wins);
-            
-            // Update XP for the perfect survival run
-            if (winnerSurvivalStats.xpGain > 0) {
-              const xpUpdate = await database.updatePlayerXP(winnerUserId, winnerSurvivalStats.xpGain);
-              
-              // Emit XP update to winner
-              io.to(winnerPlayer.id).emit('xp-update', {
-                xpGained: xpUpdate.xpGained,
-                newXP: xpUpdate.xp,
-                newLevel: xpUpdate.level,
-                leveledUp: xpUpdate.leveledUp,
-                message: xpUpdate.leveledUp ? 
-                  `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP from perfect survival run!)` :
-                  `+${xpUpdate.xpGained} XP from your perfect 7-win survival run! (${xpUpdate.xp} total)`
-              });
-            }
-            
-            console.log(`📡 Updated survival stats for winner: ${winnerState.wins} wins, +${winnerSurvivalStats.xpGain} XP, highest: ${winnerSurvivalStats.newHighest}`);
+            emitSurvivalSettlement(winnerPlayer.id, winnerState.settlement, 'your perfect 7-win survival run');
           }
         }
         
         if (loserUserId && !loserIsSpectator) {
-          // Update survival stats for the loser (whose run just ended)
-          const survivalStats = await database.updateSurvivalStats(loserUserId, loserState.wins);
-          
-          // Update XP for the survival run
-          if (survivalStats.xpGain > 0) {
-            const xpUpdate = await database.updatePlayerXP(loserUserId, survivalStats.xpGain);
-            
-            // Emit XP update to loser
-            io.to(loserPlayer.id).emit('xp-update', {
-              xpGained: xpUpdate.xpGained,
-              newXP: xpUpdate.xp,
-              newLevel: xpUpdate.level,
-              leveledUp: xpUpdate.leveledUp,
-              message: xpUpdate.leveledUp ? 
-                `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP from survival run)` :
-                `+${xpUpdate.xpGained} XP from your ${loserState.wins}-win survival run! (${xpUpdate.xp} total)`
-            });
+          // A loss only pays when it ends the run (3rd loss), and gameManager already paid it; just tell the player
+          if (loserState.runEnded) {
+            emitSurvivalSettlement(loserPlayer.id, loserState.settlement, `your ${loserState.wins}-win survival run`);
           }
           
           // Track hero usage for loser's team
           for (const hero of loserPlayer.team) {
             await database.updateHeroUsage(loserUserId, hero.name);
           }
-          
-          console.log(`📡 Updated survival stats: ${loserState.wins} wins, +${survivalStats.xpGain} XP, highest: ${survivalStats.newHighest}`);
         }
         
         // Get updated victory points for both players
@@ -1583,7 +1385,7 @@ async function checkSurvivalGameCompletion(result) {
           runEnded: winnerState.runEnded || false,
           victoryPoints: winnerVictoryPoints,
           message: winnerState.runEnded ? 
-            `Perfect run! You earned ${winnerState.wins} victory points for your 7 wins!` :
+            `Perfect run! You earned ${winnerState.settlement?.vpAwarded ?? 0} victory points for your 7 wins!` :
             `Victory! You now have ${winnerState.wins} wins and ${winnerState.losses} losses.`
         });
         
@@ -1593,7 +1395,7 @@ async function checkSurvivalGameCompletion(result) {
           runEnded: loserState.runEnded || false,
           victoryPoints: loserVictoryPoints,
           message: loserState.runEnded ? 
-            `Run ended! You earned ${loserState.wins} victory points for your ${loserState.wins} wins.` :
+            `Run ended! You earned ${loserState.settlement?.vpAwarded ?? 0} victory points for your ${loserState.wins} wins.` :
             `Defeat! You now have ${loserState.wins} wins and ${loserState.losses} losses.`
         });
         
@@ -1614,7 +1416,7 @@ async function checkSurvivalGameCompletion(result) {
           state: loserState,
           runEnded: loserState.runEnded || false,
           message: loserState.runEnded ? 
-            `Run ended! You earned ${loserState.wins} victory points for your ${loserState.wins} wins.` :
+            `Run ended! You earned ${loserState.settlement?.vpAwarded ?? 0} victory points for your ${loserState.wins} wins.` :
             `Defeat! You now have ${loserState.wins} wins and ${loserState.losses} losses.`
         });
       }
@@ -1626,6 +1428,37 @@ async function checkSurvivalGameCompletion(result) {
     if (!result.gameState) console.log('🔍 No gameState in result');
     if (!result.gameState?.winner) console.log('🔍 No winner in gameState');
     if (result.gameState?.mode !== 'survival') console.log('🔍 Game mode is not survival:', result.gameState?.mode);
+  }
+}
+
+// Tells a player about a Gauntlet payout that gameManager.settleGauntletRun already applied
+async function announceGauntletPayout(playerId, payout, trialsWon) {
+  const userId = userSessions.get(playerId);
+  if (!userId || !payout) return;
+
+  const xp = payout.xpUpdate;
+  if (xp && payout.xp > 0) {
+    io.to(playerId).emit('xp-update', {
+      xpGained: xp.xpGained,
+      newXP: xp.xp,
+      newLevel: xp.level,
+      leveledUp: xp.leveledUp,
+      levelsGained: xp.levelsGained,
+      vpGained: xp.vpGained,
+      message: xp.leveledUp ?
+        `Level up! You're now level ${xp.level}! (+${xp.xpGained} XP from ${trialsWon} Gauntlet win${trialsWon === 1 ? '' : 's'})` :
+        `+${xp.xpGained} XP from ${trialsWon} Gauntlet win${trialsWon === 1 ? '' : 's'}! (${xp.xp} total)`
+    });
+  }
+
+  if (payout.victoryPoints > 0) {
+    const user = await database.getUserById(userId);
+    io.to(playerId).emit('victory-points-update', {
+      type: 'gauntlet_complete',
+      pointsAwarded: payout.victoryPoints,
+      totalVictoryPoints: user.victory_points,
+      message: `Gauntlet run over after ${trialsWon} win${trialsWon === 1 ? '' : 's'}! Earned ${payout.victoryPoints} victory points!`
+    });
   }
 }
 
@@ -1674,72 +1507,16 @@ async function checkGauntletGameCompletion(result) {
           heroOffer: loserResult.runEnded ? null : gameManager.generateGauntletHeroOffer(gameManager.gauntletRuns.get(loserPlayer.id))
         });
 
-        // If run ended, award rewards
+        // If a run ended, pay it. settleGauntletRun pays once, for the battles actually won;
+        // announceGauntletPayout only tells the player (it must not pay again).
         if (winnerResult.runEnded) {
-          const rewards = await gameManager.calculateAndAwardGauntletRewards(winnerPlayer.id, winnerResult.finalTrial);
-          const userId = userSessions.get(winnerPlayer.id);
-          
-          if (userId) {
-            const user = await database.getUserById(userId);
-
-            if (rewards.xp > 0) {
-              const xpUpdate = await database.updatePlayerXP(userId, rewards.xp);
-              
-              io.to(winnerPlayer.id).emit('xp-update', {
-                xpGained: xpUpdate.xpGained,
-                newXP: xpUpdate.xp,
-                newLevel: xpUpdate.level,
-                leveledUp: xpUpdate.leveledUp,
-                message: xpUpdate.leveledUp ?
-                  `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP from Gauntlet Trial ${winnerResult.finalTrial})` :
-                  `+${xpUpdate.xpGained} XP from Gauntlet Trial ${winnerResult.finalTrial}! (${xpUpdate.xp} total)`
-              });
-            }
-
-            if (rewards.victoryPoints > 0) {
-              io.to(winnerPlayer.id).emit('victory-points-update', {
-                type: 'gauntlet_complete',
-                pointsAwarded: rewards.victoryPoints,
-                totalVictoryPoints: user.victory_points,
-                message: `Gauntlet complete! Earned ${rewards.victoryPoints} victory points!`
-              });
-            }
-          }
+          await announceGauntletPayout(winnerPlayer.id, await gameManager.settleGauntletRun(winnerPlayer.id), winnerResult.trialsWon);
         }
 
         if (loserResult.runEnded) {
-          const rewards = await gameManager.calculateAndAwardGauntletRewards(loserPlayer.id, loserResult.finalTrial);
-          const userId = userSessions.get(loserPlayer.id);
-          
-          if (userId) {
-            const user = await database.getUserById(userId);
-
-            if (rewards.xp > 0) {
-              const xpUpdate = await database.updatePlayerXP(userId, rewards.xp);
-              
-              io.to(loserPlayer.id).emit('xp-update', {
-                xpGained: xpUpdate.xpGained,
-                newXP: xpUpdate.xp,
-                newLevel: xpUpdate.level,
-                leveledUp: xpUpdate.leveledUp,
-                message: xpUpdate.leveledUp ?
-                  `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP from Gauntlet Trial ${loserResult.finalTrial})` :
-                  `+${xpUpdate.xpGained} XP from Gauntlet Trial ${loserResult.finalTrial}! (${xpUpdate.xp} total)`
-              });
-            }
-
-            if (rewards.victoryPoints > 0) {
-              io.to(loserPlayer.id).emit('victory-points-update', {
-                type: 'gauntlet_complete',
-                pointsAwarded: rewards.victoryPoints,
-                totalVictoryPoints: user.victory_points,
-                message: `Gauntlet run ended at Trial ${loserResult.finalTrial}! Earned ${rewards.victoryPoints} victory points!`
-              });
-            }
-          }
+          await announceGauntletPayout(loserPlayer.id, await gameManager.settleGauntletRun(loserPlayer.id), loserResult.trialsWon);
         }
 
-        console.log(`✅ Gauntlet post-battle processing complete`);
       } catch (error) {
         console.error('❌ Error processing Gauntlet game completion:', error);
       }
@@ -1794,7 +1571,12 @@ io.on('connection', (socket) => {
 
   // Handle user authentication for socket connection
   socket.on('authenticate', (data) => {
-    const { userId } = data;
+    const { userId, token } = data || {};
+    // The client must prove it owns this account with the token it got at login; a bare user id is not enough
+    if (userId && !auth.verifyUser(token, userId)) {
+      socket.emit('authentication-failed', { message: 'Please log in again' });
+      return;
+    }
     if (userId) {
       // Check if user is already connected from another socket
       if (loggedInUsers.has(userId)) {
@@ -1933,7 +1715,15 @@ io.on('connection', (socket) => {
 
   // Handle survival mode matchmaking
   socket.on('join-survival-game', async (data) => {
-    console.log('Player joining survival game:', data.name, 'with team:', data.team.map(h => h.name));
+    console.log('Player joining survival game:', data && data.name);
+    
+    // The client only picks which heroes to bring. Ownership, run usage and the hero stats are checked
+    // and rebuilt on the server, so a modified client can't field heroes it doesn't have or invent stats.
+    const prepared = await gameManager.prepareSurvivalTeam(socket.id, data && data.team);
+    if (!prepared.success) {
+      socket.emit('join-result', { success: false, message: prepared.error });
+      return;
+    }
     
     // Get user profile icon if user is authenticated
     let profileIcon = 'Sorcerer'; // Default profile icon
@@ -1952,7 +1742,7 @@ io.on('connection', (socket) => {
     // Drop queue entries whose sockets are gone so a live player is never paired with a ghost
     gameManager.survivalQueue = gameManager.survivalQueue.filter(p => io.sockets.sockets.has(p.playerId));
 
-    const result = gameManager.addSurvivalPlayer(socket.id, data.name, data.team, profileIcon);
+    const result = gameManager.addSurvivalPlayer(socket.id, data.name, prepared.team, profileIcon);
     
     if (result.success) {
       if (result.waiting) {
@@ -2704,11 +2494,16 @@ io.on('connection', (socket) => {
       const savedState = await database.loadGauntletState(userId);
       if (savedState.success && savedState.runState) {
         console.log('📂 Loading saved Gauntlet state for user', userId);
-        socket.emit('gauntlet-run-started', {
-          success: true,
-          runState: savedState.runState
-        });
-        return;
+        // Rebuild the run on the server (so later actions have a run to act on) from the saved data
+        const restored = await gameManager.restoreGauntletRun(socket.id, data.name, savedState.runState);
+        if (restored.success) {
+          socket.emit('gauntlet-run-started', {
+            success: true,
+            runState: restored.runState
+          });
+          return;
+        }
+        console.error('Saved Gauntlet state could not be restored, starting a new run:', restored.error);
       }
     }
     
@@ -2731,10 +2526,13 @@ io.on('connection', (socket) => {
   socket.on('save-and-return-to-lobby', async (data) => {
     console.log('💾 Saving Gauntlet state and returning to lobby:', socket.id);
     
+    // Save the server's own copy of the run. Whatever the client sends along is ignored, so a player
+    // can't edit their roster, trial or win count.
     const userId = userSessions.get(socket.id);
-    if (userId && data.runState) {
+    const saveState = gameManager.getGauntletSaveState(socket.id);
+    if (userId && saveState) {
       try {
-        await database.saveGauntletState(userId, data.runState);
+        await database.saveGauntletState(userId, saveState);
         socket.emit('save-success', { success: true });
       } catch (error) {
         console.error('❌ Error saving Gauntlet state:', error);
@@ -2832,35 +2630,11 @@ io.on('connection', (socket) => {
         await database.clearGauntletState(userId);
       }
       
-      // Send rewards update
-      if (userId && result.rewards) {
-        try {
-          const user = await database.getUserById(userId);
-          
-          // Send XP update
-          if (result.rewards.xp > 0) {
-            const playerStats = await database.getPlayerStats(userId);
-            socket.emit('xp-update', {
-              xpGained: result.rewards.xp,
-              newXP: playerStats.xp,
-              newLevel: playerStats.level,
-              leveledUp: false,
-              message: `+${result.rewards.xp} XP from Gauntlet Trial ${result.finalTrial}!`
-            });
-          }
-          
-          // Send victory points update
-          if (result.rewards.victoryPoints > 0) {
-            socket.emit('victory-points-update', {
-              type: 'gauntlet_complete',
-              pointsAwarded: result.rewards.victoryPoints,
-              totalVictoryPoints: user.victory_points,
-              message: `Gauntlet complete! Earned ${result.rewards.victoryPoints} victory points for reaching Trial ${result.finalTrial}`
-            });
-          }
-        } catch (error) {
-          console.error('❌ Error sending Gauntlet rewards:', error);
-        }
+      // Tell the player what the run paid (abandonGauntletRun already paid it, once)
+      try {
+        await announceGauntletPayout(socket.id, result.rewards, result.trialsWon);
+      } catch (error) {
+        console.error('❌ Error sending Gauntlet rewards:', error);
       }
       
       socket.emit('gauntlet-run-abandoned', {

@@ -3,6 +3,7 @@ import '../styles/HeroCollection.css';
 import CloseButton from './CloseButton';
 import Coin from './Coin';
 import config from '../config';
+import { authHeaders } from '../authSession';
 import SharedHeroCard from './HeroCard';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ResponsiveCardGrid.css';
@@ -332,9 +333,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/toggle-favorite-hero`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userId, heroName }),
       });
       

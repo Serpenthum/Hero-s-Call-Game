@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { SocketEvents } from './types';
 import config from './config';
 import { getAutoEndTurnEnabled } from './battleAnimations';
+import { getAuthToken } from './authSession';
 
 class SocketService {
   private socket: Socket<SocketEvents> | null = null;
@@ -61,7 +62,7 @@ class SocketService {
 
   // Authentication method
   authenticate(userId: number) {
-    this.socket?.emit('authenticate', { userId });
+    this.socket?.emit('authenticate', { userId, token: getAuthToken() });
   }
 
   // Reconnection method

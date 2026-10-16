@@ -214,9 +214,14 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
       return [];
     }
 
-    // Check if current hero is taunted
+    // Check if current hero is taunted (heroes like Barbarian ignore taunts and may pick anyone)
     const currentHero = getCurrentHero();
-    if (currentHero?.statusEffects?.taunt?.target) {
+    const specials: any[] = currentHero?.Special
+      ? (Array.isArray(currentHero.Special) ? currentHero.Special : [currentHero.Special])
+      : [];
+    const ignoresTaunt = specials.some(special =>
+      special?.effects?.some((effect: any) => effect.type === 'passive_modifier' && effect.effect === 'ignore_taunt'));
+    if (!ignoresTaunt && currentHero?.statusEffects?.taunt?.target) {
       const tauntTargetName = currentHero.statusEffects.taunt.target;
       const tauntTarget = opponent.team.find(h => h.name === tauntTargetName);
       if (tauntTarget) {

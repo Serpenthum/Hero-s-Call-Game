@@ -239,7 +239,8 @@ function weightedShuffle(array, favoredHeroes = []) {
   return result;
 }
 
-function applyStatusEffect(hero, effect, value, duration = null, stat = null, caster = null, durationUnit = null, abilityName = null) {
+// casterId identifies the source hero for timed stat modifiers (hero names can appear on both teams)
+function applyStatusEffect(hero, effect, value, duration = null, stat = null, caster = null, durationUnit = null, abilityName = null, casterId = null) {
   if (!hero.statusEffects) {
     hero.statusEffects = {
       poison: 0,
@@ -331,6 +332,10 @@ function applyStatusEffect(hero, effect, value, duration = null, stat = null, ca
         const modifierKey = `${statToModify}_${caster}`;
         hero.statusEffects.statModifierDurations[modifierKey] = duration;
         hero.statusEffects.statModifierCasters[modifierKey] = caster;
+        if (!hero.statusEffects.statModifierCasterIds) {
+          hero.statusEffects.statModifierCasterIds = {};
+        }
+        hero.statusEffects.statModifierCasterIds[modifierKey] = casterId;
         hero.statusEffects.statModifierUnits[modifierKey] = durationUnit;
         
         // Store ability name if provided
@@ -345,7 +350,9 @@ function applyStatusEffect(hero, effect, value, duration = null, stat = null, ca
   }
 }
 
-function processEndOfTurn(hero) {
+// dealPoisonDamage lets the game engine apply the tick through its shared damage pipeline
+// (Poison Aura, death processing); without it the tick just lowers HP.
+function processEndOfTurn(hero, dealPoisonDamage = null) {
   // Initialize statusEffects if it doesn't exist
   if (!hero.statusEffects) {
     hero.statusEffects = {};
@@ -357,7 +364,11 @@ function processEndOfTurn(hero) {
   // Process poison damage
   if (effects.poison > 0) {
     const poisonDamage = effects.poison;
-    hero.currentHP = Math.max(0, hero.currentHP - poisonDamage);
+    if (dealPoisonDamage) {
+      dealPoisonDamage(hero, poisonDamage);
+    } else {
+      hero.currentHP = Math.max(0, hero.currentHP - poisonDamage);
+    }
     results.push({
       type: 'poison_damage',
       target: hero.name,

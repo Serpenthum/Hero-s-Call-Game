@@ -21,9 +21,10 @@ class Database {
         console.error('Database path was:', dbPath);
       } else {
         console.log('Connected to SQLite database at:', dbPath);
-        // Use serialize to ensure operations run sequentially
-          this.createTables();
-  
+        // Serialize so the ALTER TABLE statements never run before CREATE TABLE has finished
+        // (on a fresh database they otherwise race, and the columns are silently never added)
+        this.db.serialize(() => this.createTables());
+
       }
     });
     
@@ -1123,6 +1124,28 @@ class Database {
     });
   }
 
+  // Spends Victory Points and adds heroes in a single guarded statement: it only applies if the player can
+  // still afford it, so two simultaneous purchases can never spend the same points twice.
+  // Resolves { success: true, newVP, available_heroes } or { success: false, error }.
+  async purchaseHeroes(userId, cost, heroNames) {
+    const user = await this.getUserById(userId);
+    if (!user) return { success: false, error: 'User not found' };
+    if (user.victory_points < cost) return { success: false, error: 'Not enough Victory Points' };
+    
+    const updatedHeroes = [...new Set([...user.available_heroes, ...heroNames])];
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'UPDATE users SET victory_points = victory_points - ?, available_heroes = ? WHERE id = ? AND victory_points >= ?',
+        [cost, JSON.stringify(updatedHeroes), userId, cost],
+        function(err) {
+          if (err) return reject(err);
+          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough Victory Points' });
+          resolve({ success: true, newVP: user.victory_points - cost, available_heroes: updatedHeroes });
+        }
+      );
+    });
+  }
+
   async updateHeroUsage(userId, heroName) {
     return new Promise((resolve, reject) => {
       this.getPlayerStats(userId)
@@ -1331,7 +1354,13 @@ class Database {
         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       `;
       
-      const rosterJson = JSON.stringify(runState.roster);
+      // The roster column also carries the run's win count and dead heroes (older saves stored a bare roster array)
+      const rosterJson = JSON.stringify({
+        version: 2,
+        roster: runState.roster,
+        trials_won: runState.trials_won || 0,
+        dead_hero_ids: runState.dead_hero_ids || []
+      });
       
       this.db.run(query, [userId, runState.current_trial, runState.rerolls_remaining, runState.shop_actions_remaining, rosterJson], (err) => {
         if (err) {
@@ -1355,13 +1384,17 @@ class Database {
           reject(err);
         } else if (row) {
           console.log(`✅ Loaded gauntlet state for user ${userId}`);
+          const saved = JSON.parse(row.roster);
+          const legacy = Array.isArray(saved);
           resolve({
             success: true,
             runState: {
               current_trial: row.current_trial,
               rerolls_remaining: row.rerolls_remaining,
               shop_actions_remaining: row.shop_actions_remaining,
-              roster: JSON.parse(row.roster)
+              roster: legacy ? saved : saved.roster,
+              trials_won: legacy ? 0 : (saved.trials_won || 0),
+              dead_hero_ids: legacy ? [] : (saved.dead_hero_ids || [])
             }
           });
         } else {

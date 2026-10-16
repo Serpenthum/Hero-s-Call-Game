@@ -275,7 +275,7 @@ export interface Message {
 
 export interface SocketEvents {
   // Client to Server
-  'authenticate': (data: { userId: number }) => void;
+  'authenticate': (data: { userId: number; token: string | null }) => void;
   'join-game': (data: { name: string; mode?: 'draft' | 'random' | 'friendly'; roomName?: string }) => void;
   'join-survival-game': (data: { name: string; team: Hero[] }) => void;
   'cancel-survival-search': () => void;

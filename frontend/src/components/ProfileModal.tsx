@@ -4,6 +4,7 @@ import XPBar from './XPBar';
 import CloseButton from './CloseButton';
 import { Hero } from '../types';
 import config from '../config';
+import { authHeaders } from '../authSession';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ProfileModal.css';
 
@@ -116,9 +117,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/update-profile-icon`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           userId: user.id,
           heroName: heroName

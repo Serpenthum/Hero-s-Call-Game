@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../styles/LoginPage.css';
 import '../styles/AuthResponsive.css';
 import config from '../config';
+import { setAuthToken } from '../authSession';
 
 interface User {
   id: number;
@@ -100,6 +101,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartC
           localStorage.setItem('pendingLevelUpData', JSON.stringify(data.levelUpData));
         }
         
+        // The server's proof that this client owns the account; sent with account actions and the socket
+        setAuthToken(data.token);
         onLogin(data.user);
       } else {
         // Handle specific error cases
@@ -148,6 +151,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartC
           localStorage.setItem('pendingLevelUpData', JSON.stringify(data.levelUpData));
         }
         
+        setAuthToken(data.token);
         onLogin(data.user);
       } else {
         setError(data.message || 'Failed to login as admin');
