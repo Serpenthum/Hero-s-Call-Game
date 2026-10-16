@@ -1,4 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
+
+const DRAFT_TIME_MS = 30000; // one ban or pick round
 const { 
   rollDice, 
   shuffleArray, 
@@ -5689,6 +5691,33 @@ class GameManager {
       }
       this.playerGameMap.delete(playerId);
     }
+  }
+
+  // Draft clock: each ban or pick round lasts DRAFT_TIME_MS. The server calls this about once a second.
+  // Returns what happened so the server can tell the players.
+  tickDraftTimers(now = Date.now()) {
+    const events = [];
+    for (const [gameId, game] of this.games) {
+      if (game.phase !== 'draft') continue;
+      const round = game.currentDraftPhase;
+      if (!game.draftClock || game.draftClock.round !== round) {
+        game.draftClock = { round, deadline: now + DRAFT_TIME_MS };
+        events.push({ kind: 'timer', gameId, round, durationMs: DRAFT_TIME_MS, remainingMs: DRAFT_TIME_MS });
+        continue;
+      }
+      if (now < game.draftClock.deadline) continue;
+
+      for (const player of [...game.players]) {
+        // Once the last undecided player has acted the round moves on; the next tick starts its clock
+        if (game.phase !== 'draft' || game.currentDraftPhase !== round) break;
+        const undecided = round === 0 ? !player.bannedCard : player.team.length < round;
+        if (!undecided || !player.draftCards || player.draftCards.length === 0) continue;
+        const card = player.draftCards[Math.floor(Math.random() * player.draftCards.length)];
+        const result = round === 0 ? this.banCard(player.id, card.name) : this.pickCard(player.id, card.name);
+        events.push({ kind: round === 0 ? 'ban' : 'pick', gameId, playerId: player.id, result });
+      }
+    }
+    return events;
   }
 
   autoDraft(playerId) {

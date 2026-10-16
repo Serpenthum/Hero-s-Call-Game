@@ -781,6 +781,17 @@ function startTurnTimer(gameId) {
   emitTurnTimer(io.to(gameId), gameId);
 }
 
+// Draft clock: the game manager does the auto-ban and auto-pick; here we tell the players.
+setInterval(() => {
+  for (const ev of gameManager.tickDraftTimers()) {
+    if (ev.kind === 'timer') {
+      io.to(ev.gameId).emit('draft-timer', { gameId: ev.gameId, round: ev.round, durationMs: ev.durationMs, remainingMs: ev.remainingMs });
+    } else if (ev.result && ev.result.success) {
+      io.to(ev.gameId).emit(ev.kind === 'ban' ? 'ban-complete' : 'pick-complete', ev.result);
+    }
+  }
+}, 1000).unref();
+
 async function processEndTurn(socketId) {
   const result = withBattleEvent(socketId, 'tick', null, () => gameManager.endTurn(socketId));
   if (!result.success) return result;
