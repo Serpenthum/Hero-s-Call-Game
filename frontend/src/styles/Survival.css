@@ -1,0 +1,112 @@
+/* Survival: a campaign ledger on the left, the roster sheet on the table. */
+
+.survival-mode-container {
+  background: var(--felt-surface);
+  font-family: var(--font-ui);
+}
+
+/* The ledger */
+.survival-sidebar {
+  background: var(--walnut);
+  border-right: 1px solid var(--brass-dim);
+  box-shadow: 6px 0 18px var(--shade);
+}
+.survival-mode-title {
+  font: 400 var(--text-2xl) / 1 var(--font-display);
+  color: var(--bone);
+  text-shadow: none;
+  border-bottom: 1px solid var(--brass-dim);
+}
+.survival-progress h3, .survival-used-heroes h3 {
+  font: 400 var(--text-lg) / 1 var(--font-display);
+  color: var(--bone);
+  text-shadow: none;
+}
+.progress-title { color: var(--bone); }
+.progress-count { color: var(--brass-hi); font-weight: 700; font-variant-numeric: tabular-nums; }
+.progress-bar-container { background: var(--felt-deep); border: 1px solid var(--brass-dim); border-radius: var(--radius-control); }
+.wins-bar { background: var(--verdigris); }
+.losses-bar { background: var(--ember); }
+.progress-achievement, .progress-elimination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font: 400 var(--text-lg) / 1 var(--font-display);
+  text-shadow: none;
+}
+.progress-achievement { color: var(--brass-hi); }
+.progress-elimination { color: var(--ember-hi); }
+.used-hero-item { background: var(--leather); border: 1px solid var(--brass-dim); border-radius: var(--radius-control); }
+.used-hero-name { color: var(--bone-dim); text-decoration: line-through; }
+.used-heroes-subtitle, .no-used-heroes p, .hint { color: var(--bone-dim); }
+
+/* Buttons: brass, outline, ember */
+.survival-btn {
+  border-radius: var(--radius-control);
+  font: 700 var(--text-md) / 1.1 var(--font-ui);
+  letter-spacing: 0;
+  box-shadow: none;
+  text-shadow: none;
+}
+.survival-btn.primary { background: var(--brass); border-color: var(--brass-hi); color: var(--felt-deep); }
+.survival-btn.primary:hover { background: var(--brass-hi); box-shadow: none; }
+.survival-btn.secondary { color: var(--bone); border-color: var(--brass); }
+.survival-btn.secondary:hover { background: var(--leather); color: var(--bone); box-shadow: none; }
+.survival-btn.danger { color: var(--ember-hi); border-color: var(--ember); }
+.survival-btn.danger:hover { background: var(--ember); color: var(--bone); box-shadow: none; }
+.start-battle-btn {
+  background: var(--brass);
+  color: var(--felt-deep);
+  border: 1px solid var(--brass-hi);
+  border-radius: var(--radius-control);
+  font: 700 var(--text-lg) / 1.1 var(--font-ui);
+  text-shadow: none;
+  box-shadow: none;
+}
+.start-battle-btn:hover:not(:disabled) { background: var(--brass-hi); transform: none; box-shadow: none; }
+.start-battle-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* End modals use the shared frame */
+.survival-end-modal { background: var(--scrim); backdrop-filter: none; }
+.survival-end-content {
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  color: var(--bone);
+}
+.survival-end-content h2 { font: 400 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; }
+.survival-end-content p { color: var(--bone-dim); }
+
+/* The roster sheet */
+.favorite-star { fill: currentColor; color: var(--brass-hi); }
+.selection-indicator { display: flex; align-items: center; justify-content: center; color: var(--felt-deep); background: var(--brass-hi); border-radius: 50%; }
+.matchmaking-status, .waiting-message { color: var(--bone); }
+.waiting-message h3 { display: flex; align-items: center; justify-content: center; gap: var(--space-2); font: 400 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; }
+.waiting-message p { color: var(--bone-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .survival-btn, .start-battle-btn, .progress-bar { transition: none; animation: none; }
+}
+
+/* Panels: one hairline, one frame */
+.survival-progress, .survival-used-heroes {
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--inset-frame);
+}
+.team-selection-header h2 { font: 400 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; text-transform: none; }
+.team-selection-header p { font-size: var(--text-md); color: var(--bone-dim); }
+.survival-selected-team {
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  background: var(--walnut);
+}
+.survival-team-slot { border: 2px dashed var(--brass-dim); border-radius: var(--radius-panel); }
+.survival-team-slot .slot-number { font-family: var(--font-display); color: var(--brass-dim); }
+.survival-team-slot .slot-hint { color: var(--bone-dim); font-style: normal; }
+.heroes-grid-container .pagination-arrow-overlay { border-width: 1px !important; }
+.hero-browser-side { border-right-color: var(--brass-dim); }
+.survival-team-builder select, .survival-team-builder input { font-family: var(--font-ui); }

@@ -5,6 +5,7 @@ import SurvivalUsedHeroes from './SurvivalUsedHeroes';
 import RewardsDisplay from './RewardsDisplay';
 import Coin from './Coin';
 import '../styles/SurvivalMode.css';
+import '../styles/Survival.css'; // last, so it wins over the older Survival sheets
 
 interface Hero {
   name: string;
@@ -226,7 +227,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
     return (
       <div className="survival-end-modal">
         <div className="survival-end-content">
-          <h2>Abandon Survival Run?</h2>
+          <h2>Abandon this run?</h2>
           <p>Are you sure you want to abandon your current survival run? This will reset your wins ({survivalState.wins}), losses ({survivalState.losses}), and used heroes.</p>
           {survivalState.wins > 0 && (
             <p className="survival-victory-points-info">
@@ -235,7 +236,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
           )}
           <div className="survival-end-buttons">
             <button className="survival-btn danger" onClick={handleConfirmAbandon}>
-              Yes, Abandon Run
+              Abandon run
             </button>
             <button className="survival-btn secondary" onClick={handleCancelAbandon}>
               Cancel
@@ -250,7 +251,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
     return (
       <div className="survival-end-modal">
         <div className="survival-end-content">
-          <h2>Survival Run Complete</h2>
+          <h2>Run complete</h2>
           <p>{endMessage}</p>
           
           {/* Rewards Display */}
@@ -270,7 +271,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
           
           <div className="survival-end-buttons">
             <button className="survival-btn primary" onClick={handleEndModalClose}>
-              Start New Run
+              Start a new run
             </button>
             <button className="survival-btn secondary" onClick={onReturnToLobby}>
               Return to Lobby
@@ -285,7 +286,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
     <div className="survival-mode-container">
       <div className="survival-content">
         <div className="survival-sidebar">
-          <h1 className="survival-mode-title">Survival Mode</h1>
+          <h1 className="survival-mode-title">Survival</h1>
           <SurvivalProgress wins={survivalState.wins} losses={survivalState.losses} />
           <SurvivalUsedHeroes usedHeroes={survivalState.usedHeroes} />
           

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../styles/SurvivalTeamBuilder.css';
 import config from '../config';
 import HeroCard from './HeroCard';
+import Icon from './ui/Icon';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ResponsiveCardGrid.css';
 
@@ -460,11 +461,11 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                         disableHPAnimations
                       >
                       {user?.favorite_heroes?.includes(hero.name) && (
-                        <div className="favorite-star">⭐</div>
+                        <Icon name="star" size={18} className="favorite-star" />
                       )}
 
                       {!placeholder && isHeroSelected(hero) && (
-                        <div className="selection-indicator">✓</div>
+                        <div className="selection-indicator"><Icon name="check" size={20} /></div>
                       )}
 
                       </HeroCard>
@@ -526,7 +527,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                   <div className="empty-slot">
                     <div className="empty-slot-content">
                       <span className="slot-number">{index + 1}</span>
-                      <span className="slot-hint">Select Hero</span>
+                      <span className="slot-hint">Choose a hero</span>
                     </div>
                   </div>
                 )}
@@ -539,13 +540,13 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
             <div className="start-battle-container">
               {!isSearchingForMatch ? (
                 <button className="start-battle-btn" onClick={handleStartBattle}>
-                  Start Battle with Selected Team
+                  Start battle
                 </button>
               ) : (
                 <div className="matchmaking-status">
                   <div className="waiting-message">
-                    <h3>🔍 Searching for opponent...</h3>
-                    <p>Please wait while we find you a worthy challenger!</p>
+                    <h3><Icon name="search" /> Looking for an opponent</h3>
+                    <p>This takes a moment.</p>
                     <div className="loading-dots">
                       <span>.</span>
                       <span>.</span>

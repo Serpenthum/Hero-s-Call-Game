@@ -1,18 +1,18 @@
 /* Survival Progress Component */
 .survival-progress {
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid #ff6600;
+  background: color-mix(in srgb, var(--felt-deep) 40%, transparent);
+  border: 2px solid var(--brass-hi);
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 12px;
 }
 
 .survival-progress h3 {
-  color: #ff6600;
+  color: var(--brass-hi);
   margin: 0 0 10px 0;
   font-size: 1.2rem;
   text-align: center;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 1px 1px 2px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 .progress-section {
@@ -49,8 +49,8 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--bone) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bone) 20%, transparent);
   border-radius: 10px;
 }
 
@@ -64,49 +64,49 @@
 }
 
 .wins-bar {
-  background: linear-gradient(90deg, #0066cc 0%, #007bff 50%, #4da6ff 100%);
-  border: 1px solid #007bff;
+  background: linear-gradient(90deg, var(--brass) 0%, var(--brass) 50%, var(--brass) 100%);
+  border: 1px solid var(--brass);
 }
 
 .losses-bar {
-  background: linear-gradient(90deg, #cc0000 0%, #ff0000 50%, #ff4d4d 100%);
-  border: 1px solid #ff0000;
+  background: linear-gradient(90deg, var(--ember) 0%, var(--ember) 50%, var(--ember-hi) 100%);
+  border: 1px solid var(--ember);
 }
 
 .progress-achievement {
   text-align: center;
-  color: #ffd700;
+  color: var(--brass-hi);
   font-weight: bold;
   font-size: 1rem;
   margin-top: 10px;
   padding: 8px;
-  background: rgba(255, 215, 0, 0.1);
-  border: 1px solid #ffd700;
+  background: color-mix(in srgb, var(--brass-hi) 10%, transparent);
+  border: 1px solid var(--brass-hi);
   border-radius: 8px;
   animation: achievement-glow 2s ease-in-out infinite alternate;
 }
 
 .progress-elimination {
   text-align: center;
-  color: #ff6b6b;
+  color: var(--ember-hi);
   font-weight: bold;
   font-size: 1rem;
   margin-top: 10px;
   padding: 8px;
-  background: rgba(255, 0, 0, 0.1);
-  border: 1px solid #ff6b6b;
+  background: color-mix(in srgb, var(--ember) 10%, transparent);
+  border: 1px solid var(--ember-hi);
   border-radius: 8px;
   animation: elimination-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes achievement-glow {
   from {
-    text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    text-shadow: 0 0 5px color-mix(in srgb, var(--felt-deep) 50%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--felt-deep) 30%, transparent);
   }
   to {
-    text-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    text-shadow: 0 0 15px color-mix(in srgb, var(--felt-deep) 80%, transparent);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--felt-deep) 50%, transparent);
   }
 }
 

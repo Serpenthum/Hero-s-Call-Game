@@ -1,4 +1,5 @@
 import React from 'react';
+import Icon from './ui/Icon';
 import '../styles/SurvivalProgress.css';
 
 interface SurvivalProgressProps {
@@ -38,7 +39,7 @@ const SurvivalProgress: React.FC<SurvivalProgressProps> = ({ wins, losses }) => 
             style={{
               width: `${winsPercentage}%`,
               opacity: getWinsIntensity(),
-              boxShadow: `0 0 ${10 + wins * 3}px rgba(0, 123, 255, ${getWinsIntensity()})`
+              boxShadow: `0 0 ${10 + wins * 3}px color-mix(in srgb, var(--verdigris) ${Math.round(getWinsIntensity() * 100)}%, transparent)`
             }}
           />
           <div className="progress-bar-background" />
@@ -56,7 +57,7 @@ const SurvivalProgress: React.FC<SurvivalProgressProps> = ({ wins, losses }) => 
             style={{
               width: `${lossesPercentage}%`,
               opacity: getLossesIntensity(),
-              boxShadow: `0 0 ${10 + losses * 3}px rgba(255, 0, 0, ${getLossesIntensity()})`
+              boxShadow: `0 0 ${10 + losses * 3}px color-mix(in srgb, var(--ember) ${Math.round(getLossesIntensity() * 100)}%, transparent)`
             }}
           />
           <div className="progress-bar-background" />
@@ -65,13 +66,13 @@ const SurvivalProgress: React.FC<SurvivalProgressProps> = ({ wins, losses }) => 
 
       {wins === maxWins && (
         <div className="progress-achievement">
-          🏆 Perfect Run!
+          <Icon name="star" /> Perfect run
         </div>
       )}
       
       {losses === maxLosses && (
         <div className="progress-elimination">
-          💀 Eliminated
+          <Icon name="close" /> Eliminated
         </div>
       )}
     </div>

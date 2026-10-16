@@ -12,7 +12,7 @@ const SurvivalUsedHeroes: React.FC<SurvivalUsedHeroesProps> = ({ usedHeroes }) =
 
   return (
     <div className="survival-used-heroes">
-      <h3>Used Heroes</h3>
+      <h3>Heroes already used</h3>
       
       {uniqueUsedHeroes.length === 0 ? (
         <div className="no-used-heroes">
@@ -40,7 +40,7 @@ const SurvivalUsedHeroes: React.FC<SurvivalUsedHeroesProps> = ({ usedHeroes }) =
       
       {uniqueUsedHeroes.length > 0 && (
         <div className="used-heroes-count">
-          {uniqueUsedHeroes.length} hero{uniqueUsedHeroes.length !== 1 ? 's' : ''} used
+          {uniqueUsedHeroes.length} {uniqueUsedHeroes.length === 1 ? 'hero' : 'heroes'} used
         </div>
       )}
     </div>
