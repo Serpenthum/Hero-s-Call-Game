@@ -3,12 +3,12 @@
 .binder-intro,
 .collection-fullscreen.binder-theme {
   --leather:
-    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.5px) 0 0 / 7px 7px,
-    radial-gradient(rgba(0, 0, 0, 0.2) 1px, transparent 1.5px) 3px 3px / 7px 7px,
-    linear-gradient(135deg, #6b4126 0%, #46280f 55%, #301a09 100%);
-  --paper: linear-gradient(135deg, #f0e5ca 0%, #e2d2ae 100%);
-  --gold: #d9a82b;
-  --gold-light: #ffd966;
+    radial-gradient(color-mix(in srgb, var(--bone) 6%, transparent) 1px, transparent 1.5px) 0 0 / 7px 7px,
+    radial-gradient(color-mix(in srgb, var(--felt-deep) 20%, transparent) 1px, transparent 1.5px) 3px 3px / 7px 7px,
+    linear-gradient(135deg, var(--brass) 0%, var(--walnut) 55%, var(--walnut) 100%);
+  --paper: linear-gradient(135deg, var(--brass-hi) 0%, var(--brass-hi) 100%);
+  --gold: var(--brass-hi);
+  --gold-light: var(--brass-hi);
 }
 
 /* ---------- Opening animation ---------- */
@@ -22,7 +22,7 @@
   justify-content: center;
   overflow: hidden;
   cursor: pointer;
-  background: radial-gradient(ellipse at center, #3a2414 0%, #120a05 85%);
+  background: radial-gradient(ellipse at center, var(--walnut) 0%, var(--felt-deep) 85%);
   animation: biOverlay 1.7s linear forwards;
 }
 
@@ -50,7 +50,7 @@
   width: var(--bw);
   height: var(--bh);
   transform-style: preserve-3d;
-  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 18px 24px color-mix(in srgb, var(--felt-deep) 60%, transparent));
   animation: biBook 1.7s ease-in-out forwards;
 }
 
@@ -87,7 +87,7 @@
 
 .bi-cover-front {
   background: var(--leather);
-  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.35), inset 0 0 40px rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--felt-deep) 35%, transparent), inset 0 0 40px color-mix(in srgb, var(--felt-deep) 45%, transparent);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -118,13 +118,13 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fafafa, #8c8c8c 60%, #4a4a4a);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  background: radial-gradient(circle at 35% 30%, var(--bone), var(--bone-dim) 60%, var(--leather));
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--felt-deep) 60%, transparent);
 }
 
 .bi-crest {
   width: 42%;
-  filter: drop-shadow(0 0 6px rgba(255, 200, 60, 0.45));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--felt-deep) 45%, transparent));
 }
 
 .bi-crest svg {
@@ -133,13 +133,13 @@
 }
 
 .bi-title {
-  font-family: 'Orbitron', monospace;
+  font-family: var(--font-ui);
   font-weight: 700;
   font-size: clamp(0.8rem, 1.6vw, 1.4rem);
   letter-spacing: 3px;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--gold-light);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 2px 4px color-mix(in srgb, var(--felt-deep) 80%, transparent);
 }
 
 .bi-page {
@@ -170,70 +170,70 @@
   padding: 6%;
   background: var(--paper);
   border-radius: 4px;
-  box-shadow: inset 0 0 12px rgba(80, 50, 10, 0.35);
+  box-shadow: inset 0 0 12px color-mix(in srgb, var(--felt-deep) 35%, transparent);
 }
 
 .bi-pocket {
   border-radius: 4px;
-  background: linear-gradient(115deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.15));
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 1px 3px rgba(60, 40, 10, 0.35);
+  background: linear-gradient(115deg, color-mix(in srgb, var(--bone) 55%, transparent), color-mix(in srgb, var(--bone) 15%, transparent));
+  border: 1px solid color-mix(in srgb, var(--bone) 70%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--felt-deep) 35%, transparent);
 }
 
 /* ---------- Open binder ---------- */
 
 .collection-fullscreen.binder-theme {
-  background-color: #140b05;
+  background-color: var(--felt-deep);
   background-image:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 7px),
-    radial-gradient(ellipse at center, #3a2414 0%, #140b05 80%);
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--bone) 3%, transparent) 0 2px, transparent 2px 7px),
+    radial-gradient(ellipse at center, var(--walnut) 0%, var(--felt-deep) 80%);
 }
 
 .binder-theme .collection-header {
-  background: linear-gradient(#3b2414, #28160b);
+  background: linear-gradient(var(--walnut), var(--walnut));
   border-bottom: 2px solid var(--gold);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 .binder-theme .collection-header h2 {
   color: var(--gold-light);
-  font-family: 'Orbitron', monospace;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  font-family: var(--font-ui);
+  text-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 70%, transparent);
 }
 
 .binder-theme .filter-controls label {
-  color: #f3deb0;
+  color: var(--brass-hi);
 }
 
 .binder-theme .sort-dropdown,
 .binder-theme .filter-dropdown,
 .binder-theme .search-input {
-  background: rgba(217, 168, 43, 0.14);
+  background: color-mix(in srgb, var(--brass-hi) 14%, transparent);
   border: 2px solid var(--gold);
-  color: #fff3d0;
+  color: var(--brass-hi);
 }
 
 .binder-theme .sort-dropdown:hover,
 .binder-theme .filter-dropdown:hover,
 .binder-theme .search-input:hover {
-  background: rgba(217, 168, 43, 0.28);
-  box-shadow: 0 0 10px rgba(217, 168, 43, 0.5);
+  background: color-mix(in srgb, var(--brass-hi) 28%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 .binder-theme .sort-dropdown:focus,
 .binder-theme .filter-dropdown:focus,
 .binder-theme .search-input:focus {
-  box-shadow: 0 0 14px rgba(255, 217, 102, 0.7);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--felt-deep) 70%, transparent);
 }
 
 .binder-theme .sort-dropdown option,
 .binder-theme .filter-dropdown option {
-  background: #2a180d;
-  color: #fff3d0;
+  background: var(--walnut);
+  color: var(--brass-hi);
 }
 
 .binder-theme .search-input::placeholder {
-  color: rgba(255, 243, 208, 0.5);
+  color: color-mix(in srgb, var(--brass-hi) 50%, transparent);
 }
 
 .binder-theme .loading-state {
@@ -241,7 +241,7 @@
 }
 
 .binder-theme .loading-spinner {
-  border-color: rgba(217, 168, 43, 0.3);
+  border-color: color-mix(in srgb, var(--brass-hi) 30%, transparent);
   border-top-color: var(--gold-light);
 }
 
@@ -260,7 +260,7 @@
   box-sizing: border-box;
   border-radius: 16px;
   background: var(--leather);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), inset 0 0 0 2px rgba(0, 0, 0, 0.4), inset 0 0 50px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 14px 40px color-mix(in srgb, var(--felt-deep) 70%, transparent), inset 0 0 0 2px color-mix(in srgb, var(--felt-deep) 40%, transparent), inset 0 0 50px color-mix(in srgb, var(--felt-deep) 45%, transparent);
 }
 
 .binder-cover::before {
@@ -281,7 +281,7 @@
   perspective: 2200px;
   border-radius: 6px;
   overflow: hidden;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--felt-deep) 45%, transparent);
 }
 
 .binder-page {
@@ -294,12 +294,12 @@
 
 .binder-page.left {
   padding-right: clamp(26px, 3vw, 40px);
-  background: linear-gradient(90deg, #f0e5ca 0%, #e6d8b8 82%, #c9b78d 100%);
+  background: linear-gradient(90deg, var(--brass-hi) 0%, var(--brass-hi) 82%, var(--brass-hi) 100%);
 }
 
 .binder-page.right {
   padding-left: clamp(26px, 3vw, 40px);
-  background: linear-gradient(270deg, #f0e5ca 0%, #e6d8b8 82%, #c9b78d 100%);
+  background: linear-gradient(270deg, var(--brass-hi) 0%, var(--brass-hi) 82%, var(--brass-hi) 100%);
 }
 
 .binder-spine {
@@ -311,7 +311,7 @@
   transform: translateX(-50%);
   pointer-events: none;
   z-index: 10;
-  background: linear-gradient(90deg, transparent, rgba(60, 35, 10, 0.28) 42%, rgba(40, 22, 5, 0.4) 50%, rgba(60, 35, 10, 0.28) 58%, transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--walnut) 28%, transparent) 42%, color-mix(in srgb, var(--walnut) 40%, transparent) 50%, color-mix(in srgb, var(--walnut) 28%, transparent) 58%, transparent);
 }
 
 .binder-ring {
@@ -321,8 +321,8 @@
   height: 20px;
   transform: translateX(-50%);
   border-radius: 12px;
-  background: linear-gradient(180deg, #f5f5f5 0%, #a8a8a8 42%, #e2e2e2 58%, #6e6e6e 100%);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(180deg, var(--bone) 0%, var(--bone-dim) 42%, var(--bone) 58%, var(--leather-hi) 100%);
+  box-shadow: 0 3px 6px color-mix(in srgb, var(--felt-deep) 50%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--felt-deep) 25%, transparent);
 }
 
 .binder-ring:nth-child(1) { top: 14%; }
@@ -341,17 +341,17 @@
   position: absolute;
   inset: -6px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  background: linear-gradient(115deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.1) 100%);
-  box-shadow: 0 2px 6px rgba(60, 40, 10, 0.4), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+  border: 1px solid color-mix(in srgb, var(--bone) 75%, transparent);
+  background: linear-gradient(115deg, color-mix(in srgb, var(--bone) 14%, transparent) 0%, color-mix(in srgb, var(--bone) 2%, transparent) 40%, color-mix(in srgb, var(--bone) 10%, transparent) 100%);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent), inset 0 -3px 0 color-mix(in srgb, var(--felt-deep) 10%, transparent);
   pointer-events: none;
   z-index: 2;
 }
 
 .binder-pocket.empty::before {
-  background: rgba(70, 45, 10, 0.07);
-  border-color: rgba(120, 90, 40, 0.35);
-  box-shadow: inset 0 2px 5px rgba(60, 40, 10, 0.25);
+  background: color-mix(in srgb, var(--walnut) 7%, transparent);
+  border-color: color-mix(in srgb, var(--brass) 35%, transparent);
+  box-shadow: inset 0 2px 5px color-mix(in srgb, var(--felt-deep) 25%, transparent);
 }
 
 /* Turning leaf: front is the page being lifted, back is the page it lands on */
@@ -401,21 +401,21 @@
 }
 
 .collection-fullscreen.binder-theme .collection-grid-container .pagination-arrow-overlay {
-  background: rgba(40, 22, 11, 0.85) !important;
+  background: color-mix(in srgb, var(--walnut) 85%, transparent) !important;
   border: 2px solid var(--gold) !important;
   color: var(--gold-light) !important;
 }
 
 .collection-fullscreen.binder-theme .collection-grid-container .pagination-arrow-overlay:hover {
   background: var(--gold) !important;
-  color: #2a180d !important;
+  color: var(--walnut) !important;
 }
 
 .binder-theme .page-indicator-overlay {
-  background: rgba(40, 22, 11, 0.9);
+  background: color-mix(in srgb, var(--walnut) 90%, transparent);
   border-color: var(--gold);
   color: var(--gold-light);
-  box-shadow: 0 0 8px rgba(217, 168, 43, 0.4);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--felt-deep) 40%, transparent);
 }
 
 @media (max-width: 480px) {

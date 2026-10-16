@@ -20,7 +20,7 @@
 }
 
 .tut-block.dim {
-  background: rgba(0, 0, 0, 0.55);
+  background: color-mix(in srgb, var(--felt-deep) 55%, transparent);
 }
 
 .tut-spot {
@@ -28,14 +28,14 @@
   z-index: 4001;
   pointer-events: none;
   border-radius: 10px;
-  border: 2px solid #7cff6b;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55), 0 0 18px 4px rgba(124, 255, 107, 0.65);
+  border: 2px solid var(--verdigris);
+  box-shadow: 0 0 0 9999px color-mix(in srgb, var(--felt-deep) 55%, transparent), 0 0 18px 4px color-mix(in srgb, var(--felt-deep) 65%, transparent);
   animation: tut-spot-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes tut-spot-pulse {
-  0%, 100% { border-color: rgba(124, 255, 107, 0.55); }
-  50% { border-color: rgba(190, 255, 170, 1); }
+  0%, 100% { border-color: color-mix(in srgb, var(--verdigris) 55%, transparent); }
+  50% { border-color: var(--verdigris); }
 }
 
 /* Glowing arrow: drawn pointing right, rotated per side, bobs along its own axis */
@@ -45,7 +45,7 @@
   width: 56px;
   height: 40px;
   pointer-events: none;
-  filter: drop-shadow(0 0 6px #7cff6b) drop-shadow(0 0 14px rgba(124, 255, 107, 0.8));
+  filter: drop-shadow(0 0 6px var(--felt-deep)) drop-shadow(0 0 14px color-mix(in srgb, var(--felt-deep) 80%, transparent));
 }
 
 .tut-arrow.side-left { transform: rotate(0deg); }
@@ -92,14 +92,14 @@
 
 .tut-bubble {
   position: relative;
-  background: #f4efe0;
-  color: #1b1424;
-  border: 3px solid #3a2a52;
+  background: var(--brass-hi);
+  color: var(--walnut);
+  border: 3px solid var(--leather);
   border-radius: 14px;
   padding: 12px 14px;
   font-size: 15px;
   line-height: 1.4;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--felt-deep) 50%, transparent);
   min-width: 190px;
   cursor: default;
 }
@@ -111,7 +111,7 @@
   top: 50%;
   margin-top: -8px;
   border: 8px solid transparent;
-  border-right-color: #3a2a52;
+  border-right-color: var(--leather);
   border-left: 0;
 }
 
@@ -132,8 +132,8 @@
   display: block;
   margin: 10px 0 0 auto;
   padding: 6px 16px;
-  background: #3a2a52;
-  color: #f4efe0;
+  background: var(--leather);
+  color: var(--brass-hi);
   border: none;
   border-radius: 8px;
   font-weight: bold;
@@ -143,12 +143,12 @@
 }
 
 .tut-next:hover {
-  background: #54397a;
+  background: var(--brass);
 }
 
 @keyframes tut-next-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 255, 107, 0.0); }
-  50% { box-shadow: 0 0 10px 2px rgba(124, 255, 107, 0.7); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--felt-deep) 0%, transparent); }
+  50% { box-shadow: 0 0 10px 2px color-mix(in srgb, var(--felt-deep) 70%, transparent); }
 }
 
 .tut-skip {
@@ -156,9 +156,9 @@
   top: 10px;
   right: 14px;
   z-index: 4004;
-  background: rgba(0, 0, 0, 0.7);
-  color: #ddd;
-  border: 1px solid #666;
+  background: color-mix(in srgb, var(--felt-deep) 70%, transparent);
+  color: var(--bone);
+  border: 1px solid var(--leather-hi);
   border-radius: 8px;
   padding: 6px 12px;
   font-size: 13px;
@@ -166,15 +166,15 @@
 }
 
 .tut-skip:hover {
-  color: #fff;
-  border-color: #aaa;
+  color: var(--bone);
+  border-color: var(--bone-dim);
 }
 
 /* Skull */
 .tutorial-skull {
   display: block;
   flex-shrink: 0;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 4px 8px color-mix(in srgb, var(--felt-deep) 60%, transparent));
   animation: skull-bob 2.6s ease-in-out infinite;
 }
 

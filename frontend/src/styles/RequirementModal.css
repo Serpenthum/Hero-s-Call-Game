@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: color-mix(in srgb, var(--felt-deep) 70%, transparent);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -13,13 +13,13 @@
 }
 
 .requirement-modal-container {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border: 2px solid #ff6b6b;
+  background: linear-gradient(135deg, var(--walnut) 0%, var(--walnut) 100%);
+  border: 2px solid var(--ember-hi);
   border-radius: 12px;
   width: 90%;
   max-width: 380px;
   padding: 0;
-  box-shadow: 0 10px 40px rgba(255, 107, 107, 0.4);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--felt-deep) 40%, transparent);
   animation: modalSlideIn 0.3s ease;
 }
 
@@ -43,35 +43,35 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1.25rem 1.5rem;
-  background: rgba(255, 107, 107, 0.15);
-  border-bottom: 2px solid rgba(255, 107, 107, 0.3);
+  background: color-mix(in srgb, var(--ember-hi) 15%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--ember-hi) 30%, transparent);
 }
 
 .requirement-warning-icon {
   font-size: 1.75rem;
   line-height: 1;
-  filter: drop-shadow(0 0 8px rgba(255, 107, 107, 0.6));
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--felt-deep) 60%, transparent));
 }
 
 .requirement-title {
   margin: 0;
   font-size: 1.25rem;
-  color: #ff6b6b;
+  color: var(--ember-hi);
   font-weight: 600;
-  text-shadow: 0 0 10px rgba(255, 107, 107, 0.4);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--felt-deep) 40%, transparent);
 }
 
 .requirement-message {
   margin: 0 0 1.25rem 0;
   font-size: 1rem;
-  color: #e0e0e0;
+  color: var(--bone);
   line-height: 1.6;
   text-align: center;
 }
 
 .requirement-display {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 107, 107, 0.3);
+  background: color-mix(in srgb, var(--felt-deep) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ember-hi) 30%, transparent);
   border-radius: 8px;
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
@@ -85,18 +85,18 @@
 
 .requirement-label {
   font-size: 1rem;
-  color: #b0b0b0;
+  color: var(--bone-dim);
   font-weight: 500;
 }
 
 .requirement-value {
   font-size: 1.15rem;
-  color: #ffd700;
+  color: var(--brass-hi);
   font-weight: 600;
 }
 
 .current-count {
-  color: #ff6b6b;
+  color: var(--ember-hi);
   font-weight: bold;
   font-size: 1.2rem;
 }
@@ -104,7 +104,7 @@
 .requirement-hint {
   margin: 0;
   font-size: 0.9rem;
-  color: #4a9eff;
+  color: var(--brass);
   text-align: center;
   font-style: italic;
 }
@@ -112,21 +112,21 @@
 .requirement-modal-button {
   width: 100%;
   padding: 1rem;
-  background: linear-gradient(135deg, #8b4513 0%, #6b3410 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--brass) 0%, var(--leather) 100%);
+  color: var(--bone);
   border: none;
   border-radius: 0 0 10px 10px;
   font-size: 1rem;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1px;
 }
 
 .requirement-modal-button:hover {
-  background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
-  box-shadow: 0 0 15px rgba(139, 69, 19, 0.5);
+  background: linear-gradient(135deg, var(--brass) 0%, var(--brass) 100%);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 .requirement-modal-button:active {

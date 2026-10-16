@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.95);
+  background: color-mix(in srgb, var(--felt-deep) 95%, transparent);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -111,10 +111,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, rgba(138, 43, 226, 0.3) 0%, rgba(75, 0, 130, 0.3) 100%);
-  border: 3px solid rgba(138, 43, 226, 0.6);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brass) 30%, transparent) 0%, color-mix(in srgb, var(--leather) 30%, transparent) 100%);
+  border: 3px solid color-mix(in srgb, var(--brass) 60%, transparent);
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(138, 43, 226, 0.4);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--felt-deep) 40%, transparent);
 }
 
 .pack-image-full {
@@ -139,36 +139,36 @@
 .hero-card-revealed {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border: 3px solid #4a9eff;
+  background: linear-gradient(135deg, var(--walnut) 0%, var(--walnut) 100%);
+  border: 3px solid var(--brass);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(74, 158, 255, 0.4);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--felt-deep) 40%, transparent);
   transition: all 0.3s ease;
 }
 
 /* Glow effect when revealed */
 .hero-card-revealed.glow {
   animation: cardGlow 2s ease-in-out infinite;
-  border-color: #4a9eff;
+  border-color: var(--brass);
 }
 
 @keyframes cardGlow {
   0%, 100% {
     box-shadow: 
-      0 0 15px rgba(74, 158, 255, 0.4),
-      0 0 25px rgba(74, 158, 255, 0.3),
-      0 0 35px rgba(74, 158, 255, 0.2);
-    border-color: #4a9eff;
+      0 0 15px color-mix(in srgb, var(--felt-deep) 40%, transparent),
+      0 0 25px color-mix(in srgb, var(--felt-deep) 30%, transparent),
+      0 0 35px color-mix(in srgb, var(--felt-deep) 20%, transparent);
+    border-color: var(--brass);
   }
   50% {
     box-shadow: 
-      0 0 20px rgba(74, 158, 255, 0.6),
-      0 0 35px rgba(74, 158, 255, 0.4),
-      0 0 50px rgba(74, 158, 255, 0.3);
-    border-color: #5aafff;
+      0 0 20px color-mix(in srgb, var(--felt-deep) 60%, transparent),
+      0 0 35px color-mix(in srgb, var(--felt-deep) 40%, transparent),
+      0 0 50px color-mix(in srgb, var(--felt-deep) 30%, transparent);
+    border-color: var(--brass);
   }
 }
 
@@ -176,7 +176,7 @@
   width: 100%;
   height: 60%;
   object-fit: cover;
-  background: #1a1a2e;
+  background: var(--walnut);
 }
 
 .hero-card-revealed .hero-card-content {
@@ -184,12 +184,12 @@
   display: flex;
   flex-direction: column;
   padding: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: color-mix(in srgb, var(--felt-deep) 80%, transparent);
 }
 
 .hero-card-revealed .hero-stats {
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
+  background: color-mix(in srgb, var(--felt-deep) 80%, transparent);
+  color: var(--bone);
   padding: clamp(10px, 1vw, 14px) clamp(12px, 1.2vw, 16px) clamp(8px, 0.8vw, 12px) clamp(12px, 1.2vw, 16px);
   border-radius: 0 0 10px 10px;
   font-size: clamp(0.85rem, 1vw, 1.1rem);
@@ -206,16 +206,16 @@
   font-size: clamp(1.1rem, 1.3vw, 1.5rem);
   margin-bottom: clamp(5px, 0.6vw, 8px);
   text-align: center;
-  color: white;
+  color: var(--bone);
   padding-bottom: clamp(5px, 0.6vw, 8px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom: 1px solid color-mix(in srgb, var(--bone) 30%, transparent);
 }
 
 .hero-card-revealed .hero-stats-row {
   display: flex;
   align-items: center;
   font-size: clamp(0.85rem, 1vw, 1.1rem);
-  color: #ffffff;
+  color: var(--bone);
   margin-bottom: clamp(4px, 0.5vw, 6px);
   font-weight: bold;
   line-height: 1.3;

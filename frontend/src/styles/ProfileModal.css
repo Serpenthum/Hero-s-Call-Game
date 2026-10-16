@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: color-mix(in srgb, var(--felt-deep) 80%, transparent);
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
@@ -24,7 +24,7 @@
 }
 
 .profile-modal {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f172a 100%);
+  background: linear-gradient(135deg, var(--walnut) 0%, var(--walnut) 50%, var(--walnut) 100%);
   border: 2px solid var(--primary-blue);
   border-radius: 20px;
   width: min(94vw, 980px);
@@ -33,8 +33,8 @@
   flex-direction: column;
   box-sizing: border-box;
   box-shadow: 
-    0 0 50px rgba(0, 212, 255, 0.3),
-    inset 0 0 50px rgba(0, 212, 255, 0.1);
+    0 0 50px color-mix(in srgb, var(--felt-deep) 30%, transparent),
+    inset 0 0 50px color-mix(in srgb, var(--felt-deep) 10%, transparent);
   animation: slideIn 0.4s ease-out;
   position: relative;
 }
@@ -53,7 +53,7 @@
 .profile-header {
   flex-shrink: 0;
   padding: clamp(8px, 1.6dvh, 20px) 30px;
-  border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+  border-bottom: 1px solid color-mix(in srgb, var(--brass) 30%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -61,10 +61,10 @@
 }
 .profile-header h2 {
   color: var(--primary-blue);
-  font-family: 'Orbitron', monospace;
+  font-family: var(--font-ui);
   font-size: 1.8rem;
   margin: 0;
-  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 .profile-close-btn {
@@ -91,10 +91,10 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid rgba(0, 212, 255, 0.4);
-  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid color-mix(in srgb, var(--brass) 40%, transparent);
+  background: color-mix(in srgb, var(--brass) 12%, transparent);
   color: var(--primary-blue);
-  font-family: 'Orbitron', monospace;
+  font-family: var(--font-ui);
   font-size: 1.15rem;
   font-weight: 700;
   cursor: pointer;
@@ -109,8 +109,8 @@
 }
 
 .profile-tool-btn:hover {
-  background: rgba(0, 212, 255, 0.28);
-  box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+  background: color-mix(in srgb, var(--brass) 28%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--felt-deep) 40%, transparent);
 }
 
 .profile-loading {
@@ -125,7 +125,7 @@
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(0, 212, 255, 0.3);
+  border: 3px solid color-mix(in srgb, var(--brass) 30%, transparent);
   border-top: 3px solid var(--primary-blue);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -160,7 +160,7 @@
   gap: clamp(12px, 2vw, 24px);
   align-items: center;
   padding-bottom: clamp(10px, 2dvh, 20px);
-  border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+  border-bottom: 1px solid color-mix(in srgb, var(--brass) 20%, transparent);
 }
 
 .profile-icon-section {
@@ -177,7 +177,7 @@
   border-radius: 50%;
   border: 3px solid var(--primary-blue);
   overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--felt-deep) 40%, transparent);
   position: relative;
 }
 
@@ -188,21 +188,21 @@
 }
 
 .change-icon-btn {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, #0ea5e9 100%);
+  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--brass) 100%);
   border: none;
-  color: white;
+  color: var(--bone);
   padding: clamp(4px, 0.8dvh, 8px) clamp(10px, 1.4vw, 16px);
   border-radius: 15px;
   font-size: clamp(0.7rem, 1.5dvh, 0.9rem);
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: 'Orbitron', monospace;
+  font-family: var(--font-ui);
   white-space: nowrap;
 }
 
 .change-icon-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
+  box-shadow: 0 5px 15px color-mix(in srgb, var(--felt-deep) 40%, transparent);
 }
 
 .profile-info {
@@ -229,10 +229,10 @@
 
 .level-number {
   color: var(--accent-orange);
-  font-family: 'Orbitron', monospace;
+  font-family: var(--font-ui);
   font-size: clamp(1.3rem, 3.6dvh, 2rem);
   font-weight: bold;
-  text-shadow: 0 0 10px rgba(255, 140, 0, 0.5);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 /* Slimmer XP bar than the lobby header version */
@@ -268,10 +268,10 @@
 .favorite-hero-section h4 {
   flex-shrink: 0;
   color: var(--primary-blue);
-  font-family: 'Orbitron', monospace;
+  font-family: var(--font-ui);
   font-size: clamp(1rem, 2.4dvh, 1.4rem);
   margin: 0 0 clamp(6px, 1.4dvh, 16px) 0;
-  text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
+  text-shadow: 0 0 5px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 .stats-grid {
@@ -284,8 +284,8 @@
 }
 
 .profile-stats .stat-item {
-  background: rgba(15, 30, 50, 0.6);
-  border: 2px solid #00d4ff;
+  background: color-mix(in srgb, var(--walnut) 60%, transparent);
+  border: 2px solid var(--brass);
   border-radius: 15px;
   padding: 6px 10px;
   min-height: 0;
@@ -298,29 +298,29 @@
 
 .profile-stats .stat-label {
   display: block;
-  color: rgba(200, 220, 240, 0.9);
+  color: color-mix(in srgb, var(--brass) 90%, transparent);
   font-size: clamp(0.6rem, 1.8dvh, 0.9rem);
   margin-bottom: clamp(4px, 1.4dvh, 14px);
   font-weight: 400;
   text-align: center;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1px;
-  font-family: 'Rajdhani', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .profile-stats .stat-value {
   display: block;
-  color: #ffffff;
-  font-family: 'Orbitron', monospace;
+  color: var(--bone);
+  font-family: var(--font-ui);
   font-size: clamp(1.1rem, 4.6dvh, 2.4rem);
   font-weight: bold;
-  text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+  text-shadow: 0 0 15px color-mix(in srgb, var(--felt-deep) 30%, transparent);
   text-align: center;
-  background: linear-gradient(180deg, #ffffff 0%, #00d4ff 100%);
+  background: linear-gradient(180deg, var(--bone) 0%, var(--brass) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--felt-deep) 50%, transparent));
 }
 
 .favorite-hero-section {
@@ -355,8 +355,8 @@
 .favorite-hero-section .favorite-hero-display .hero-card.hero-layout-card:hover:not(.shop-hero-card) {
   transform: none;
   z-index: auto;
-  border-color: #666a6b;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border-color: var(--leather-hi);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--felt-deep) 45%, transparent);
 }
 
 .favorite-hero-stats {
@@ -370,8 +370,8 @@
 }
 
 .no-favorite-hero {
-  background: rgba(255, 140, 0, 0.1);
-  border: 1px solid rgba(255, 140, 0, 0.3);
+  background: color-mix(in srgb, var(--brass-hi) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brass-hi) 30%, transparent);
   border-radius: 10px;
   padding: 20px;
   text-align: center;
@@ -384,7 +384,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: color-mix(in srgb, var(--felt-deep) 90%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -394,7 +394,7 @@
 
 .icon-selector {
   --icon-size: clamp(44px, min(13dvh, 9vw), 110px);
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: linear-gradient(135deg, var(--walnut) 0%, var(--walnut) 100%);
   border: 2px solid var(--primary-blue);
   border-radius: 15px;
   padding: clamp(10px, 2.5dvh, 30px) clamp(10px, 2.5vw, 30px);
@@ -414,15 +414,15 @@
   align-items: center;
   margin-bottom: clamp(8px, 2dvh, 25px);
   padding-bottom: clamp(6px, 1.5dvh, 15px);
-  border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+  border-bottom: 1px solid color-mix(in srgb, var(--brass) 30%, transparent);
 }
 
 .icon-selector-header h3 {
   color: var(--primary-blue);
-  font-family: 'Orbitron', monospace;
+  font-family: var(--font-ui);
   font-size: clamp(0.9rem, 2.4dvh, 1.17rem);
   margin: 0;
-  text-shadow: 0 0 5px rgba(0, 212, 255, 0.5);
+  text-shadow: 0 0 5px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 /* Icons shrink with the window; the grid only scrolls when they can't all fit */
@@ -435,7 +435,7 @@
   gap: 8px;
   padding: 4px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 212, 255, 0.5) transparent;
+  scrollbar-color: color-mix(in srgb, var(--brass) 50%, transparent) transparent;
 }
 
 .icon-option {
@@ -447,24 +447,24 @@
   border-radius: 15px;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(0, 212, 255, 0.05);
+  background: color-mix(in srgb, var(--brass) 5%, transparent);
 }
 
 .icon-option:hover {
   border-color: var(--primary-blue);
-  background: rgba(0, 212, 255, 0.1);
+  background: color-mix(in srgb, var(--brass) 10%, transparent);
   transform: translateY(-5px);
 }
 
 .icon-option.selected {
   border-color: var(--accent-orange);
-  background: rgba(255, 140, 0, 0.1);
-  box-shadow: 0 0 20px rgba(255, 140, 0, 0.4);
+  background: color-mix(in srgb, var(--brass-hi) 10%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--felt-deep) 40%, transparent);
 }
 
 .icon-option.selected .icon-option-image {
   border-color: var(--accent-orange);
-  box-shadow: 0 0 20px rgba(255, 140, 0, 0.5);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--felt-deep) 50%, transparent);
 }
 
 .icon-option-image {
@@ -474,8 +474,8 @@
   border-radius: 50%;
   overflow: hidden;
   margin-bottom: 6px;
-  border: 3px solid rgba(0, 212, 255, 0.3);
-  box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+  border: 3px solid color-mix(in srgb, var(--brass) 30%, transparent);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--felt-deep) 20%, transparent);
 }
 
 .icon-option-image img {
@@ -493,7 +493,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
-  font-family: 'Orbitron', monospace;
+  font-family: var(--font-ui);
 }
 
 .icon-option.selected .icon-option-name {
@@ -517,7 +517,7 @@
 
 .icon-option.locked:hover {
   border-color: transparent;
-  background: rgba(0, 212, 255, 0.05);
+  background: color-mix(in srgb, var(--brass) 5%, transparent);
   transform: none;
 }
 
@@ -532,7 +532,7 @@
   align-items: center;
   justify-content: center;
   font-size: calc(var(--icon-size) * 0.4);
-  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.8));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--felt-deep) 80%, transparent));
 }
 
 @media (max-width: 560px) {
