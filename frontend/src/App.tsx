@@ -18,6 +18,7 @@ import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
 import './styles/GameScreens.css';
+import './styles/Social.css';
 import './styles/GameTheme.css';
 import './styles/BattleLog.css';
 
