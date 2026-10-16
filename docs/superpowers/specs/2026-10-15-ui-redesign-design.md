@@ -1,6 +1,6 @@
 # Hero's Call UI redesign: "the table"
 
-Status: awaiting user review. Date: 2026-10-15.
+Status: approved by user. Date: 2026-10-15.
 
 ## Intent
 Redesign the whole game UI (everything except the card build) around one identity: a dark fantasy tabletop.
@@ -8,8 +8,10 @@ Cards (`HeroCard.tsx` / `HeroCard.css`) keep their structure and look and stay t
 No game-rule, socket-protocol or backend change is part of the redesign itself (Gauntlet fixes below are the exception).
 Dragonflow was removed beforehand (commit 84df0e3, archived in `Businesses/Dragonflow Archive`).
 
+**Card acceptance rule (user):** a hero card must show its image exactly as now, show its stats, and show ALL ability and special text. If those three hold the card passes; card CSS is still left alone unless a phase needs a fix for one of them.
+
 ## Constraints and assumptions
-- Stated: keep cards as built; Gauntlet is PvP by bracket, HP persists across trials, `buy_pack` stays as a fifth shop action, Gauntlet is un-hidden in the lobby.
+- Stated: keep cards as built; Gauntlet is PvP by bracket, HP persists across trials, `buy_pack` stays as a fifth shop action, Gauntlet is un-hidden in the lobby (done at the end of phase 5, once its backend fixes land).
 - Assumed (change in review): fonts are IM Fell English + Alegreya Sans, self-hosted via `@fontsource`; Gauntlet stays untimed.
 - Push straight to main after each phase (project convention).
 
@@ -39,10 +41,10 @@ Copy rule: action buttons say what happens ("Save changes"); the same action kee
 
 ## Phases (each: plan, build, Playwright screenshots at desktop and phone width, push to main)
 1. Tokens, fonts, icon set, primitives, app shell, login/register.
-2. Lobby, un-hide Gauntlet entry.
+2. Lobby (Gauntlet placard built but still hidden).
 3. Draft and battle.
 4. Shop, Collection, Binder, Profile, Friends, modals.
-5. Survival and Gauntlet (UI plus backend fixes above).
+5. Survival and Gauntlet (UI plus backend fixes above), then un-hide Gauntlet.
 
 ## Risks
 - Per-screen CSS is about 25k lines with hardcoded colours; each phase must replace colours with tokens and delete dead rules, not stack overrides.
