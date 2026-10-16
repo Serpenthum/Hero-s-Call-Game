@@ -1,4 +1,5 @@
 import React from 'react';
+import Icon from './ui/Icon';
 import '../styles/RequirementModal.css';
 
 interface RequirementModalProps {
@@ -26,8 +27,8 @@ const RequirementModal: React.FC<RequirementModalProps> = ({
     <div className="requirement-modal-overlay" onClick={onClose}>
       <div className="requirement-modal-container" onClick={(e) => e.stopPropagation()}>
         <div className="requirement-modal-header">
-          <span className="requirement-warning-icon">⚠️</span>
-          <h3 className="requirement-title">{type === 'heroes' ? '21 Heroes Required' : 'Level 3 Required'}</h3>
+          <Icon name="warning" size={24} className="requirement-warning-icon" />
+          <h3 className="requirement-title">{type === 'heroes' ? '21 heroes required' : 'Level 3 required'}</h3>
         </div>
         
         <div className="requirement-modal-content">

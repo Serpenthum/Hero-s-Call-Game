@@ -1,6 +1,7 @@
 import React from 'react';
 import { PendingQuestReward } from '../types';
 import Coin from './Coin';
+import Icon from './ui/Icon';
 import '../styles/QuestRewardModal.css';
 
 interface QuestRewardModalProps {
@@ -11,12 +12,12 @@ interface QuestRewardModalProps {
 const QuestRewardModal: React.FC<QuestRewardModalProps> = ({ reward, onOk }) => (
   <div className="quest-reward-overlay">
     <div className="quest-reward-modal" role="dialog" aria-modal="true" aria-label="Quest complete">
-      <div className="quest-reward-star">★</div>
-      <h3>Quest Complete!</h3>
+      <Icon name="star" size={36} className="quest-reward-star" />
+      <h3>Quest complete</h3>
       <ul className="quest-reward-list">
         {reward.completed.map((q, i) => (
           <li key={q.id} style={{ animationDelay: `${0.35 + i * 0.15}s` }}>
-            <span className="quest-reward-check">✓</span>
+            <Icon name="check" className="quest-reward-check" />
             {q.text}
           </li>
         ))}

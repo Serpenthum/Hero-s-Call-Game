@@ -80,7 +80,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="rules-modal settings-modal" onClick={e => e.stopPropagation()}>
         <div className="rules-modal-header">
-          <h3>⚙️ Settings</h3>
+          <h3>Settings</h3>
           <CloseButton onClick={onClose} />
         </div>
 

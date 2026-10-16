@@ -9,6 +9,7 @@ import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ResponsiveCardGrid.css';
 import '../styles/Binder.css';
 import BinderOpening from './BinderOpening';
+import Icon from './ui/Icon';
 
 interface HeroAbility {
   name: string;
@@ -72,7 +73,7 @@ const HeroCard = React.memo<{
       onClick={handleClick}
     >
       {isFavorite && (
-        <div className="favorite-star">⭐</div>
+        <Icon name="star" size={18} className="favorite-star" />
       )}
     </SharedHeroCard>
   );
@@ -515,7 +516,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                   toggleFavoriteHero(sortedHeroes[selectedHeroIndex].name);
                 }}
               >
-                {favoriteHeroes.includes(sortedHeroes[selectedHeroIndex].name) ? '⭐ Remove from Favorites' : '☆ Add to Favorites'}
+                {favoriteHeroes.includes(sortedHeroes[selectedHeroIndex].name) ? 'Remove from favorites' : 'Add to favorites'}
               </button>
             </div>
           )}

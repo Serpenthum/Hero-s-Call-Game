@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { OnlinePlayer, FriendRequest } from '../types';
 import { socketService } from '../socketService';
 import CloseButton from './CloseButton';
+import Icon from './ui/Icon';
 
 interface FriendsOverlayProps {
   onClose: () => void;
@@ -266,15 +267,17 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
                     <div className="request-actions">
                       <button 
                         className="accept-button"
+                        aria-label="Accept request"
                         onClick={() => handleFriendRequestResponse(request.id, true)}
                       >
-                        ✓
+                        <Icon name="check" />
                       </button>
                       <button 
                         className="reject-button"
+                        aria-label="Decline request"
                         onClick={() => handleFriendRequestResponse(request.id, false)}
                       >
-                        ✗
+                        <Icon name="close" />
                       </button>
                     </div>
                   </div>
@@ -374,7 +377,7 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
                 className="tooltip-action message-action"
                 onClick={() => handlePlayerAction(selectedPlayer, 'message')}
               >
-                💬 Message
+                <Icon name="chat" /> Message
               </button>
 
               {friendIds.includes(selectedPlayer.id) && (
@@ -383,7 +386,7 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
                   onClick={() => handlePlayerAction(selectedPlayer, 'challenge')}
                   disabled={selectedPlayer.isInGame}
                 >
-                  ⚔️ Challenge
+                  <Icon name="swords" /> Challenge
                 </button>
               )}
               
@@ -392,14 +395,14 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
                   className="tooltip-action add-friend-action"
                   onClick={() => handlePlayerAction(selectedPlayer, 'addFriend')}
                 >
-                  👥 Add Friend
+                  <Icon name="userPlus" /> Add friend
                 </button>
               ) : (
                 <button 
                   className="tooltip-action remove-friend-action"
                   onClick={() => handlePlayerAction(selectedPlayer, 'removeFriend')}
                 >
-                  ❌ Remove Friend
+                  <Icon name="userMinus" /> Remove friend
                 </button>
               )}
               
@@ -408,7 +411,7 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
                 onClick={() => handlePlayerAction(selectedPlayer, 'watchGame')}
                 disabled={!selectedPlayer.isInGame}
               >
-                👁️ Watch Game
+                <Icon name="eye" /> Watch game
               </button>
             </div>
           )}

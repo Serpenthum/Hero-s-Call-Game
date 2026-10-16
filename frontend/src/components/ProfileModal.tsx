@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import HeroCard from './HeroCard';
 import XPBar from './XPBar';
 import CloseButton from './CloseButton';
+import Icon from './ui/Icon';
 import { Hero } from '../types';
 import config from '../config';
 import { authHeaders } from '../authSession';
@@ -321,7 +322,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                               `)}`;
                             }}
                           />
-                          {!owned && <span className="icon-lock" aria-hidden="true">🔒</span>}
+                          {!owned && <Icon name="lock" size={18} className="icon-lock" />}
                         </div>
                         <span className="icon-option-name">{hero.name}</span>
                       </div>

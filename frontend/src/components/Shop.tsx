@@ -3,6 +3,7 @@ import HeroCard from './HeroCard';
 import PackOpeningAnimation from './PackOpeningAnimation';
 import CloseButton from './CloseButton';
 import Coin from './Coin';
+import Icon from './ui/Icon';
 import { Hero } from '../types';
 import config from '../config';
 import { authHeaders } from '../authSession';
@@ -192,12 +193,12 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
         console.log(`✅ Hero purchased: ${data.heroCount} total heroes`);
         onPurchaseComplete(); // Refresh user data
       } else {
-        setMessage({ text: `❌ ${data.message}`, type: 'error' });
+        setMessage({ text: `${data.message}`, type: 'error' });
         setTimeout(() => setMessage(null), 3000);
       }
     } catch (error) {
       console.error('Error purchasing hero:', error);
-      setMessage({ text: '❌ Purchase failed. Please try again.', type: 'error' });
+      setMessage({ text: 'Purchase failed. Check your connection and try again.', type: 'error' });
       setTimeout(() => setMessage(null), 3000);
     } finally {
       setPurchasing(false);
@@ -247,12 +248,12 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
         // Remove purchased heroes from unowned list
         setUnownedHeroes(prev => prev.filter(h => !heroesReceived.includes(h.name)));
       } else {
-        setMessage({ text: `❌ ${data.message}`, type: 'error' });
+        setMessage({ text: `${data.message}`, type: 'error' });
         setTimeout(() => setMessage(null), 3000);
       }
     } catch (error) {
       console.error('Error purchasing pack:', error);
-      setMessage({ text: '❌ Pack purchase failed. Please try again.', type: 'error' });
+      setMessage({ text: 'Pack purchase failed. Check your connection and try again.', type: 'error' });
       setTimeout(() => setMessage(null), 3000);
     } finally {
       setPurchasing(false);
@@ -289,7 +290,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       <div className="shop-container" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="shop-header">
-          <h2>🏪 Hero Shop</h2>
+          <h2>Hero shop</h2>
           <div className="shop-header-right">
             <div className="shop-vp-display">
               <Coin className="vp-icon" />
@@ -311,7 +312,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
           {/* Left Column - Hero Sale (75%) */}
           <div className="shop-sale-section">
             <div className="shop-section-header">
-              <h3>Hero Sale</h3>
+              <h3>Hero sale</h3>
               <div className="sale-timer">
                 <span className="timer-icon">⏰</span>
                 <span>Next sale: {timeUntilRefresh}</span>
@@ -320,9 +321,9 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
 
             {saleHeroes.length === 0 ? (
               <div className="shop-empty">
-                <div className="empty-icon">🎉</div>
-                <h3>All Heroes Unlocked!</h3>
-                <p>You own all available heroes in the game.</p>
+                <Icon name="check" size={40} className="empty-icon" />
+                <h3>You own every hero</h3>
+                <p>New heroes will appear here when they are added.</p>
               </div>
             ) : (
               <div className="shop-sale-container">
@@ -357,7 +358,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                           />
                           {isPurchased && (
                             <div className="shop-hero-purchased-overlay">
-                              <span className="purchased-text">PURCHASED</span>
+                              <span className="purchased-text">Purchased</span>
                             </div>
                           )}
                         </div>
@@ -370,7 +371,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                           }}
                           disabled={purchasing || victoryPoints < 5 || isPurchased}
                         >
-                          {isPurchased ? 'Purchased' : victoryPoints < 5 ? 'Not Enough' : 'Buy Hero'}
+                          {isPurchased ? 'Purchased' : victoryPoints < 5 ? 'Not Enough' : 'Buy hero'}
                         </button>
                       </div>
                     );
@@ -394,7 +395,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
           {/* Right Column - Hero Packs (25%) */}
           <div className="shop-pack-section">
             <div className="shop-section-header">
-              <h3>Hero Packs</h3>
+              <h3>Hero packs</h3>
             </div>
             <p className="pack-description">Get 3 random heroes. Start your first adventure by collecting over 30 new heroes!</p>
             
@@ -418,14 +419,14 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
                 disabled={purchasing || victoryPoints < 12 || unownedHeroes.length === 0}
               >
                 {unownedHeroes.length === 0 ? 'All Heroes Owned!' : 
-                 victoryPoints < 12 ? 'Not Enough' : 'Buy Pack'}
+                 victoryPoints < 12 ? 'Not Enough' : 'Buy pack'}
               </button>
               
               <button 
                 className="shop-buy-btn pack-info-btn"
                 onClick={handleShowPackContents}
               >
-                See What's Inside
+                See what's inside
               </button>
             </div>
           </div>
