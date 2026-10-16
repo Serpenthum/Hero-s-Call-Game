@@ -29,12 +29,11 @@ html {
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: var(--felt-surface);
+  color: var(--bone);
   min-height: 100vh;
 }
 
@@ -77,6 +76,6 @@ input {
 
 input:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--brass-hi);
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }

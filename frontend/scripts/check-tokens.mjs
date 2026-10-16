@@ -1,0 +1,31 @@
+// Fails when a migrated file contains a raw colour literal. Colours live in tokens.css only.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
+
+// Each task appends the files it migrates; later phases extend this list.
+const MIGRATED = [
+  'styles/primitives.css',
+];
+
+const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
+let failures = 0;
+
+for (const file of MIGRATED) {
+  const lines = readFileSync(join(root, file), 'utf8').split(/\r?\n/);
+  lines.forEach((line, i) => {
+    const hits = line.match(RAW_COLOUR);
+    if (hits) {
+      failures += hits.length;
+      console.error(`${file}:${i + 1}: raw colour ${hits.join(', ')}`);
+    }
+  });
+}
+
+if (failures) {
+  console.error(`\n${failures} raw colour literal(s). Use a token from styles/tokens.css.`);
+  process.exit(1);
+}
+console.log(`check-tokens: ${MIGRATED.length} files clean`);

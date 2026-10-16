@@ -1,0 +1,64 @@
+/* Design tokens for the "table" identity. The ONLY file allowed to hold raw colour values. */
+:root {
+  /* Surfaces */
+  --felt: #101b18;
+  --felt-deep: #0b1311;
+  --walnut: #241a14;
+  --leather: #33261d;
+  --leather-hi: #40322a;
+
+  /* Metal and text */
+  --brass: #b08a45;
+  --brass-hi: #cfa95f;
+  --brass-dim: #6e5629;
+  --bone: #e6dfcf;
+  --bone-dim: #a89f8c;
+
+  /* Signals */
+  --ember: #c4482f;
+  --ember-hi: #dc6246;
+  --verdigris: #5fa08a;
+
+  --scrim: rgb(5 9 8 / 0.72);
+  --shade: rgb(0 0 0 / 0.45);
+
+  /* The table: a soft vignette over felt plus a faint woven grain */
+  --felt-weave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  --felt-surface:
+    radial-gradient(ellipse at 50% 28%, color-mix(in srgb, var(--verdigris) 9%, var(--felt)), var(--felt) 58%, var(--felt-deep)),
+    var(--felt-weave),
+    var(--felt);
+
+  /* Type */
+  --font-display: 'IM Fell English', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.625rem;
+  --text-2xl: 2.25rem;
+  --text-3xl: 3.25rem;
+
+  /* Space (4px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 2.5rem;
+  --space-9: 3.5rem;
+
+  /* Shape */
+  --radius-control: 4px;
+  --radius-panel: 8px;
+  --shadow-panel: 0 18px 40px var(--shade);
+  --inset-frame: inset 0 0 0 4px var(--walnut), inset 0 0 0 5px var(--brass-dim);
+
+  /* Interaction */
+  --focus-outline: 2px solid var(--brass-hi);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 160ms;
+}
