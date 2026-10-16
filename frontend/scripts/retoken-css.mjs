@@ -66,6 +66,7 @@ function toHsl(r, g, b) {
 export function tokenFor(r, g, b) {
   const { h, s, l } = toHsl(r, g, b);
   if (l < 0.07) return '--felt-deep';
+  if (l >= 0.8) return '--bone'; // paper, cream and white, whatever the tint
   if (s < 0.18 || l < 0.28) {
     if (l >= 0.8) return '--bone';
     if (l >= 0.5) return '--bone-dim';

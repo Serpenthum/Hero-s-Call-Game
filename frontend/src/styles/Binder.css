@@ -6,7 +6,7 @@
     radial-gradient(color-mix(in srgb, var(--bone) 6%, transparent) 1px, transparent 1.5px) 0 0 / 7px 7px,
     radial-gradient(color-mix(in srgb, var(--felt-deep) 20%, transparent) 1px, transparent 1.5px) 3px 3px / 7px 7px,
     linear-gradient(135deg, var(--brass) 0%, var(--walnut) 55%, var(--walnut) 100%);
-  --paper: linear-gradient(135deg, var(--brass-hi) 0%, var(--brass-hi) 100%);
+  --paper: linear-gradient(135deg, var(--bone) 0%, var(--brass-hi) 100%);
   --gold: var(--brass-hi);
   --gold-light: var(--brass-hi);
 }
@@ -202,7 +202,7 @@
 }
 
 .binder-theme .filter-controls label {
-  color: var(--brass-hi);
+  color: var(--bone);
 }
 
 .binder-theme .sort-dropdown,
@@ -210,7 +210,7 @@
 .binder-theme .search-input {
   background: color-mix(in srgb, var(--brass-hi) 14%, transparent);
   border: 2px solid var(--gold);
-  color: var(--brass-hi);
+  color: var(--bone);
 }
 
 .binder-theme .sort-dropdown:hover,
@@ -229,11 +229,11 @@
 .binder-theme .sort-dropdown option,
 .binder-theme .filter-dropdown option {
   background: var(--walnut);
-  color: var(--brass-hi);
+  color: var(--bone);
 }
 
 .binder-theme .search-input::placeholder {
-  color: color-mix(in srgb, var(--brass-hi) 50%, transparent);
+  color: color-mix(in srgb, var(--bone) 50%, transparent);
 }
 
 .binder-theme .loading-state {
@@ -294,12 +294,12 @@
 
 .binder-page.left {
   padding-right: clamp(26px, 3vw, 40px);
-  background: linear-gradient(90deg, var(--brass-hi) 0%, var(--brass-hi) 82%, var(--brass-hi) 100%);
+  background: linear-gradient(90deg, var(--bone) 0%, var(--bone) 82%, var(--brass-hi) 100%);
 }
 
 .binder-page.right {
   padding-left: clamp(26px, 3vw, 40px);
-  background: linear-gradient(270deg, var(--brass-hi) 0%, var(--brass-hi) 82%, var(--brass-hi) 100%);
+  background: linear-gradient(270deg, var(--bone) 0%, var(--bone) 82%, var(--brass-hi) 100%);
 }
 
 .binder-spine {

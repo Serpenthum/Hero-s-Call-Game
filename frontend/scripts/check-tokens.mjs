@@ -35,6 +35,7 @@ const MIGRATED = [
   'styles/RequirementModal.css',
   'styles/Tutorial.css',
   'styles/Social.css',
+  'styles/Panels.css',
   'components/DraftClock.tsx',
   'components/RotatePrompt.tsx',
 ];

@@ -21,6 +21,7 @@ import './styles/GameScreens.css';
 import './styles/Social.css';
 import './styles/GameTheme.css';
 import './styles/BattleLog.css';
+import './styles/Panels.css';
 
 const DraftPhase = lazy(() => import('./components/DraftPhase'));
 const BattlePhase = lazy(() => import('./components/BattlePhase'));

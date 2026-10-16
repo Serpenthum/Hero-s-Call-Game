@@ -1,0 +1,108 @@
+/* Panels: one frame, one overlay, one set of buttons for every modal and overlay in the game. */
+
+/* Overlays dim the table */
+.shop-overlay, .profile-modal-overlay, .friends-overlay-backdrop, .requirement-modal-overlay,
+.quest-reward-overlay, .pack-opening-overlay, .icon-selector-overlay, .modal-overlay {
+  background: var(--scrim);
+  backdrop-filter: none;
+}
+
+/* The frame: walnut, brass hairline, inset frame */
+.shop-container, .profile-modal, .friends-overlay, .message-chat-window, .settings-modal, .rules-modal,
+.requirement-modal-container, .quest-reward-modal, .pack-contents-container, .icon-selector {
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  color: var(--bone);
+  font-family: var(--font-ui);
+}
+
+/* Titles in the display face */
+.shop-header h2, .profile-header h2, .friends-overlay-header h3, .rules-modal-header h3, .chat-title,
+.requirement-title, .quest-reward-modal h3, .pack-contents-title, .icon-selector-header h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--bone);
+  text-shadow: none;
+  letter-spacing: 0;
+}
+.shop-section-header h3, .online-players-header h3, .favorite-hero-section h3 { font-family: var(--font-display); font-weight: 400; color: var(--bone); text-shadow: none; }
+.rules-modal-header, .friends-overlay-header, .chat-header, .profile-header, .shop-header {
+  background: var(--leather);
+  border-bottom: 1px solid var(--brass-dim);
+}
+
+/* Primary actions are brass */
+.shop-buy-btn, .pack-buy-btn, .change-icon-btn, .send-request-button, .accept-button, .add-friend-button,
+.requirement-modal-button, .quest-reward-ok, .send-button {
+  background: var(--brass);
+  color: var(--felt-deep);
+  border: 1px solid var(--brass-hi);
+  border-radius: var(--radius-control);
+  font: 700 var(--text-md) / 1.1 var(--font-ui);
+  box-shadow: none;
+  text-shadow: none;
+}
+.shop-buy-btn:hover:not(:disabled), .pack-buy-btn:hover:not(:disabled), .change-icon-btn:hover:not(:disabled),
+.send-request-button:hover:not(:disabled), .accept-button:hover:not(:disabled), .add-friend-button:hover:not(:disabled),
+.requirement-modal-button:hover:not(:disabled), .quest-reward-ok:hover:not(:disabled), .send-button:hover:not(:disabled) {
+  background: var(--brass-hi);
+  transform: none;
+  box-shadow: none;
+}
+/* Secondary actions are outlines */
+.pack-info-btn, .cancel-button, .profile-tool-btn, .favorite-button, .tooltip-action {
+  background: transparent;
+  color: var(--bone);
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-control);
+  font-family: var(--font-ui);
+  box-shadow: none;
+  text-shadow: none;
+}
+.pack-info-btn:hover:not(:disabled), .cancel-button:hover:not(:disabled), .profile-tool-btn:hover:not(:disabled),
+.favorite-button:hover:not(:disabled), .tooltip-action:hover:not(:disabled) { background: var(--leather); transform: none; box-shadow: none; }
+/* Destructive actions are ember outlines */
+.reject-button, .remove-friend-action {
+  background: transparent;
+  color: var(--ember-hi);
+  border: 1px solid var(--ember);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+.reject-button:hover:not(:disabled), .remove-friend-action:hover:not(:disabled) { background: var(--ember); color: var(--bone); transform: none; }
+.tooltip-action { display: flex; align-items: center; gap: var(--space-2); }
+.tooltip-action:disabled, .tooltip-action.disabled { opacity: 0.5; cursor: not-allowed; }
+.accept-button, .reject-button { display: inline-flex; align-items: center; justify-content: center; }
+button:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+
+/* Inputs */
+.add-friend-input, .message-input, .search-input, .filter-dropdown, .sort-dropdown {
+  background: var(--felt-deep);
+  color: var(--bone);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-control);
+  font-family: var(--font-ui);
+  box-shadow: inset 0 2px 4px var(--shade);
+}
+.add-friend-input:focus-visible, .message-input:focus-visible, .search-input:focus-visible,
+.filter-dropdown:focus-visible, .sort-dropdown:focus-visible { outline: var(--focus-outline); outline-offset: 1px; border-color: var(--brass-hi); }
+
+/* Shop messages */
+.shop-message { background: var(--leather); color: var(--bone); border: 1px solid var(--brass-dim); border-left-width: 4px; border-radius: var(--radius-control); text-shadow: none; }
+.shop-message.error { border-color: var(--ember); }
+.shop-message.success { border-color: var(--verdigris); }
+.shop-hero-purchased-overlay { background: color-mix(in srgb, var(--felt-deep) 70%, transparent); }
+.purchased-text { font: 400 var(--text-xl) / 1 var(--font-display); color: var(--brass-hi); text-shadow: none; }
+.empty-icon { color: var(--verdigris); }
+
+/* Icons that replaced emoji */
+.favorite-star, .quest-reward-star { fill: currentColor; color: var(--brass-hi); }
+.icon-lock { color: var(--bone-dim); }
+.requirement-warning-icon { color: var(--ember-hi); }
+.quest-reward-check { color: var(--verdigris); }
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-buy-btn, .pack-buy-btn, .send-button, .quest-reward-ok { transition: none; }
+}

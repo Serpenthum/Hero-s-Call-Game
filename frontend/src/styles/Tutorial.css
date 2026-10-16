@@ -35,7 +35,7 @@
 
 @keyframes tut-spot-pulse {
   0%, 100% { border-color: color-mix(in srgb, var(--verdigris) 55%, transparent); }
-  50% { border-color: var(--verdigris); }
+  50% { border-color: var(--bone); }
 }
 
 /* Glowing arrow: drawn pointing right, rotated per side, bobs along its own axis */
@@ -92,7 +92,7 @@
 
 .tut-bubble {
   position: relative;
-  background: var(--brass-hi);
+  background: var(--bone);
   color: var(--walnut);
   border: 3px solid var(--leather);
   border-radius: 14px;
@@ -133,7 +133,7 @@
   margin: 10px 0 0 auto;
   padding: 6px 16px;
   background: var(--leather);
-  color: var(--brass-hi);
+  color: var(--bone);
   border: none;
   border-radius: 8px;
   font-weight: bold;

@@ -30,7 +30,7 @@
   padding: 28px 32px 24px;
   border-radius: 16px;
   text-align: center;
-  color: var(--verdigris);
+  color: var(--bone);
   background: linear-gradient(160deg, var(--walnut) 0%, var(--walnut) 100%);
   border: 2px solid var(--verdigris);
   box-shadow: 0 0 40px color-mix(in srgb, var(--felt-deep) 45%, transparent);

@@ -18,6 +18,11 @@ test('neutrals map by lightness', () => {
   assert.equal(retokenColour('#000'), 'var(--felt-deep)');
 });
 
+test('light tints are paper, not gold', () => {
+  assert.equal(retokenColour('#f5ecd7'), 'var(--bone)');
+  assert.equal(retokenColour('#fff8e1'), 'var(--bone)');
+});
+
 test('dark blue surfaces become walnut, not brass', () => {
   assert.equal(retokenColour('rgb(30, 45, 70)'), 'var(--leather)');
   assert.equal(retokenColour('rgba(20, 35, 60, 0.98)'), 'var(--walnut)');
