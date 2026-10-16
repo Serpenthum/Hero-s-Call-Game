@@ -15,6 +15,7 @@ import { battleEventBus } from './battleAnimations';
 import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
+import './styles/GameScreens.css';
 
 const DraftPhase = lazy(() => import('./components/DraftPhase'));
 const BattlePhase = lazy(() => import('./components/BattlePhase'));
