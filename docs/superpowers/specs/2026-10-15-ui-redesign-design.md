@@ -56,3 +56,5 @@ Copy rule: action buttons say what happens ("Save changes"); the same action kee
 
 ## Success criteria
 Every screen uses tokens only; no leftover Bootstrap-blue UI; cards render pixel-identical to today; backend tests stay green and cover the Gauntlet fixes; each screen checked at desktop and phone width.
+
+Phase 1 complete (2026-10-15). Known follow-ups: every logged-in screen (lobby, shop, profile, collection, battle) still uses its old blue/cyan styling and is restyled in phases 2 to 5; the shared close button is already on tokens but sits inside old-styled modals; server-side currency wording was cleaned up in phase 1, screens apply the coin + number rule as they are restyled. Final review for phase 1 was a self-review (no fresh reviewer).
