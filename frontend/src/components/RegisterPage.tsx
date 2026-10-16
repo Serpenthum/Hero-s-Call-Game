@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import '../styles/RegisterPage.css';
-import '../styles/AuthResponsive.css';
+import '../styles/auth.css';
+import Icon from './ui/Icon';
 import config from '../config';
 
 interface RegisterPageProps {
@@ -18,31 +18,31 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBackTo
 
   const validateForm = (): string | null => {
     if (!username.trim()) {
-      return 'Username is required';
+      return 'Enter a username.';
     }
     
     if (username.length < 3) {
-      return 'Username must be at least 3 characters long';
+      return 'Username needs at least 3 characters.';
     }
     
     if (username.length > 12) {
-      return 'Username must be at most 12 characters long';
+      return 'Username can have at most 12 characters.';
     }
     
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return 'Username can only contain letters, numbers, and underscores';
+      return 'Use only letters, numbers and underscores in your username.';
     }
     
     if (!password) {
-      return 'Password is required';
+      return 'Enter a password.';
     }
     
     if (password.length < 6) {
-      return 'Password must be at least 6 characters long';
+      return 'Password needs at least 6 characters.';
     }
     
     if (password !== confirmPassword) {
-      return 'Passwords do not match';
+      return 'The two passwords do not match.';
     }
     
     return null;
@@ -73,115 +73,109 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, onBackTo
       const data = await response.json();
 
       if (data.success) {
-        setSuccess('Account created successfully! You can now login.');
+        setSuccess('Account created. You can sign in now.');
         setTimeout(() => {
           onRegisterSuccess();
         }, 2000);
       } else {
-        setError(data.message || 'Registration failed');
+        setError(data.message || 'Could not create the account. Try a different username.');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      setError('Connection failed. Please try again.');
+      setError('Could not reach the server. Check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="register-page">
-      <div className="register-background">
-        <div className="background-heroes">
-          <div className="hero-silhouette hero-1"></div>
-          <div className="hero-silhouette hero-2"></div>
-          <div className="hero-silhouette hero-3"></div>
-          <div className="hero-silhouette hero-4"></div>
-        </div>
-      </div>
-      
-      <div className="register-container">
-        <div className="register-header">
-          <h1 className="game-title">Join Hero's Call</h1>
-          <p className="game-subtitle">Create your legend</p>
-        </div>
+    <div className="auth-page auth-page--register">
+      <div className="auth-backdrop" aria-hidden="true"></div>
 
-        <form className="register-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
+      <main className="auth-book">
+        <h1 className="auth-title">Hero's Call</h1>
+        <p className="auth-lede">Create your account to build a roster.</p>
+
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="ui-field">
+            <label className="ui-label" htmlFor="username">Username</label>
             <input
               type="text"
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Choose a unique username"
-              className="form-input"
+              placeholder="Pick a username"
+              className="ui-input"
+              autoComplete="username"
               disabled={isLoading}
               maxLength={12}
             />
-            <div className="form-hint">
-              3-12 characters, letters, numbers, and underscores only
-            </div>
+            <span className="ui-hint">3 to 12 characters: letters, numbers and underscores.</span>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
+          <div className="ui-field">
+            <label className="ui-label" htmlFor="password">Password</label>
             <input
               type="password"
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter a secure password"
-              className="form-input"
+              placeholder="Choose a password"
+              className="ui-input"
+              autoComplete="new-password"
               disabled={isLoading}
             />
-            <div className="form-hint">
-              At least 6 characters
-            </div>
+            <span className="ui-hint">At least 6 characters.</span>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="confirm-password">Confirm Password</label>
+          <div className="ui-field">
+            <label className="ui-label" htmlFor="confirm-password">Confirm password</label>
             <input
               type="password"
               id="confirm-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
-              className="form-input"
+              placeholder="Type it again"
+              className="ui-input"
+              autoComplete="new-password"
               disabled={isLoading}
             />
           </div>
 
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
+          {error && (
+            <div className="ui-notice ui-notice--error" role="alert">
+              <Icon name="warning" />
+              <span>{error}</span>
+            </div>
+          )}
+          {success && (
+            <div className="ui-notice ui-notice--success" role="status">
+              <Icon name="check" />
+              <span>{success}</span>
+            </div>
+          )}
 
-          <div className="form-actions">
-            <button 
-              type="submit" 
-              className="register-button"
-              disabled={isLoading}
-            >
+          <div className="auth-actions">
+            <button type="submit" className="ui-btn ui-btn--primary ui-btn--block" disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <span className="loading-spinner"></span>
-                  Creating Account...
+                  <span className="ui-spinner" aria-hidden="true"></span>
+                  Creating account...
                 </>
               ) : (
-                'Create Account'
+                'Create account'
               )}
             </button>
 
-            <button 
-              type="button" 
-              className="back-button"
-              onClick={onBackToLogin}
-              disabled={isLoading}
-            >
-              Back to Login
-            </button>
+            <div className="auth-switch">
+              <button type="button" className="ui-btn ui-btn--quiet ui-btn--sm" onClick={onBackToLogin} disabled={isLoading}>
+                <Icon name="back" />
+                Back to sign in
+              </button>
+            </div>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   );
 };
