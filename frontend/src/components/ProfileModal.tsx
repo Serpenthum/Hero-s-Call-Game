@@ -214,7 +214,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                     className="change-icon-btn"
                     onClick={() => setShowIconSelector(true)}
                   >
-                    Change Icon
+                    Change icon
                   </button>
                 </div>
 
@@ -286,7 +286,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
               <div className="icon-selector-overlay">
                 <div className="icon-selector">
                   <div className="icon-selector-header">
-                    <h3>Choose Profile Icon</h3>
+                    <h3>Choose a profile icon</h3>
                     <CloseButton onClick={() => setShowIconSelector(false)} />
                   </div>
                   <div

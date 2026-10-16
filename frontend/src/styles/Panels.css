@@ -74,7 +74,11 @@
 .reject-button:hover:not(:disabled), .remove-friend-action:hover:not(:disabled) { background: var(--ember); color: var(--bone); transform: none; }
 .tooltip-action { display: flex; align-items: center; gap: var(--space-2); }
 .tooltip-action:disabled, .tooltip-action.disabled { opacity: 0.5; cursor: not-allowed; }
-.accept-button, .reject-button { display: inline-flex; align-items: center; justify-content: center; }
+.accept-button, .reject-button { display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: var(--radius-control); }
+.accept-button svg, .reject-button svg { flex-shrink: 0; }
+.accept-button { background: var(--verdigris); border: 1px solid var(--verdigris); }
+.accept-button:hover:not(:disabled) { background: var(--verdigris); filter: brightness(1.15); transform: none; }
+.reject-button:hover:not(:disabled) { transform: none; }
 button:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 
 /* Inputs */
@@ -106,3 +110,6 @@ button:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .shop-buy-btn, .pack-buy-btn, .send-button, .quest-reward-ok { transition: none; }
 }
+
+.timer-icon { color: var(--brass-hi); }
+.pack-title-overlay { font-family: var(--font-display); font-weight: 400; color: var(--bone); border-color: var(--brass-dim); letter-spacing: 0.02em; }

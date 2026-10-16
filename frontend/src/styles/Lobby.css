@@ -181,7 +181,7 @@
   bottom: -1.6rem;
   width: 125%;
   height: 4rem;
-  transform: translateX(-50%) rotate(1.5deg);
+  transform: translateX(-50%);
   z-index: -1;
   border: 1px solid var(--brass-dim);
   border-radius: 50%;
@@ -189,8 +189,7 @@
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--brass-dim) 25%, transparent), inset 0 0 0 5px var(--felt);
   pointer-events: none;
 }
-.random-hero-card { transform: rotate(-1.5deg); filter: drop-shadow(0 14px 18px var(--shade)); }
-.random-hero-card.transitioning { transform: rotate(-1.5deg) scale(0.97); }
+.random-hero-card { filter: drop-shadow(0 14px 18px var(--shade)); }
 
 /* Tiles read as hanging banners */
 .lobby-tile { position: relative; padding-top: var(--space-5); gap: var(--space-3); font: 400 var(--text-lg) / 1 var(--font-display); background: linear-gradient(var(--walnut), color-mix(in srgb, var(--walnut) 80%, var(--felt-deep))); }

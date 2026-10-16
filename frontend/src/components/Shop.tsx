@@ -314,7 +314,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
             <div className="shop-section-header">
               <h3>Hero sale</h3>
               <div className="sale-timer">
-                <span className="timer-icon">⏰</span>
+                <Icon name="clock" className="timer-icon" />
                 <span>Next sale: {timeUntilRefresh}</span>
               </div>
             </div>
