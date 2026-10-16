@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Re-theme the draft (ban, pick, setup) and battle (initiative, board, action bar, log sidebar, timer, game-over, floating controls) onto the "table" design system without changing their geometry, and prove it with a before/after computed-style comparison and real two-player matches.
+**Goal:** Re-theme the draft (ban, pick, setup) and battle (initiative, board, action bar, log sidebar, timer, game-over, floating controls) onto the "table" design system without changing their geometry, add a 30 second draft clock (server auto-play plus a dial for the last 10 seconds) and a rotate prompt for upright phones, and prove it all with a before/after computed-style comparison and real two-player matches.
 
-**Architecture:** The screens' rules live inside the 3.9k-line `App.css` mixed with card, friends and chat rules. A one-time carve script moves only the rules for classes that the draft and battle components actually render into `GameScreens.css` (card rules stay put, per the card rule). A reusable, unit-tested `retoken-css.mjs` then maps every hard-coded colour, font and ALL-CAPS in the carved file (and in `BattlePhone.css`, `TurnTimerBar.css`, `RewardsDisplay.css`) onto tokens. A small hand-written `GameTheme.css` override layer sets the identity (tinted halves, brass buttons, log colours, modal frames). Inline-styled floating controls and emoji copy in `BattlePhase.tsx`, `DraftPhase.tsx` and the `App.tsx` sidebar are replaced with classes, `Icon` and sentence-case copy. Geometry (left log sidebar, two team halves, fixed right action bar, tuned phone layout) is unchanged.
+**Architecture:** The screens' rules live inside the 3.9k-line `App.css` mixed with card, friends and chat rules. A one-time carve script moves only the rules for classes that the draft and battle components actually render into `GameScreens.css` (card rules stay put, per the card rule). A reusable, unit-tested `retoken-css.mjs` then maps every hard-coded colour, font and ALL-CAPS in the carved file (and in `BattlePhone.css`, `TurnTimerBar.css`, `RewardsDisplay.css`) onto tokens. A small hand-written `GameTheme.css` override layer sets the identity (tinted halves, brass buttons, log colours, modal frames). Inline-styled floating controls and emoji copy in `BattlePhase.tsx`, `DraftPhase.tsx` and the `App.tsx` sidebar are replaced with classes, `Icon` and sentence-case copy. Geometry (left log sidebar, two team halves, fixed right action bar, tuned phone layout) is unchanged. The draft clock lives on the server (`tickDraftTimers`, tested first); upright phones get a "rotate your phone" prompt instead of a portrait layout.
 
 **Tech Stack:** React 18, plain CSS on `tokens.css` / `primitives.css`, Node 20 scripts and `node:test`, Playwright MCP tools (two tabs play each other; each tab keeps its login in memory, so Quick admin login in two tabs gives two accounts).
 
@@ -20,8 +20,8 @@
 - Copy: buttons say what happens; one name per action ("Surrender", "Abandon draft"); errors say how to fix them.
 - Currency (user rule): never named; coin image beside a number; no "VP", "victory points" or "coins" in UI text.
 - Hero cards (user rule): a card must show its image as now, its stats, and ALL ability and special text. Card rules stay in `App.css` and `HeroCard.css`; do not edit `HeroCard.tsx`/`HeroCard.css`.
-- Geometry of the draft and battle screens does not change (sidebar left, halves centre, action bar fixed right, tuned phone layout in `BattlePhone.css`). The spec's "bottom tray" action bar is NOT done in this phase; it would change how cards are sized.
-- There is no draft pick timer in the code, so the spec's "pick clock as a brass dial" is not built. The battle turn timer bar is restyled.
+- Geometry of the draft and battle screens does not change (sidebar left, halves centre, action bar fixed right, tuned phone layout in `BattlePhone.css`). The action bar stays on the right: cards are sized by height, so a bottom tray would shrink them on desktop and in phone landscape, and they must show all their text. Upright phones (portrait) get a "Rotate your phone" prompt instead of a portrait layout (user decision); a real portrait layout would be separate work.
+- Draft clock (user rule): 30 seconds per round (the ban round and each of the three pick rounds); the dial appears only for the last 10 seconds; at zero a random card from the player's own hand is banned or picked for whoever has not acted. The setup (attack order) screen stays untimed. The battle turn timer bar is restyled too.
 - Push straight to `main`; commit trailer `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. Never commit `frontend/dist`; verification builds use `--outDir "$TEMP/hc-dist"`.
 - Revert point for the whole redesign: tag `ui-before-redesign`.
 - Existing `tsc --noEmit` errors are unrelated. Gates: `npm run check:tokens`, `node --test scripts/`, `vite build`, backend `npm test`, style diff, screenshots.
@@ -29,13 +29,16 @@
 
 ## Review Focus
 
-- Spectating a live match: the action bar shows "Stop spectating" as a normal button, and the page never shows a raw red inline button (Task 5).
-- Opponent disconnect countdown, spectator count button and spectator list keep their positions and stay readable on the felt (Task 4, step 4.4 renders them by forcing state in the page).
-- Long opponent or player names (12 wide characters) do not overflow the team label at 390px and 667x375 (Task 5).
-- A card with the most text (Blood Hunter) still shows all ability and special text in draft and battle after the re-theme (Task 5).
-- Survival-mode sidebar block (wins and losses) shows no emoji and no raw colours (Task 3 lint; Task 5 by forcing the state in the page).
-- Game over with and without rewards: the rewards block inside the modal reads on the walnut panel (Task 5).
-- Reduced motion: title glow, pulsing turn banner and timer animations stop (Task 5).
+- Spectating a live match: the action bar shows "Stop spectating" as a normal button, and the page never shows a raw red inline button (Task 7).
+- Opponent disconnect countdown, spectator count button and spectator list keep their positions and stay readable on the felt (Task 7, step 6 renders them by forcing state in the page).
+- Long opponent or player names (12 wide characters) do not overflow the team label at 390px and 667x375 (Task 7).
+- A card with the most text (Blood Hunter) still shows all ability and special text in draft and battle after the re-theme (Task 7).
+- Survival-mode sidebar block (wins and losses) shows no emoji and no raw colours (Task 4 lint; Task 7 by forcing the state in the page).
+- Game over with and without rewards: the rewards block inside the modal reads on the walnut panel (Task 7).
+- Reduced motion: title glow, pulsing turn banner, timer and draft dial animations stop (Task 7).
+- Draft clock: the dial shows only in the last 10 seconds, only to a player who has not acted, and the auto-ban or auto-pick at 30 seconds leaves both tabs in the same state (Task 1 tests; Task 7, step 8).
+- A player who acts at 29 seconds is not also auto-played; one who is idle during a pick round never ends up with two picks (Task 1 tests).
+- Upright phone: the rotate prompt covers draft and battle but never the lobby, and disappears when the phone turns sideways (Task 7, step 9).
 
 ---
 
@@ -45,13 +48,15 @@
 |---|---|
 | `frontend/scripts/style-snapshot.js` (new) | In-page function: computed styles of the screen chrome, keyed by class |
 | `frontend/scripts/style-diff.mjs` (new) | Compares two snapshots |
-| `frontend/scripts/carve-game-css.mjs` (new; deleted in Task 2) | Moves screen rules from `App.css` into `GameScreens.css` |
+| `frontend/scripts/carve-game-css.mjs` (new; deleted in Task 3) | Moves screen rules from `App.css` into `GameScreens.css` |
 | `frontend/scripts/retoken-css.mjs` (new) + `retoken-css.test.mjs` (new) | Colour/font/caps mapper with unit tests; reused in phases 4 and 5 |
 | `frontend/src/styles/GameScreens.css` (new) | Carved screen rules, then retokened |
 | `frontend/src/styles/GameTheme.css` (new) | Hand-written overrides: identity and floating controls |
 | `frontend/src/styles/BattlePhone.css`, `TurnTimerBar.css`, `RewardsDisplay.css` (retokened in place) | Phone layout, turn timer, rewards block |
 | `frontend/src/App.css` (reduced) | Keeps card, friends, chat and other rules |
-| `frontend/src/components/ui/Icon.tsx` (modify) | New icons `eye`, `user`, `flag` |
+| `frontend/src/components/ui/Icon.tsx` (modify) | New icons `eye`, `user`, `flag`, `rotate` |
+| `backend/gameManager.js`, `backend/server.js` (modify), `backend/test/draftclock.test.js` (new) | Draft clock: `tickDraftTimers`, a one-second interval, `draft-timer` event |
+| `frontend/src/components/DraftClock.tsx`, `RotatePrompt.tsx` (new) | The 10 second dial and the upright-phone prompt |
 | `frontend/src/components/BattlePhase.tsx`, `DraftPhase.tsx`, `frontend/src/App.tsx` (modify) | Classes instead of inline styles; sentence-case copy without emoji |
 | `frontend/scripts/check-tokens.mjs` (modify) | Add migrated files |
 
@@ -60,13 +65,218 @@ All commands run from `frontend/` unless a path says otherwise.
 ### Scenarios used to reach screens (referenced by Tasks 1 and 5)
 
 Open two browser tabs (`browser_tabs` with action `new`). In each tab navigate to the dev URL (`npm run dev`, read the port from its output) and click Quick admin login; the tabs are accounts Admin1 and Admin2 (the next free admin names).
-- **Scenario R (random match to battle):** in both tabs click the Random placard's "Play random". Both reach the initiative overlay. Click "Roll initiative" in both. The winner (a "Go first"/"Go second" choice appears in one tab) clicks "Go first". The board, action bar and log sidebar are now showing. `Surrender` from a tab ends the game and shows the game-over overlay.
-- **Scenario D (draft to battle):** in both tabs click the Draft placard's "Play draft". Each tab selects any card and clicks "Ban card". Then in turn each tab selects a card and clicks "Pick card" until each has 3. In the setup screen click "Ready" in both tabs (drag is optional). Then initiative as in Scenario R.
-- **Scenario S (spectate):** with a battle running, open a third tab, Quick admin login, open the friends overlay and use the spectate button on a friend in the match. If friends cannot be arranged quickly, record that spectating was not exercised live and test it by temporarily rendering the spectator branch (Task 5, step 5.6).
+- **Scenario R (random match to battle):** in both tabs click the Random placard's "Play random". Random mode skips the initiative overlay and goes straight to the battle: one tab shows "Your turn" with the enemy cards glowing as targets, the other "Opponent's turn". Click a glowing enemy card to see the action bar fill in. Surrender from a tab ends the game and shows the game-over overlay.
+- **Scenario D (draft to battle):** in both tabs click the Draft placard's "Play draft". Each tab selects any card and clicks "Ban card". Then each tab selects a card and clicks "Pick card" three times. In the setup screen click "Ready" in both tabs (drag is optional). Only the draft path shows the initiative overlay: click "Roll initiative" in both tabs and the winner picks "Go first". Waiting 30 seconds in any ban or pick round makes the server play for you (Task 1).
+- **Scenario S (spectate):** with a battle running, open a third tab, Quick admin login, open the friends overlay and use the spectate button on a friend in the match. If friends cannot be arranged quickly, record that spectating was not exercised live and test it by temporarily rendering the spectator branch (Task 7, step 5.6).
 
 ---
 
-### Task 1: Style-snapshot tooling and baselines
+### Task 1: Draft clock on the server
+
+Each draft round (the ban round, then pick rounds 1 to 3) gets a 30 second clock. Everyone decides at the same time in each round, so one clock per round covers both players. Whoever has not acted when it runs out gets a random card from their own hand banned or picked for them. The setup (attack order) screen stays untimed.
+
+**Files:**
+- Modify: `backend/gameManager.js` (new `tickDraftTimers`), `backend/server.js` (a one-second interval next to the turn timer code)
+- Create: `backend/test/draftclock.test.js`
+
+**Interfaces:**
+- Produces: `gameManager.tickDraftTimers(now = Date.now())` returning an array of events: `{ kind: 'timer', gameId, round, durationMs, remainingMs }`, `{ kind: 'ban', gameId, playerId, result }` or `{ kind: 'pick', gameId, playerId, result }` (`result` is exactly what `banCard`/`pickCard` return). Server event `draft-timer` with `{ gameId, round, durationMs, remainingMs }` (round 0 is the ban round, 1 to 3 are pick rounds).
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `backend/test/draftclock.test.js`:
+
+```js
+// Draft clock: each ban or pick round lasts 30 seconds; whoever has not acted when it runs out is played for.
+const { test, describe, beforeEach } = require('node:test');
+const assert = require('node:assert/strict');
+const { makeManager } = require('./support/battle');
+
+let gm;
+beforeEach(() => { gm = makeManager(); });
+
+const make = (id, name, hand) => ({
+  id, name, userId: null, connected: true, team: [], draftCards: hand, bannedCard: null,
+  attackOrder: [], currentHeroIndex: 0, hasUsedAttack: false, hasUsedAbility: false, usedAbilities: [],
+  selectedTarget: null, twinSpellUsed: false, oneTwoPunchUsed: false, monkAttacksRemaining: 1,
+  oneTwoPunchAttacksRemaining: 0, profile_icon: 'Sorcerer', monkDeflectUsed: false
+});
+
+// A game in the ban round: five heroes in each hand, nobody has acted
+function newDraft() {
+  const gameId = `draft-${Math.random().toString(36).slice(2)}`;
+  const game = gm.createNewGame(gameId, 'draft');
+  const heroes = gm.allHeroes.filter(h => !h.disabled).slice(0, 10).map(h => gm.resetHeroToOriginalState(h));
+  game.players = [make('p0', 'Alice', heroes.slice(0, 5)), make('p1', 'Bob', heroes.slice(5, 10))];
+  game.phase = 'draft';
+  game.currentDraftPhase = 0;
+  game.draftTurn = 0;
+  game.draftCards = {
+    player1: game.players[0].draftCards.map(h => h.name),
+    player2: game.players[1].draftCards.map(h => h.name)
+  };
+  gm.games.set(gameId, game);
+  game.players.forEach(p => gm.playerGameMap.set(p.id, gameId));
+  return game;
+}
+const kinds = events => events.map(e => e.kind);
+
+describe('Draft clock', () => {
+  test('starts a 30 second clock for the ban round without acting yet', () => {
+    const game = newDraft();
+    const events = gm.tickDraftTimers(1000);
+    assert.deepEqual(kinds(events), ['timer']);
+    assert.equal(events[0].round, 0);
+    assert.equal(events[0].durationMs, 30000);
+    assert.equal(events[0].remainingMs, 30000);
+    assert.equal(game.players[0].bannedCard, null);
+  });
+
+  test('does nothing before the clock runs out', () => {
+    newDraft();
+    gm.tickDraftTimers(1000);
+    assert.deepEqual(gm.tickDraftTimers(1000 + 29999), []);
+  });
+
+  test('bans a random card from each undecided hand when it runs out', () => {
+    const game = newDraft();
+    const hands = game.players.map(p => p.draftCards.map(h => h.name));
+    gm.tickDraftTimers(1000);
+    const events = gm.tickDraftTimers(1000 + 30000);
+    assert.deepEqual(kinds(events), ['ban', 'ban']);
+    events.forEach(e => assert.equal(e.result.success, true));
+    game.players.forEach((p, i) => assert.ok(hands[i].includes(p.bannedCard), `${p.name}'s ban came from their own hand`));
+    assert.equal(game.currentDraftPhase, 1);
+  });
+
+  test('only plays for the player who is still undecided', () => {
+    const game = newDraft();
+    gm.tickDraftTimers(1000);
+    gm.banCard('p0', game.players[0].draftCards[0].name);
+    const events = gm.tickDraftTimers(1000 + 30000);
+    assert.deepEqual(kinds(events), ['ban']);
+    assert.equal(events[0].playerId, 'p1');
+    assert.equal(game.currentDraftPhase, 1);
+  });
+
+  test('a new round gets a fresh 30 second clock', () => {
+    newDraft();
+    gm.tickDraftTimers(0);
+    gm.tickDraftTimers(30000); // auto-bans and moves to the first pick round
+    const events = gm.tickDraftTimers(30001);
+    assert.deepEqual(kinds(events), ['timer']);
+    assert.equal(events[0].round, 1);
+    assert.equal(events[0].remainingMs, 30000);
+    assert.deepEqual(gm.tickDraftTimers(30001 + 29999), []);
+  });
+
+  test('plays all three pick rounds and ends in setup with three heroes each', () => {
+    const game = newDraft();
+    let now = 0;
+    for (let i = 0; i < 12 && game.phase === 'draft'; i++) {
+      gm.tickDraftTimers(now);
+      now += 30000;
+    }
+    assert.equal(game.phase, 'setup');
+    game.players.forEach(p => assert.equal(p.team.length, 3));
+    assert.deepEqual(gm.tickDraftTimers(now), []);
+  });
+
+  test('a player who already picked is left alone while the other is played for', () => {
+    const game = newDraft();
+    gm.tickDraftTimers(0);
+    gm.tickDraftTimers(30000); // bans; now in pick round 1
+    gm.tickDraftTimers(60000); // clock for round 1 starts
+    gm.pickCard('p1', game.players[1].draftCards[0].name);
+    const events = gm.tickDraftTimers(90000);
+    assert.deepEqual(kinds(events), ['pick']);
+    assert.equal(events[0].playerId, 'p0');
+    assert.equal(game.currentDraftPhase, 2);
+    assert.equal(game.players[1].team.length, 1, 'the player who had picked was not given a second pick');
+  });
+
+  test('ignores games that are not drafting', () => {
+    const game = newDraft();
+    game.phase = 'battle';
+    assert.deepEqual(gm.tickDraftTimers(0), []);
+    assert.deepEqual(gm.tickDraftTimers(99999), []);
+  });
+});
+```
+
+- [ ] **Step 2: Run them and watch them fail**
+
+Run (from `backend/`): `node --test test/draftclock.test.js`
+Expected: FAIL: `gm.tickDraftTimers is not a function` in every test.
+
+- [ ] **Step 3: Implement `tickDraftTimers`**
+
+In `gameManager.js`, add `const DRAFT_TIME_MS = 30000;` beside the other top-level constants (after the `require` lines), and add this method to the class directly above `autoDraft(playerId) {`:
+
+```js
+  // Draft clock: each ban or pick round lasts DRAFT_TIME_MS. The server calls this about once a second.
+  // Returns what happened so the server can tell the players.
+  tickDraftTimers(now = Date.now()) {
+    const events = [];
+    for (const [gameId, game] of this.games) {
+      if (game.phase !== 'draft') continue;
+      const round = game.currentDraftPhase;
+      if (!game.draftClock || game.draftClock.round !== round) {
+        game.draftClock = { round, deadline: now + DRAFT_TIME_MS };
+        events.push({ kind: 'timer', gameId, round, durationMs: DRAFT_TIME_MS, remainingMs: DRAFT_TIME_MS });
+        continue;
+      }
+      if (now < game.draftClock.deadline) continue;
+
+      for (const player of [...game.players]) {
+        // Once the last undecided player has acted the round moves on; the next tick starts its clock
+        if (game.phase !== 'draft' || game.currentDraftPhase !== round) break;
+        const undecided = round === 0 ? !player.bannedCard : player.team.length < round;
+        if (!undecided || !player.draftCards || player.draftCards.length === 0) continue;
+        const card = player.draftCards[Math.floor(Math.random() * player.draftCards.length)];
+        const result = round === 0 ? this.banCard(player.id, card.name) : this.pickCard(player.id, card.name);
+        events.push({ kind: round === 0 ? 'ban' : 'pick', gameId, playerId: player.id, result });
+      }
+    }
+    return events;
+  }
+
+```
+
+- [ ] **Step 4: Run the new tests, then the whole suite**
+
+Run: `node --test test/draftclock.test.js` (Expected: 8 tests pass), then `npm test` (Expected: `# pass 104`, `# fail 0`; that is the 96 existing plus 8 new).
+
+- [ ] **Step 5: Tell the players**
+
+In `server.js`, directly below the `startTurnTimer` function, add:
+
+```js
+// Draft clock: the game manager does the auto-ban and auto-pick; here we tell the players.
+setInterval(() => {
+  for (const ev of gameManager.tickDraftTimers()) {
+    if (ev.kind === 'timer') {
+      io.to(ev.gameId).emit('draft-timer', { gameId: ev.gameId, round: ev.round, durationMs: ev.durationMs, remainingMs: ev.remainingMs });
+    } else if (ev.result && ev.result.success) {
+      io.to(ev.gameId).emit(ev.kind === 'ban' ? 'ban-complete' : 'pick-complete', ev.result);
+    }
+  }
+}, 1000).unref();
+```
+
+Run: `node --check server.js` (Expected: no output). With the backend restarted (`npm start` in `backend/`), play Scenario D, wait 30 seconds without clicking in either tab: the ban round auto-plays (each tab shows its hand drop to 4 cards and the "You banned" line), and a further 30 seconds later round 1 auto-picks. This is verified again in Task 7.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend
+git commit -m "feat(draft): 30 second clock per ban and pick round with auto-play"
+git push origin main
+```
+
+---
+
+### Task 2: Style-snapshot tooling and baselines
 
 **Files:**
 - Create: `frontend/scripts/style-snapshot.js`, `frontend/scripts/style-diff.mjs`
@@ -144,7 +354,7 @@ process.exit(diffs ? 1 : 0);
 
 - [ ] **Step 3: Capture baselines**
 
-Start `npm run dev`. Record `git rev-parse HEAD` as `BASE_SHA`. Run Scenario D until the draft ban screen shows and in one tab run `browser_evaluate` with the contents of `style-snapshot.js` as `function` and `filename` `.playwright-mcp/snap-before-ban.json`; screenshot `.playwright-mcp/p3-before-ban.png`. Repeat for: the pick screen (`snap-before-pick`), the setup screen (`snap-before-setup`), the initiative overlay (`snap-before-initiative`), and the battle screen on your turn and on the opponent's turn (`snap-before-battle-mine`, `snap-before-battle-theirs`), plus a screenshot of each. Then click Surrender in one tab: snapshot and screenshot the game-over overlay (`snap-before-gameover`). Resize one tab to 390x844 and 667x375 during battle and screenshot (`p3-before-battle-phone.png`, `p3-before-battle-landscape.png`).
+Start `npm run dev`. Record `git rev-parse HEAD` as `BASE_SHA`. Run Scenario D until the draft ban screen shows and in one tab run `browser_evaluate` with the contents of `style-snapshot.js` as `function` and `filename` `.playwright-mcp/snap-before-ban.json`; screenshot `.playwright-mcp/p3-before-ban.png`. Repeat for: the pick screen (`snap-before-pick`), the setup screen (`snap-before-setup`), the initiative overlay (`snap-before-initiative`), and the battle screen on your turn and on the opponent's turn (`snap-before-battle-mine`, `snap-before-battle-theirs`), plus a screenshot of each (get the battle snapshots from Scenario R, which is quicker). Then click Surrender in one tab: snapshot and screenshot the game-over overlay (`snap-before-gameover`). Resize one tab to 390x844 and 667x375 during battle and screenshot (`p3-before-battle-phone.png`, `p3-before-battle-landscape.png`).
 
 Expected: 7 snapshots and 9 screenshots exist under `.playwright-mcp/`.
 
@@ -163,7 +373,7 @@ git push origin main
 
 ---
 
-### Task 2: Carve the screen rules out of App.css (no visual change)
+### Task 3: Carve the screen rules out of App.css (no visual change)
 
 **Files:**
 - Create: `frontend/scripts/carve-game-css.mjs` (deleted at the end of this task), `frontend/src/styles/GameScreens.css`
@@ -266,7 +476,7 @@ In `frontend/src/App.tsx` add `import './styles/GameScreens.css';` directly belo
 
 - [ ] **Step 4: Style diff must be empty**
 
-Restart `npm run dev`. Repeat Task 1 Step 3 with `after` names (`snap-after-ban`, ... `snap-after-gameover`) and compare each pair: `node scripts/style-diff.mjs ../.playwright-mcp/snap-before-X.json ../.playwright-mcp/snap-after-X.json`.
+Restart `npm run dev`. Repeat Task 2 Step 3 with `after` names (`snap-after-ban`, ... `snap-after-gameover`) and compare each pair: `node scripts/style-diff.mjs ../.playwright-mcp/snap-before-X.json ../.playwright-mcp/snap-after-X.json`.
 Expected: `no differences` for every pair. Differences from different random heroes show up only inside `.hero-card` (excluded), so any difference is a real cascade change: find the rule involved (`git diff --stat` and the property named in the output), and fix by adjusting the carve predicate or by moving that single rule back into `App.css`; rerun. Do not proceed until all pairs are empty.
 
 - [ ] **Step 5: Delete the script, build, commit**
@@ -281,7 +491,7 @@ git push origin main
 
 ---
 
-### Task 3: The colour re-tokenizer and applying it
+### Task 4: The colour re-tokenizer and applying it
 
 **Files:**
 - Create: `frontend/scripts/retoken-css.mjs`, `frontend/scripts/retoken-css.test.mjs`
@@ -497,7 +707,7 @@ Expected: `check-tokens: 15 files clean`. If a raw colour remains (an unusual fo
 
 - [ ] **Step 6: Build and look**
 
-Run: `npx vite build --outDir "$TEMP/hc-dist" --emptyOutDir` (Expected: success). Restart dev; run Scenario D and screenshot the ban screen, battle screen and game-over. They are now felt, bone and brass but unpolished (that is Task 4). Confirm nothing is unreadable (dark text on dark panels): list each such spot for Task 4.
+Run: `npx vite build --outDir "$TEMP/hc-dist" --emptyOutDir` (Expected: success). Restart dev; run Scenario D and screenshot the ban screen, battle screen and game-over. They are now felt, bone and brass but unpolished (that is Task 5). Confirm nothing is unreadable (dark text on dark panels): list each such spot for Task 5.
 
 - [ ] **Step 7: Commit**
 
@@ -509,7 +719,7 @@ git push origin main
 
 ---
 
-### Task 4: Identity overrides, floating controls and copy
+### Task 5: Identity overrides, floating controls and copy
 
 **Files:**
 - Create: `frontend/src/styles/GameTheme.css`
@@ -780,7 +990,7 @@ Run: `npm run check:tokens` (Expected: `16 files clean`), `npx tsc --noEmit 2>&1
 
 - [ ] **Step 8: Look, iterate, commit**
 
-Run Scenarios D and R and screenshot each screen against the Task 1 baselines. Fix anything unreadable or ugly in `GameTheme.css` (not in the carved file), re-screenshot until each of these reads well: ban screen, pick screen, setup, initiative overlay, battle (both turns), game-over, surrender confirm. Then:
+Run Scenarios D and R and screenshot each screen against the Task 2 baselines. Fix anything unreadable or ugly in `GameTheme.css` (not in the carved file), re-screenshot until each of these reads well: ban screen, pick screen, setup, initiative overlay, battle (both turns), game-over, surrender confirm. Then:
 
 ```bash
 git add -A frontend
@@ -790,14 +1000,213 @@ git push origin main
 
 ---
 
-### Task 5: Verify every state
+### Task 6: Draft clock dial and the rotate prompt
+
+**Files:**
+- Create: `frontend/src/components/DraftClock.tsx`, `frontend/src/components/RotatePrompt.tsx`
+- Modify: `frontend/src/types.ts`, `frontend/src/App.tsx`, `frontend/src/components/DraftPhase.tsx`, `frontend/src/components/ui/Icon.tsx`, `frontend/src/styles/GameTheme.css`, `frontend/scripts/check-tokens.mjs`
+
+**Interfaces:**
+- Consumes: server event `draft-timer` `{ gameId, round, durationMs, remainingMs }` from Task 1; `Icon`.
+- Produces: `DraftClock` (`deadline: number; durationMs: number; action: 'ban' | 'pick'`), `RotatePrompt` (no props), `IconName` gains `'rotate'`, `DraftPhase` gains an optional prop `draftTimer?: { round: number; deadline: number; durationMs: number } | null`.
+
+- [ ] **Step 1: Icon and lint list**
+
+In `Icon.tsx` add to `PATHS` (after `flag`): `rotate: 'M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M20 12a8 8 0 0 1-14 5.3M6 21v-4h4',`
+Append to `MIGRATED`: `'components/DraftClock.tsx'`, `'components/RotatePrompt.tsx'`.
+
+- [ ] **Step 2: Write `DraftClock.tsx`**
+
+```tsx
+import React, { useEffect, useState } from 'react';
+
+interface DraftClockProps {
+  // Epoch milliseconds when the round ends
+  deadline: number;
+  durationMs: number;
+  action: 'ban' | 'pick';
+}
+
+// The dial only appears for the last 10 seconds of a round
+const SHOW_AT_MS = 10000;
+const RADIUS = 44;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+const DraftClock: React.FC<DraftClockProps> = ({ deadline, action }) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 200);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const remaining = Math.max(0, deadline - now);
+  // At zero the server has already played for you
+  if (remaining > SHOW_AT_MS || remaining <= 0) return null;
+
+  const seconds = Math.ceil(remaining / 1000);
+  const fraction = remaining / SHOW_AT_MS;
+  const verb = action === 'ban' ? 'banned' : 'picked';
+  return (
+    <div
+      className={`draft-clock${seconds <= 3 ? ' draft-clock--urgent' : ''}`}
+      role="timer"
+      aria-label={`${seconds} seconds left. A random card will be ${verb} for you.`}
+    >
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle className="draft-clock-track" cx="50" cy="50" r={RADIUS} />
+        <circle
+          className="draft-clock-hand"
+          cx="50"
+          cy="50"
+          r={RADIUS}
+          strokeDasharray={CIRCUMFERENCE}
+          strokeDashoffset={CIRCUMFERENCE * (1 - fraction)}
+          transform="rotate(-90 50 50)"
+        />
+      </svg>
+      <span className="draft-clock-seconds">{seconds}</span>
+      <span className="draft-clock-note">{action === 'ban' ? 'Auto-ban' : 'Auto-pick'}</span>
+    </div>
+  );
+};
+
+export default DraftClock;
+```
+
+- [ ] **Step 3: Write `RotatePrompt.tsx`**
+
+```tsx
+import React from 'react';
+import Icon from './ui/Icon';
+
+// Shown by CSS only when the screen is narrow and upright (see GameTheme.css); the game keeps running behind it.
+const RotatePrompt: React.FC = () => (
+  <div className="rotate-prompt" role="alert">
+    <Icon name="rotate" size={56} className="rotate-prompt-icon" />
+    <h2>Rotate your phone</h2>
+    <p>Hero's Call is played sideways. Your game is still running.</p>
+  </div>
+);
+
+export default RotatePrompt;
+```
+
+- [ ] **Step 4: Types and `App.tsx`**
+
+In `types.ts`, next to the `'turn-timer'` entry (line ~357) add: `'draft-timer': (data: { gameId: string; round: number; durationMs: number; remainingMs: number }) => void;`
+
+In `App.tsx`:
+1. Add `import RotatePrompt from './components/RotatePrompt';`.
+2. Below the `turnTimer` state (line ~210) add: `const [draftTimer, setDraftTimer] = useState<{ round: number; durationMs: number; deadline: number } | null>(null);`
+3. Next to the existing `socket.on('turn-timer', ...)` listener (line ~624) add, following exactly the same registration and cleanup pattern that listener uses:
+
+```tsx
+    socket.on('draft-timer', (data) => {
+      setDraftTimer({ round: data.round, durationMs: data.durationMs, deadline: Date.now() + data.remainingMs });
+    });
+```
+4. In the `<DraftPhase ... />` element (line ~2252) add the prop `draftTimer={draftTimer}`.
+5. In the root `return (<div className="App">` after the `app-layout` div's closing tag, add: `{state.gameState && state.gameState.phase !== 'waiting' && <RotatePrompt />}`.
+
+- [ ] **Step 5: `DraftPhase.tsx`**
+
+Add `import DraftClock from './DraftClock';`. Add `draftTimer?: { round: number; deadline: number; durationMs: number } | null;` to `DraftPhaseProps` and `draftTimer` to the destructured props. In `renderBanPhase`, as the last child inside the root `<div className="draft-phase">`:
+
+```tsx
+        {draftTimer && draftTimer.round === gameState.currentDraftPhase && !currentPlayer.bannedCard && (
+          <DraftClock key={draftTimer.round} deadline={draftTimer.deadline} durationMs={draftTimer.durationMs} action="ban" />
+        )}
+```
+and in `renderPickPhase`, as the last child inside the root `<div className="draft-phase">` (after `draft-main-content`):
+
+```tsx
+        {draftTimer && draftTimer.round === gameState.currentDraftPhase && canPick() && (
+          <DraftClock key={draftTimer.round} deadline={draftTimer.deadline} durationMs={draftTimer.durationMs} action="pick" />
+        )}
+```
+
+- [ ] **Step 6: Styles (append to `GameTheme.css`)**
+
+```css
+/* Draft clock: a brass dial in the corner for the last 10 seconds of a round */
+.draft-clock {
+  position: fixed;
+  top: var(--space-5);
+  right: var(--space-5);
+  z-index: 900;
+  width: 6rem;
+  height: 6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--walnut);
+  border: 1px solid var(--brass);
+  border-radius: 50%;
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  color: var(--bone);
+}
+.draft-clock svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.draft-clock-track { fill: none; stroke: var(--leather); stroke-width: 6; }
+.draft-clock-hand { fill: none; stroke: var(--brass-hi); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 200ms linear; }
+.draft-clock--urgent .draft-clock-hand { stroke: var(--ember-hi); }
+.draft-clock-seconds { font: 400 var(--text-2xl) / 1 var(--font-display); }
+.draft-clock-note { font-size: var(--text-xs); color: var(--bone-dim); }
+
+/* Upright phones: ask for landscape. Narrow tall desktop windows get it too; the board is unusable there as well. */
+.rotate-prompt { display: none; }
+@media (orientation: portrait) and (max-width: 700px) {
+  .rotate-prompt {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    text-align: center;
+    background: var(--felt-surface);
+    color: var(--bone);
+  }
+  .rotate-prompt h2 { margin: 0; font: 400 var(--text-xl) / 1.1 var(--font-display); }
+  .rotate-prompt p { margin: 0; max-width: 18rem; color: var(--bone-dim); }
+  .rotate-prompt-icon { color: var(--brass-hi); animation: rotate-hint 900ms var(--ease) both; }
+}
+@keyframes rotate-hint { from { transform: rotate(-90deg); } to { transform: rotate(0deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .draft-clock-hand { transition: none; }
+  .rotate-prompt-icon { animation: none; }
+}
+```
+
+- [ ] **Step 7: Lint, types, build**
+
+Run: `npm run check:tokens` (Expected: `18 files clean`), `npx tsc --noEmit 2>&1 | grep -E "DraftClock|RotatePrompt|DraftPhase|Icon.tsx"` (Expected: no new errors), `npx vite build --outDir "$TEMP/hc-dist" --emptyOutDir` (Expected: success).
+
+- [ ] **Step 8: Look at it**
+
+Run Scenario D. In the ban round do nothing for 20 seconds: from about the 20 second mark a brass dial with the seconds and "Auto-ban" appears top right in both tabs, its ring draining, turning ember for the last 3 seconds. Click "Ban card" in one tab: its dial disappears while the other tab's stays. At 30 seconds the untouched tab's hand drops to four cards on its own and the next round starts. Screenshot the dial and its urgent state. Resize a tab to 390x844: the rotate prompt covers the screen; resize to 667x375: it disappears.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add -A frontend
+git commit -m "feat(draft): 10 second dial for the draft clock and a rotate prompt for upright phones"
+git push origin main
+```
+
+---
+
+### Task 7: Verify every state
 
 **Files:** none modified unless a check fails.
 
 - [ ] **Step 1: Gates**
 
 Run: `npm run check:tokens`, `node --test scripts/`, `npx vite build --outDir "$TEMP/hc-dist" --emptyOutDir`, and `cd ../backend && npm test`.
-Expected: `16 files clean`, 8 tests pass, build success, `# pass 96` and `# fail 0`.
+Expected: `18 files clean`, 8 tests pass, build success, backend `# pass 104` (the 96 existing plus the 8 draft clock tests) and `# fail 0`.
 
 - [ ] **Step 2: Desktop states**
 
@@ -828,13 +1237,21 @@ All three read on the felt with brass or ember borders and no raw red or blue. R
 
 During your own turn wait for the `turn-timer-bar`; screenshot it. `browser_emulate_media` `reducedMotion: 'reduce'`, reload into a battle (Scenario R again) and check `getComputedStyle(document.querySelector('.game-over-title') ?? document.body).animationName` after game over is `none`, and that `.turn-indicator`, if present, has `animationName` `none`.
 
-- [ ] **Step 8: Copy and currency sweep**
+- [ ] **Step 8: Draft clock, live**
+
+Scenario D, two tabs, no clicks for 20 seconds in the ban round. From about the 20 second mark both tabs show the dial (seconds and "Auto-ban"); screenshot it, and again in the last 3 seconds (ember ring). Repeat with one tab banning at the 22 second mark: that tab's dial disappears while the other's stays. At 30 seconds the idle tab's hand drops to four cards without any click and the next round starts (read the new sidebar text in both tabs). Do the same once in a pick round: the idle tab ends round 1 with exactly one hero on its team. `browser_evaluate` `document.querySelectorAll('.draft-clock').length` is `0` at 5 seconds into any round and `1` at 25 seconds for an idle player.
+
+- [ ] **Step 9: Rotate prompt**
+
+In a draft or battle tab resize to 390x844 and screenshot: the rotate prompt covers the screen. Resize to 667x375: it is gone. In the lobby at 390x844 there is no prompt. With `browser_emulate_media` `reducedMotion: 'reduce'` the icon does not animate (`getComputedStyle(document.querySelector('.rotate-prompt-icon')).animationName` is `none`).
+
+- [ ] **Step 10: Copy and currency sweep**
 
 Run: `git grep -n -iE "victory point|\bVP\b" -- src/components/BattlePhase.tsx src/components/DraftPhase.tsx src/styles/GameScreens.css src/styles/GameTheme.css` (Expected: no output). Run: `git grep -n -E "ABANDON|BANNED|Selected Card" -- src/components src/App.tsx` (Expected: no output).
 
-- [ ] **Step 9: Record completion and clean up**
+- [ ] **Step 11: Record completion and clean up**
 
-Append to the spec's Phases section: `Phase 3 complete (YYYY-MM-DD). Known follow-ups: <items>.` Include: spec's bottom action tray and pick clock not built (see plan constraints); Tutorial overlay, Spectator list screen, Friends overlay and Messages still old styling (phases 4 and 5); anything from Steps 2 to 7 you could not fix. Stop the dev server, delete `.playwright-mcp`, confirm `git status` is clean and `frontend/dist` untouched, then:
+Append to the spec's Phases section: `Phase 3 complete (YYYY-MM-DD). Known follow-ups: <items>.` Include: the spec's bottom action tray was not built (action bar stays on the right; upright phones get a rotate prompt, a real portrait layout would be separate work); the setup screen has no clock; Tutorial overlay, Spectator list screen, Friends overlay and Messages still old styling (phases 4 and 5); anything from Steps 2 to 7 you could not fix. Stop the dev server, delete `.playwright-mcp`, confirm `git status` is clean and `frontend/dist` untouched, then:
 
 ```bash
 git add docs
