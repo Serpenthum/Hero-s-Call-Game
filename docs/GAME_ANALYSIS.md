@@ -222,7 +222,6 @@ A headless simulator (`node sim.js HeroA,HeroB,HeroC vs X,Y,Z × 10k`) that driv
 | **Tutorial** | First login | Scripted | Rigged d20s (`rig`), bot opponent. Reward: level up + top-up to **100 VP** total (once). |
 | **Friendly room / Challenge** | Friends | Draft | XP only, no VP. |
 | **Spectator** | — | — | Read-only view of live games. |
-| **Dragonflow** | Hidden (`{false && ...}`) | — | A separate 5-element dragon card game living in the same app ([DragonflowGame.tsx](../frontend/src/components/DragonflowGame.tsx)). Not analysed here. |
 
 ---
 

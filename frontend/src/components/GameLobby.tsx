@@ -8,7 +8,6 @@ import XPBar from './XPBar';
 import CloseButton from './CloseButton';
 import Shop from './Shop';
 import RequirementModal from './RequirementModal';
-import DragonflowLobby from './DragonflowLobby';
 import { Hero, GameState, Quest, PendingQuestReward } from '../types';
 import { socketService } from '../socketService';
 import { useQuestReveal } from '../useQuestReveal';
@@ -100,7 +99,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [userRefreshTrigger, setUserRefreshTrigger] = useState(0);
-  const [showDragonflow, setShowDragonflow] = useState(false);
 
   // Ranked modes stay hidden until unlocked; unlocking shows a notification and animates the mode in.
   // The level shown in the XP bar is used so the unlock lands with the level-up animation.
@@ -797,27 +795,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
         requiredCount={requirementModalData.requiredCount}
         type={requirementModalData.type}
       />
-
-      {/* Dragonflow Button - Bottom Right (hidden) */}
-      {false && !showDragonflow && (
-        <button 
-          className="dragonflow-access-btn"
-          onClick={() => setShowDragonflow(true)}
-          title="Enter Dragonflow"
-        >
-          <span className="btn-icon">🐉</span>
-          <span className="btn-text-small">Dragonflow</span>
-        </button>
-      )}
-
-      {/* Dragonflow Lobby Overlay */}
-      {showDragonflow && (
-        <DragonflowLobby 
-          onBack={() => setShowDragonflow(false)}
-          username={user.username}
-          userId={user.id}
-        />
-      )}
 
     </div>
   );
