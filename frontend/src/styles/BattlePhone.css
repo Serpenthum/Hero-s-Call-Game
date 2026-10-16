@@ -160,7 +160,7 @@
     width: var(--phone-actions-width);
     height: 100dvh;
     box-sizing: border-box;
-    border-left: 1px solid #007bff;
+    border-left: 1px solid var(--brass);
     padding-top: 0;
     padding-bottom: 66px;
   }

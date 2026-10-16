@@ -8,10 +8,10 @@
   height: 14px;
   padding: 2px;
   box-sizing: border-box;
-  background: rgba(20, 10, 10, 0.85);
-  border: 2px solid #5a2a1a;
+  background: color-mix(in srgb, var(--felt-deep) 85%, transparent);
+  border: 2px solid var(--leather);
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--felt-deep) 30%, transparent);
   z-index: 1000;
   pointer-events: none;
 }
@@ -21,7 +21,7 @@
   height: 100%;
   width: var(--burn-start, 100%);
   border-radius: 5px;
-  background: linear-gradient(90deg, #ffd54a, #ff8a1f 60%, #e53935);
+  background: linear-gradient(90deg, var(--brass-hi), var(--brass-hi) 60%, var(--ember));
   animation-name: turn-timer-burn;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
@@ -37,7 +37,7 @@
   height: 10px;
   margin-top: -5px;
   border-radius: 50%;
-  background: radial-gradient(circle, #fff7c2 0%, #ffb02e 50%, rgba(255, 90, 0, 0) 75%);
+  background: radial-gradient(circle, var(--brass-hi) 0%, var(--brass-hi) 50%, color-mix(in srgb, var(--brass-hi) 0%, transparent) 75%);
   animation: turn-timer-flicker 0.18s ease-in-out infinite alternate;
 }
 
