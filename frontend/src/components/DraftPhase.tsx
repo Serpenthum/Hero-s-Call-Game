@@ -3,19 +3,22 @@ import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
 import Icon from './ui/Icon';
+import DraftClock from './DraftClock';
 
 interface DraftPhaseProps {
   gameState: GameState;
   currentPlayer: Player;
   opponent: Player | null;
   allHeroes: Hero[];
+  draftTimer?: { round: number; deadline: number; durationMs: number } | null;
 }
 
 const DraftPhase: React.FC<DraftPhaseProps> = ({ 
   gameState, 
   currentPlayer, 
   opponent, 
-  allHeroes 
+  allHeroes,
+  draftTimer
 }) => {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [teamOrder, setTeamOrder] = useState<string[]>([]);
@@ -231,6 +234,10 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         {opponent?.bannedCard && (
           <p>Opponent banned: <strong>{opponent.bannedCard}</strong></p>
         )}
+
+        {draftTimer && draftTimer.round === gameState.currentDraftPhase && !currentPlayer.bannedCard && (
+          <DraftClock key={draftTimer.round} deadline={draftTimer.deadline} durationMs={draftTimer.durationMs} action="ban" />
+        )}
       </div>
     );
   };
@@ -293,6 +300,10 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
             </button>
           </div>
         </div>
+
+        {draftTimer && draftTimer.round === gameState.currentDraftPhase && canPick() && (
+          <DraftClock key={draftTimer.round} deadline={draftTimer.deadline} durationMs={draftTimer.durationMs} action="pick" />
+        )}
       </div>
     );
   };

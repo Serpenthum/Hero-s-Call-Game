@@ -6,6 +6,7 @@ import SurvivalBattleTransition from './components/SurvivalBattleTransition';
 import LoginPage from './components/LoginPage';
 import CardLayoutTest from './components/CardLayoutTest';
 import UiKit from './components/ui/UiKit';
+import RotatePrompt from './components/RotatePrompt';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
 import MessageIcon from './components/MessageIcon';
@@ -210,6 +211,7 @@ function App() {
   const [isSearchingForMatch, setIsSearchingForMatch] = useState(false);
   const [showCardLayoutTest, setShowCardLayoutTest] = useState(false);
   const [turnTimer, setTurnTimer] = useState<{ playerId: string; deadline: number; durationMs: number } | null>(null);
+  const [draftTimer, setDraftTimer] = useState<{ round: number; durationMs: number; deadline: number } | null>(null);
   const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
   // How many of the six battle heroes are visible during the tutorial intro; null = all
   const [tutorialReveal, setTutorialReveal] = useState<number | null>(null);
@@ -626,6 +628,10 @@ function App() {
     socket.on('turn-timer', (data) => {
       // Server sends remaining time so client clock skew doesn't matter
       setTurnTimer({ playerId: data.playerId, durationMs: data.durationMs, deadline: Date.now() + data.remainingMs });
+    });
+
+    socket.on('draft-timer', (data) => {
+      setDraftTimer({ round: data.round, durationMs: data.durationMs, deadline: Date.now() + data.remainingMs });
     });
 
     socket.on('attack-result', (data) => {
@@ -2256,6 +2262,7 @@ function App() {
             currentPlayer={currentPlayer}
             opponent={opponent}
             allHeroes={state.allHeroes}
+            draftTimer={draftTimer}
           />
         );
 
@@ -2642,6 +2649,8 @@ function App() {
         </main>
       </div>
 
+
+      {state.gameState && state.gameState.phase !== 'waiting' && <RotatePrompt />}
 
       {/* Survival Battle Transition */}
       {state.isTransitioningToBattle && (

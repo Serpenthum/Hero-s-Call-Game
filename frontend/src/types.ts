@@ -355,6 +355,7 @@ export interface SocketEvents {
   'special-activated': (data: any) => void;
   'turn-ended': (data: any) => void;
   'turn-timer': (data: { gameId: string; playerId: string; durationMs: number; remainingMs: number }) => void;
+  'draft-timer': (data: { gameId: string; round: number; durationMs: number; remainingMs: number }) => void;
   'auto-draft-complete': (data: any) => void;
   'reconnect-success': (data: GameState) => void;
   'reconnect-failed': (data: { message: string }) => void;

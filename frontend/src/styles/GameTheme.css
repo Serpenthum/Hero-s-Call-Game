@@ -162,3 +162,55 @@
   .turn-indicator, .game-over-title { animation: none; }
   .action-button, .return-to-lobby-button { transition: none; }
 }
+
+/* Draft clock: a brass dial in the corner for the last 10 seconds of a round */
+.draft-clock {
+  position: fixed;
+  top: var(--space-5);
+  right: var(--space-5);
+  z-index: 900;
+  width: 6rem;
+  height: 6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--walnut);
+  border: 1px solid var(--brass);
+  border-radius: 50%;
+  box-shadow: var(--shadow-panel), var(--inset-frame);
+  color: var(--bone);
+}
+.draft-clock svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.draft-clock-track { fill: none; stroke: var(--leather); stroke-width: 6; }
+.draft-clock-hand { fill: none; stroke: var(--brass-hi); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 200ms linear; }
+.draft-clock--urgent .draft-clock-hand { stroke: var(--ember-hi); }
+.draft-clock-seconds { font: 400 var(--text-2xl) / 1 var(--font-display); }
+.draft-clock-note { font-size: var(--text-xs); color: var(--bone-dim); }
+
+/* Upright phones: ask for landscape. Narrow tall desktop windows get it too; the board is unusable there as well. */
+.rotate-prompt { display: none; }
+@media (orientation: portrait) and (max-width: 700px) {
+  .rotate-prompt {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    text-align: center;
+    background: var(--felt-surface);
+    color: var(--bone);
+  }
+  .rotate-prompt h2 { margin: 0; font: 400 var(--text-xl) / 1.1 var(--font-display); }
+  .rotate-prompt p { margin: 0; max-width: 18rem; color: var(--bone-dim); }
+  .rotate-prompt-icon { color: var(--brass-hi); animation: rotate-hint 900ms var(--ease) both; }
+}
+@keyframes rotate-hint { from { transform: rotate(-90deg); } to { transform: rotate(0deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .draft-clock-hand { transition: none; }
+  .rotate-prompt-icon { animation: none; }
+}
