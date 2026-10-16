@@ -8579,9 +8579,12 @@ class GameManager {
       return { success: false, error: 'No active Gauntlet run' };
     }
 
-    // Validate team size
-    if (teamIndices.length !== 3) {
+    // Validate team size and shape: three different whole roster slots
+    if (!Array.isArray(teamIndices) || teamIndices.length !== 3) {
       return { success: false, error: 'Team must have exactly 3 heroes' };
+    }
+    if (!teamIndices.every(Number.isInteger) || new Set(teamIndices).size !== 3) {
+      return { success: false, error: 'Team must have 3 different heroes' };
     }
 
     // Validate all heroes are alive or temp-resurrected
@@ -8650,6 +8653,19 @@ class GameManager {
   }
 
   /**
+   * The three heroes a run takes into battle: fresh copies (no leftover effects) that keep the HP
+   * the run holds, so damage carries from one trial to the next. A hero is never sent in at 0 HP.
+   */
+  buildGauntletTeam(runState) {
+    return runState.battle_team_indices.map(index => {
+      const instance = runState.roster[index];
+      const hero = this.resetHeroToOriginalState(instance.heroData);
+      hero.currentHP = Math.max(1, Math.min(instance.current_hp, hero.maxHP));
+      return hero;
+    });
+  }
+
+  /**
    * Try to match players in a Gauntlet bracket
    */
   tryMatchGauntletPlayers(bracket) {
@@ -8679,15 +8695,8 @@ class GameManager {
     const game = this.createNewGame(gameId, 'gauntlet');
 
     // Prepare teams from battle_team_indices
-    const player1Team = player1Run.battle_team_indices.map(index => {
-      const instance = player1Run.roster[index];
-      return this.resetHeroToOriginalState(instance.heroData);
-    });
-
-    const player2Team = player2Run.battle_team_indices.map(index => {
-      const instance = player2Run.roster[index];
-      return this.resetHeroToOriginalState(instance.heroData);
-    });
+    const player1Team = this.buildGauntletTeam(player1Run);
+    const player2Team = this.buildGauntletTeam(player2Run);
 
     // Create players
     const player1 = {
@@ -8817,7 +8826,9 @@ class GameManager {
       console.log(`💔 ${runState.playerName} lost, staying at Trial ${runState.current_trial}`);
     }
 
-    // Process hero deaths and temp resurrections
+    // Process hero deaths and temp resurrections. Revived heroes are removed after the loop: removing
+    // one while walking the team would shift every later roster index.
+    const returnedToDeath = [];
     for (const index of runState.battle_team_indices) {
       const instance = runState.roster[index];
       const usedHero = teamUsed.find(h => h.name === instance.hero_id);
@@ -8840,14 +8851,12 @@ class GameManager {
           instance.temporary_resurrection_active = false;
           runState.dead_hero_ids.add(instance.hero_id);
           console.log(`👻 ${instance.hero_id} returned to death after temp resurrection`);
-          
-          // Remove from roster
-          const rosterIndex = runState.roster.findIndex(r => r.hero_id === instance.hero_id);
-          if (rosterIndex !== -1) {
-            runState.roster.splice(rosterIndex, 1);
-          }
+          returnedToDeath.push(instance);
         }
       }
+    }
+    if (returnedToDeath.length) {
+      runState.roster = runState.roster.filter(instance => !returnedToDeath.includes(instance));
     }
 
     // Reset for next trial
