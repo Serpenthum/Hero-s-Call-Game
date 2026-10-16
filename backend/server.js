@@ -2560,6 +2560,10 @@ io.on('connection', (socket) => {
     if (result.success && result.matched) {
       // Match found - emit to both players
       const gameId = result.gameId;
+      // Both players have to be in the game's room to hear about it
+      for (const matchedPlayer of result.players) {
+        io.sockets.sockets.get(matchedPlayer.id)?.join(gameId);
+      }
       io.to(gameId).emit('gauntlet-match-found', {
         gameId,
         players: result.players,

@@ -43,6 +43,7 @@ const GauntletMode: React.FC<GauntletModeProps> = ({ onReturnToLobby, user, batt
   const [rewards, setRewards] = useState<GauntletRewards | null>(null);
   const [result, setResult] = useState({ trialsWon: 0, finalTrial: 1 });
   const [confirmAbandon, setConfirmAbandon] = useState(false);
+  const startedRef = useRef(false);
   const onBattleFinishedRef = useRef(onBattleFinished);
   onBattleFinishedRef.current = onBattleFinished;
 
@@ -147,7 +148,11 @@ const GauntletMode: React.FC<GauntletModeProps> = ({ onReturnToLobby, user, batt
     socket.on('gauntlet-shop-action-result', shopResult);
     socket.on('gauntlet-hero-offer-result', offerResult);
     socket.on('gauntlet-run-abandoned', abandoned);
-    socket.emit('start-gauntlet-run', { name: user?.username || 'Player' });
+    // Ask once per visit (a development double-mount would otherwise start two runs)
+    if (!startedRef.current) {
+      startedRef.current = true;
+      socket.emit('start-gauntlet-run', { name: user?.username || 'Player' });
+    }
 
     return () => {
       socket.off('gauntlet-run-started', started);

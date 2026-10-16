@@ -2194,14 +2194,17 @@ function App() {
 
     if (state.showGauntlet) {
       // The Gauntlet keeps its own screens mounted; a live battle is drawn inside it by the normal battle screen
+      // Players in a Gauntlet game are identified by socket id (the app's playerId is only set by the other modes)
       const phase = state.gameState?.phase;
-      const gauntletMe = getCurrentPlayer();
-      const battleView = (phase === 'initiative' || phase === 'battle' || phase === 'ended') && gauntletMe ? (
+      const gauntletId = socketService.getSocket()?.id ?? state.playerId;
+      const gauntletMe = state.gameState?.players.find(p => p.id === gauntletId) ?? null;
+      const gauntletFoe = state.gameState?.players.find(p => p.id !== gauntletId) ?? null;
+      const battleView = (phase === 'initiative' || phase === 'battle' || phase === 'ended') && gauntletMe && gauntletId ? (
         <BattlePhase
           gameState={state.gameState!}
           currentPlayer={gauntletMe}
-          opponent={getOpponentPlayer()}
-          playerId={state.playerId!}
+          opponent={gauntletFoe}
+          playerId={gauntletId}
           onReturnToLobby={handleGauntletBattleFinished}
           turnTimer={turnTimer}
           timekeeperAbilitySelection={state.timekeeperAbilitySelection}
