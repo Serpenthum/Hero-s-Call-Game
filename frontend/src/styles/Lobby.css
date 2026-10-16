@@ -198,7 +198,7 @@
 .mode-unlock-toast {
   position: fixed;
   left: 50%;
-  bottom: var(--space-7);
+  top: 5rem;
   z-index: 900;
   display: flex;
   align-items: center;
@@ -246,13 +246,14 @@
 
 /* Narrow or short windows: one column; the featured hero is decorative, so it steps aside */
 @media (max-width: 1000px), (max-height: 700px) {
-  .lobby-main { grid-template-columns: minmax(0, 1fr); padding: var(--space-4); gap: var(--space-4); }
+  .lobby-main { grid-template-columns: minmax(0, 1fr); align-content: start; padding: var(--space-4); gap: var(--space-4); }
   .lobby-ledger { align-self: stretch; }
   .lobby-stage { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lobby-hero-viewport { display: none; }
   .lobby { padding-bottom: 3.5rem; }
 }
 @media (max-width: 600px) {
+  .lobby-placards { grid-template-columns: minmax(0, 1fr); }
   .lobby-bar { flex-wrap: wrap; padding: var(--space-3) var(--space-4); }
   .lobby-status { width: 100%; justify-content: space-between; gap: var(--space-3); }
   .lobby-level { flex: 1; min-width: 0; }
