@@ -218,7 +218,7 @@ A headless simulator (`node sim.js HeroA,HeroB,HeroC vs X,Y,Z × 10k`) that driv
 | **Random** | Always | 3 random from **your own** collection | No draft. **Mirror matches are common** (everyone owns the 10 starters), which triggers the duplicate-name bugs in §9. VP = 1 per surviving hero. |
 | **Draft** | Level 3 (enforced server-side; friend rooms and challenges are exempt) | Ban/pick | Needs 5+ heroes, and 10 different heroes between the two players. Each player bans 1 from 5 random heroes of the **opponent's** collection (the two hands never share a hero). Hands swap, so each player then picks from 4 heroes of their **own** collection; the swapping continues for 3 picks each. Players whose collections can't fill two separate hands aren't matched with each other and keep waiting. Then reorder and roll initiative. VP = 2 + 1 per surviving hero. |
 | **Survival** | Own 21+ heroes (checked server-side) | Client names 3 heroes; the server validates ownership and rebuilds them | Up to 7 wins or 3 losses. **Winning heroes are banned for the rest of the run**; losing heroes stay available. 7 wins × 3 heroes = 21 heroes, which is why the unlock is 21. Ties count as a loss for both. **A run pays once, when it ends** (see §8.2). |
-| **Gauntlet** | **Hidden in UI** (commented out), socket handlers still live | Roster of 6 random starters | 13 trials in brackets A–E. Heroes that die are gone for the run; a loss doesn't end the run. The run ends when fewer than 3 heroes are usable. One shop action between battles: heal, temp-res, 2-hero offer (3 rerolls per run), or skip a trial (before trial 10). No turn timer. |
+| **Gauntlet** | Visible in the lobby (since the 2026 UI redesign) | Roster of 6 random starters | 13 trials in brackets A–E, against other players in the same bracket. Hero HP carries from one trial to the next. Heroes that fall keep their slot (a fallen hero can be replaced when a new hero is taken); a loss doesn't end the run. The run ends when fewer than 3 heroes are usable. After each battle the player may take one of two offered heroes (3 rerolls per run, or skip). One camp action per trial: heal a hero, revive a fallen hero for one battle, hire (another two-hero offer), or skip a trial (before trial 10). No turn timer. |
 | **Tutorial** | First login | Scripted | Rigged d20s (`rig`), bot opponent. Reward: level up + top-up to **100 VP** total (once). |
 | **Friendly room / Challenge** | Friends | Draft | XP only, no VP. |
 | **Spectator** | — | — | Read-only view of live games. |
@@ -286,9 +286,12 @@ Confidence: **C** = confirmed by reading the code path end-to-end. **L** = likel
 14. ✅ **Fresh databases couldn't register users.** `createTables` ran `ALTER TABLE users ADD COLUMN …` in parallel with `CREATE TABLE users`, so on a brand-new database the columns were silently never added. Now serialized.
 15. ✅ **`/api/admin-login` crashed when it had to create an admin** (`bcrypt` was never imported).
 16. ✅ **Draft unlock was client-only.** The server now refuses a player below level 3 or with fewer than 5 heroes, with a message the client shows. Matchmaking also skips opponents the player can't be dealt two full, separate hands against (previously the second hand could silently come up short). Friend rooms/challenges keep no level requirement but still need dealable hands.
+17. ✅ **Gauntlet HP never persisted.** Teams now start each trial with the HP the run holds (`buildGauntletTeam`); Heal means something.
+18. ✅ **Gauntlet roster corruption.** Revive brings the fallen hero back in place (it used to add a duplicate slot) and the hero falls again after the battle without removing anyone, so team indices never shift. Offers never contain a hero on the roster or lost earlier, the server holds the offer and refuses a hero it did not offer, and `setGauntletBattleTeam` needs three distinct whole slots.
+19. ✅ **Gauntlet camp action burned by looking.** Viewing the hire offer used up the one action. Only a carried-out action does now; queueing is refused while queued or in a battle; asking for the offer again is free but shows the same two heroes (it used to be an unlimited free reroll). A skipped free offer is dropped.
+20. ✅ **Gauntlet results never reached the client.** The payout is settled before the battle result is sent and rides with it.
 
 ### Still open
-- **[C] Gauntlet HP never persists.** Teams go through `resetHeroToOriginalState` at match start, so every battle starts at full HP and the "heal" shop action is pointless. Roster corruption: temp-resurrected heroes are spliced out while iterating `battle_team_indices`, hero offers can contain heroes already on the roster, `setGauntletBattleTeam` accepts duplicate indices.
 - **[C] `useTimekeeperSelectedAbility` skips the silence and ability-used checks.**
 - **[C] `autoDraft` calls an undefined `shuffle()`** and would throw if the `auto-draft` event is ever sent.
 - **[C] `resolveEffectTarget('adjacent_enemy')`** references undefined variables (unreachable today).
@@ -309,6 +312,7 @@ Confidence: **C** = confirmed by reading the code path end-to-end. **L** = likel
 | `mirror.test.js` | Same hero on both teams; Barbarian taunt; Diplomat stun |
 | `rewards.test.js` | Survival and Gauntlet payouts, once-only match VP (real temp SQLite DB) |
 | `trust.test.js` | Tokens, shop authorization and races, Survival team validation, Gauntlet saves |
+| `gauntlet.test.js` | Gauntlet HP carries between trials, revive in place, honest hero offers (never a roster hero, only an offered hero can be taken), one camp action per trial, queue rules, bracket matching |
 | `turnorder.test.js` | Only the initiative winner chooses |
 | `draft.test.js` | Draft level 3 unlock, 5-hero minimum, ban hands, compatible matchmaking |
 

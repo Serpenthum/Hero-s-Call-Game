@@ -8342,6 +8342,7 @@ class GameManager {
       rerolls_remaining: runState.rerolls_remaining,
       shop_actions_remaining: runState.shop_actions_remaining,
       battle_team_indices: runState.battle_team_indices,
+      pending_offer: this.gauntletOfferEntries(runState),
       phase: runState.phase
     };
   }
@@ -8393,7 +8394,9 @@ class GameManager {
         return { success: false, error: 'Invalid shop action' };
     }
 
-    if (result.success) {
+    // Only an action that was carried out uses up the camp action: seeing the offer, or being asked
+    // which hero to replace, is not yet a choice.
+    if (result.success && result.action !== 'show_offer' && result.action !== 'need_sacrifice') {
       runState.shop_actions_remaining = 0;
     }
 
@@ -8404,86 +8407,92 @@ class GameManager {
   }
 
   gauntletShopHeal(runState, heroIndex) {
-    if (heroIndex < 0 || heroIndex >= runState.roster.length) {
+    if (!Number.isInteger(heroIndex) || heroIndex < 0 || heroIndex >= runState.roster.length) {
       return { success: false, error: 'Invalid hero index' };
     }
 
     const heroInstance = runState.roster[heroIndex];
     if (!heroInstance.alive) {
-      return { success: false, error: 'Cannot heal a dead hero' };
+      return { success: false, error: 'Cannot heal a hero who has fallen' };
+    }
+    if (heroInstance.current_hp >= heroInstance.max_hp) {
+      return { success: false, error: 'That hero is already at full health' };
     }
 
     heroInstance.current_hp = heroInstance.max_hp;
     heroInstance.heroData.currentHP = heroInstance.max_hp;
 
-    console.log(`💚 Healed ${heroInstance.hero_id} to full HP (${heroInstance.max_hp})`);
-
     return {
       success: true,
-      message: `${heroInstance.hero_id} healed to full HP!`
+      message: `${heroInstance.hero_id} is back to full health.`
     };
   }
 
+  // A fallen hero keeps their slot in the roster. Reviving brings that same hero back, in place, for one battle.
   gauntletShopTempRes(runState, heroId) {
-    if (!runState.dead_hero_ids.has(heroId)) {
-      return { success: false, error: 'Hero is not dead' };
+    const instance = runState.roster.find(r => r.hero_id === heroId && !r.alive);
+    if (!instance) {
+      return { success: false, error: 'That hero has not fallen' };
     }
 
-    // Find or recreate hero instance
     const heroTemplate = this.heroes.find(h => h.name === heroId);
     if (!heroTemplate) {
       return { success: false, error: 'Hero not found' };
     }
 
-    const heroData = this.resetHeroToOriginalState(heroTemplate);
-    const heroInstance = {
-      hero_id: heroId,
-      heroData: heroData,
-      current_hp: heroData.currentHP,
-      max_hp: heroData.HP,
-      alive: true,
-      temporary_resurrection_active: true
-    };
-
-    // Add back to roster
-    runState.roster.push(heroInstance);
-
-    console.log(`👻 Temporarily resurrected ${heroId}`);
+    instance.heroData = this.resetHeroToOriginalState(heroTemplate);
+    instance.current_hp = instance.heroData.currentHP;
+    instance.max_hp = instance.heroData.HP;
+    instance.alive = true;
+    instance.temporary_resurrection_active = true;
+    runState.dead_hero_ids.delete(heroId);
 
     return {
       success: true,
-      message: `${heroId} temporarily resurrected! (Will die after next battle)`
+      message: `${heroId} returns for one battle.`
     };
   }
 
+  /**
+   * The two-hero offer. One offer is held at a time (runState.pending_offer): asking again shows the
+   * same two heroes, a reroll costs one of the run's three and draws a new pair, and only a hero
+   * from the held offer can be taken.
+   */
   async gauntletShopBuyPack(runState, selectedHeroId, sacrificeIndex, useReroll) {
-    // If using a reroll, decrement rerolls
     if (useReroll) {
+      if (!runState.pending_offer) {
+        return { success: false, error: 'There is no offer to reroll' };
+      }
       if (runState.rerolls_remaining <= 0) {
         return { success: false, error: 'No rerolls remaining' };
       }
       runState.rerolls_remaining--;
-      debugLog(` Used reroll, ${runState.rerolls_remaining} remaining`);
+      runState.pending_offer = null;
     }
 
-    // If no hero selected yet, generate offer
+    // No hero chosen yet: show the offer
     if (!selectedHeroId) {
-      const offer = this.generateGauntletHeroOffer(runState);
+      const offer = runState.pending_offer ? this.gauntletOfferEntries(runState) : this.generateGauntletHeroOffer(runState);
+      if (!offer) {
+        return { success: false, error: 'There are no more heroes to offer' };
+      }
       return {
         success: true,
         action: 'show_offer',
-        offer: offer,
+        offer,
         rerolls_remaining: runState.rerolls_remaining
       };
     }
 
-    // Hero selected, process purchase
+    if (!runState.pending_offer || !runState.pending_offer.includes(selectedHeroId)) {
+      return { success: false, error: 'That hero was not offered' };
+    }
     const heroTemplate = this.heroes.find(h => h.name === selectedHeroId);
     if (!heroTemplate) {
       return { success: false, error: 'Hero not found' };
     }
 
-    // Check if roster is full (need sacrifice)
+    // A full roster gives up one hero (fallen heroes can be replaced too)
     if (runState.roster.length >= 6) {
       if (sacrificeIndex === undefined || sacrificeIndex === null) {
         return {
@@ -8492,42 +8501,28 @@ class GameManager {
           selectedHero: selectedHeroId
         };
       }
-
-      // Validate sacrifice
-      if (sacrificeIndex < 0 || sacrificeIndex >= runState.roster.length) {
-        return { success: false, error: 'Invalid sacrifice index' };
+      if (!Number.isInteger(sacrificeIndex) || sacrificeIndex < 0 || sacrificeIndex >= runState.roster.length) {
+        return { success: false, error: 'Invalid hero to replace' };
       }
 
-      const sacrificedHero = runState.roster[sacrificeIndex];
-      if (!sacrificedHero.alive) {
-        return { success: false, error: 'Cannot sacrifice a dead hero' };
-      }
-
-      // Remove sacrificed hero
-      runState.roster.splice(sacrificeIndex, 1);
+      const [sacrificedHero] = runState.roster.splice(sacrificeIndex, 1);
       runState.dead_hero_ids.add(sacrificedHero.hero_id);
-
-      debugLog(` Sacrificed ${sacrificedHero.hero_id} to make room for ${selectedHeroId}`);
     }
 
-    // Add new hero
     const heroData = this.resetHeroToOriginalState(heroTemplate);
-    const newInstance = {
+    runState.roster.push({
       hero_id: selectedHeroId,
-      heroData: heroData,
+      heroData,
       current_hp: heroData.currentHP,
       max_hp: heroData.HP,
       alive: true,
       temporary_resurrection_active: false
-    };
-
-    runState.roster.push(newInstance);
-
-    debugLog(` Added ${selectedHeroId} to roster`);
+    });
+    runState.pending_offer = null;
 
     return {
       success: true,
-      message: `Added ${selectedHeroId} to your roster!`
+      message: `${selectedHeroId} joins your roster.`
     };
   }
 
@@ -8547,27 +8542,30 @@ class GameManager {
   }
 
   /**
-   * Generate a 2-hero offer for Gauntlet
+   * Draw a new 2-hero offer and hold it on the run. Heroes already on the roster or lost earlier in the
+   * run are never offered. Returns null when fewer than two heroes qualify.
    */
   generateGauntletHeroOffer(runState) {
-    // Build candidate pool: available heroes excluding dead ones
-    const candidatePool = runState.availableHeroPool.filter(heroName => 
+    const onRoster = new Set(runState.roster.map(r => r.hero_id));
+    const candidatePool = runState.availableHeroPool.filter(heroName =>
+      !onRoster.has(heroName) &&
       !runState.dead_hero_ids.has(heroName) &&
       this.heroes.some(h => h.name === heroName && !h.disabled)
     );
 
     if (candidatePool.length < 2) {
-      return null; // Not enough heroes
+      runState.pending_offer = null;
+      return null;
     }
 
-    // Randomly select 2
-    const shuffled = shuffleArray([...candidatePool]);
-    const offer = shuffled.slice(0, 2).map(heroName => {
-      const heroTemplate = this.heroes.find(h => h.name === heroName);
-      return heroTemplate ? { name: heroName, data: heroTemplate } : null;
-    }).filter(Boolean);
+    runState.pending_offer = shuffleArray([...candidatePool]).slice(0, 2);
+    return this.gauntletOfferEntries(runState);
+  }
 
-    return offer;
+  gauntletOfferEntries(runState) {
+    return (runState.pending_offer || [])
+      .map(name => ({ name, data: this.heroes.find(h => h.name === name) }))
+      .filter(entry => entry.data);
   }
 
   /**
@@ -8615,6 +8613,10 @@ class GameManager {
     const runState = this.gauntletRuns.get(playerId);
     if (!runState) {
       return { success: false, error: 'No active Gauntlet run' };
+    }
+
+    if (runState.phase === 'queueing' || runState.phase === 'battle') {
+      return { success: false, error: runState.phase === 'queueing' ? 'Already in queue' : 'Already in a battle' };
     }
 
     if (runState.battle_team_indices.length !== 3) {
@@ -8826,9 +8828,7 @@ class GameManager {
       console.log(`💔 ${runState.playerName} lost, staying at Trial ${runState.current_trial}`);
     }
 
-    // Process hero deaths and temp resurrections. Revived heroes are removed after the loop: removing
-    // one while walking the team would shift every later roster index.
-    const returnedToDeath = [];
+    // Process hero deaths and temp resurrections (nobody leaves the roster, so indices stay valid)
     for (const index of runState.battle_team_indices) {
       const instance = runState.roster[index];
       const usedHero = teamUsed.find(h => h.name === instance.hero_id);
@@ -8845,24 +8845,22 @@ class GameManager {
           debugLog(` ${instance.hero_id} died in battle`);
         }
 
-        // Handle temp resurrection
+        // A revived hero falls again after the battle they were revived for
         if (instance.temporary_resurrection_active) {
-          instance.alive = false;
           instance.temporary_resurrection_active = false;
+          instance.alive = false;
+          instance.current_hp = 0;
+          instance.heroData.currentHP = 0;
           runState.dead_hero_ids.add(instance.hero_id);
-          console.log(`👻 ${instance.hero_id} returned to death after temp resurrection`);
-          returnedToDeath.push(instance);
         }
       }
-    }
-    if (returnedToDeath.length) {
-      runState.roster = runState.roster.filter(instance => !returnedToDeath.includes(instance));
     }
 
     // Reset for next trial
     runState.shop_actions_remaining = 1;
     runState.battle_team_indices = [];
     runState.phase = 'hero_offer';
+    runState.pending_offer = null;
 
     // Check if run should end (fewer than 3 usable heroes)
     const usableHeroes = runState.roster.filter(h => h.alive || h.temporary_resurrection_active).length;
@@ -8881,6 +8879,7 @@ class GameManager {
     return {
       success: true,
       runEnded: false,
+      heroOffer: this.generateGauntletHeroOffer(runState),
       runState: this.serializeGauntletRunState(runState)
     };
   }
@@ -8888,7 +8887,7 @@ class GameManager {
   /**
    * Complete hero offer phase
    */
-  async completeGauntletHeroOffer(playerId, selectedHeroId, sacrificeIndex, useReroll) {
+  async completeGauntletHeroOffer(playerId, selectedHeroId, sacrificeIndex, useReroll, skip = false) {
     const runState = this.gauntletRuns.get(playerId);
     if (!runState) {
       return { success: false, error: 'No active Gauntlet run' };
@@ -8898,11 +8897,15 @@ class GameManager {
       return { success: false, error: 'Not in hero offer phase' };
     }
 
-    // Use the buy pack logic
+    if (skip) {
+      runState.pending_offer = null;
+      runState.phase = 'preparation';
+      return { success: true, runState: this.serializeGauntletRunState(runState) };
+    }
+
     const result = await this.gauntletShopBuyPack(runState, selectedHeroId, sacrificeIndex, useReroll);
 
     if (result.success && result.action !== 'show_offer' && result.action !== 'need_sacrifice') {
-      // Move to preparation phase
       runState.phase = 'preparation';
     }
 

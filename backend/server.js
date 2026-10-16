@@ -1501,31 +1501,37 @@ async function checkGauntletGameCompletion(result) {
           loserPlayer.team
         );
 
-        // Send updates to both players
+        // A run that ended is paid now, once, for the battles it won. The payout rides with the result
+        // so the results screen can show it.
+        const winnerRewards = winnerResult.runEnded ? await gameManager.settleGauntletRun(winnerPlayer.id) : null;
+        const loserRewards = loserResult.runEnded ? await gameManager.settleGauntletRun(loserPlayer.id) : null;
+
         io.to(winnerPlayer.id).emit('gauntlet-battle-complete', {
           won: true,
           runEnded: winnerResult.runEnded,
           finalTrial: winnerResult.finalTrial,
+          trialsWon: winnerResult.trialsWon,
           runState: winnerResult.runState,
-          heroOffer: winnerResult.runEnded ? null : gameManager.generateGauntletHeroOffer(gameManager.gauntletRuns.get(winnerPlayer.id))
+          heroOffer: winnerResult.heroOffer || null,
+          rewards: winnerRewards ? { xp: winnerRewards.xp, victoryPoints: winnerRewards.victoryPoints } : undefined
         });
 
         io.to(loserPlayer.id).emit('gauntlet-battle-complete', {
           won: false,
           runEnded: loserResult.runEnded,
           finalTrial: loserResult.finalTrial,
+          trialsWon: loserResult.trialsWon,
           runState: loserResult.runState,
-          heroOffer: loserResult.runEnded ? null : gameManager.generateGauntletHeroOffer(gameManager.gauntletRuns.get(loserPlayer.id))
+          heroOffer: loserResult.heroOffer || null,
+          rewards: loserRewards ? { xp: loserRewards.xp, victoryPoints: loserRewards.victoryPoints } : undefined
         });
 
-        // If a run ended, pay it. settleGauntletRun pays once, for the battles actually won;
-        // announceGauntletPayout only tells the player (it must not pay again).
-        if (winnerResult.runEnded) {
-          await announceGauntletPayout(winnerPlayer.id, await gameManager.settleGauntletRun(winnerPlayer.id), winnerResult.trialsWon);
+        // announceGauntletPayout only tells the player (the payout above already happened)
+        if (winnerRewards) {
+          await announceGauntletPayout(winnerPlayer.id, winnerRewards, winnerResult.trialsWon);
         }
-
-        if (loserResult.runEnded) {
-          await announceGauntletPayout(loserPlayer.id, await gameManager.settleGauntletRun(loserPlayer.id), loserResult.trialsWon);
+        if (loserRewards) {
+          await announceGauntletPayout(loserPlayer.id, loserRewards, loserResult.trialsWon);
         }
 
       } catch (error) {
@@ -2584,7 +2590,8 @@ io.on('connection', (socket) => {
       socket.id,
       data.selectedHeroId,
       data.sacrificeIndex,
-      data.useReroll
+      data.useReroll,
+      data.skip === true
     );
     
     socket.emit('gauntlet-hero-offer-result', result);
