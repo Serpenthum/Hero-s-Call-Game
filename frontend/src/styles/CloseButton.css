@@ -1,50 +1,43 @@
-/* Shared red close button: neon-outlined circle that fills red on hover */
+/* Shared close button: a leather square with a brass hairline, used on every modal and panel */
 .game-close-btn {
-  --close-red: var(--accent-red, #ff4757);
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 2.25rem;
+  height: 2.25rem;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: 2px solid var(--close-red);
-  background: rgba(255, 71, 87, 0.1);
-  color: var(--close-red);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--brass-dim);
+  background: var(--leather);
+  color: var(--bone-dim);
   cursor: pointer;
-  box-shadow: 0 0 8px rgba(255, 71, 87, 0.35), inset 0 0 6px rgba(255, 71, 87, 0.15);
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 
 .game-close-btn svg {
   display: block;
-  transition: transform 0.25s ease;
 }
 
 .game-close-btn:hover {
-  background: var(--close-red);
-  color: #fff;
-  box-shadow: 0 0 16px rgba(255, 71, 87, 0.75);
-  transform: scale(1.08);
-}
-
-.game-close-btn:hover svg {
-  transform: rotate(90deg);
+  background: var(--leather-hi);
+  border-color: var(--brass);
+  color: var(--bone);
+  transform: none;
+  box-shadow: none;
 }
 
 .game-close-btn:active {
-  transform: scale(0.94);
+  transform: translateY(1px);
 }
 
 .game-close-btn:focus-visible {
-  outline: 2px solid #fff;
+  outline: var(--focus-outline);
   outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .game-close-btn,
-  .game-close-btn svg {
+  .game-close-btn {
     transition: none;
   }
 }

@@ -10,6 +10,7 @@ const MIGRATED = [
   'styles/primitives.css',
   'components/ui/Icon.tsx',
   'components/ui/UiKit.tsx',
+  'styles/CloseButton.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
