@@ -1,0 +1,193 @@
+/* The Gauntlet: the trial map and camp on the left, the roster on the felt. */
+.gt {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--felt-surface);
+  color: var(--bone);
+  font-family: var(--font-ui);
+  text-align: left;
+  font-variant-numeric: lining-nums;
+}
+.gt-battle { display: block; padding: 0; }
+.gt-centered { align-items: center; justify-content: center; gap: var(--space-4); padding: var(--space-6); text-align: center; }
+
+.gt-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--walnut);
+  border-bottom: 1px solid var(--brass-dim);
+  box-shadow: 0 6px 18px var(--shade);
+}
+.gt-title { margin: 0; font: 400 var(--text-xl) / 1 var(--font-display); }
+.gt-bar-actions { margin-left: auto; display: flex; gap: var(--space-2); }
+.gt-notice { margin: var(--space-3) var(--space-6) 0; }
+
+.gt-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+}
+.gt-side { align-self: stretch; min-height: 0; display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-5) var(--space-5) 5.25rem; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--brass-dim) transparent; /* clears the friends button */ }
+.gt-table { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; min-height: 0; }
+.gt-heading { margin: 0 0 var(--space-3); font: 400 var(--text-lg) / 1.1 var(--font-display); color: var(--bone); }
+.gt-hint { margin: 0; font-size: var(--text-sm); color: var(--bone-dim); }
+
+/* Trial map */
+.gt-brackets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.gt-bracket { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-1) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); }
+.gt-bracket.is-current { background: var(--leather); border-color: var(--brass-dim); }
+.gt-bracket-name { font-size: var(--text-sm); color: var(--bone-dim); }
+.gt-bracket.is-current .gt-bracket-name { color: var(--bone); }
+.gt-stops { display: flex; gap: var(--space-2); }
+.gt-stop {
+  width: 1.9rem;
+  height: 1.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 400 var(--text-sm) / 1 var(--font-display);
+  border: 1px solid var(--brass-dim);
+  border-radius: 50%;
+  color: var(--bone-dim);
+  background: var(--felt-deep);
+}
+.gt-stop.is-passed { color: var(--felt-deep); background: var(--verdigris); border-color: var(--verdigris); }
+.gt-stop.is-current { color: var(--felt-deep); background: var(--brass-hi); border-color: var(--brass-hi); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brass-hi) 30%, transparent); }
+.gt-map-foot { margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--bone-dim); }
+
+/* Camp */
+.gt-camp-state { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--bone-dim); }
+.gt-choices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.gt-choice {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  text-align: left;
+  color: var(--bone);
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.gt-choice:hover:not(:disabled) { border-color: var(--brass); background: var(--leather-hi); transform: none; box-shadow: none; }
+.gt-choice:disabled { opacity: 0.5; cursor: not-allowed; }
+.gt-choice:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.gt-choice-icon { grid-row: span 2; color: var(--brass-hi); }
+.gt-choice-title { font: 700 var(--text-md) / 1.1 var(--font-ui); }
+.gt-choice-text { font-size: var(--text-sm); color: var(--bone-dim); }
+.gt-rerolls { margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--bone-dim); }
+.gt-pick-hint { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+
+/* Team strip */
+.gt-team { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4); padding: var(--space-4); }
+.gt-team-places { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.gt-place-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 10.5rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--felt-deep);
+  border: 1px dashed var(--brass-dim);
+  border-radius: var(--radius-control);
+}
+.gt-place-chip.is-filled { background: var(--leather); border-style: solid; }
+.gt-place-number { font: 400 var(--text-lg) / 1 var(--font-display); color: var(--brass-hi); }
+.gt-place-name { font-weight: 700; }
+.gt-place-hp { font-size: var(--text-sm); color: var(--bone-dim); font-variant-numeric: tabular-nums; }
+.gt-place-empty { font-size: var(--text-sm); color: var(--bone-dim); }
+.gt-place-remove { margin-left: auto; display: inline-flex; padding: 2px; color: var(--bone-dim); background: none; border: 0; border-radius: var(--radius-control); cursor: pointer; }
+.gt-place-remove:hover { color: var(--bone); transform: none; box-shadow: none; background: none; }
+.gt-place-remove:focus-visible { outline: var(--focus-outline); }
+.gt-team-go { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.gt-searching { margin: 0; display: inline-flex; align-items: center; color: var(--bone); }
+
+/* Roster */
+.gt-roster { flex: 1; min-height: 0; }
+.gt-roster .responsive-card-grid { grid-auto-rows: auto; gap: var(--space-3) var(--space-4); }
+.gt-slot { position: relative; width: var(--grid-card-width); display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.gt-slot-hit {
+  display: block;
+  width: var(--grid-card-width);
+  height: var(--grid-card-height);
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-panel);
+  cursor: pointer;
+}
+.gt-slot-hit:hover:not(:disabled) { transform: none; box-shadow: none; background: none; }
+.gt-slot-hit:disabled { cursor: default; }
+.gt-slot-hit:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.gt-slot.is-on-team .gt-slot-hit { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
+.gt-slot.is-target .gt-slot-hit { outline: 2px solid var(--verdigris); outline-offset: 2px; }
+.gt-slot.is-fallen .gt-slot-hit { filter: grayscale(0.9) brightness(0.55); }
+.gt-slot.is-dim { opacity: 0.45; }
+.gt-place {
+  position: absolute;
+  top: -0.4rem;
+  left: -0.4rem;
+  width: 1.9rem;
+  height: 1.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 400 var(--text-md) / 1 var(--font-display);
+  color: var(--felt-deep);
+  background: var(--brass-hi);
+  border: 1px solid var(--brass);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.gt-hp { width: calc(var(--grid-card-width) - 0.5rem); }
+.gt-status { margin: 0; font-size: var(--text-sm); color: var(--bone-dim); }
+.gt-status.is-fallen { color: var(--ember-hi); }
+.gt-status.is-revived { color: var(--verdigris); }
+
+/* Offers */
+.gt-offer-overlay { align-items: stretch; }
+.gt-offer { width: min(60rem, 100%); max-height: 100%; margin: auto; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); overflow-y: auto; background: var(--walnut); box-shadow: var(--shadow-panel), var(--inset-frame); }
+.gt-offer-cards { height: min(62vh, 34rem); min-height: 15rem; flex: none; }
+.gt-offer-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+.gt-offer-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); }
+.gt-replace-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--space-2); }
+.gt-replace { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3); color: var(--bone); background: var(--leather); border: 1px solid var(--brass-dim); border-radius: var(--radius-control); cursor: pointer; }
+.gt-replace:hover:not(:disabled) { border-color: var(--ember); transform: none; box-shadow: none; background: var(--leather-hi); }
+.gt-replace:focus-visible { outline: var(--focus-outline); }
+.gt-replace-name { font-weight: 700; }
+.gt-replace-hp { font-size: var(--text-sm); color: var(--bone-dim); font-variant-numeric: tabular-nums; }
+.gt-replace-hp.is-fallen { color: var(--ember-hi); }
+
+/* Results */
+.gt-results { width: min(30rem, 100%); display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-7); text-align: center; background: var(--walnut); box-shadow: var(--shadow-panel), var(--inset-frame); }
+.gt-results-title { margin: 0; font: 400 var(--text-2xl) / 1.1 var(--font-display); }
+.gt-results-list { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.gt-results-list > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); padding-bottom: var(--space-2); border-bottom: 1px solid var(--brass-dim); }
+.gt-results-list dt { color: var(--bone-dim); }
+.gt-results-list dd { margin: 0; font-weight: 700; }
+.gt-results-coin { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+/* Narrow or short windows: one column, the page scrolls */
+@media (max-width: 1000px), (max-height: 700px) {
+  .gt { height: auto; min-height: 100vh; min-height: 100dvh; overflow: visible; padding-bottom: 3.5rem; }
+  .gt-side { padding-bottom: var(--space-5); }
+  .gt-main { grid-template-columns: minmax(0, 1fr); padding: var(--space-4); }
+  .gt-side { overflow: visible; }
+  .gt-roster { min-height: 24rem; }
+  .gt-bar { flex-wrap: wrap; padding: var(--space-3) var(--space-4); }
+  .gt-notice { margin: var(--space-3) var(--space-4) 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gt-choice, .gt-slot-hit { transition: none; }
+}

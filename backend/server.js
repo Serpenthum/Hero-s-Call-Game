@@ -1526,12 +1526,14 @@ async function checkGauntletGameCompletion(result) {
           rewards: loserRewards ? { xp: loserRewards.xp, victoryPoints: loserRewards.victoryPoints } : undefined
         });
 
-        // announceGauntletPayout only tells the player (the payout above already happened)
-        if (winnerRewards) {
-          await announceGauntletPayout(winnerPlayer.id, winnerRewards, winnerResult.trialsWon);
-        }
-        if (loserRewards) {
-          await announceGauntletPayout(loserPlayer.id, loserRewards, loserResult.trialsWon);
+        // announceGauntletPayout only tells the player (the payout above already happened).
+        // A finished run is gone for good: drop it and any save of it, so it cannot be resumed.
+        for (const [player, rewards, outcome] of [[winnerPlayer, winnerRewards, winnerResult], [loserPlayer, loserRewards, loserResult]]) {
+          if (!rewards) continue;
+          await announceGauntletPayout(player.id, rewards, outcome.trialsWon);
+          const userId = userSessions.get(player.id);
+          if (userId) await database.clearGauntletState(userId);
+          gameManager.gauntletRuns.delete(player.id);
         }
 
       } catch (error) {
@@ -2465,6 +2467,13 @@ io.on('connection', (socket) => {
 
   socket.on('start-gauntlet-run', async (data) => {
     console.log('🎮 Player starting Gauntlet run:', data.name);
+
+    // A run already in progress on this connection is resumed, never replaced
+    const live = gameManager.getGauntletRunState(socket.id);
+    if (live.success) {
+      socket.emit('gauntlet-run-started', { success: true, runState: live.runState });
+      return;
+    }
     
     // First check if there's a saved state
     const userId = userSessions.get(socket.id);
@@ -2619,6 +2628,7 @@ io.on('connection', (socket) => {
       socket.emit('gauntlet-run-abandoned', {
         success: true,
         finalTrial: result.finalTrial,
+        trialsWon: result.trialsWon,
         rewards: result.rewards
       });
     } else {

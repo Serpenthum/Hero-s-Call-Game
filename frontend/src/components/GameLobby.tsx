@@ -59,7 +59,7 @@ const SURVIVAL_UNLOCK_HEROES = 21;
 const RANKED_MODE_NAMES: Record<RankedMode, string> = { draft: 'Draft mode', survival: 'Survival mode' };
 
 // Phase 5 turns this on once the Gauntlet backend fixes land.
-const SHOW_GAUNTLET = false;
+const SHOW_GAUNTLET = true;
 
 const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onStartGauntlet, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
   // Refresh on entering the lobby so a new UTC day resets the list.

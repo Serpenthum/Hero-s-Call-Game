@@ -1751,6 +1751,14 @@ function App() {
     setState(prev => ({ ...prev, showGauntlet: true }));
   };
 
+  // A Gauntlet battle is over: put the finished game away and go back to the Gauntlet's own screens
+  const handleGauntletBattleFinished = () => {
+    localStorage.removeItem('heroCallActiveGame');
+    socketService.returnToLobby();
+    setRewardsData(null);
+    setState(prev => (prev.gameState ? { ...prev, gameState: null, battleLog: [] } : prev));
+  };
+
   const handleReturnToLobby = (forceMainLobby: boolean = false) => {
     // Clear any pending survival return timeout
     if (survivalReturnTimeoutRef.current) {
@@ -2185,10 +2193,27 @@ function App() {
     }
 
     if (state.showGauntlet) {
+      // The Gauntlet keeps its own screens mounted; a live battle is drawn inside it by the normal battle screen
+      const phase = state.gameState?.phase;
+      const gauntletMe = getCurrentPlayer();
+      const battleView = (phase === 'initiative' || phase === 'battle' || phase === 'ended') && gauntletMe ? (
+        <BattlePhase
+          gameState={state.gameState!}
+          currentPlayer={gauntletMe}
+          opponent={getOpponentPlayer()}
+          playerId={state.playerId!}
+          onReturnToLobby={handleGauntletBattleFinished}
+          turnTimer={turnTimer}
+          timekeeperAbilitySelection={state.timekeeperAbilitySelection}
+          onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
+        />
+      ) : null;
       return (
         <GauntletMode
           onReturnToLobby={() => setState(prev => ({ ...prev, showGauntlet: false }))}
           user={state.user}
+          battleView={battleView}
+          onBattleFinished={handleGauntletBattleFinished}
         />
       );
     }

@@ -35,7 +35,7 @@ const MIGRATED = [
   'styles/RequirementModal.css',
   'styles/Tutorial.css',
   'styles/Social.css',
-  'styles/Panels.css', 'styles/Survival.css', 'styles/SurvivalMode.css', 'styles/SurvivalProgress.css', 'styles/SurvivalTeamBuilder.css', 'styles/SurvivalUsedHeroes.css', 'styles/SurvivalBattleTransition.css',
+  'styles/Panels.css', 'styles/Survival.css', 'styles/Gauntlet.css', 'styles/SurvivalMode.css', 'styles/SurvivalProgress.css', 'styles/SurvivalTeamBuilder.css', 'styles/SurvivalUsedHeroes.css', 'styles/SurvivalBattleTransition.css',
   'components/DraftClock.tsx',
   'components/RotatePrompt.tsx',
 ];

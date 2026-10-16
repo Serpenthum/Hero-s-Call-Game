@@ -520,5 +520,5 @@ export interface GauntletSocketEvents {
   'gauntlet-queue-cancelled': (data: { success: boolean; runState?: GauntletRunState; error?: string }) => void;
   'gauntlet-battle-complete': (data: GauntletBattleComplete) => void;
   'gauntlet-hero-offer-result': (data: { success: boolean; action?: string; message?: string; offer?: GauntletHeroOffer[]; selectedHero?: string; rerolls_remaining?: number; runState?: GauntletRunState; error?: string }) => void;
-  'gauntlet-run-abandoned': (data: { success: boolean; finalTrial?: number; rewards?: GauntletRewards; error?: string }) => void;
+  'gauntlet-run-abandoned': (data: { success: boolean; finalTrial?: number; trialsWon?: number; rewards?: GauntletRewards; error?: string }) => void;
 }

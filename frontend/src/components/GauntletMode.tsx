@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import Coin from './Coin';
-import GauntletContent from './GauntletContent';
-import GauntletBattleTransition from './GauntletBattleTransition';
-import BattlePhase from './BattlePhase';
-import '../styles/GauntletMode.css';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Icon from './ui/Icon';
+import TrialMap, { bracketOf } from './gauntlet/TrialMap';
+import RosterSheet, { CampPick } from './gauntlet/RosterSheet';
+import TeamStrip from './gauntlet/TeamStrip';
+import CampPanel from './gauntlet/CampPanel';
+import OfferPanel from './gauntlet/OfferPanel';
+import GauntletResults from './gauntlet/GauntletResults';
+import { socketService } from '../socketService';
 import type { GauntletRunState, GauntletHeroOffer, GauntletRewards } from '../types';
+import '../styles/Gauntlet.css';
 
 interface User {
   id: number;
@@ -17,392 +21,304 @@ interface User {
 interface GauntletModeProps {
   onReturnToLobby: () => void;
   user?: User;
+  // The live battle, drawn by the app's own battle screen while one is in progress
+  battleView?: React.ReactNode;
+  // Called when the server reports the battle's result, so the app can put the battle away
+  onBattleFinished?: () => void;
 }
 
-type GauntletPhase = 'preparation' | 'queueing' | 'battle' | 'hero_offer' | 'completed';
-type ShopAction = 'heal' | 'temp_res' | 'buy_pack' | 'skip_trial';
+type Screen = 'loading' | 'camp' | 'searching' | 'offer' | 'results';
+type Notice = { kind: 'error' | 'success' | 'info'; text: string } | null;
 
-const GauntletMode: React.FC<GauntletModeProps> = ({ onReturnToLobby, user }) => {
+const GauntletMode: React.FC<GauntletModeProps> = ({ onReturnToLobby, user, battleView, onBattleFinished }) => {
   const [runState, setRunState] = useState<GauntletRunState | null>(null);
-  const [phase, setPhase] = useState<GauntletPhase>('preparation');
-  const [isSearching, setIsSearching] = useState(false);
-  const [battleState, setBattleState] = useState<any>(null);
-  const [heroOffer, setHeroOffer] = useState<GauntletHeroOffer[] | null>(null);
-  const [battleWon, setBattleWon] = useState(false);
-  const [finalTrial, setFinalTrial] = useState(0);
+  const [screen, setScreen] = useState<Screen>('loading');
+  const [team, setTeam] = useState<number[]>([]);
+  const [pick, setPick] = useState<CampPick>(null);
+  const [offer, setOffer] = useState<GauntletHeroOffer[] | null>(null);
+  const [offerFromBattle, setOfferFromBattle] = useState(false);
+  const [replacing, setReplacing] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<Notice>(null);
   const [rewards, setRewards] = useState<GauntletRewards | null>(null);
-  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
-  const [pendingShopAction, setPendingShopAction] = useState<ShopAction | null>(null);
-  const [shopOffer, setShopOffer] = useState<any[] | null>(null);
-  const [runEnded, setRunEnded] = useState(false);
+  const [result, setResult] = useState({ trialsWon: 0, finalTrial: 1 });
+  const [confirmAbandon, setConfirmAbandon] = useState(false);
+  const onBattleFinishedRef = useRef(onBattleFinished);
+  onBattleFinishedRef.current = onBattleFinished;
+
+  const emit = useCallback((event: string, data?: unknown) => {
+    const socket = socketService.getSocket() || socketService.connect();
+    socket?.emit(event as never, data as never);
+  }, []);
 
   useEffect(() => {
-    let cleanupFunctions: (() => void)[] = [];
-
-    const setupSocketListeners = async () => {
-      const { socketService } = await import('../socketService');
-      const socket = socketService.getSocket() || socketService.connect();
-
-      if (socket) {
-        // Run started
-        const handleRunStarted = (data: any) => {
-          console.log('🎮 Gauntlet run started:', data);
-          if (data.success && data.runState) {
-            setRunState(data.runState);
-            setPhase('preparation');
-          }
-        };
-
-        // Match found
-        const handleMatchFound = () => {
-          console.log('⚔️ Gauntlet match found!');
-          setIsSearching(false);
-          setPhase('battle');
-        };
-
-        // Queue waiting
-        const handleQueueWaiting = () => {
-          setIsSearching(true);
-        };
-
-        // Battle complete
-        const handleBattleComplete = (data: any) => {
-          console.log('🏆 Gauntlet battle complete:', data);
-          setBattleWon(data.won);
-          
-          if (data.runEnded) {
-            setRunEnded(true);
-            setFinalTrial(data.finalTrial);
-            setPhase('completed');
-          } else {
-            setRunState(data.runState);
-            setHeroOffer(data.heroOffer);
-            setPhase('hero_offer');
-          }
-        };
-
-        // Run abandoned
-        const handleRunAbandoned = (data: any) => {
-          console.log('🚪 Gauntlet run abandoned:', data);
-          if (data.success) {
-            setRewards(data.rewards);
-            setFinalTrial(data.finalTrial);
-            setRunEnded(true);
-            setPhase('completed');
-          }
-        };
-
-        // Game start
-        const handleGameStart = (data: any) => {
-          console.log('🎮 Gauntlet game starting:', data);
-          setBattleState(data.gameState);
-        };
-
-        socket.on('gauntlet-run-started', handleRunStarted);
-        socket.on('gauntlet-match-found', handleMatchFound);
-        socket.on('gauntlet-queue-waiting', handleQueueWaiting);
-        socket.on('gauntlet-battle-complete', handleBattleComplete);
-        socket.on('gauntlet-run-abandoned', handleRunAbandoned);
-        socket.on('game-start', handleGameStart);
-
-        cleanupFunctions.push(() => {
-          socket.off('gauntlet-run-started', handleRunStarted);
-          socket.off('gauntlet-match-found', handleMatchFound);
-          socket.off('gauntlet-queue-waiting', handleQueueWaiting);
-          socket.off('gauntlet-battle-complete', handleBattleComplete);
-          socket.off('gauntlet-run-abandoned', handleRunAbandoned);
-          socket.off('game-start', handleGameStart);
-        });
-
-        // Start the run
-        if (!runState) {
-          socket.emit('start-gauntlet-run', { name: user?.username || 'Player' });
-        }
-      }
-    };
-
-    setupSocketListeners();
-
-    return () => {
-      cleanupFunctions.forEach(cleanup => cleanup());
-    };
-  }, [user, runState]);
-
-  const handleAbandonRun = async () => {
-    const { socketService } = await import('../socketService');
-    const socket = socketService.getSocket();
-    
-    if (socket) {
-      socket.emit('abandon-gauntlet-run');
-      setShowAbandonConfirm(false);
-      // Reset state and return to lobby
-      setRunState(null);
-      setPhase('preparation');
-      onReturnToLobby();
-    }
-  };
-
-  const handleHeroOfferComplete = () => {
-    setPhase('preparation');
-    setHeroOffer(null);
-  };
-
-  const handleReturnToLobby = () => {
-    onReturnToLobby();
-  };
-
-  // Render different phases
-  if (phase === 'completed') {
-    return (
-      <div className="gauntlet-mode">
-        <div className="gauntlet-complete-screen">
-          <h1>🏁 Gauntlet Run Complete!</h1>
-          <div className="final-stats">
-            <h2>Final Trial Reached: {finalTrial}</h2>
-            {rewards && (
-              <div className="rewards-summary">
-                <p>🎁 XP Earned: {rewards.xp}</p>
-                <p><Coin /> {rewards.victoryPoints}</p>
-              </div>
-            )}
-            {user?.best_gauntlet_trial && (
-              <p className="best-trial">Personal Best: Trial {user.best_gauntlet_trial}</p>
-            )}
-          </div>
-          <div className="complete-buttons">
-            <button onClick={handleReturnToLobby} className="return-button">
-              Return to Game Lobby
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === 'hero_offer' && heroOffer) {
-    return (
-      <div className="gauntlet-mode">
-        <GauntletBattleTransition
-          won={battleWon}
-          heroOffer={heroOffer}
-          runState={runState}
-          onComplete={handleHeroOfferComplete}
-        />
-      </div>
-    );
-  }
-
-  if (phase === 'battle' && battleState) {
-    return (
-      <div className="gauntlet-mode">
-        <BattlePhase
-          gameState={battleState}
-          playerId={battleState.players?.[0]?.id || ''}
-          onReturnToLobby={handleReturnToLobby}
-          isSurvivalMode={false}
-        />
-      </div>
-    );
-  }
-
-  const handleShopAction = async (action: ShopAction) => {
-    const { socketService } = await import('../socketService');
-    const socket = socketService.getSocket();
-
+    const socket = socketService.getSocket() || socketService.connect();
     if (!socket) return;
 
-    setPendingShopAction(action);
+    const adopt = (state?: GauntletRunState) => {
+      if (!state) return;
+      setRunState(state);
+      // A held offer (after a reload or a return to the lobby) is shown again, never lost
+      setTeam(previous => previous.filter(i => state.roster[i] && (state.roster[i].alive || state.roster[i].temporary_resurrection_active)));
+    };
+    const finish = (text: string) => { setNotice({ kind: 'success', text }); };
 
-    // For heal and temp res, wait for hero selection
-    if (action === 'heal' || action === 'temp_res') {
-      return;
-    }
+    const started = (data: any) => {
+      if (!data.success) { setNotice({ kind: 'error', text: data.error || 'The Gauntlet could not start. Try again.' }); return; }
+      adopt(data.runState);
+      if (data.runState?.phase === 'hero_offer' && data.runState.pending_offer?.length) {
+        setOffer(data.runState.pending_offer);
+        setOfferFromBattle(true);
+        setScreen('offer');
+      } else {
+        setScreen('camp');
+      }
+    };
+    const queueWaiting = () => { setBusy(false); setScreen('searching'); };
+    const queueCancelled = (data: any) => { adopt(data.runState); setScreen('camp'); };
+    const queueFailed = (data: any) => { setNotice({ kind: 'error', text: data.error || 'Could not join the queue.' }); setScreen('camp'); };
+    const teamSet = (data: any) => {
+      if (data.success) emit('queue-for-gauntlet-trial');
+      else setNotice({ kind: 'error', text: data.error || 'That team cannot go in.' });
+    };
+    const matchFound = () => { setScreen('camp'); setNotice(null); };
+    const battleComplete = (data: any) => {
+      onBattleFinishedRef.current?.();
+      setTeam([]);
+      setPick(null);
+      if (data.runEnded) {
+        setRewards(data.rewards || null);
+        setResult({ trialsWon: data.trialsWon ?? 0, finalTrial: data.finalTrial ?? 1 });
+        setScreen('results');
+        return;
+      }
+      adopt(data.runState);
+      finish(data.won ? 'You won the trial.' : 'You lost the trial. Your heroes keep their wounds.');
+      if (data.heroOffer && data.heroOffer.length) {
+        setOffer(data.heroOffer);
+        setOfferFromBattle(true);
+        setScreen('offer');
+      } else {
+        setScreen('camp');
+      }
+    };
+    const shopResult = (data: any) => {
+      setBusy(false);
+      if (!data.success) { setNotice({ kind: 'error', text: data.error || 'That did not work.' }); setPick(null); return; }
+      adopt(data.runState);
+      if (data.action === 'show_offer') {
+        setOffer(data.offer);
+        setOfferFromBattle(false);
+        setScreen('offer');
+        return;
+      }
+      if (data.action === 'need_sacrifice') { setReplacing(data.selectedHero); return; }
+      setPick(null);
+      setOffer(null);
+      setReplacing(null);
+      setScreen('camp');
+      if (data.message) finish(data.message);
+    };
+    const offerResult = (data: any) => {
+      setBusy(false);
+      if (!data.success) { setNotice({ kind: 'error', text: data.error || 'That did not work.' }); return; }
+      adopt(data.runState);
+      if (data.action === 'show_offer') { setOffer(data.offer); return; }
+      if (data.action === 'need_sacrifice') { setReplacing(data.selectedHero); return; }
+      setOffer(null);
+      setReplacing(null);
+      setScreen('camp');
+      if (data.message) finish(data.message);
+    };
+    const abandoned = (data: any) => {
+      if (!data.success) return;
+      setRewards(data.rewards || null);
+      setResult({ trialsWon: data.trialsWon ?? 0, finalTrial: data.finalTrial ?? 1 });
+      setScreen('results');
+    };
 
-    // For buy pack, request the offer
-    if (action === 'buy_pack') {
-      socket.emit('gauntlet-shop-action', { 
-        type: 'buy_pack',
-        data: { useReroll: false }
-      });
-      
-      socket.once('gauntlet-shop-action-result', (data: any) => {
-        if (data.success && data.action === 'show_offer') {
-          setShopOffer(data.offer);
-        }
-        if (data.runState) {
-          setRunState(data.runState);
-        }
-      });
-      return;
-    }
+    socket.on('gauntlet-run-started', started);
+    socket.on('gauntlet-queue-waiting', queueWaiting);
+    socket.on('gauntlet-queue-cancelled', queueCancelled);
+    socket.on('gauntlet-queue-failed', queueFailed);
+    socket.on('gauntlet-battle-team-set', teamSet);
+    socket.on('gauntlet-match-found', matchFound);
+    socket.on('gauntlet-battle-complete', battleComplete);
+    socket.on('gauntlet-shop-action-result', shopResult);
+    socket.on('gauntlet-hero-offer-result', offerResult);
+    socket.on('gauntlet-run-abandoned', abandoned);
+    socket.emit('start-gauntlet-run', { name: user?.username || 'Player' });
 
-    // For skip trial, execute immediately
-    if (action === 'skip_trial') {
-      socket.emit('gauntlet-shop-action', { type: 'skip_trial' });
-      
-      socket.once('gauntlet-shop-action-result', (data: any) => {
-        if (data.success && data.runState) {
-          setRunState(data.runState);
-          setPendingShopAction(null);
-        }
-      });
-    }
+    return () => {
+      socket.off('gauntlet-run-started', started);
+      socket.off('gauntlet-queue-waiting', queueWaiting);
+      socket.off('gauntlet-queue-cancelled', queueCancelled);
+      socket.off('gauntlet-queue-failed', queueFailed);
+      socket.off('gauntlet-battle-team-set', teamSet);
+      socket.off('gauntlet-match-found', matchFound);
+      socket.off('gauntlet-battle-complete', battleComplete);
+      socket.off('gauntlet-shop-action-result', shopResult);
+      socket.off('gauntlet-hero-offer-result', offerResult);
+      socket.off('gauntlet-run-abandoned', abandoned);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ----- actions -----
+  const toggleTeam = (index: number) => {
+    setNotice(null);
+    setTeam(previous => (previous.includes(index) ? previous.filter(i => i !== index) : previous.length < 3 ? [...previous, index] : previous));
+  };
+  const startTrial = () => {
+    setNotice(null);
+    emit('set-gauntlet-battle-team', { teamIndices: team });
+  };
+  const chooseCamp = (choice: 'heal' | 'temp_res' | 'buy_pack' | 'skip_trial') => {
+    setNotice(null);
+    if (choice === 'heal' || choice === 'temp_res') { setPick(choice); return; }
+    setBusy(true);
+    emit('gauntlet-shop-action', { action: choice });
+  };
+  const pickTarget = (index: number) => {
+    if (!pick || !runState) return;
+    setBusy(true);
+    emit('gauntlet-shop-action', pick === 'heal' ? { action: 'heal', heroIndex: index } : { action: 'temp_res', heroId: runState.roster[index].hero_id });
+  };
+  const chooseHero = (heroName: string) => {
+    setBusy(true);
+    if (offerFromBattle) emit('complete-gauntlet-hero-offer', { selectedHeroId: heroName });
+    else emit('gauntlet-shop-action', { action: 'buy_pack', selectedHeroId: heroName });
+  };
+  const replaceHero = (rosterIndex: number) => {
+    if (!replacing) return;
+    setBusy(true);
+    if (offerFromBattle) emit('complete-gauntlet-hero-offer', { selectedHeroId: replacing, sacrificeIndex: rosterIndex });
+    else emit('gauntlet-shop-action', { action: 'buy_pack', selectedHeroId: replacing, sacrificeIndex: rosterIndex });
+  };
+  const reroll = () => {
+    setBusy(true);
+    if (offerFromBattle) emit('complete-gauntlet-hero-offer', { useReroll: true });
+    else emit('gauntlet-shop-action', { action: 'buy_pack', useReroll: true });
+  };
+  const leaveOffer = () => {
+    if (offerFromBattle) { setBusy(true); emit('complete-gauntlet-hero-offer', { skip: true }); }
+    setOffer(null);
+    setReplacing(null);
+    setScreen('camp');
+  };
+  const cancelSearch = () => emit('cancel-gauntlet-queue');
+  const saveAndLeave = () => {
+    if (screen === 'searching') cancelSearch();
+    emit('save-and-return-to-lobby');
+    onReturnToLobby();
+  };
+  const abandon = () => {
+    setConfirmAbandon(false);
+    emit('abandon-gauntlet-run');
   };
 
-  const usableHeroes = runState ? runState.roster.filter(h => h.alive || h.temporary_resurrection_active) : [];
-  const deadHeroes = runState ? runState.roster.filter(h => !h.alive && !h.temporary_resurrection_active) : [];
-  const canSkipTrial = runState ? runState.current_trial <= 10 : false;
+  // ----- screens -----
+  if (battleView) return <div className="gt gt-battle">{battleView}</div>;
+
+  if (screen === 'results') {
+    return (
+      <div className="gt gt-centered">
+        <GauntletResults
+          trialsWon={result.trialsWon}
+          finalTrial={result.finalTrial}
+          rewards={rewards}
+          bestTrial={user?.best_gauntlet_trial}
+          onDone={onReturnToLobby}
+        />
+      </div>
+    );
+  }
+
+  if (!runState || screen === 'loading') {
+    return (
+      <div className="gt gt-centered">
+        <p className="gt-hint" role="status"><span className="ui-spinner" aria-hidden="true" /> Gathering your roster</p>
+        {notice && <p className="ui-notice ui-notice--error" role="alert">{notice.text}</p>}
+        <button type="button" className="ui-btn ui-btn--quiet" onClick={onReturnToLobby}>Back to the lobby</button>
+      </div>
+    );
+  }
+
+  const searching = screen === 'searching';
+  const bracket = bracketOf(runState.current_trial);
 
   return (
-    <div className="gauntlet-mode">
-      {showAbandonConfirm && (
-        <div className="modal-overlay">
-          <div className="abandon-modal">
-            <h2>Abandon Gauntlet Run?</h2>
-            <p>You will receive rewards based on Trial {runState?.current_trial || 1}</p>
-            <div className="modal-buttons">
-              <button onClick={handleAbandonRun} className="confirm-button">
-                Yes, Abandon
-              </button>
-              <button onClick={() => setShowAbandonConfirm(false)} className="cancel-button">
-                Cancel
-              </button>
-            </div>
-          </div>
+    <div className="gt">
+      <header className="gt-bar">
+        <h1 className="gt-title">The Gauntlet</h1>
+        <span className="ui-badge">Trial {runState.current_trial} · bracket {bracket}</span>
+        <div className="gt-bar-actions">
+          <button type="button" className="ui-btn ui-btn--quiet ui-btn--sm" onClick={saveAndLeave}>
+            <Icon name="logout" /> Save and leave
+          </button>
+          <button type="button" className="ui-btn ui-btn--quiet ui-btn--sm" disabled={searching} onClick={() => setConfirmAbandon(true)}>
+            Abandon run
+          </button>
+        </div>
+      </header>
+
+      {notice && (
+        <p className={`ui-notice ui-notice--${notice.kind} gt-notice`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</p>
+      )}
+
+      <main className="gt-main">
+        <aside className="gt-side ui-panel">
+          <TrialMap currentTrial={runState.current_trial} trialsWon={runState.trials_won || 0} />
+          <CampPanel runState={runState} pick={pick} busy={busy || searching} onChoose={chooseCamp} onCancelPick={() => setPick(null)} />
+        </aside>
+        <section className="gt-table">
+          <TeamStrip
+            runState={runState}
+            teamIndices={team}
+            searching={searching}
+            onRemove={toggleTeam}
+            onStart={startTrial}
+            onCancelSearch={cancelSearch}
+          />
+          <RosterSheet
+            roster={runState.roster}
+            teamIndices={team}
+            pick={pick}
+            locked={searching}
+            onToggleTeam={toggleTeam}
+            onPick={pickTarget}
+          />
+        </section>
+      </main>
+
+      {screen === 'offer' && offer && (
+        <div className="ui-modal-overlay gt-offer-overlay">
+          <OfferPanel
+            offer={offer}
+            runState={runState}
+            fromBattle={offerFromBattle}
+            replacing={replacing}
+            busy={busy}
+            onChoose={chooseHero}
+            onReplace={replaceHero}
+            onReroll={reroll}
+            onLeave={leaveOffer}
+            onCancelReplace={() => setReplacing(null)}
+          />
         </div>
       )}
 
-      {runState && (
-        <>
-          {/* Left Sidebar - Gauntlet Info */}
-          <div className="game-sidebar gauntlet-sidebar">
-            <div className="sidebar-header">
-              <h2>⚔️ GAUNTLET MODE</h2>
-              <div className="mode-subtitle">Trial {runState.current_trial} of 13</div>
-            </div>
-
-            <div className="stats-section">
-              <div className="stat-item">
-                <span className="stat-label">Current Trial:</span>
-                <span className="stat-value">{runState.current_trial}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Rerolls:</span>
-                <span className="stat-value">{runState.rerolls_remaining}</span>
-              </div>
-              {user?.best_gauntlet_trial && user.best_gauntlet_trial > 0 && (
-                <div className="stat-item best-trial">
-                  <span className="stat-label">Personal Best:</span>
-                  <span className="stat-value">Trial {user.best_gauntlet_trial}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="dead-heroes-section">
-              <h3>💀 Fallen Heroes ({deadHeroes.length})</h3>
-              <div className="dead-heroes-list">
-                {deadHeroes.map((hero, index) => (
-                  <div key={index} className="dead-hero-item">
-                    {hero.hero_id}
-                  </div>
-                ))}
-                {deadHeroes.length === 0 && (
-                  <div className="no-dead-heroes">No casualties yet</div>
-                )}
-              </div>
-              
-              <button className="return-to-lobby-btn" onClick={async () => {
-                const { socketService } = await import('../socketService');
-                const socket = socketService.getSocket();
-                if (socket && runState) {
-                  socket.emit('save-and-return-to-lobby', { runState });
-                  onReturnToLobby();
-                }
-              }}>
-                🏠 Return to Lobby
-              </button>
-              
-              <button className="abandon-run-btn" onClick={() => setShowAbandonConfirm(true)}>
-                🚪 Abandon Run
-              </button>
+      {confirmAbandon && (
+        <div className="ui-modal-overlay">
+          <div className="ui-modal" role="dialog" aria-modal="true" aria-labelledby="gt-abandon-title">
+            <h2 id="gt-abandon-title" className="gt-heading">Abandon this run?</h2>
+            <p className="gt-hint">The run ends now and is paid for the {runState.trials_won || 0} {(runState.trials_won || 0) === 1 ? 'trial' : 'trials'} you won.</p>
+            <div className="gt-offer-actions">
+              <button type="button" className="ui-btn ui-btn--danger" onClick={abandon}>Abandon run</button>
+              <button type="button" className="ui-btn ui-btn--quiet" onClick={() => setConfirmAbandon(false)}>Keep playing</button>
             </div>
           </div>
-
-          {/* Center Content - Hero Selection */}
-          <div className="game-content">
-            <GauntletContent
-              runState={runState}
-              onStateUpdate={setRunState}
-              isSearching={isSearching}
-              onCancelSearch={async () => {
-                const { socketService } = await import('../socketService');
-                const socket = socketService.getSocket();
-                if (socket) {
-                  socket.emit('cancel-gauntlet-queue');
-                  setIsSearching(false);
-                }
-              }}
-              pendingShopAction={pendingShopAction}
-              onSetPendingShopAction={setPendingShopAction}
-              shopOffer={shopOffer}
-              onSetShopOffer={setShopOffer}
-            />
-          </div>
-
-          {/* Right Sidebar - Shop Actions */}
-          <div className="action-bar gauntlet-actions">
-            <h3>Shop Actions</h3>
-            <div className="actions-remaining">
-              {runState.shop_actions_remaining > 0 ? (
-                <span className="actions-available">{runState.shop_actions_remaining} action available</span>
-              ) : (
-                <span className="actions-depleted">No actions remaining</span>
-              )}
-            </div>
-
-            <div className="shop-actions">
-              <button
-                className="shop-action-btn heal"
-                onClick={() => handleShopAction('heal')}
-                disabled={runState.shop_actions_remaining === 0 || !!pendingShopAction}
-              >
-                <div className="action-icon">💚</div>
-                <div className="action-name">Heal Hero</div>
-                <div className="action-desc">Restore to full HP</div>
-              </button>
-
-              <button
-                className="shop-action-btn resurrect"
-                onClick={() => handleShopAction('temp_res')}
-                disabled={runState.shop_actions_remaining === 0 || deadHeroes.length === 0 || !!pendingShopAction}
-              >
-                <div className="action-icon">👻</div>
-                <div className="action-name">Temp Resurrect</div>
-                <div className="action-desc">Revive for 1 battle</div>
-              </button>
-
-              <button
-                className="shop-action-btn buy-pack"
-                onClick={() => handleShopAction('buy_pack')}
-                disabled={runState.shop_actions_remaining === 0 || !!pendingShopAction}
-              >
-                <div className="action-icon">📦</div>
-                <div className="action-name">Buy Hero Pack</div>
-                <div className="action-desc">Get 2 random heroes</div>
-              </button>
-
-              <button
-                className="shop-action-btn skip"
-                onClick={() => handleShopAction('skip_trial')}
-                disabled={runState.shop_actions_remaining === 0 || !canSkipTrial || !!pendingShopAction}
-              >
-                <div className="action-icon">⏭️</div>
-                <div className="action-name">Skip Trial</div>
-                <div className="action-desc">{canSkipTrial ? 'Available until Trial 10' : 'Not available'}</div>
-              </button>
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
