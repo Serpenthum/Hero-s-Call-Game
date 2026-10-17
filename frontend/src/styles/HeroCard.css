@@ -4,7 +4,7 @@
   flex-direction: column;
   min-height: 100vh;
   overflow: auto;
-  color: #f7f4ed;
+  color: var(--bone);
   background: transparent;
 }
 
@@ -18,15 +18,15 @@
   height: 40px;
   place-items: center;
   padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.38);
+  border: 1px solid color-mix(in srgb, var(--bone) 38%, transparent);
   border-radius: 50%;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.55);
+  color: var(--bone);
+  background: color-mix(in srgb, var(--felt-deep) 55%, transparent);
   cursor: pointer;
 }
 
 .card-layout-test-exit:hover {
-  background: rgba(0, 0, 0, 0.85);
+  background: color-mix(in srgb, var(--felt-deep) 85%, transparent);
 }
 
 .card-layout-test-exit svg {
@@ -56,11 +56,11 @@
 }
 
 .card-layout-test-team.card-layout-test-opponents {
-  background: rgba(139, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--leather) 30%, transparent);
 }
 
 .card-layout-test-team.card-layout-test-players {
-  background: rgba(100, 181, 246, 0.25);
+  background: color-mix(in srgb, var(--brass) 25%, transparent);
 }
 
 .card-layout-test-team-cards {
@@ -74,7 +74,7 @@
 
 /* Keep one baseline above legacy screen-specific card sizing. */
 .hero-card.hero-layout-card.hero-layout-card {
-  --card-steel-texture: repeating-linear-gradient(125deg, #25282b 0 3px, #65696b 4px, #363b3e 6px, #91918a 7px, #303437 10px);
+  --card-steel-texture: repeating-linear-gradient(125deg, var(--walnut) 0 3px, var(--leather-hi) 4px, var(--leather) 6px, var(--bone-dim) 7px, var(--leather) 10px);
   width: 260px;
   height: 391px;
   min-height: 391px;
@@ -83,11 +83,11 @@
   margin: 0;
   overflow: visible;
   cursor: default;
-  border: 2px solid #666a6b;
+  border: 2px solid var(--leather-hi);
   /* Matches the inner corner radius of the steel frame so no gap shows at the corners. */
   border-radius: 5px;
-  background: linear-gradient(180deg, #30281f, #171717);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(180deg, var(--walnut), var(--walnut));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--felt-deep) 45%, transparent);
   zoom: min(var(--hero-card-scale, 1), var(--hero-card-height-scale, var(--hero-card-scale, 1)));
 }
 
@@ -99,31 +99,31 @@
   border: 5px solid transparent;
   border-radius: 10px;
   background:
-    linear-gradient(#25282b, #25282b) padding-box,
+    linear-gradient(var(--walnut), var(--walnut)) padding-box,
     var(--card-steel-texture) border-box;
   background-clip: border-box;
-  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(var(--bone) 0 0) padding-box, linear-gradient(var(--bone) 0 0);
   mask-composite: exclude;
-  box-shadow: inset 0 0 2px #b8bbb5;
+  box-shadow: inset 0 0 2px var(--felt-deep);
   pointer-events: none;
 }
 
 .hero-card.hero-layout-card.enemy,
 .hero-card.hero-layout-card.ally {
-  border-color: #666a6b;
+  border-color: var(--leather-hi);
 }
 
 .hero-card.hero-layout-card:hover,
 .hero-card.hero-layout-card.selectable:hover:not(.shop-hero-card) {
   transform: none;
   z-index: auto;
-  border-color: #666a6b;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border-color: var(--leather-hi);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--felt-deep) 45%, transparent);
 }
 
 /* Legacy hover rules outrank the ones above and tint the card border blue. */
 .hero-card.hero-layout-card.hero-layout-card:hover:not(.shop-hero-card) {
-  border-color: #666a6b;
+  border-color: var(--leather-hi);
 }
 
 /* The chosen enemy target stays enlarged until the attacker's turn ends. */
@@ -151,8 +151,8 @@
   width: 100%;
   height: 241px;
   padding: 28px 12px 10px;
-  color: #fff;
-  background: linear-gradient(180deg, transparent 28%, rgba(0, 0, 0, 0.84) 100%);
+  color: var(--bone);
+  background: linear-gradient(180deg, transparent 28%, color-mix(in srgb, var(--felt-deep) 84%, transparent) 100%);
   pointer-events: none;
 }
 
@@ -180,7 +180,7 @@
   font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   font-size: 19px;
   line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--felt-deep) 90%, transparent));
 }
 
 .hero-card.hero-layout-card.hero-layout-card .hero-card-content {
@@ -197,7 +197,7 @@
   height: 100%;
   padding: 10px 12px 12px;
   overflow-y: auto;
-  color: #ece8df;
+  color: var(--bone);
   font-weight: 400;
   text-align: left;
 }
@@ -252,18 +252,18 @@
   border: 2px solid transparent;
   border-radius: 3px;
   background:
-    linear-gradient(#202326, #202326) padding-box,
-    linear-gradient(rgba(48, 52, 55, 0.75), rgba(48, 52, 55, 0.75)) border-box,
+    linear-gradient(var(--felt-deep), var(--felt-deep)) padding-box,
+    linear-gradient(color-mix(in srgb, var(--leather) 75%, transparent), color-mix(in srgb, var(--leather) 75%, transparent)) border-box,
     var(--card-steel-texture) border-box;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  color: #ede3cf;
-  font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--felt-deep) 30%, transparent);
+  color: var(--bone);
+  font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.5px;
   line-height: 1.1;
   text-align: center;
-  text-shadow: 0 1px 3px #000;
+  text-shadow: 0 1px 3px var(--felt-deep);
   pointer-events: none;
 }
 
@@ -273,25 +273,25 @@
 
 .card-text-section h4 {
   margin: 0 0 2px;
-  color: #fff;
+  color: var(--bone);
   font-size: 12px;
 }
 
 .card-type-label {
-  color: #f4c979;
+  color: var(--brass-hi);
   font-weight: 800;
 }
 
 .card-text-section p {
   margin: 0;
-  color: #d2d2d2;
+  color: var(--bone);
   font-size: 11.5px;
   line-height: 1.3;
 }
 
 .card-special {
   padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 1px solid color-mix(in srgb, var(--bone) 14%, transparent);
 }
 
 .card-details .card-text-section h4 {
@@ -305,47 +305,47 @@
 /* The frame is masked to a ring, so outlines on it are clipped; recolor the ring itself. */
 .hero-card.hero-layout-card.hero-layout-card.current-turn,
 .battle-layout .hero-card.hero-layout-card.hero-layout-card.current-turn.current-turn {
-  border-color: #ffd700 !important;
-  box-shadow: 0 0 0 7px rgba(255, 215, 0, 0.35), 0 0 22px 8px rgba(255, 215, 0, 0.75);
+  border-color: var(--brass-hi) !important;
+  box-shadow: 0 0 0 7px color-mix(in srgb, var(--felt-deep) 35%, transparent), 0 0 22px 8px color-mix(in srgb, var(--felt-deep) 75%, transparent);
 }
 
 .hero-card.hero-layout-card.current-turn::after,
 .battle-layout .hero-card.hero-layout-card.current-turn.current-turn::after {
   background:
-    linear-gradient(#25282b, #25282b) padding-box,
-    linear-gradient(135deg, #fff2a8, #ffd700 45%, #f2b600 100%) border-box;
-  box-shadow: inset 0 0 0 1px #fff7c2;
+    linear-gradient(var(--walnut), var(--walnut)) padding-box,
+    linear-gradient(135deg, var(--bone), var(--brass-hi) 45%, var(--brass-hi) 100%) border-box;
+  box-shadow: inset 0 0 0 1px var(--felt-deep);
 }
 
 .hero-card.hero-layout-card.selected::after {
-  outline: 2px solid #65c77c;
+  outline: 2px solid var(--verdigris);
 }
 
 /* Battle targeting: recolor the masked frame itself (outlines on it get clipped). */
 .battle-layout .hero-card.hero-layout-card.hero-layout-card.selectable {
-  border-color: #2ee06b !important;
-  box-shadow: 0 0 0 5px rgba(46, 224, 107, 0.3), 0 0 20px 6px rgba(46, 224, 107, 0.7);
+  border-color: var(--verdigris) !important;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--felt-deep) 30%, transparent), 0 0 20px 6px color-mix(in srgb, var(--felt-deep) 70%, transparent);
   cursor: pointer;
 }
 
 .battle-layout .hero-card.hero-layout-card.selectable::after {
   background:
-    linear-gradient(#25282b, #25282b) padding-box,
-    linear-gradient(135deg, #a8ffc6, #2ee06b 45%, #12a644 100%) border-box;
-  box-shadow: inset 0 0 0 1px #d4ffe2;
+    linear-gradient(var(--walnut), var(--walnut)) padding-box,
+    linear-gradient(135deg, var(--bone), var(--verdigris) 45%, var(--verdigris) 100%) border-box;
+  box-shadow: inset 0 0 0 1px var(--felt-deep);
 }
 
 .battle-layout .hero-card.hero-layout-card.hero-layout-card.target-blocked {
-  border-color: #ff3b3b !important;
-  box-shadow: 0 0 0 5px rgba(255, 59, 59, 0.3), 0 0 20px 6px rgba(255, 59, 59, 0.7);
+  border-color: var(--ember-hi) !important;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--felt-deep) 30%, transparent), 0 0 20px 6px color-mix(in srgb, var(--felt-deep) 70%, transparent);
   cursor: not-allowed;
 }
 
 .battle-layout .hero-card.hero-layout-card.target-blocked::after {
   background:
-    linear-gradient(#25282b, #25282b) padding-box,
-    linear-gradient(135deg, #ffb0b0, #ff3b3b 45%, #b81414 100%) border-box;
-  box-shadow: inset 0 0 0 1px #ffd0d0;
+    linear-gradient(var(--walnut), var(--walnut)) padding-box,
+    linear-gradient(135deg, var(--bone), var(--ember-hi) 45%, var(--ember) 100%) border-box;
+  box-shadow: inset 0 0 0 1px var(--felt-deep);
 }
 
 .hero-card.hero-layout-card .status-effects-buffs,
@@ -397,7 +397,7 @@
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: repeating-linear-gradient(45deg, transparent 0 10px, rgba(255, 0, 0, 0.1) 10px 20px);
+  background: repeating-linear-gradient(45deg, transparent 0 10px, color-mix(in srgb, var(--ember) 10%, transparent) 10px 20px);
   pointer-events: none;
 }
 
@@ -563,19 +563,19 @@
   width: min(560px, calc(100vw - 32px));
   padding: 24px;
   transform: translate(-50%, -50%);
-  border: 1px solid rgba(255, 220, 160, 0.35);
+  border: 1px solid color-mix(in srgb, var(--bone) 35%, transparent);
   border-radius: 12px;
-  color: #fff;
-  background: rgba(15, 17, 22, 0.95);
+  color: var(--bone);
+  background: color-mix(in srgb, var(--walnut) 95%, transparent);
   text-align: center;
 }
 
 .card-layout-test-message button {
   padding: 10px 16px;
-  border: 1px solid rgba(255, 220, 160, 0.6);
+  border: 1px solid color-mix(in srgb, var(--bone) 60%, transparent);
   border-radius: 8px;
-  color: #fff7e8;
-  background: rgba(20, 22, 29, 0.75);
+  color: var(--bone);
+  background: color-mix(in srgb, var(--walnut) 75%, transparent);
   font: inherit;
   font-weight: 700;
 }
@@ -587,8 +587,8 @@
   width: 32px;
   height: 32px;
   transform: translate(-50%, -50%);
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border: 3px solid color-mix(in srgb, var(--bone) 30%, transparent);
+  border-top-color: var(--bone);
   border-radius: 50%;
   animation: card-layout-test-spin 0.8s linear infinite;
 }
