@@ -85,27 +85,26 @@ await step('register + login 2 users', async () => {
   }
 });
 
-// Draft mode unlocks at level 3, so the game itself is played by two admin accounts
-// (password from SMOKE_ADMIN_PASSWORD, default matches .dev.vars). The random users above
-// prove register/login; their sockets are authenticated below too.
-const adminPw = process.env.SMOKE_ADMIN_PASSWORD || 'localdev123';
+// Draft mode unlocks at level 3, so the game itself is played by two accounts from the
+// passwordless Quick admin login (no secret needed). The random users above prove
+// register/login; their sockets are authenticated below too.
+// admin-login only treats an account as taken once its socket has authenticated, so each
+// admin is logged in and authenticated before asking for the next one.
 const admins = [];
-await step('login Admin2 + Admin3', async () => {
-  for (const username of ['Admin2', 'Admin3']) {
-    const l = await post('/api/login', { username, password: adminPw });
-    admins.push({ username, id: l.user.id, token: l.token });
+const clients = [];
+await step('admin-login + open websocket + __welcome + authenticate (x2)', async () => {
+  for (let i = 0; i < 2; i++) {
+    const l = await post('/api/admin-login', {});
+    const admin = { username: l.user.username, id: l.user.id, token: l.token };
+    if (admins.some((x) => x.id === admin.id)) throw new Error('admin-login returned the same account twice');
+    admins.push(admin);
+    const c = client();
+    clients.push(c);
+    await c.opened;
+    await c.waitFor('__welcome');
+    c.send('authenticate', { userId: admin.id, token: admin.token });
+    await c.waitFor('authentication-success');
   }
-});
-
-const clients = [client(), client()];
-await step('open 2 websockets + __welcome', async () => {
-  await Promise.all(clients.map((c) => c.opened));
-  await Promise.all(clients.map((c) => c.waitFor('__welcome')));
-});
-
-await step('authenticate', async () => {
-  clients.forEach((c, i) => c.send('authenticate', { userId: admins[i].id, token: admins[i].token }));
-  await Promise.all(clients.map((c) => c.waitFor('authentication-success')));
 });
 
 await step('authenticate random users on extra sockets', async () => {
@@ -122,14 +121,10 @@ await step('join-game draft (matching gameId)', async () => {
   if (a.gameId !== b.gameId) throw new Error(`gameId mismatch ${a.gameId} vs ${b.gameId}`);
 });
 
-await step('>=2 draft-timer events within 4s', async () => {
-  // The server emits one draft-timer per round start (on a 1s interval tick), so count both sockets.
-  const t0 = Date.now();
-  const count = () => clients.reduce((n, c) => n + c.frames.filter((f) => f.t === 'draft-timer').length, 0);
-  while (count() < 2) {
-    if (Date.now() - t0 > 4000) throw new Error('fewer than 2 draft-timer events');
-    await new Promise((r) => setTimeout(r, 50));
-  }
+await step('draft clock fires on its own (clock-driven ban/pick-complete)', async () => {
+  // No ban/pick is sent: only the server's draft-clock interval can end the round (30 s clock).
+  await clients[0].waitFor('ban-complete', () => true, 45000).catch(() =>
+    clients[0].waitFor('pick-complete', () => true, 1000));
 });
 
 await step('auto-draft -> auto-draft-complete', async () => {
