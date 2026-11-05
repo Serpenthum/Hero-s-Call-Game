@@ -1,4 +1,4 @@
-import { io, Socket } from 'socket.io-client';
+import { createSocket, Socket } from './realtime/client';
 import { SocketEvents } from './types';
 import config from './config';
 import { getAutoEndTurnEnabled } from './battleAnimations';
@@ -14,10 +14,7 @@ class SocketService {
       return this.socket;
     }
 
-    this.socket = io(config.SOCKET_URL, {
-      transports: ['websocket'],
-      upgrade: false,
-      reconnection: true,
+    this.socket = createSocket(config.SOCKET_URL, {
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: 1000,
     });

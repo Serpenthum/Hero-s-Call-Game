@@ -1,49 +1,25 @@
-// Configuration for different environments
-// Supports both build-time (Vite) and runtime (Docker) configuration
-
-// Declare window.ENV type
-declare global {
-  interface Window {
-    ENV?: {
-      API_BASE_URL: string;
-      IMAGE_BASE_URL: string;
-      SOCKET_URL: string;
-    };
-  }
-}
-
-const getRuntimeConfig = (key: string, viteKey: string, fallback: string): string => {
-  // First check runtime config (from public/config.js, replaced at container startup)
-  if (window.ENV && window.ENV[key as keyof typeof window.ENV] && !window.ENV[key as keyof typeof window.ENV].startsWith('__')) {
-    return window.ENV[key as keyof typeof window.ENV];
-  }
-  
-  // Then check Vite build-time env vars
+// Build-time (Vite) configuration with sensible defaults.
+const getConfig = (viteKey: string, fallback: string): string => {
   const viteValue = (import.meta as any).env?.[viteKey];
-  if (viteValue) {
-    return viteValue;
-  }
-  
-  // Finally use fallback
-  return fallback;
+  return viteValue ? viteValue : fallback;
 };
 
 // Default to the host the page was loaded from so LAN devices reach the backend too.
 const defaultBackend = `http://${window.location.hostname || 'localhost'}:3001`;
 
-// In a production build the hero art is served by the site itself (Vercel, or Docker copying it into dist)
-// unless an image host is configured. In development the backend serves it.
+// In a production build the hero art is served by the site itself unless an image host is configured.
+// In development the backend serves it.
 const defaultImageHost = (import.meta as any).env?.PROD ? window.location.origin : defaultBackend;
 
 const config = {
   // Backend API URL
-  API_BASE_URL: getRuntimeConfig('API_BASE_URL', 'VITE_API_BASE_URL', defaultBackend),
-  
+  API_BASE_URL: getConfig('VITE_API_BASE_URL', defaultBackend),
+
   // Image URL - images are served from the frontend
-  IMAGE_BASE_URL: getRuntimeConfig('IMAGE_BASE_URL', 'VITE_IMAGE_BASE_URL', defaultImageHost),
-  
-  // Socket.IO URL (usually same as API base)
-  SOCKET_URL: getRuntimeConfig('SOCKET_URL', 'VITE_SOCKET_URL', defaultBackend),
+  IMAGE_BASE_URL: getConfig('VITE_IMAGE_BASE_URL', defaultImageHost),
+
+  // Realtime WebSocket server URL (http(s); usually same as API base)
+  SOCKET_URL: getConfig('VITE_SOCKET_URL', defaultBackend),
 };
 
 export default config;
