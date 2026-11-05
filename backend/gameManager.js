@@ -5733,7 +5733,7 @@ class GameManager {
     const availableHeroes = this.heroes.filter(hero => !bannedCards.includes(hero.name));
     
     // Use regular shuffle for equal probability
-    const shuffled = shuffle(availableHeroes);
+    const shuffled = shuffleArray(availableHeroes);
     
     // Assign 3 random heroes to each player - properly reset each hero
     game.players[0].team = shuffled.slice(0, 3).map(hero => this.resetHeroToOriginalState(hero));

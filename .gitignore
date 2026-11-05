@@ -49,3 +49,7 @@ Thumbs.db
 game_database.sqlite
 .vercel
 .env*
+
+# Cloudflare local dev
+.dev.vars
+.wrangler/

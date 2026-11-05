@@ -1362,7 +1362,6 @@ class Database {
     
     try {
       // Get all enabled heroes
-      delete require.cache[require.resolve('./heros.json')];
       const allHeroes = require('./heros.json');
       const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
       const heroesJson = JSON.stringify(enabledHeroes);
