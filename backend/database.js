@@ -1,36 +1,9 @@
-const sqlite3 = require('sqlite3').verbose();
 const { hashPassword, verifyPassword, randomPasswordHash } = require('./passwords');
-const path = require('path');
 
 class Database {
-  constructor() {
-    this.db = null;
-    this.init();
-  }
-
-  init() {
-    // Create database file in a persistent data directory
-    const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
-    const dbPath = path.join(dataDir, 'game_database.sqlite');
-    
-    console.log('Attempting to connect to database at:', dbPath);
-    
-    this.db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-      if (err) {
-        console.error('Error opening database:', err.message);
-        console.error('Database path was:', dbPath);
-      } else {
-        console.log('Connected to SQLite database at:', dbPath);
-        // Serialize so the ALTER TABLE statements never run before CREATE TABLE has finished
-        // (on a fresh database they otherwise race, and the columns are silently never added)
-        this.db.serialize(() => this.createTables());
-
-      }
-    });
-    
-    this.db.on('error', (err) => {
-      console.error('Database error event:', err);
-    });
+  constructor(db) {
+    this.db = db;
+    this.createTables();
   }
 
   createTables() {
@@ -48,7 +21,10 @@ class Database {
         available_heroes TEXT DEFAULT '[]',
         best_gauntlet_trial INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_login DATETIME DEFAULT CURRENT_TIMESTAMP
+        last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
+        favorite_heroes TEXT DEFAULT '[]',
+        player_id TEXT,
+        tutorial_completed INTEGER DEFAULT 1
       )
     `;
 
@@ -147,14 +123,6 @@ class Database {
       }
     });
 
-    this.db.run(createGauntletSaveStatesTable, (err) => {
-      if (err) {
-        console.error('Error creating gauntlet_save_states table:', err.message);
-      } else {
-        console.log('Gauntlet save states table created or already exists');
-      }
-    });
-
     this.db.run(createPlayerStatsTable, (err) => {
       if (err) {
         console.error('Error creating player_stats table:', err.message);
@@ -176,42 +144,6 @@ class Database {
     `, (err) => {
       if (err) {
         console.error('Error creating player_quests table:', err.message);
-      }
-    });
-
-    // Add favorite_heroes column to users table if it doesn't exist
-    this.db.run(`ALTER TABLE users ADD COLUMN favorite_heroes TEXT DEFAULT '[]'`, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.error('Error adding favorite_heroes column:', err.message);
-      } else if (!err) {
-        console.log('Added favorite_heroes column to users table');
-      }
-    });
-
-    // Add best_gauntlet_trial column to users table if it doesn't exist
-    this.db.run(`ALTER TABLE users ADD COLUMN best_gauntlet_trial INTEGER DEFAULT 0`, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.error('Error adding best_gauntlet_trial column:', err.message);
-      } else if (!err) {
-        console.log('Added best_gauntlet_trial column to users table');
-      }
-    });
-
-    // Add player_id column to users table if it doesn't exist
-    this.db.run(`ALTER TABLE users ADD COLUMN player_id TEXT`, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.error('Error adding player_id column:', err.message);
-      } else if (!err) {
-        console.log('Added player_id column to users table');
-      }
-    });
-
-    // Existing accounts default to 1 (tutorial done); createUser inserts 0 for new accounts
-    this.db.run(`ALTER TABLE users ADD COLUMN tutorial_completed INTEGER DEFAULT 1`, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.error('Error adding tutorial_completed column:', err.message);
-      } else if (!err) {
-        console.log('Added tutorial_completed column to users table');
       }
     });
   }

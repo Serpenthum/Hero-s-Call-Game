@@ -5,20 +5,10 @@ const path = require('path');
 
 async function createTestDatabase() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heros-call-test-'));
-  process.env.DATA_DIR = dir;
   const Database = require('../../database');
-  const database = new Database();
-
-  // Schema setup is asynchronous; wait until the last ALTER TABLE has added its column.
-  for (let i = 0; i < 100; i++) {
-    const ready = await new Promise(resolve => {
-      if (!database.db) return resolve(false);
-      database.db.all('PRAGMA table_info(users)', (err, cols) =>
-        resolve(!err && cols.some(c => c.name === 'tutorial_completed')));
-    });
-    if (ready) break;
-    await new Promise(r => setTimeout(r, 50));
-  }
+  const { createCompatDb } = require('../../sql/compat');
+  const { createNodeDriver } = require('../../sql/nodeDriver');
+  const database = new Database(createCompatDb(createNodeDriver(path.join(dir, 'test.sqlite'))));
 
   const cleanup = async () => {
     await new Promise(resolve => database.db.close(() => resolve()));

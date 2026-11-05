@@ -25,6 +25,8 @@ console.log('Loading utils...');
 const { rollDice, shuffleArray, rig } = require('./utils');
 console.log('Loading Database...');
 const Database = require('./database');
+const { createCompatDb } = require('./sql/compat');
+const { createNodeDriver } = require('./sql/nodeDriver');
 console.log('Game logic modules loaded successfully');
 
 const app = express();
@@ -85,7 +87,8 @@ const heroes = getHeroes();
 const auth = createAuth();
 
 // Initialize database
-const database = new Database();
+const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+const database = new Database(createCompatDb(createNodeDriver(path.join(dataDir, 'game_database.sqlite'))));
 await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait a moment to ensure database is ready
 
 // Create admin accounts for testing
