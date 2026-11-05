@@ -1,7 +1,7 @@
 // Shop endpoints: hero of the moment (5 VP) and card packs (12 VP).
 // Every route needs a login token, acts only on the token's own account, and spends Victory Points
 // through a guarded statement so simultaneous requests can never overspend.
-const express = require('express');
+const { createRouter } = require('./http/router');
 
 const HERO_PRICE = 5;
 const PACK_PRICE = 12;
@@ -10,7 +10,7 @@ const ROTATION_SIZE = 6;
 const ROTATION_MS = 15 * 60 * 1000;
 
 function createShopRouter({ database, getHeroes, auth, now = () => Date.now() }) {
-  const router = express.Router();
+  const router = createRouter();
   router.use(auth.requireUser);
 
   // Requests for the same user run one at a time (read VP -> spend -> write heroes)

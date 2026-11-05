@@ -1,100 +1,24 @@
-console.log('Starting server initialization...');
-
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors');
-const path = require('path');
 const { hashPassword, randomPasswordHash } = require('./passwords');
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const { v4: uuidv4 } = require('uuid');
-
-console.log('Basic modules loaded successfully');
-
-(async () => {
-
-
-// Import game logic
-console.log('Loading GameManager...');
 const GameManager = require('./gameManager');
 const { snapshotBattle, buildBattleEvent, classifyCast, heroKey } = require('./battleEvents');
 const { QuestService } = require('./quests');
 const { createAuth } = require('./auth');
 const { createShopRouter } = require('./shop');
-console.log('Loading utils...');
 const { rollDice, shuffleArray, rig } = require('./utils');
-console.log('Loading Database...');
-const Database = require('./database');
-const { createCompatDb } = require('./sql/compat');
-const { createNodeDriver } = require('./sql/nodeDriver');
-console.log('Game logic modules loaded successfully');
+const heroes = require('./heros.json');
 
-const app = express();
-const server = http.createServer(app);
+async function createGameServer({ io, router, database, env = {} }) {
+const ADMIN_PASSWORD = env.ADMIN_PASSWORD;
 
-const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:3000",
-  "http://127.0.0.1:5173",
-  "http://127.0.0.1:5174",
-  "http://localhost:4173",
-  "https://heroescall.8363742.xyz",
-  // Extra allowed sites (for example a Vercel domain), comma separated
-  ...(process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean)
-];
-const PRIVATE_NETWORK_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
-
-// Outside production, also accept LAN origins so the app works from other devices.
-const originAllowed = (origin, callback) => {
-  const ok = !origin
-    || ALLOWED_ORIGINS.includes(origin)
-    || (process.env.NODE_ENV !== 'production' && PRIVATE_NETWORK_ORIGIN.test(origin));
-  callback(null, ok);
-};
-
-const io = socketIo(server, {
-  cors: {
-    origin: originAllowed,
-    methods: ["GET", "POST"]
-  }
-});
-
-app.use(cors({
-  origin: originAllowed,
-  methods: ["GET", "POST", "OPTIONS"],
-  credentials: true
-}));
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
-
-// Serve hero images
-app.use('/hero-images', express.static(path.join(__dirname, '../frontend/hero-images'), { maxAge: '1d' }));
-
-// Serve login images
-app.use('/login-images', express.static(path.join(__dirname, '../frontend/public/login-images')));
-
-// Load heroes data dynamically to avoid caching issues
-const getHeroes = () => {
-  // Clear require cache for heroes.json to always get fresh data
-  delete require.cache[require.resolve('./heros.json')];
-  return require('./heros.json');
-};
-
-const heroes = getHeroes();
+// Heroes data is loaded once
+const getHeroes = () => heroes;
 
 // Login tokens: proves a request or socket really belongs to the account it names
 const auth = createAuth();
 
-// Initialize database
-const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
-const database = new Database(createCompatDb(createNodeDriver(path.join(dataDir, 'game_database.sqlite'))));
-await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait a moment to ensure database is ready
-
 // Create admin accounts for testing
-setTimeout(() => {
-  database.createAdminAccounts(ADMIN_PASSWORD);
-}, 10000); // Small delay to ensure database tables are created first
+await database.createAdminAccounts(ADMIN_PASSWORD);
 
 // Session management for authentication
 const userSessions = new Map(); // socketId -> userId
@@ -112,13 +36,13 @@ async function getCachedUsername(userId) {
 }
 
 // Test endpoint first
-app.get('/api/test', (req, res) => {
+router.get('/api/test', (req, res) => {
   console.log('Test API call received');
   res.json({ message: 'Server is working' });
 });
 
 // Authentication endpoints
-app.post('/api/register', async (req, res) => {
+router.post('/api/register', async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -186,7 +110,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/login', async (req, res) => {
+router.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -301,12 +225,10 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Admin auto-login endpoint - finds next available admin account
-app.post('/api/admin-login', async (req, res) => {
+router.post('/api/admin-login', async (req, res) => {
   try {
     // Get all enabled heroes for admin accounts
-    delete require.cache[require.resolve('./heros.json')];
-    const allHeroes = require('./heros.json');
-    const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
+    const enabledHeroes = heroes.filter(hero => !hero.disabled).map(hero => hero.name);
     const heroesJson = JSON.stringify(enabledHeroes);
 
     // Find next available admin number by checking existing admins
@@ -439,7 +361,7 @@ app.post('/api/admin-login', async (req, res) => {
   }
 });
 
-app.post('/api/logout', auth.requireUser, (req, res) => {
+router.post('/api/logout', auth.requireUser, (req, res) => {
   try {
     const { userId } = req.body;
     auth.revokeUser(userId);
@@ -482,7 +404,7 @@ app.post('/api/logout', auth.requireUser, (req, res) => {
   }
 });
 
-app.get('/api/user/:userId', async (req, res) => {
+router.get('/api/user/:userId', async (req, res) => {
   try {
     const user = await database.getUserById(parseInt(req.params.userId));
     
@@ -516,7 +438,7 @@ app.get('/api/user/:userId', async (req, res) => {
 });
 
 // API endpoint to get player stats
-app.get('/api/player-stats/:userId', async (req, res) => {
+router.get('/api/player-stats/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const stats = await database.getPlayerStats(userId);
@@ -534,7 +456,7 @@ app.get('/api/player-stats/:userId', async (req, res) => {
 });
 
 // API endpoint to update profile icon
-app.post('/api/update-profile-icon', auth.requireUser, async (req, res) => {
+router.post('/api/update-profile-icon', auth.requireUser, async (req, res) => {
   try {
     const { userId, heroName } = req.body;
     
@@ -568,7 +490,7 @@ app.post('/api/update-profile-icon', auth.requireUser, async (req, res) => {
 });
 
 // API endpoint to toggle favorite hero
-app.post('/api/toggle-favorite-hero', auth.requireUser, async (req, res) => {
+router.post('/api/toggle-favorite-hero', auth.requireUser, async (req, res) => {
   try {
     const { userId, heroName } = req.body;
     
@@ -591,7 +513,7 @@ app.post('/api/toggle-favorite-hero', auth.requireUser, async (req, res) => {
 });
 
 // API endpoint to get favorite heroes
-app.get('/api/favorite-heroes/:userId', async (req, res) => {
+router.get('/api/favorite-heroes/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     
@@ -614,9 +536,9 @@ app.get('/api/favorite-heroes/:userId', async (req, res) => {
 });
 
 // Shop API endpoints (see shop.js): login token required, rotation of 6 heroes, 5 VP hero / 12 VP pack
-app.use('/api/shop', createShopRouter({ database, getHeroes, auth }));
+router.use('/api/shop', createShopRouter({ database, getHeroes, auth }));
 
-app.get('/api/heroes', (req, res) => {
+router.get('/api/heroes', (req, res) => {
   try {
     console.log('API call received for /api/heroes');
     const userId = req.query.userId;
@@ -653,8 +575,6 @@ app.get('/api/heroes', (req, res) => {
     res.status(500).json({ error: 'Failed to load heroes data' });
   }
 });
-
-const PORT = process.env.PORT || 3001;
 
 // Game state management
 const gameManager = new GameManager(heroes, database);
@@ -788,7 +708,7 @@ function startTurnTimer(gameId) {
 }
 
 // Draft clock: the game manager does the auto-ban and auto-pick; here we tell the players.
-setInterval(() => {
+const draftClock = setInterval(() => {
   for (const ev of gameManager.tickDraftTimers()) {
     if (ev.kind === 'timer') {
       io.to(ev.gameId).emit('draft-timer', { gameId: ev.gameId, round: ev.round, durationMs: ev.durationMs, remainingMs: ev.remainingMs });
@@ -796,7 +716,7 @@ setInterval(() => {
       io.to(ev.gameId).emit(ev.kind === 'ban' ? 'ban-complete' : 'pick-complete', ev.result);
     }
   }
-}, 1000).unref();
+}, 1000);
 
 async function processEndTurn(socketId) {
   const result = withBattleEvent(socketId, 'tick', null, () => gameManager.endTurn(socketId));
@@ -3066,7 +2986,7 @@ io.on('connection', (socket) => {
 });
 
 // API endpoints
-app.get('/api/game/:gameId', (req, res) => {
+router.get('/api/game/:gameId', (req, res) => {
   const gameState = gameManager.getGameState(req.params.gameId);
   if (gameState) {
     res.json(gameState);
@@ -3075,48 +2995,17 @@ app.get('/api/game/:gameId', (req, res) => {
   }
 });
 
-server.listen(PORT, async () => {
-  console.log(`Hero's Call server running on port ${PORT}`);
-  console.log('Server startup completed successfully');
-  
-  // Migrate existing admin accounts to have player_id
-  try {
-    const adminAccounts = ['Admin1', 'Admin2', 'Admin3'];
-    for (const adminName of adminAccounts) {
-      await new Promise((resolve, reject) => {
-        database.db.run(
-          'UPDATE users SET player_id = ? WHERE username = ? AND player_id IS NULL',
-          [adminName, adminName],
-          function(err) {
-            if (err) {
-              console.error(`Error updating player_id for ${adminName}:`, err);
-              reject(err);
-            } else if (this.changes > 0) {
-              console.log(`✅ Updated player_id for ${adminName}`);
-              resolve();
-            } else {
-              resolve();
-            }
-          }
-        );
-      });
-    }
-  } catch (error) {
-    console.error('Error migrating admin accounts:', error);
-  }
-});
+function stop() {
+  clearInterval(draftClock);
+  for (const timer of turnTimers.values()) clearTimeout(timer.timeout);
+  turnTimers.clear();
+  for (const timer of autoEndTimers.values()) clearTimeout(timer);
+  autoEndTimers.clear();
+  for (const entry of pendingChallenges.values()) clearTimeout(entry.timeoutId);
+  pendingChallenges.clear();
+}
 
-// Add error handling for uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
-});
+return { gameManager, stop };
+}
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
-});
-
-module.exports = { app, server, io };
-
-})();
+module.exports = { createGameServer };

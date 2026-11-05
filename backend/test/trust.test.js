@@ -1,7 +1,7 @@
 // The server must not believe what the client says about who it is, what it owns, or what it earned.
 const { test, before, after, beforeEach, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const express = require('express');
+const { createRouter, handleFetch } = require('../http/router');
 const heroList = require('../heros.json');
 const { makeManager } = require('./support/battle');
 const { createTestDatabase, createUser } = require('./support/db');
@@ -96,23 +96,19 @@ describe('shop', () => {
   const enabled = heroList.filter(h => !h.disabled).map(h => h.name);
   const starters = ['Assassin', 'Barbarian', 'Cleric', 'Druid', 'Fighter', 'Monk', 'Paladin', 'Ranger', 'Sorcerer', 'Wizard'];
 
-  let auth, server, base;
+  let auth, app;
   before(async () => {
     auth = createAuth();
-    const app = express();
-    app.use(express.json());
+    app = createRouter();
     app.use('/api/shop', createShopRouter({ database, getHeroes: () => heroList, auth, now: () => NOW }));
-    await new Promise(r => { server = app.listen(0, r); });
-    base = `http://127.0.0.1:${server.address().port}`;
   });
-  after(() => new Promise(r => server.close(r)));
 
   const call = async (path, { token, body, method = 'POST' } = {}) => {
-    const res = await fetch(base + path, {
+    const res = await handleFetch(app, new Request('http://t' + path, {
       method,
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: method === 'POST' ? JSON.stringify(body || {}) : undefined
-    });
+    }));
     return { status: res.status, json: await res.json() };
   };
   const newUser = async vp => {

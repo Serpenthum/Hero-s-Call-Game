@@ -15,7 +15,7 @@ const {
 } = require('./utils');
 
 // Debug mode - set to false in production for better performance
-const DEBUG = process.env.DEBUG_GAME === 'true' || false;
+const DEBUG = typeof process !== 'undefined' && process.env && process.env.DEBUG_GAME === 'true';
 const debugLog = DEBUG ? console.log.bind(console) : () => {};
 
 // Survival is offered once a player owns this many heroes (a full run uses 7 wins x 3 heroes)
