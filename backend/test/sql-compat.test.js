@@ -76,3 +76,13 @@ test('back-to-back runs call back in issue order', async () => {
   await new Promise((r) => setTimeout(r));
   assert.deepStrictEqual(order, [1, 2]);
 });
+
+test('undefined params bind as NULL and booleans as 1/0', async () => {
+  const db = fresh();
+  const ins = await p((cb) => db.run('INSERT INTO t (v) VALUES (?)', [undefined], cb));
+  assert.strictEqual(ins.err, null);
+  const ins2 = await p((cb) => db.run('INSERT INTO t (v) VALUES (?)', [true], cb));
+  assert.strictEqual(ins2.err, null);
+  const r = await p((cb) => db.all('SELECT v FROM t ORDER BY id', [], cb));
+  assert.deepStrictEqual(r.res, [{ v: null }, { v: 1 }]);
+});

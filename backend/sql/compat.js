@@ -7,7 +7,8 @@ function createCompatDb(driver) {
       cb = params;
       params = [];
     }
-    params = params || [];
+    // Normalise like sqlite3 did, so every driver behaves the same.
+    params = (params || []).map((v) => (v === undefined ? null : v === true ? 1 : v === false ? 0 : v));
     // Run now so statements execute in issue order; defer only the callback.
     let result = null;
     let error = null;
