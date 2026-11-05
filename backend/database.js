@@ -1,5 +1,5 @@
 const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcryptjs');
+const { hashPassword, verifyPassword, randomPasswordHash } = require('./passwords');
 const path = require('path');
 
 class Database {
@@ -247,11 +247,7 @@ class Database {
         }
 
         // Hash the password
-        bcrypt.hash(password, 10, (hashErr, hash) => {
-          if (hashErr) {
-            reject(hashErr);
-            return;
-          }
+        hashPassword(password).then((hash) => {
 
           // Get starter heroes for new user (same as Gauntlet starter heroes)
           try {
@@ -284,7 +280,7 @@ class Database {
           } catch (heroErr) {
             reject(new Error('Error loading heroes data'));
           }
-        });
+        }).catch(reject);
       });
     });
   }
@@ -310,11 +306,7 @@ class Database {
         }
 
         // Compare password
-        bcrypt.compare(password, row.password_hash, async (compareErr, isMatch) => {
-          if (compareErr) {
-            reject(compareErr);
-            return;
-          }
+        verifyPassword(password, row.password_hash).then(async (isMatch) => {
 
           if (!isMatch) {
             reject(new Error('Invalid password'));
@@ -367,7 +359,7 @@ class Database {
               level: 1
             });
           }
-        });
+        }).catch(reject);
       });
     });
   }
@@ -1433,9 +1425,8 @@ class Database {
   }
 
   // Auto-create admin accounts for testing
-  async createAdminAccounts() {
+  async createAdminAccounts(adminPassword) {
     const adminAccounts = ['Admin1', 'Admin2', 'Admin3'];
-    const adminPassword = 'admin';
     
     try {
       // Get all enabled heroes
@@ -1459,7 +1450,7 @@ class Database {
         }
         
         // Create admin account
-        const hash = await bcrypt.hash(adminPassword, 10);
+        const hash = adminPassword ? await hashPassword(adminPassword) : await randomPasswordHash();
         
         const userId = await new Promise((resolve, reject) => {
           this.db.run(

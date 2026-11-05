@@ -1,7 +1,6 @@
 // Login tokens. Logging in returns a random token; requests and socket connections that act on an
 // account must present it, so a client can't simply claim to be another user id.
 // Tokens live in memory: a server restart logs everyone out, same as the existing session maps.
-const crypto = require('crypto');
 
 function createAuth() {
   const tokenToUser = new Map(); // token -> userId
@@ -10,7 +9,7 @@ function createAuth() {
   function issueToken(userId) {
     const id = Number(userId);
     revokeUser(id); // logging in again invalidates the previous session's token
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('');
     tokenToUser.set(token, id);
     userToToken.set(id, token);
     return token;

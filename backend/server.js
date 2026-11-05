@@ -5,7 +5,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const bcrypt = require('bcryptjs');
+const { hashPassword, randomPasswordHash } = require('./passwords');
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const { v4: uuidv4 } = require('uuid');
 
 console.log('Basic modules loaded successfully');
@@ -89,7 +90,7 @@ await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait a moment to e
 
 // Create admin accounts for testing
 setTimeout(() => {
-  database.createAdminAccounts();
+  database.createAdminAccounts(ADMIN_PASSWORD);
 }, 10000); // Small delay to ensure database tables are created first
 
 // Session management for authentication
@@ -319,7 +320,7 @@ app.post('/api/admin-login', async (req, res) => {
       
       if (!existingUser) {
         // Admin doesn't exist, create it
-        const hash = await bcrypt.hash('admin', 10);
+        const hash = ADMIN_PASSWORD ? await hashPassword(ADMIN_PASSWORD) : await randomPasswordHash();
         
         const userId = await new Promise((resolve, reject) => {
           database.db.run(
