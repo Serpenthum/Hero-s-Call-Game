@@ -5,11 +5,11 @@ const getConfig = (viteKey: string, fallback: string): string => {
 };
 
 // Default to the host the page was loaded from so LAN devices reach the backend too.
-const defaultBackend = `http://${window.location.hostname || 'localhost'}:3001`;
+const defaultBackend = `http://${window.location.hostname || 'localhost'}:8787`;
 
-// In a production build the hero art is served by the site itself unless an image host is configured.
-// In development the backend serves it.
-const defaultImageHost = (import.meta as any).env?.PROD ? window.location.origin : defaultBackend;
+// Hero art is served by the site itself (Vite dev server in development, the static host in production)
+// unless an image host is configured.
+const defaultImageHost = window.location.origin;
 
 const config = {
   // Backend API URL
