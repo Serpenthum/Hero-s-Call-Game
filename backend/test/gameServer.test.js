@@ -88,3 +88,29 @@ test('unknown routes return 404', async () => {
   const res = await api('GET', '/api/nope');
   assert.equal(res.status, 404);
 });
+
+test('ADMIN_PASSWORD updates existing admin accounts on the next start', async () => {
+  const fresh = await createTestDatabase();
+  const boot = async (env) => {
+    const h = createHub();
+    const r = createRouter();
+    const s = await createGameServer({ io: h, router: r, database: fresh.database, env });
+    const login = async (u, p) => {
+      const res = await handleFetch(r, new Request('http://t/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }),
+      }));
+      return res.json();
+    };
+    return { s, login };
+  };
+  try {
+    const first = await boot({});
+    assert.notEqual((await first.login('Admin1', 'newpw-123')).success, true);
+    first.s.stop();
+    const second = await boot({ ADMIN_PASSWORD: 'newpw-123' });
+    assert.equal((await second.login('Admin1', 'newpw-123')).success, true);
+    second.s.stop();
+  } finally {
+    await fresh.cleanup();
+  }
+});
