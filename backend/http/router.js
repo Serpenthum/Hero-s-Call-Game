@@ -100,6 +100,33 @@ function createRouter() {
   return router;
 }
 
+const MAX_BODY_BYTES = 102400; // 100 KB
+const HANDLER_TIMEOUT_MS = 25000;
+
+// Reads the request body as text, giving up (null) once it exceeds maxBytes.
+async function readBodyCapped(request, maxBytes) {
+  const declared = Number(request.headers.get('content-length'));
+  if (declared > maxBytes) return null;
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try { await reader.cancel(); } catch (_) { /* ignore */ }
+      return null;
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) { all.set(c, offset); offset += c.byteLength; }
+  return new TextDecoder().decode(all);
+}
+
 async function handleFetch(router, request) {
   const url = new URL(request.url);
   const headers = {};
@@ -110,7 +137,10 @@ async function handleFetch(router, request) {
   let body = {};
   const contentType = headers['content-type'] || '';
   if (request.method !== 'GET' && request.method !== 'HEAD' && contentType.includes('json')) {
-    const text = await request.text();
+    const text = await readBodyCapped(request, MAX_BODY_BYTES);
+    if (text === null) {
+      return jsonResponse(413, { success: false, message: 'Payload too large' }, {});
+    }
     if (text.trim()) {
       try {
         body = JSON.parse(text);
@@ -126,9 +156,14 @@ async function handleFetch(router, request) {
     let status = 200;
     const outHeaders = {};
     let finished = false;
+    const timer = setTimeout(() => {
+      console.error('Route handler timed out:', req.method, req.path);
+      finish(jsonResponse(500, { success: false, message: 'Server error' }, {}));
+    }, HANDLER_TIMEOUT_MS);
     const finish = (response) => {
       if (finished) return;
       finished = true;
+      clearTimeout(timer);
       resolve(response);
     };
     const res = {

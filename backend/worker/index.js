@@ -13,6 +13,15 @@ function corsHeaders(origin) {
   };
 }
 
+const MAX_BODY_BYTES = 102400; // 100 KB
+
+function jsonError(status, message, origin, allowed) {
+  return new Response(JSON.stringify({ success: false, message }), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', ...(allowed ? corsHeaders(origin) : {}) },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -31,8 +40,18 @@ export default {
       return new Response('Forbidden', { status: 403 });
     }
 
-    const stub = env.GAME.get(env.GAME.idFromName('main'));
-    const response = await stub.fetch(request);
+    if (!isWs && Number(request.headers.get('content-length')) > MAX_BODY_BYTES) {
+      return jsonError(413, 'Payload too large', origin, allowed);
+    }
+
+    let response;
+    try {
+      const stub = env.GAME.get(env.GAME.idFromName('main'));
+      response = await stub.fetch(request);
+    } catch (err) {
+      console.error('Durable Object fetch failed:', err);
+      return jsonError(500, 'Server error', origin, allowed);
+    }
     if (response.status === 101 || !allowed) return response;
 
     const out = new Response(response.body, response);

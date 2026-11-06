@@ -86,3 +86,25 @@ test('undefined params bind as NULL and booleans as 1/0', async () => {
   const r = await p((cb) => db.all('SELECT v FROM t ORDER BY id', [], cb));
   assert.deepStrictEqual(r.res, [{ v: null }, { v: 1 }]);
 });
+
+test('a throwing callback does not break later callbacks', async () => {
+  const db = fresh();
+  const orig = console.error;
+  console.error = () => {};
+  try {
+    const order = [];
+    db.run('INSERT INTO t (v) VALUES (1)', [], () => { throw new Error('boom'); });
+    db.run('INSERT INTO t (v) VALUES (2)', [], () => order.push(2));
+    await new Promise((r) => setTimeout(r));
+    assert.deepStrictEqual(order, [2]);
+  } finally { console.error = orig; }
+});
+
+test('a failing statement without a callback is logged, not lost', () => {
+  const db = fresh();
+  const logged = [];
+  const orig = console.error;
+  console.error = (...a) => logged.push(a);
+  try { db.run('INSERT INTO nope VALUES (1)'); } finally { console.error = orig; }
+  assert.equal(logged.length, 1);
+});

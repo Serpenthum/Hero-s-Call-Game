@@ -17,10 +17,17 @@ function createCompatDb(driver) {
     } catch (err) {
       error = err;
     }
-    if (typeof cb !== 'function') return;
+    if (typeof cb !== 'function') {
+      if (error) console.error('[sql] statement failed:', error);
+      return;
+    }
     queueMicrotask(() => {
-      if (error) cb.call({}, error);
-      else pick(result, cb);
+      try {
+        if (error) cb.call({}, error);
+        else pick(result, cb);
+      } catch (e) {
+        console.error('[sql] callback threw:', e);
+      }
     });
   }
 
