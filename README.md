@@ -21,10 +21,18 @@ See [docs/DEPLOY_CLOUDFLARE.md](docs/DEPLOY_CLOUDFLARE.md) for details, free-pla
 
 ## How to Run Locally
 
-```bash
-cd backend && npm install && npx wrangler dev   # server
-cd frontend && npm install && npm run dev        # website, http://localhost:5173
-```
+Run `npm run install:all` once in the project folder. Then open two terminals:
+
+1. Terminal 1, the server:
+   ```
+   cd backend
+   npx wrangler dev
+   ```
+2. Terminal 2, the website (http://localhost:5173):
+   ```
+   cd frontend
+   npm run dev
+   ```
 
 ## How to Play
 
@@ -81,7 +89,12 @@ cd frontend && npm install && npm run dev        # website, http://localhost:517
 ## File Structure
 ```
 backend/
-  ├── server.js          # Main server and Socket.IO setup
+  ├── gameServer.js      # Game server: HTTP routes and realtime events
+  ├── worker/            # Cloudflare Worker entry and the Durable Object
+  ├── realtime/          # WebSocket hub (socket.io-style API)
+  ├── http/              # Small request router
+  ├── sql/               # SQLite drivers and compatibility layer
+  ├── passwords.js       # Password hashing
   ├── gameManager.js     # Core game logic and state management
   ├── utils.js           # Dice rolling and game utilities
   └── heros.json         # Hero card definitions
@@ -90,7 +103,8 @@ frontend/
   ├── src/
   │   ├── components/    # React components
   │   ├── types.ts       # TypeScript interfaces
-  │   ├── socketService.ts # Socket.IO client wrapper
+  │   ├── socketService.ts # Realtime client wrapper
+  │   ├── realtime/client.ts # WebSocket client
   │   └── App.tsx        # Main application component
   └── hero-images/       # Hero card images
 ```

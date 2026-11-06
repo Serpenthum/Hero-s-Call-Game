@@ -4,7 +4,9 @@ const getConfig = (viteKey: string, fallback: string): string => {
   return viteValue ? viteValue : fallback;
 };
 
-// Default to the host the page was loaded from so LAN devices reach the backend too.
+// Default to the local wrangler dev server. Only this machine reaches it: wrangler binds localhost and
+// the Worker only allows the origins listed in ALLOWED_ORIGINS. To test from a LAN device, run
+// `npx wrangler dev --ip 0.0.0.0` in backend and add the LAN origin to ALLOWED_ORIGINS in backend/.dev.vars.
 const defaultBackend = `http://${window.location.hostname || 'localhost'}:8787`;
 
 // Hero art is served by the site itself (Vite dev server in development, the static host in production)
