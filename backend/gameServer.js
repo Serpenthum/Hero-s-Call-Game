@@ -1,4 +1,3 @@
-const { hashPassword, randomPasswordHash } = require('./passwords');
 const { v4: uuidv4 } = require('uuid');
 const GameManager = require('./gameManager');
 const { snapshotBattle, buildBattleEvent, classifyCast, heroKey } = require('./battleEvents');
@@ -245,7 +244,7 @@ router.post('/api/admin-login', async (req, res) => {
       
       if (!existingUser) {
         // Admin doesn't exist, create it
-        const hash = ADMIN_PASSWORD ? await hashPassword(ADMIN_PASSWORD) : await randomPasswordHash();
+        const hash = await database.adminPasswordHash(ADMIN_PASSWORD);
         
         const userId = await new Promise((resolve, reject) => {
           database.db.run(

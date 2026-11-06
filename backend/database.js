@@ -1356,11 +1356,31 @@ class Database {
     }
   }
 
+  // The one place the admin password hash is decided: the configured
+  // ADMIN_PASSWORD if there is one, otherwise an unguessable random hash.
+  async adminPasswordHash(adminPassword) {
+    return adminPassword ? hashPassword(adminPassword) : randomPasswordHash();
+  }
+
+  // When ADMIN_PASSWORD is set, every existing AdminN account takes it (hashed once).
+  async syncAdminPasswords(adminPassword) {
+    if (!adminPassword) return;
+    const hash = await hashPassword(adminPassword);
+    await new Promise((resolve, reject) => {
+      this.db.run(
+        "UPDATE users SET password_hash = ? WHERE username GLOB 'Admin[0-9]' OR username GLOB 'Admin[0-9][0-9]' OR username = 'Admin100'",
+        [hash],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+  }
+
   // Auto-create admin accounts for testing
   async createAdminAccounts(adminPassword) {
     const adminAccounts = ['Admin1', 'Admin2', 'Admin3'];
     
     try {
+      await this.syncAdminPasswords(adminPassword);
       // Get all enabled heroes
       const allHeroes = require('./heros.json');
       const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
@@ -1381,7 +1401,7 @@ class Database {
         }
         
         // Create admin account
-        const hash = adminPassword ? await hashPassword(adminPassword) : await randomPasswordHash();
+        const hash = await this.adminPasswordHash(adminPassword);
         
         const userId = await new Promise((resolve, reject) => {
           this.db.run(
