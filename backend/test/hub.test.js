@@ -129,3 +129,25 @@ test('closed() fires disconnect once and cleans rooms', () => {
   assert.strictEqual(events(b.transport).length, 1);
   assert.strictEqual(a.socket.connected, false);
 });
+
+test('__ping is answered with __pong and never dispatched to handlers', () => {
+  const { out: [a] } = setup();
+  let called = 0;
+  a.socket.on('__ping', () => { called++; });
+  a.conn.receive(JSON.stringify({ t: '__ping', d: [] }));
+  assert.deepStrictEqual(a.transport.sent.filter((f) => f.t === '__pong'), [{ t: '__pong', d: [] }]);
+  assert.strictEqual(called, 0);
+  a.conn.receive(JSON.stringify({ t: '__other', d: [] }));
+  assert.strictEqual(a.transport.sent.filter((f) => f.t === '__pong').length, 1);
+});
+
+test('sweepIdle disconnects silent sockets and keeps active ones', () => {
+  const { io, out: [silent, active] } = setup(2);
+  const t0 = Date.now();
+  silent.socket.lastSeen = t0 - 61000;
+  active.conn.receive(JSON.stringify({ t: '__ping', d: [] }));
+  io.sweepIdle(t0, 60000);
+  assert.strictEqual(silent.socket.connected, false);
+  assert.strictEqual(silent.transport.closeCode, 1000);
+  assert.strictEqual(active.socket.connected, true);
+});

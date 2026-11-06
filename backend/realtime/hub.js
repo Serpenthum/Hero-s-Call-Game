@@ -75,6 +75,7 @@ function createHub({ maxFrameBytes = 65536 } = {}) {
       id,
       data: {},
       connected: true,
+      lastSeen: Date.now(),
       rooms: new Set([id]),
       _transport: transport,
       _handlers: new Map(),
@@ -138,6 +139,12 @@ function createHub({ maxFrameBytes = 65536 } = {}) {
       for (const s of socketsMap.values()) safeSend(s, frame);
     },
     to(room) { return makeEmitter([room], null); },
+    // Disconnect sockets that have sent nothing for more than maxSilentMs.
+    sweepIdle(now = Date.now(), maxSilentMs = 60000) {
+      for (const s of Array.from(socketsMap.values())) {
+        if (now - s.lastSeen > maxSilentMs) s.disconnect();
+      }
+    },
     attach(transport) {
       const socket = createSocket(transport);
       socketsMap.set(socket.id, socket);
@@ -147,6 +154,7 @@ function createHub({ maxFrameBytes = 65536 } = {}) {
       return {
         receive(text) {
           if (!socket.connected) return;
+          socket.lastSeen = Date.now();
           try {
             if (typeof text !== 'string' || byteLength(text) > maxFrameBytes) {
               console.error('[hub] dropped oversize/non-text frame');
@@ -155,6 +163,7 @@ function createHub({ maxFrameBytes = 65536 } = {}) {
             let frame;
             try { frame = JSON.parse(text); } catch (_) { return; }
             if (!frame || typeof frame !== 'object' || typeof frame.t !== 'string') return;
+            if (frame.t === '__ping') { safeSend(socket, { t: '__pong', d: [] }); return; }
             if (frame.t === 'disconnect' || frame.t.startsWith('__')) return;
             const hs = socket._handlers.get(frame.t);
             if (!hs || hs.length === 0) return;
