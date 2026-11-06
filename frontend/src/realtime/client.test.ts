@@ -199,4 +199,51 @@ describe('realtime client', () => {
     last().serverSend({ t: 'ev', d: [1] });
     expect(h).not.toHaveBeenCalled();
   });
+  describe('heartbeat', () => {
+    const connected = () => {
+      const s = make();
+      last().open();
+      last().serverSend({ t: '__welcome', d: ['abc'] });
+      return s;
+    };
+
+    it('pings every 25 s and stays up while pongs arrive', () => {
+      const s = connected();
+      const ws = last();
+      vi.advanceTimersByTime(25000);
+      expect(ws.frames().filter((f) => f.t === '__ping')).toHaveLength(1);
+      ws.serverSend({ t: '__pong', d: [] });
+      vi.advanceTimersByTime(10000);
+      expect(s.connected).toBe(true);
+      vi.advanceTimersByTime(15000);
+      expect(ws.frames().filter((f) => f.t === '__ping')).toHaveLength(2);
+    });
+
+    it('closes, fires disconnect and reconnects when no pong arrives', () => {
+      const s = connected();
+      const onDisconnect = vi.fn();
+      s.on('disconnect', onDisconnect);
+      const first = last();
+      vi.advanceTimersByTime(25000 + 10000);
+      expect(onDisconnect).toHaveBeenCalledWith('transport close');
+      expect(s.connected).toBe(false);
+      expect(first.closed).toBe(true);
+      vi.advanceTimersByTime(100);
+      expect(FakeWS.instances).toHaveLength(2);
+    });
+
+    it('honours interval overrides and stops pinging after disconnect()', () => {
+      const s = make({ pingIntervalMs: 1000, pongTimeoutMs: 500 });
+      last().open();
+      const ws = last();
+      ws.serverSend({ t: '__welcome', d: ['abc'] });
+      vi.advanceTimersByTime(1000);
+      expect(ws.frames().some((f) => f.t === '__ping')).toBe(true);
+      s.disconnect();
+      const n = ws.sent.length;
+      vi.advanceTimersByTime(5000);
+      expect(ws.sent.length).toBe(n);
+      expect(FakeWS.instances).toHaveLength(1);
+    });
+  });
 });

@@ -1,7 +1,7 @@
 // Minimal WebSocket client exposing the subset of the socket.io-client API the app uses.
 // Wire protocol (see backend/realtime/hub.js):
 //   server -> client: {t, d:[args]} | {t:'__welcome', d:[id]} | {t:'__ack', a, d:[results]} | {t:'__kick', d:[]}
-//   client -> server: {t, d:[args], a?: ackId}
+//   client -> server: {t, d:[args], a?: ackId} | {t:'__ping', d:[]} (answered by {t:'__pong', d:[]})
 
 type Handler = (...args: any[]) => void;
 
@@ -9,6 +9,8 @@ export interface SocketOptions {
   reconnectionAttempts?: number;
   reconnectionDelay?: number;
   WebSocketImpl?: typeof WebSocket;
+  pingIntervalMs?: number;
+  pongTimeoutMs?: number;
 }
 
 const MAX_BACKOFF_MS = 5000;
@@ -32,12 +34,18 @@ export class Socket<_E = any> {
   private stopped = false;
   private kicked = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private pingInterval: number;
+  private pongTimeout: number;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private pongTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(url: string, opts: SocketOptions = {}) {
     this.url = url.replace(/^http/i, 'ws').replace(/\/+$/, '') + '/ws';
     this.WS = opts.WebSocketImpl ?? (globalThis as any).WebSocket;
     this.maxAttempts = opts.reconnectionAttempts ?? 5;
     this.baseDelay = opts.reconnectionDelay ?? 1000;
+    this.pingInterval = opts.pingIntervalMs ?? 25000;
+    this.pongTimeout = opts.pongTimeoutMs ?? 10000;
     this.open();
   }
 
@@ -84,6 +92,7 @@ export class Socket<_E = any> {
       const pending = this.buffer;
       this.buffer = [];
       for (const s of pending) this.rawSend(s);
+      this.startHeartbeat();
       this.fire('connect');
       if (wasReconnect) this.fire('reconnect', attempts);
     } else if (f.t === '__ack') {
@@ -92,6 +101,8 @@ export class Socket<_E = any> {
         this.acks.delete(f.a);
         cb(...d);
       }
+    } else if (f.t === '__pong') {
+      this.clearPongTimer();
     } else if (f.t === '__kick') {
       this.kicked = true;
     } else if (!f.t.startsWith('__')) {
@@ -99,7 +110,43 @@ export class Socket<_E = any> {
     }
   }
 
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.pingTimer = setInterval(() => {
+      this.rawSend(JSON.stringify({ t: '__ping', d: [] }));
+      if (this.pongTimer) return;
+      this.pongTimer = setTimeout(() => {
+        this.pongTimer = null;
+        // No pong: the connection is dead. Drop it and take the normal reconnect path.
+        const ws = this.ws;
+        this.ws = null;
+        try {
+          ws?.close();
+        } catch {
+          /* ignore */
+        }
+        this.onTransportClosed();
+      }, this.pongTimeout);
+    }, this.pingInterval);
+  }
+
+  private clearPongTimer() {
+    if (this.pongTimer) {
+      clearTimeout(this.pongTimer);
+      this.pongTimer = null;
+    }
+  }
+
+  private stopHeartbeat() {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+    this.clearPongTimer();
+  }
+
   private onTransportClosed() {
+    this.stopHeartbeat();
     const wasConnected = this.connected;
     this.connected = false;
     if (wasConnected) {
@@ -210,6 +257,7 @@ export class Socket<_E = any> {
 
   disconnect(): this {
     this.stopped = true;
+    this.stopHeartbeat();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
