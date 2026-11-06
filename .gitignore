@@ -47,9 +47,11 @@ Thumbs.db
 *.tmp
 *.temp
 game_database.sqlite
-.vercel
 .env*
 
 # Cloudflare local dev
 .dev.vars
 .wrangler/
+
+# Public URLs only, safe to commit
+!frontend/.env.production

@@ -1,5 +1,5 @@
-// The hero art lives in frontend/hero-images (the backend serves it in development and Docker copies it
-// into dist). On Vercel the site serves it itself, so copy it into the build output.
+// The hero art lives in frontend/hero-images (the backend serves it in development). On Cloudflare Pages the
+// site serves it itself, so copy it into the build output.
 // Usage: node scripts/copy-assets.mjs   (after `vite build`)
 import { cpSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
