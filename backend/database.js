@@ -1368,7 +1368,7 @@ class Database {
     const hash = await hashPassword(adminPassword);
     await new Promise((resolve, reject) => {
       this.db.run(
-        "UPDATE users SET password_hash = ? WHERE username GLOB 'Admin[0-9]' OR username GLOB 'Admin[0-9][0-9]' OR username = 'Admin100'",
+        "UPDATE users SET password_hash = ? WHERE player_id = username AND (username GLOB 'Admin[0-9]' OR username GLOB 'Admin[0-9][0-9]' OR username = 'Admin100')",
         [hash],
         (err) => (err ? reject(err) : resolve())
       );

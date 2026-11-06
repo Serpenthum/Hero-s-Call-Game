@@ -141,13 +141,19 @@ test('__ping is answered with __pong and never dispatched to handlers', () => {
   assert.strictEqual(a.transport.sent.filter((f) => f.t === '__pong').length, 1);
 });
 
-test('sweepIdle disconnects silent sockets and keeps active ones', () => {
+test('sweepIdle closes silent sockets without __kick, fires disconnect once, keeps active ones', () => {
   const { io, out: [silent, active] } = setup(2);
   const t0 = Date.now();
-  silent.socket.lastSeen = t0 - 61000;
-  active.conn.receive(JSON.stringify({ t: '__ping', d: [] }));
-  io.sweepIdle(t0, 60000);
+  const reasons = [];
+  silent.socket.on('disconnect', (r) => reasons.push(r));
+  silent.socket.lastSeen = t0 - 121000;
+  active.socket.lastSeen = t0 - 119000;
+  io.sweepIdle(t0);
+  io.sweepIdle(t0);
   assert.strictEqual(silent.socket.connected, false);
-  assert.strictEqual(silent.transport.closeCode, 1000);
+  assert.strictEqual(silent.transport.closeCode, 4000);
+  assert.deepStrictEqual(silent.transport.sent.filter((f) => f.t === '__kick'), []);
+  assert.deepStrictEqual(reasons, ['ping timeout']);
+  assert.strictEqual(io.sockets.sockets.has(silent.socket.id), false);
   assert.strictEqual(active.socket.connected, true);
 });

@@ -114,3 +114,20 @@ test('ADMIN_PASSWORD updates existing admin accounts on the next start', async (
     await fresh.cleanup();
   }
 });
+
+test('ADMIN_PASSWORD sync does not touch a normal player named like an admin', async () => {
+  const fresh = await createTestDatabase();
+  try {
+    await fresh.database.createUser('Admin42', 'userpw-123');
+    const r = createRouter();
+    const s = await createGameServer({ io: createHub(), router: r, database: fresh.database, env: { ADMIN_PASSWORD: 'adminpw-123' } });
+    const login = async (p) => (await handleFetch(r, new Request('http://t/api/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'Admin42', password: p }),
+    }))).json();
+    assert.equal((await login('userpw-123')).success, true);
+    assert.notEqual((await login('adminpw-123')).success, true);
+    s.stop();
+  } finally {
+    await fresh.cleanup();
+  }
+});

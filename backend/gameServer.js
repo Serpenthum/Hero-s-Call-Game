@@ -707,7 +707,7 @@ function startTurnTimer(gameId) {
 }
 
 // Draft clock: the game manager does the auto-ban and auto-pick; here we tell the players.
-const IDLE_SOCKET_MS = 60000; // clients ping every 25 s; silence this long means a dead connection
+const IDLE_SOCKET_MS = 120000; // clients ping every 25 s; silence this long means a dead connection
 const draftClock = setInterval(() => {
   if (typeof io.sweepIdle === 'function') io.sweepIdle(Date.now(), IDLE_SOCKET_MS);
   for (const ev of gameManager.tickDraftTimers()) {

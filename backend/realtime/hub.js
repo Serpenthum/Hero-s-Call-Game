@@ -139,10 +139,14 @@ function createHub({ maxFrameBytes = 65536 } = {}) {
       for (const s of socketsMap.values()) safeSend(s, frame);
     },
     to(room) { return makeEmitter([room], null); },
-    // Disconnect sockets that have sent nothing for more than maxSilentMs.
-    sweepIdle(now = Date.now(), maxSilentMs = 60000) {
+    // Drop sockets that have sent nothing for more than maxSilentMs.
+    // Closes WITHOUT __kick so a live-but-quiet client (throttled background tab) reconnects.
+    sweepIdle(now = Date.now(), maxSilentMs = 120000) {
       for (const s of Array.from(socketsMap.values())) {
-        if (now - s.lastSeen > maxSilentMs) s.disconnect();
+        if (now - s.lastSeen > maxSilentMs) {
+          try { s._transport.close(4000, 'ping timeout'); } catch (_) { /* already closed */ }
+          finish(s, 'ping timeout');
+        }
       }
     },
     attach(transport) {

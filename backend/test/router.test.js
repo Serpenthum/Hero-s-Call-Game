@@ -18,6 +18,13 @@ test('oversized body with content-length gets 413', async () => {
   assert.deepEqual(await res.json(), { success: false, message: 'Payload too large' });
 });
 
+test('declared content-length over the limit gets 413', async () => {
+  const router = createRouter();
+  router.post('/api/echo', (req, res) => res.json({ ok: true }));
+  const res = await post(router, JSON.stringify({ a: 1 }), { 'content-length': '200000' });
+  assert.equal(res.status, 413);
+});
+
 test('oversized chunked body without content-length gets 413', async () => {
   const router = createRouter();
   router.post('/api/echo', (req, res) => res.json({ ok: true }));
