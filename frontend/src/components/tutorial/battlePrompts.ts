@@ -27,6 +27,8 @@ export interface BattlePromptInput {
   // Whether the Attack / ability button is on screen and enabled
   attackReady: boolean;
   abilityReady: boolean;
+  // The sidebar says "No enemy can be focused" (it offers only End Turn)
+  noFocusable?: boolean;
 }
 
 export interface PromptProgress {
@@ -47,7 +49,7 @@ export const usedAbilityOf = (me: Player) => me.hasUsedAbility || (me.usedAbilit
 export const NEEDS_CLEAR_BOARD: ReadonlySet<PromptKind> = new Set<PromptKind>(['poison', 'crit', 'log', 'inspect']);
 
 export function pickBattlePrompt(input: BattlePromptInput): Prompt | null {
-  const { me, myTurn, battleLog, shown, inspected, attackReady, abilityReady } = input;
+  const { me, myTurn, battleLog, shown, inspected, attackReady, abilityReady, noFocusable } = input;
   const heroNames = new Set(me.team.map(h => h.name));
   const usedAttack = usedAttackOf(me);
   const usedAbility = usedAbilityOf(me);
@@ -99,6 +101,19 @@ export function pickBattlePrompt(input: BattlePromptInput): Prompt | null {
 
   // Before a focus the sidebar holds only the Focus button: first show an enemy, then press Focus
   if (!me.selectedTarget) {
+    // Nothing to focus: End Turn is the only button, so asking for an enemy would go round in circles
+    if (noFocusable) {
+      if (shown.has('endturn')) return null;
+      return {
+        kind: 'endturn',
+        step: {
+          key: 'end-turn-no-focus',
+          text: 'No enemy can be focused right now. Press End Turn to pass to your opponent!',
+          target: [actionButton('end-turn')],
+          interactive: true
+        }
+      };
+    }
     if (inspected?.side === 'enemy') {
       if (shown.has('focus')) return null;
       return {

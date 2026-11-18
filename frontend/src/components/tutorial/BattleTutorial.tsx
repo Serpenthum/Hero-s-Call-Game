@@ -128,6 +128,8 @@ const BattleTutorial: React.FC<BattleTutorialProps> = ({
   const [revealDone, setRevealDone] = useState(false);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const shown = useRef<Set<PromptKind>>(new Set());
+  // The turn the prompts were last picked on (BattlePhase closes the panel when it changes)
+  const pickedTurn = useRef('');
   const revealRef = useRef(onRevealChange);
   revealRef.current = onRevealChange;
 
@@ -178,15 +180,20 @@ const BattleTutorial: React.FC<BattleTutorialProps> = ({
 
   // Show the next relevant prompt once the intro is over and nothing else is showing
   useEffect(() => {
+    const turnKey = `${gameState.currentTurn}:${gameState.activeHero?.playerIndex}:${gameState.activeHero?.heroIndex}`;
+    // On the render where the turn changes, the panel is closing but App has not heard yet: treat it as closed
+    const freshTurn = pickedTurn.current !== turnKey;
+    pickedTurn.current = turnKey;
     if (stage !== 'done' || prompt || !me || gameState.phase === 'ended' || gameState.winner) return;
     const next = pickBattlePrompt({
       me,
       myTurn,
       battleLog,
       shown: shown.current,
-      inspected,
+      inspected: freshTurn ? null : inspected,
       attackReady: !!document.querySelector(actionButton('attack', true)),
-      abilityReady: !!document.querySelector(actionButton('ability', true))
+      abilityReady: !!document.querySelector(actionButton('ability', true)),
+      noFocusable: !!document.querySelector('.action-bar [data-tutorial="no-focus"]')
     });
     if (next) {
       shown.current.add(next.kind);

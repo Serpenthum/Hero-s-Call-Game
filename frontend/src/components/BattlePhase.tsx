@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
@@ -107,6 +107,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   useEffect(() => {
     onInspectChange?.(inspected);
   }, [inspected, onInspectChange]);
+  // Nothing is shown once the battle screen is gone
+  const inspectChangeRef = useRef(onInspectChange);
+  inspectChangeRef.current = onInspectChange;
+  useEffect(() => () => inspectChangeRef.current?.(null), []);
 
   // The panel closes on a tap anywhere but a card or the panel, and on Escape
   useEffect(() => {
@@ -636,7 +640,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
               if (!canFocusAny) {
                 return (
                   <div className="action-buttons focus-step">
-                    <div className="action-prompt focus-hint">No enemy can be focused</div>
+                    <div className="action-prompt focus-hint" data-tutorial="no-focus">No enemy can be focused</div>
                     <button
                       className="action-button end-turn-button"
                       data-tutorial="end-turn"

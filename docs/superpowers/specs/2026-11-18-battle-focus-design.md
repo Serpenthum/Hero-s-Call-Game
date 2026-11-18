@@ -66,7 +66,7 @@ turn, active hero, battle log; centre = cards; right = Actions).
   the board, so the full face (130px and up) is readable (about 210-220px wide on a sideways phone).
 - **Opponent's turn.** The waiting prompt adds "Focus: Warlock" when the opponent has focused one of your heroes (it
   fits without crowding at 667x375 and 844x390).
-- Labels: "Tap an enemy to focus", "Focus Warlock", "Taunted: focus Paladin", "Can't be targeted" (the last two on a
+- Labels: "Tap an enemy to focus", "Taunted: tap Paladin to focus" (the hint while taunted), "Focus Warlock", "Taunted: focus Paladin", "Can't be targeted" (the last two on a
   disabled Focus button), "No enemy can be focused", the original action labels ("Attack (1D6)", "Poison Strike",
   "Fireball") with the existing suffixes "(Used)", "(Silenced)", "(Stunned)", "(1/2)", "(Bribed)", and
   "(Target Dead)" on an action lost with a fallen focus.

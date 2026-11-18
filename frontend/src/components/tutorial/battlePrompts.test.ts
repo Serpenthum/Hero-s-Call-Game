@@ -78,6 +78,15 @@ describe('pickBattlePrompt', () => {
     expect(pickBattlePrompt(input({ myTurn: false, inspected: { name: 'Barbarian', side: 'enemy' } }))).toBeNull();
   });
 
+  it('offers End Turn, not an enemy to tap, when no enemy can be focused', () => {
+    const prompt = pickBattlePrompt(input({ noFocusable: true }));
+    expect(prompt?.kind).toBe('endturn');
+    expect(prompt?.step.target).toEqual(['.action-bar [data-tutorial="end-turn"]']);
+    expect(prompt?.step.interactive).toBe(true);
+    expect(pickBattlePrompt(input({ noFocusable: true, inspected: { name: 'Barbarian', side: 'enemy' } }))?.kind).toBe('endturn');
+    expect(pickBattlePrompt(input({ noFocusable: true, shown: new Set<PromptKind>(['log', 'endturn']) }))).toBeNull();
+  });
+
   it('shows each turn prompt once', () => {
     const shown = new Set<PromptKind>(['log', 'inspect', 'focus']);
     expect(pickBattlePrompt(input({ shown }))).toBeNull();
