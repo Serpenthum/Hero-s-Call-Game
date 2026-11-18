@@ -130,7 +130,13 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     const focus = turnFocus(gameState);
     const isFocused = !!focus && focus.defenderId === owner.id && focus.focus.name === hero.name;
     return createPortal(
-      <BattleDetailsPanel hero={hero} side={inspected.side} isFocused={isFocused} onClose={closeDetails} />,
+      <BattleDetailsPanel
+        hero={hero}
+        side={inspected.side}
+        isFocused={isFocused}
+        onClose={closeDetails}
+        ownerName={isSpectating ? owner.name : undefined}
+      />,
       slot
     );
   };
@@ -508,6 +514,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   isBlocked={!!selectingAllyForAbility && !isAllySelectable(hero)}
                   onClick={() => {
                     if (selectingAllyForAbility && (hero.currentHP ?? 0) > 0) {
+                      closeDetails();
                       // Check if this is Timekeeper's Chrono Shift
                       if (isTimekeeperChronoShift()) {
                         // Prevent Timekeeper from targeting itself

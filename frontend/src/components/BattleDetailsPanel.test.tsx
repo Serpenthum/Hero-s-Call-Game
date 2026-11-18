@@ -18,9 +18,15 @@ const warlock = (currentHP = 20): Hero => ({
   Special: [{ name: 'Dark Pact', description: 'Gains strength when an ally falls.', effects: [] }],
 });
 
-const render = (props: Partial<{ hero: Hero; side: 'enemy' | 'ally'; isFocused: boolean }> = {}) =>
+const render = (props: Partial<{ hero: Hero; side: 'enemy' | 'ally'; isFocused: boolean; ownerName: string }> = {}) =>
   renderToStaticMarkup(
-    <BattleDetailsPanel hero={props.hero ?? warlock()} side={props.side ?? 'enemy'} isFocused={props.isFocused ?? false} onClose={() => {}} />
+    <BattleDetailsPanel
+      hero={props.hero ?? warlock()}
+      side={props.side ?? 'enemy'}
+      isFocused={props.isFocused ?? false}
+      onClose={() => {}}
+      ownerName={props.ownerName}
+    />
   );
 
 describe('BattleDetailsPanel', () => {
@@ -49,5 +55,20 @@ describe('BattleDetailsPanel', () => {
     const html = render({ side: 'ally' });
     expect(html).toContain('Your hero');
     expect(html).toContain('data-side="ally"');
+  });
+
+  it("shows spectators the owner's name instead of Enemy / Your hero", () => {
+    const html = render({ side: 'ally', ownerName: 'Admin1' });
+    expect(html).toContain('Admin1');
+    expect(html).not.toContain('Your hero');
+    expect(render({ side: 'enemy', ownerName: 'Admin2' })).not.toContain('>Enemy<');
+  });
+
+  it('keeps the header to the name and the close X, with the tags over the card', () => {
+    const html = render({ isFocused: true });
+    const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+    expect(header).not.toContain('battle-details-tag');
+    const card = html.slice(html.indexOf('battle-details-card'));
+    expect(card.indexOf('battle-details-tags')).toBeLessThan(card.indexOf('battle-details-rules'));
   });
 });

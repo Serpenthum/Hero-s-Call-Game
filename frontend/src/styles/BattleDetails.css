@@ -1,8 +1,48 @@
 /* Battle card details: a tapped card shown over the left column (the battle log), with its rules as plain text.
    The panel covers the whole .battle-combined-info, which is its positioning parent. */
 
+/*
+ * The battle sidebar fills the window's height at every size, so the panel over it does too (the phone layout in
+ * BattlePhone.css already does this and wins on phones). The bottom is kept clear of the fixed friends button.
+ */
+:where(.App:has(.battle-layout)) .game-sidebar:has(.battle-combined-info) {
+  display: flex;
+  flex-direction: column;
+  height: var(--app-height);
+  max-height: none;
+  box-sizing: border-box;
+  padding-bottom: calc(88px + var(--safe-bottom));
+}
+
+:where(.App:has(.battle-layout)) .game-sidebar > .game-info:has(.battle-combined-info) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .battle-combined-info {
   position: relative;
+}
+
+:where(.App:has(.battle-layout)) .battle-combined-info {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The log takes the rest of the column */
+:where(.App:has(.battle-layout)) .battle-combined-info .battle-log-section {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+:where(.App:has(.battle-layout)) .battle-combined-info .log-entries {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
 }
 
 .battle-details {
@@ -15,7 +55,7 @@
   min-height: 0;
   padding: var(--space-2);
   box-sizing: border-box;
-  container-type: size;
+  container: battle-details / size;
   background: var(--walnut);
   border: 1px solid var(--brass-dim);
   border-radius: var(--radius-control);
@@ -29,52 +69,96 @@
   border-color: color-mix(in srgb, var(--ember) 60%, var(--brass-dim));
 }
 
-/* Header: name, tags, close X */
+/* Header: one 40px row with the name and the close X */
 .battle-details-header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1) var(--space-2);
+  gap: var(--space-2);
   flex-shrink: 0;
-  min-height: 40px;
-  padding-right: 44px;
-  position: relative;
+  height: 40px;
 }
 
+/* The name shrinks to fit (BattleDetailsPanel), wrapping between words, never under 12px */
 .battle-details-name {
-  margin: 0;
+  flex: 1;
   min-width: 0;
-  font: 400 var(--text-lg) / 1.1 var(--font-display);
+  height: 40px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  font: 400 20px / 1.05 var(--font-display);
   color: var(--bone);
+  overflow-wrap: normal;
+}
+
+.battle-details-name--break {
   overflow-wrap: anywhere;
 }
 
-.battle-details-tags {
+.battle-details .battle-details-close {
+  width: 40px;
+  height: 40px;
+}
+
+/* The live card: the height the rules leave, between a third and a half of the panel (BattleDetailsPanel) */
+.battle-details-card {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.battle-details .battle-details-card .hero-card.hero-layout-card {
+  --card-w: var(--details-card-w, min(92cqw, 48cqh * 260 / 391));
+  margin: 0;
+  cursor: default;
+}
+
+/* Without the fitted size (before layout), narrow panels keep the card to a third of their height */
+@container battle-details (max-width: 140px) {
+  .battle-details-card .hero-card.hero-layout-card {
+    --card-w: var(--details-card-w, min(92cqw, 32cqh * 260 / 391));
+  }
+}
+
+/* Tags over the card's art, right edge, under its status badges */
+.battle-details-tags {
+  position: absolute;
+  top: 24%;
+  right: 3px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  max-width: calc(100% - 6px);
+  pointer-events: none;
 }
 
 .battle-details-tag {
-  padding: 1px var(--space-2);
+  max-width: 100%;
+  padding: 1px 6px;
+  box-sizing: border-box;
   border-radius: var(--radius-control);
   border: 1px solid var(--brass-dim);
   background: var(--leather);
   color: var(--bone-dim);
-  font: 700 12px / 1.4 var(--font-ui);
-  white-space: nowrap;
+  font: 700 12px / 1.35 var(--font-ui);
+  box-shadow: 0 1px 4px var(--shade);
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .battle-details-tag--enemy {
   color: var(--bone);
   border-color: var(--ember);
-  background: color-mix(in srgb, var(--ember) 22%, var(--leather));
+  background: color-mix(in srgb, var(--ember) 45%, var(--leather));
 }
 
 .battle-details-tag--ally {
   color: var(--bone);
   border-color: var(--verdigris);
-  background: color-mix(in srgb, var(--verdigris) 20%, var(--leather));
+  background: color-mix(in srgb, var(--verdigris) 40%, var(--leather));
 }
 
 .battle-details-tag--focused {
@@ -84,43 +168,64 @@
 }
 
 .battle-details-tag--fallen {
-  color: var(--bone-dim);
+  color: var(--bone);
   border-color: var(--bone-dim);
   background: var(--felt-deep);
 }
 
-/* The close X is a 40px tap target in the header's top-right corner */
-.battle-details .battle-details-close {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 40px;
-  height: 40px;
-}
-
-/* The live card, at most about half the panel's height */
-.battle-details-card {
+/* Every ability and special as plain text, scrolling if long, with a fade and "More" while text is hidden */
+.battle-details-rules-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: flex;
-  justify-content: center;
-  flex-shrink: 0;
+  flex-direction: column;
 }
 
-.battle-details .battle-details-card .hero-card.hero-layout-card {
-  --card-w: min(92cqw, 48cqh * 260 / 391);
-  margin: 0;
-  cursor: default;
-}
-
-/* Every ability and special as plain text, scrolling if long */
 .battle-details-rules {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--brass-dim) transparent;
+  padding-right: 4px;
   font-size: 15px;
   line-height: 1.35;
+  scrollbar-width: thin;
+  scrollbar-color: var(--brass) var(--felt-deep);
+}
+
+.battle-details-rules::-webkit-scrollbar {
+  width: 6px;
+}
+
+.battle-details-rules::-webkit-scrollbar-track {
+  background: var(--felt-deep);
+  border-radius: 3px;
+}
+
+.battle-details-rules::-webkit-scrollbar-thumb {
+  background: var(--brass);
+  border-radius: 3px;
+}
+
+.battle-details-rules-wrap.has-more .battle-details-rules {
+  -webkit-mask-image: linear-gradient(to bottom, var(--card-black) calc(100% - 36px), transparent);
+  mask-image: linear-gradient(to bottom, var(--card-black) calc(100% - 36px), transparent);
+}
+
+.battle-details-more {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--brass-dim);
+  background: var(--leather);
+  color: var(--brass-hi);
+  font: 700 12px / 1.5 var(--font-ui);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .battle-details-rule + .battle-details-rule {
@@ -164,10 +269,6 @@
   .battle-details-rules {
     font-size: max(12px, var(--phone-sidebar-font, 14px));
   }
-
-  .battle-details-name {
-    font-size: max(14px, calc(var(--phone-sidebar-font, 14px) * 1.2));
-  }
 }
 
 /* ==================== Short screens (sideways phones) ==================== */
@@ -175,25 +276,5 @@
   .battle-details {
     padding: 4px;
     gap: 4px;
-  }
-
-  /* A 40px title bar (name and close X), with the tags on a line under it */
-  .battle-details-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 40px auto;
-    gap: 2px;
-    min-height: 0;
-  }
-
-  .battle-details-name {
-    align-self: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .battle-details .battle-details-card .hero-card.hero-layout-card {
-    --card-w: min(92cqw, 40cqh * 260 / 391);
   }
 }
