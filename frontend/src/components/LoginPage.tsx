@@ -19,12 +19,14 @@ interface User {
 }
 
 interface LoginPageProps {
+  // Why the player is here, e.g. signed out because the account was used on another tab
+  notice?: string | null;
   onLogin: (user: User) => void;
   onShowRegister: () => void;
   onStartCardTest: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartCardTest }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ notice, onLogin, onShowRegister, onStartCardTest }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -225,6 +227,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onShowRegister, onStartC
               </div>
             )}
           </div>
+
+          {notice && !error && (
+            <div className="ui-notice ui-notice--info signed-out-notice" role="status">
+              <Icon name="info" />
+              <span>{notice}</span>
+            </div>
+          )}
 
           {error && (
             <div className="ui-notice ui-notice--error" role="alert">

@@ -1,7 +1,9 @@
 // The login token the server gives us. It proves requests and the socket connection belong to the
 // logged-in account. It is also kept in sessionStorage so a refresh (or a quick app switch that
 // reloads the page) logs straight back in and rejoins a battle in progress. sessionStorage belongs to
-// this tab only and is wiped when the tab closes, so a shared classroom device is not left logged in.
+// this tab only, but a browser can bring it back (reopen closed tab, session restore), so the server
+// revokes the token once the account has had no connection for 5 minutes: a tab reopened later on a
+// shared computer lands on the login page.
 let authToken: string | null = null;
 
 const SESSION_KEY = 'heroCallSession';

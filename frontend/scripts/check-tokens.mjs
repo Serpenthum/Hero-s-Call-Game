@@ -43,6 +43,8 @@ const MIGRATED = [
   'styles/Reconnecting.css',
   'authSession.ts',
   'authSession.test.ts',
+  'signOut.ts',
+  'signOut.test.ts',
   'reconnect.ts',
   'reconnect.test.ts',
   'components/RotatePrompt.tsx',

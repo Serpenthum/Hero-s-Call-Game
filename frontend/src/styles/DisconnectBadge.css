@@ -148,13 +148,23 @@
   text-align: left;
 }
 
-/* In the draft it floats over the top right corner, clear of the cards */
-.disconnect-notice-dock {
-  position: fixed;
-  top: calc(var(--space-3) + var(--safe-top, 0px));
-  right: calc(var(--space-3) + var(--safe-right, 0px));
-  z-index: 1500;
-  max-width: calc(100vw - 2 * var(--space-3));
+/* In the draft sidebar: portrait on top, text under it, filling the narrow column */
+.disconnect-notice--stacked {
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+  padding: var(--space-2);
+  text-align: center;
+}
+
+.disconnect-notice--stacked .disconnect-notice__text,
+.disconnect-notice--stacked .disconnect-caption {
+  align-items: center;
+  text-align: center;
+}
+
+.disconnect-notice--stacked .disconnect-notice__name {
+  max-width: 100%;
 }
 
 /* Inside the initiative roll box, above its heading */
@@ -207,9 +217,17 @@
     font-size: var(--text-sm);
   }
 
-  .disconnect-notice-dock {
-    top: calc(var(--space-1) + var(--safe-top, 0px));
-    right: calc(var(--space-1) + var(--safe-right, 0px));
+  .disconnect-notice--stacked {
+    margin: var(--space-1) 0;
+    padding: var(--space-1);
+  }
+
+  .disconnect-notice--stacked .disconnect-caption__title {
+    font-size: 10px;
+  }
+
+  .disconnect-notice--stacked .disconnect-caption__count {
+    font-size: 12px;
   }
 
   .initiative-phase .disconnect-notice {

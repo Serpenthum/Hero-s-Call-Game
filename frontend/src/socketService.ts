@@ -15,10 +15,12 @@ class SocketService {
   private removeWindowListeners: (() => void) | null = null;
 
   connect(): Socket<SocketEvents> {
-    // One socket per login: a socket that is reconnecting is reused, never replaced
-    if (this.socket) {
+    // One socket per login: a socket that is reconnecting is reused, never replaced. A socket the
+    // server kicked (or that was closed) never comes back, so it is replaced.
+    if (this.socket && !this.socket.isStopped()) {
       return this.socket;
     }
+    if (this.socket) this.disconnect();
 
     // While logged in, keep trying to reconnect for as long as it takes (the backoff caps at 5 s)
     this.socket = createSocket(config.SOCKET_URL, {

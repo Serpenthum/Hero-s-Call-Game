@@ -14,10 +14,12 @@ import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
 import MessageIcon from './components/MessageIcon';
 import config from './config';
-import { authHeaders, setAuthToken, saveSession, restoreSession, clearSession } from './authSession';
+import { saveSession, restoreSession, clearSession } from './authSession';
 import { battleEventBus } from './battleAnimations';
 import { watchedPlayerLeft, spectatorReactionToLeaver } from './spectating';
 import { countdownFrom, deadlinesFromState, staleGameAfterLogin, DisconnectCountdown } from './reconnect';
+import { DisconnectNotice } from './components/DisconnectBadge';
+import { endSession } from './signOut';
 import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
@@ -249,6 +251,10 @@ function App() {
   const [disconnectDeadlines, setDisconnectDeadlines] = useState<Record<string, DisconnectCountdown>>({});
   // Our own connection dropped (after having been up): show "Reconnecting..." until it is back
   const [connectionLost, setConnectionLost] = useState(false);
+  // Why we are back on the login screen (e.g. signed in on another tab), shown there
+  const [signedOutNotice, setSignedOutNotice] = useState<string | null>(null);
+  // This socket's session has ended (forced logout): its closing is not a lost connection
+  const signedOutRef = useRef(false);
   const [draftTimer, setDraftTimer] = useState<{ round: number; durationMs: number; deadline: number } | null>(null);
   const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
   // How many of the six battle heroes are visible during the tutorial intro; null = all
@@ -1443,8 +1449,16 @@ function App() {
 
     socket.on('disconnect', (reason: string) => {
       setState(prev => ({ ...prev, isConnected: false }));
-      // Our own sign-out closes the socket on purpose; anything else is a lost connection
-      if (reason !== 'io client disconnect') setConnectionLost(true);
+      // Our own sign-out closes the socket on purpose
+      if (reason === 'io client disconnect' || signedOutRef.current) return;
+      // The server closed this session for good (it never reconnects after that): sign out here,
+      // never sit on "Reconnecting..."
+      if (reason === 'io server disconnect') {
+        signedOutRef.current = true;
+        handleLogout({ notifyServer: false, notice: 'You were signed in somewhere else, so this tab was signed out.' });
+        return;
+      }
+      setConnectionLost(true);
     });
 
     // Spectator mode listeners
@@ -1731,17 +1745,18 @@ function App() {
         alert('Multiple sessions detected\n\n' + data.message);
         handleLogout();
       } else if (data.message === 'Please log in again') {
-        handleLogout();
+        // The saved login expired: back to the login screen (the token is already dead on the server)
+        handleLogout({ notifyServer: false, notice: 'Please sign in again.' });
       } else {
         setState(prev => ({ ...prev, error: data.message || 'Authentication failed' }));
       }
     });
 
+    // The account was signed in on another tab or device: sign out here only, and say why
     socket.on('force-logout', (data) => {
       console.log('Force logout received:', data.message);
-      clearSession();
-      alert(data.message);
-      handleLogout();
+      signedOutRef.current = true;
+      handleLogout({ notifyServer: false, notice: 'You were signed in somewhere else, so this tab was signed out.' });
     });
 
     // Friends system socket listeners
@@ -1949,6 +1964,8 @@ function App() {
 
   // Authentication handlers
   const handleLogin = (user: User) => {
+    setSignedOutNotice(null);
+    signedOutRef.current = false;
     setState(prev => ({
       ...prev,
       user,
@@ -2028,11 +2045,18 @@ function App() {
     }));
   };
 
-  const handleLogout = async () => {
+  // notifyServer: false for a forced logout (the account moved to another tab or device). That tab may
+  // share our token (Duplicate tab copies sessionStorage), so /api/logout would sign it out too.
+  // notice: shown on the login screen to say why we are there.
+  const handleLogout = async (options: { notifyServer?: boolean; notice?: string } = {}) => {
+    const { notifyServer = true, notice } = options;
     const currentUser = state.user;
     // This tab no longer remembers the login
     clearSession();
     setConnectionLost(false);
+    setSignedOutNotice(notice ?? null);
+    // Close our socket first, so its closing is never mistaken for a lost connection
+    socketService.disconnect();
     
     // Clear stored game state
     localStorage.removeItem('heroCallActiveGame');
@@ -2055,22 +2079,9 @@ function App() {
       openMessageChats: []
     }));
     
-    // Call logout API to clean up server-side session
-    if (currentUser) {
-      try {
-        await fetch(`${config.API_BASE_URL}/api/logout`, {
-          method: 'POST',
-          headers: authHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ userId: currentUser.id }),
-        });
-        setAuthToken(null);
-      } catch (error) {
-        console.error('Logout API call failed:', error);
-      }
-    }
-    
-    // Disconnect socket
-    socketService.disconnect();
+    // A sign-out the player chose also ends the session on the server
+    await endSession({ notifyServer: notifyServer && !!currentUser, userId: currentUser?.id, apiBase: config.API_BASE_URL });
+
     pendingSurvivalSearchRef.current = null;
     pendingSearchRef.current = null;
     setIsSearchingForSurvivalMatch(false);
@@ -2277,6 +2288,7 @@ function App() {
       } else {
         return (
           <LoginPage
+            notice={signedOutNotice}
             onLogin={handleLogin}
             onShowRegister={handleShowRegister}
             onStartCardTest={() => setShowCardLayoutTest(true)}
@@ -2414,7 +2426,6 @@ function App() {
             opponent={opponent}
             allHeroes={state.allHeroes}
             draftTimer={draftTimer}
-            disconnectDeadlines={disconnectDeadlines}
           />
         );
 
@@ -2487,6 +2498,19 @@ function App() {
     
     const currentPlayer = getCurrentPlayer();
     const opponent = getOpponentPlayer();
+    // The opponent dropped out of the draft or setup: the sign sits in this sidebar, clear of the
+    // draft clock and the team panels
+    const opponentAway = !!opponent && !state.isSpectating &&
+      (opponent.connected === false || disconnectDeadlines[opponent.id] !== undefined);
+    const awayNotice = opponentAway && opponent ? (
+      <DisconnectNotice
+        stacked
+        countdown={disconnectDeadlines[opponent.id] ?? null}
+        name={opponent.name}
+        profileIcon={opponent.profile_icon}
+        viewerIsOpponent={true}
+      />
+    ) : null;
     
     return (
       <aside className="game-sidebar">
@@ -2517,7 +2541,8 @@ function App() {
                   <span className="opponent-name-sidebar">{opponent.name}</span>
                 </div>
               )}
-              {currentPlayer && (
+              {awayNotice}
+              {currentPlayer && !awayNotice && (
                 <div className="turn-status">
                   {(currentPlayer.team?.length || 0) < state.gameState.currentDraftPhase 
                     ? "Your turn to pick" 
@@ -2583,7 +2608,8 @@ function App() {
                 </div>
               )}
               
-              {currentPlayer && opponent && (
+              {awayNotice}
+              {currentPlayer && opponent && !awayNotice && (
                 <div className="turn-status">
                   {!currentPlayer.attackOrder || currentPlayer.attackOrder.length !== 3
                     ? "Set your attack order"

@@ -173,6 +173,22 @@ describe('realtime client', () => {
     expect(FakeWS.instances.length).toBe(count + 1);
   });
 
+  it('reports itself stopped once the server kicks it, so the app can replace it', () => {
+    const s = make();
+    last().open();
+    last().serverSend({ t: '__welcome', d: ['id1'] });
+    expect(s.isStopped()).toBe(false);
+    const reasons: string[] = [];
+    s.on('disconnect', (r: string) => reasons.push(r));
+    last().serverSend({ t: '__kick', d: [] });
+    last().serverClose();
+    expect(s.isStopped()).toBe(true);
+    expect(reasons).toEqual(['io server disconnect']);
+    s.probe();
+    vi.advanceTimersByTime(10000);
+    expect(s.connected).toBe(false);
+  });
+
   it('dropConnection() closes at once and reconnects', () => {
     const s = make();
     const first = last();

@@ -126,6 +126,11 @@ export class Socket<_E = any> {
     }, this.pingInterval);
   }
 
+  // True once this socket will never connect again (the server kicked it, or disconnect() was called)
+  isStopped(): boolean {
+    return this.stopped;
+  }
+
   // Closes the current connection as dead and takes the normal reconnect path
   dropConnection() {
     if (this.stopped) return;

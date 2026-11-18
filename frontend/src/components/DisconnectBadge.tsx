@@ -59,12 +59,14 @@ export const DisconnectCaption: React.FC<DisconnectCaptionProps> = ({ countdown,
 
 interface DisconnectNoticeProps extends DisconnectCaptionProps {
   profileIcon?: string;
+  // Portrait above the text, for a narrow column (the draft sidebar)
+  stacked?: boolean;
 }
 
-// A self-contained sign for screens without a battle avatar (the draft, the initiative roll):
+// A self-contained sign for screens without a battle avatar (the draft sidebar, the initiative roll):
 // the player's portrait with the countdown over it, their name, and the caption.
-export const DisconnectNotice: React.FC<DisconnectNoticeProps> = ({ countdown, name, viewerIsOpponent, profileIcon }) => (
-  <div className="disconnect-notice">
+export const DisconnectNotice: React.FC<DisconnectNoticeProps> = ({ countdown, name, viewerIsOpponent, profileIcon, stacked = false }) => (
+  <div className={`disconnect-notice${stacked ? ' disconnect-notice--stacked' : ''}`}>
     <span className="profile-icon-frame disconnect-notice__portrait">
       <img
         src={`${config.IMAGE_BASE_URL}/hero-images/${(profileIcon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
