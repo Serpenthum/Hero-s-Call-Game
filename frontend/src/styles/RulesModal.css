@@ -10,11 +10,15 @@
   width: 90%;
   max-height: 85vh;
   overflow: hidden;
+  /* Header stays put; the body below it scrolls when the frame hits its max height */
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 40px color-mix(in srgb, var(--felt-deep) 50%, transparent);
   backdrop-filter: blur(20px);
 }
 
 .rules-modal-header {
+  flex-shrink: 0;
   background: linear-gradient(135deg, color-mix(in srgb, var(--brass) 30%, transparent) 0%, color-mix(in srgb, var(--brass) 40%, transparent) 100%);
   padding: 20px 30px;
   border-bottom: 1px solid color-mix(in srgb, var(--brass) 30%, transparent);
@@ -34,6 +38,7 @@
 .rules-modal-content {
   padding: 25px 30px;
   max-height: calc(85vh - 80px);
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--brass-hi) color-mix(in srgb, var(--bone) 10%, transparent);
@@ -151,4 +156,15 @@
 .rule-text strong {
   color: var(--brass-hi);
   font-weight: 700;
+}
+
+/* Sideways phone: a slim header, the body fills the rest of the screen height and scrolls, text at 12px or more */
+@media (max-height: 500px) {
+  .rules-modal { max-height: 100%; }
+  .rules-modal-header { padding: var(--space-1) var(--space-4); }
+  .rules-modal-content { flex: 1 1 auto; max-height: none; padding: var(--space-3) var(--space-4); }
+  .rules-category { padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
+  .rules-category h4 { margin-bottom: var(--space-2); padding-bottom: var(--space-2); }
+  .rule-item { margin-bottom: var(--space-1); padding: var(--space-1) 0; }
+  .rule-label, .rule-value, .rule-text { font-size: max(12px, 0.95rem); }
 }

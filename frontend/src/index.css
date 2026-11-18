@@ -1,12 +1,16 @@
 :root {
   --image-base-url: 'http://localhost:3001';
-  /* The screen height left once the notch and home indicator are kept clear (the app root is padded by them) */
   /* Safe-area insets (notch, rounded corners, home indicator); 0 on computers */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
-  --app-height: calc(100dvh - var(--safe-top) - var(--safe-bottom));
+  /* The screen height left once the notch and home indicator are kept clear (the app root is padded by them).
+     100vh first: a var() holding an unsupported unit would invalidate every rule that reads it. */
+  --app-height: calc(100vh - var(--safe-top) - var(--safe-bottom));
+}
+@supports (height: 100dvh) {
+  :root { --app-height: calc(100dvh - var(--safe-top) - var(--safe-bottom)); }
 }
 
 /* Safe areas: the status bar is translucent and the app is full screen, so keep content clear of the notch,
@@ -25,6 +29,13 @@
 .game-over-overlay,
 .initiative-overlay {
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+/* Sideways phone: modals keep a small margin from the screen edge, or the inset where that is larger */
+@media (max-height: 500px) {
+  .modal-overlay, .profile-modal-overlay, .requirement-modal-overlay, .quest-reward-overlay {
+    padding: max(var(--space-2), var(--safe-top)) max(var(--space-2), var(--safe-right))
+      max(var(--space-2), var(--safe-bottom)) max(var(--space-2), var(--safe-left));
+  }
 }
 
 /* Root font size for responsive scaling */

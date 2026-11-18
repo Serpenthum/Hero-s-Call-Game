@@ -147,3 +147,14 @@
     opacity: 1;
   }
 }
+
+/* Sideways phone: tighter spacing; the quest list scrolls so OK always shows; 40px OK button */
+@media (max-height: 500px) {
+  .quest-reward-modal { display: flex; flex-direction: column; align-items: center; padding: var(--space-4) var(--space-6) var(--space-4); }
+  .quest-reward-modal > * { flex-shrink: 0; }
+  .quest-reward-modal h3 { margin: var(--space-1) 0 var(--space-2); }
+  .quest-reward-modal .quest-reward-list { flex-shrink: 1; min-height: 0; overflow-y: auto; margin-bottom: var(--space-3); }
+  .quest-reward-chips { margin-bottom: var(--space-3); }
+  .quest-reward-levelup { margin-bottom: var(--space-2); }
+  .quest-reward-ok { min-height: 40px; }
+}

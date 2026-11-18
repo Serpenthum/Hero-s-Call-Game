@@ -291,16 +291,16 @@
 .mode-unlock-toast-text strong { font-size: var(--text-md); color: var(--bone); }
 @keyframes lobby-fade { from { opacity: 0; } }
 
-/* Friends and messages dock: smaller on phones so it clears the placards */
+/* Friends and messages dock: smaller on phones so it clears the placards, but still a 40px tap target */
 @media (max-width: 768px), (max-width: 1000px) and (max-height: 600px) {
   body:has(.game-lobby-modern) .friends-icon,
   body:has(.game-lobby-modern) .message-icon {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     bottom: max(6px, var(--safe-bottom));
   }
   body:has(.game-lobby-modern) .friends-icon { left: calc(8px + var(--safe-left)); }
-  body:has(.game-lobby-modern) .message-icon { left: calc(50px + var(--safe-left)); }
+  body:has(.game-lobby-modern) .message-icon { left: calc(54px + var(--safe-left)); }
   body:has(.game-lobby-modern) .friends-icon-svg,
   body:has(.game-lobby-modern) .message-icon-svg { width: 18px; height: 18px; }
   body:has(.game-lobby-modern) .friends-icon .notification-badge,
@@ -313,7 +313,7 @@
     font-size: 9px;
   }
   body:has(.game-lobby-modern) .friends-icon-tooltip,
-  body:has(.game-lobby-modern) .message-icon-tooltip { bottom: 42px; }
+  body:has(.game-lobby-modern) .message-icon-tooltip { bottom: 46px; }
 }
 
 /* Narrow or short windows: one column; the featured hero is decorative, so it steps aside */

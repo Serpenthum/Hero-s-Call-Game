@@ -69,7 +69,7 @@
 .auth-title {
   margin: 0;
   text-align: center;
-  font: 400 var(--text-3xl) / 1.05 var(--font-display);
+  font: 500 var(--text-3xl) / 1.05 var(--font-display); /* Grenze Gotisch loads at 500 and 600 only */
   letter-spacing: 0.01em;
   color: var(--bone);
 }
@@ -109,4 +109,39 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .auth-book::before { animation: none; }
+}
+
+/* Sideways phone (short screen): the book opens flat. Title on the left page, the form on the right page,
+   so Sign in / Create account show without scrolling. Text at 12px or more, 40px tap targets, and 16px
+   fields so iOS Safari does not zoom the page when one is focused. */
+@media (max-height: 500px) {
+  .auth-page {
+    padding: max(var(--space-2), var(--safe-top)) max(var(--space-4), var(--safe-right))
+      max(var(--space-2), var(--safe-bottom)) max(var(--space-4), var(--safe-left));
+  }
+  .auth-book {
+    max-width: 48rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-rows: 1fr auto auto auto 1fr;
+    column-gap: var(--space-7);
+    padding: var(--space-6) var(--space-6) var(--space-4);
+  }
+  .auth-title { grid-area: 2 / 1; }
+  .auth-lede { grid-area: 3 / 1; margin: var(--space-2) 0 0; }
+  .auth-devtools { grid-area: 4 / 1; margin-top: var(--space-4); padding-top: var(--space-3); gap: var(--space-1); }
+  .auth-form { grid-area: 1 / 2 / -1; align-self: center; gap: var(--space-3); }
+  .auth-form .ui-field { gap: var(--space-1); }
+  .auth-page .ui-input { min-height: 40px; font-size: 16px; }
+  .auth-page .ui-btn { min-height: 40px; }
+  .auth-page .ui-hint { font-size: 12px; }
+  .auth-page .ui-check { min-height: 40px; }
+  .auth-actions { flex-direction: row; flex-wrap: wrap; align-items: center; margin-top: 0; }
+  .auth-actions .ui-btn--block { flex: 1 1 8rem; width: auto; }
+  .auth-switch { flex: none; gap: var(--space-1); }
+  /* Register: the two password fields share a row */
+  .auth-page--register .auth-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-3); }
+  .auth-page--register .auth-form > * { grid-column: 1 / -1; }
+  .auth-page--register .auth-form > .ui-field:nth-child(2),
+  .auth-page--register .auth-form > .ui-field:nth-child(3) { grid-column: auto; align-self: start; }
 }

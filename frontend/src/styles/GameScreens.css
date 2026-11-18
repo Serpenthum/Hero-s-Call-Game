@@ -8,7 +8,7 @@
 
 .app-layout {
   display: flex;
-  min-height: 100vh; /* Minimum height */
+  min-height: var(--app-height); /* Inside the .App safe-area padding, so 100vh would scroll by the insets */
   overflow: auto; /* Allow scrolling */
 }
 

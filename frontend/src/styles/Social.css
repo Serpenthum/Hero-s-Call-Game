@@ -172,8 +172,8 @@
 
 .friends-overlay {
   position: fixed;
-  bottom: 100px;
-  left: 30px;
+  bottom: calc(100px + var(--safe-bottom));
+  left: calc(30px + var(--safe-left));
   background: linear-gradient(135deg, var(--walnut) 0%, var(--leather) 100%);
   border: 2px solid color-mix(in srgb, var(--brass) 70%, transparent);
   border-radius: 16px;
@@ -767,10 +767,10 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .friends-overlay {
-        width: 95vw;
+        width: calc(95vw - var(--safe-left) - var(--safe-right));
         max-height: 90vh;
-        left: 2.5vw;
-        bottom: 80px;
+        left: calc(2.5vw + var(--safe-left));
+        bottom: calc(80px + var(--safe-bottom));
       }
 
   .message-chat-window {
@@ -798,4 +798,51 @@
         bottom: calc(15px + var(--safe-bottom));
         left: calc(85px + var(--safe-left));
       }
+}
+
+/* Sideways phone (short screen) */
+@media (max-height: 500px) {
+  /* Friends: a panel in the bottom-left corner, never taller than the screen; the list scrolls inside it */
+  .friends-overlay {
+    bottom: max(var(--space-2), var(--safe-bottom));
+    left: max(var(--space-2), var(--safe-left));
+    width: min(320px, calc(100vw - 2 * var(--space-2) - var(--safe-left) - var(--safe-right)));
+    max-height: calc(var(--app-height) - 2 * var(--space-2));
+  }
+  .friends-overlay-header { padding: var(--space-1) var(--space-4); }
+  .friends-overlay-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    padding: var(--space-3) var(--space-4);
+    scrollbar-width: thin;
+    scrollbar-color: var(--brass-dim) transparent;
+  }
+  .online-count { margin: 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-3)); padding: var(--space-2); }
+  .add-friend-button, .send-request-button, .cancel-button { min-height: 40px; }
+  .accept-button, .reject-button { width: 40px; height: 40px; }
+  .friend-badge, .in-game-badge { font-size: 12px; }
+  /* Player actions open beside the drawer, below its header (the drawer's backdrop-filter makes it the
+     tooltip's containing block) */
+  .player-tooltip {
+    left: calc(100% + var(--space-2));
+    top: 3.5rem;
+  }
+  .tooltip-action { min-height: 40px; font-size: 12px; }
+
+  /* Messages: the chat window runs the screen height, so the message box and Send stay on screen */
+  .message-chat-window {
+    top: max(var(--space-2), var(--safe-top)) !important;
+    bottom: max(var(--space-2), var(--safe-bottom));
+    height: auto;
+    max-height: none;
+    min-height: 0;
+    resize: none;
+  }
+  .chat-header { padding: var(--space-1) var(--space-3); }
+  .chat-minimize-button { width: 40px; height: 40px; }
+  .message-time { font-size: 12px; }
+  .send-button { min-height: 40px; }
+  /* 16px stops iOS Safari zooming the page when the field is focused */
+  .message-input, .add-friend-input { font-size: 16px; }
 }
