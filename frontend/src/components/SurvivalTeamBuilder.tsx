@@ -4,6 +4,7 @@ import config from '../config';
 import HeroCard from './HeroCard';
 import Icon from './ui/Icon';
 import useCardGrid from '../hooks/useCardGrid';
+import { TINY_CARD_MAX_WIDTH } from '../cards/cardRules';
 import '../styles/ResponsiveCardGrid.css';
 
 interface HeroAbility {
@@ -99,7 +100,8 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
     }
   }, [selectedTeam, isSearchingForMatch, searchStartTeam]);
 
-  const cardGrid = useCardGrid();
+  // On a sideways phone the cards are height-limited: fill the width with more of them, still above tiny mode
+  const cardGrid = useCardGrid({ shortScreenMinCardWidth: TINY_CARD_MAX_WIDTH + 1 });
   const heroesPerPage = cardGrid.pageSize;
   const TEAM_SIZE = 3;
 

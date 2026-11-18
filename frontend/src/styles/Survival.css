@@ -124,7 +124,7 @@
   .survival-mode-container { height: var(--app-height); max-height: none; }
   .survival-content {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(11rem, 15rem);
+    grid-template-columns: minmax(0, 1fr) minmax(11rem, 13rem);
     grid-template-rows: auto minmax(0, 1fr);
     height: 100%;
   }
@@ -190,9 +190,10 @@
   .used-heroes-list { max-height: none; }
 
   /* Hero browser */
-  .hero-browser-side { grid-column: 1; grid-row: 1 / -1; height: auto; min-height: 0; padding: var(--space-2) var(--space-3); border: 0; }
+  .hero-browser-side { position: relative; grid-column: 1; grid-row: 1 / -1; height: auto; min-height: 0; padding: var(--space-2) var(--space-3); border: 0; }
   .survival-team-builder .loading-state { grid-column: 1; grid-row: 1 / -1; height: auto; }
-  .survival-team-builder .hero-browser-header { flex-wrap: nowrap; gap: var(--space-2); margin: 0 0 var(--space-1); padding: var(--space-1) var(--space-2); }
+  /* The left padding is room for the page arrows, which sit on this row so the cards get the full width */
+  .survival-team-builder .hero-browser-header { flex-wrap: nowrap; gap: var(--space-2); margin: 0 0 var(--space-1); padding: var(--space-1) var(--space-2) var(--space-1) calc(88px + var(--space-3)); }
   .page-indicator { font-size: var(--text-sm); white-space: nowrap; }
   .survival-header-controls { flex: 1; flex-wrap: nowrap; justify-content: flex-end; gap: var(--space-2); min-width: 0; }
   .search-controls { min-width: 0; }
@@ -200,10 +201,21 @@
   .sort-controls label, .search-controls label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .survival-sort-dropdown, .survival-search-input { box-sizing: border-box; min-height: 40px; padding: 0 var(--space-2); font-size: 16px; }
   .survival-search-input { width: 9rem; min-width: 0; }
-  .heroes-grid-container { min-height: 0; padding: 0 var(--space-2); }
-  .survival-team-builder .heroes-grid-container .pagination-arrow-overlay { top: 50%; bottom: auto; width: 40px; height: 40px; font-size: var(--text-lg); transform: translateY(-50%); }
-  .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.left-arrow { left: 0 !important; }
-  .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.right-arrow { right: 0 !important; }
+  .survival-team-builder .heroes-grid-container { position: static; min-height: 0; padding: 0; }
+  /* Cards sit at the top, clear of the friends dock in the bottom-left corner */
+  .survival-team-builder .heroes-grid-container .responsive-card-viewport { align-items: flex-start; }
+  /* Page arrows on the header row (top: side padding + header border and padding); !important beats the older rules */
+  .survival-team-builder .heroes-grid-container .pagination-arrow-overlay,
+  .survival-team-builder .heroes-grid-container .pagination-arrow-overlay:hover {
+    top: calc(var(--space-2) + var(--space-1) + 1px);
+    bottom: auto;
+    width: 40px;
+    height: 40px;
+    font-size: var(--text-lg);
+    transform: none;
+  }
+  .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.left-arrow { left: calc(var(--space-3) + var(--space-2)) !important; }
+  .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.right-arrow { right: auto !important; left: calc(var(--space-3) + var(--space-2) + 44px) !important; }
   .no-heroes-available { padding: var(--space-4); }
 
   /* End and abandon panels: fit the height, 40px buttons */

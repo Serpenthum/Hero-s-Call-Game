@@ -16,11 +16,20 @@ type CardGridStyle = CSSProperties & {
   '--grid-card-scale': number;
 };
 
-export function calculateCardGrid(width: number, height: number, rowExtra = 0, maxRows = Infinity, fixedColumns?: number, gap = GAP, frameSpace = FRAME_SPACE) {
+// minCardWidth: when set, columns are counted at the card's height-limited width rather than the preferred
+// width, and the cards may shrink to minCardWidth to fit another column (a short, wide area).
+export function calculateCardGrid(width: number, height: number, rowExtra = 0, maxRows = Infinity, fixedColumns?: number, gap = GAP, frameSpace = FRAME_SPACE, minCardWidth?: number) {
   const availableWidth = Math.max(1, width - frameSpace);
   const availableHeight = Math.max(1, height - frameSpace);
-  const columns = fixedColumns ?? Math.max(1, Math.floor((availableWidth + gap) / (PREFERRED_CARD_WIDTH + gap)));
   const rows = Math.min(maxRows, Math.max(1, Math.floor((availableHeight + gap) / (MINIMUM_CARD_HEIGHT + rowExtra + gap))));
+  let columns = fixedColumns ?? Math.max(1, Math.floor((availableWidth + gap) / (PREFERRED_CARD_WIDTH + gap)));
+  if (fixedColumns === undefined && minCardWidth !== undefined) {
+    const heightScale = Math.min(1.2, (availableHeight - gap * (rows - 1) - rowExtra * rows) / (rows * CARD_HEIGHT));
+    const heightLimitedWidth = CARD_WIDTH * heightScale;
+    columns = Math.max(1,
+      Math.floor((availableWidth + gap) / (heightLimitedWidth + gap)),
+      Math.floor((availableWidth + gap) / (minCardWidth + gap)));
+  }
   const scale = Math.min(
     1.2,
     (availableWidth - gap * (columns - 1)) / (columns * CARD_WIDTH),
@@ -45,13 +54,15 @@ export function calculatePackGrid(width: number, height: number, count: number) 
   return { ...best, scale: Math.max(0.1, Math.floor(best.scale * 1000) / 1000) };
 }
 
-export default function useCardGrid({ packCount, rowExtra = 0, singleRowOnPhone = false, fixedColumns, gap = GAP, frameSpace = FRAME_SPACE }: {
+export default function useCardGrid({ packCount, rowExtra = 0, singleRowOnPhone = false, fixedColumns, gap = GAP, frameSpace = FRAME_SPACE, shortScreenMinCardWidth }: {
   packCount?: number;
   rowExtra?: number;
   singleRowOnPhone?: boolean;
   fixedColumns?: number;
   gap?: number;
   frameSpace?: number;
+  // On a short screen (a sideways phone), fill the width with cards no narrower than this; see calculateCardGrid
+  shortScreenMinCardWidth?: number;
 } = {}) {
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [layout, setLayout] = useState(() => calculateCardGrid(260, 391));
@@ -59,12 +70,13 @@ export default function useCardGrid({ packCount, rowExtra = 0, singleRowOnPhone 
   useLayoutEffect(() => {
     if (!element) return;
     const phoneScreen = window.matchMedia('(max-width: 600px), (max-width: 1000px) and (max-height: 600px)');
+    const shortScreen = window.matchMedia('(max-height: 500px)');
     let size = { width: 0, height: 0 };
     const updateLayout = () => {
       const { width, height } = size;
       if (width <= 0 || height <= 0) return;
       const maxRows = fixedColumns !== undefined || (singleRowOnPhone && phoneScreen.matches) ? 1 : Infinity;
-      const next = packCount === undefined ? calculateCardGrid(width, height, rowExtra, maxRows, fixedColumns, gap, frameSpace) :
+      const next = packCount === undefined ? calculateCardGrid(width, height, rowExtra, maxRows, fixedColumns, gap, frameSpace, shortScreen.matches ? shortScreenMinCardWidth : undefined) :
         calculatePackGrid(width, height, packCount);
       setLayout(previous => previous.columns === next.columns &&
         previous.rows === next.rows && previous.scale === next.scale ? previous : next);
@@ -75,11 +87,13 @@ export default function useCardGrid({ packCount, rowExtra = 0, singleRowOnPhone 
     });
     observer.observe(element);
     phoneScreen.addEventListener('change', updateLayout);
+    shortScreen.addEventListener('change', updateLayout);
     return () => {
       observer.disconnect();
       phoneScreen.removeEventListener('change', updateLayout);
+      shortScreen.removeEventListener('change', updateLayout);
     };
-  }, [element, packCount, rowExtra, singleRowOnPhone, fixedColumns, gap, frameSpace]);
+  }, [element, packCount, rowExtra, singleRowOnPhone, fixedColumns, gap, frameSpace, shortScreenMinCardWidth]);
 
   const style: CardGridStyle = {
     '--grid-columns': layout.columns,
