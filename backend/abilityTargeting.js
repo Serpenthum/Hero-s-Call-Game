@@ -49,10 +49,6 @@ function classifyAbility(ability, caster) {
   return { kind, damaging };
 }
 
-function specialDamaging(special) {
-  return !!special && special.category === 'activated_aoe';
-}
-
 // Owner's rule: only single-target damage needs a living focus. Area abilities ('all') and the
 // activated specials (all area effects) still work after the focus falls; self abilities always do.
 // 'enemy' covers Cleave and the Elementalist's ability, which hit the focus and splash a neighbour.
@@ -60,4 +56,4 @@ function lostWithFallenFocus(targeting) {
   return !!targeting && targeting.kind === 'enemy' && targeting.damaging;
 }
 
-module.exports = { classifyAbility, specialDamaging, lostWithFallenFocus };
+module.exports = { classifyAbility, lostWithFallenFocus };

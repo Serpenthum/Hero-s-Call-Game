@@ -2730,7 +2730,8 @@ class GameManager {
     
     // Check Hoarder's custom silence - prevent using abilities against Hoarder if debuffed.
     // A self ability is not used against anyone, so only enemy and all-enemy abilities are checked.
-    if (currentHero.statusEffects?.cannotTargetWithAbility && targeting.kind !== 'self') {
+    // A fallen focus is no longer a target, so an area ability goes ahead even if that was the Hoarder.
+    if (currentHero.statusEffects?.cannotTargetWithAbility && targeting.kind !== 'self' && !this.isFocusFallen(game, player)) {
       const debuff = currentHero.statusEffects.cannotTargetWithAbility;
       // Check if the focus is the Hoarder who applied the debuff
       const targetHero = this.focusedHero(game, player);

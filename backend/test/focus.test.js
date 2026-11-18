@@ -2,7 +2,7 @@
 const { test, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { makeManager, startBattle, hero, setD20, setRandom, resetDice, select } = require('./support/battle');
-const { classifyAbility, specialDamaging } = require('../abilityTargeting');
+const { classifyAbility } = require('../abilityTargeting');
 const heroList = require('../heros.json');
 
 const ENEMIES = ['Warlock', 'Shroomguard', 'Plague Spreader'];
@@ -50,9 +50,6 @@ test('classifyAbility matches the design table', () => {
   const tamer = heroList.find(h => h.name === 'Beast Tamer');
   assert.deepEqual(classifyAbility(tamer.Ability[0], { name: 'Beast Tamer', statusEffects: { beast_active: false } }), self);
   assert.deepEqual(classifyAbility(tamer.Ability[0], { name: 'Beast Tamer', statusEffects: { beast_active: true } }), enemy);
-
-  assert.equal(specialDamaging(heroList.find(h => h.name === 'Mech').Special), true);
-  assert.equal(specialDamaging(heroList.find(h => h.name === 'Diplomat').Special), false);
 });
 
 test('every action needs a focus', () => {
@@ -307,4 +304,19 @@ test('focusedHero looks only at the enemy team', () => {
   const game = startBattle(gm, ['Barbarian', 'Fighter', 'Cleric'], ['Fighter', 'Angel', 'Cleric']);
   select(gm, 'p0', 'Fighter');
   assert.equal(gm.focusedHero(game, game.players[0]), hero(game, 1, 'Fighter'));
+});
+
+test('a bribed hero that kills the Hoarder can still use an area ability', () => {
+  const game = battle('Wizard', ['Hoarder', 'Shroomguard', 'Plague Spreader']);
+  const hoarder = hero(game, 1, 'Hoarder');
+  hero(game, 0, 'Wizard').statusEffects.cannotTargetWithAbility = { owner: 'Hoarder', ownerId: hoarder.id, duration: 1, source: 'Hoarder' };
+  select(gm, 'p0', 'Hoarder');
+  // While the Hoarder stands, the bribe blocks Fireball
+  assert.deepEqual(pick(gm.useAbility('p0', 0, 'Hoarder')), { success: false, error: 'Cannot use abilities against Hoarder (Bribed)' });
+  hoarder.currentHP = 1;
+  setD20(20);
+  assert.equal(gm.basicAttack('p0', 'Hoarder').success, true);
+  assert.ok(hoarder.currentHP <= 0, 'the Hoarder fell');
+  const result = gm.useAbility('p0', 0, 'Hoarder');
+  assert.equal(result.success, true, result.error);
 });
