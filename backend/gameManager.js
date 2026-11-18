@@ -918,7 +918,8 @@ class GameManager {
 
     return {
       success: true,
-      gameState: game,
+      // The client view (with activeHero), not the raw game object
+      gameState: this.getFullGameState(game),
       players: game.players.map(p => ({
         id: p.id,
         name: p.name,

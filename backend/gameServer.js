@@ -2884,7 +2884,13 @@ io.on('connection', (socket) => {
   // Handle disconnection
   socket.on('disconnect', (reason) => {
     console.log('Player disconnected:', socket.id, 'Reason:', reason);
-    
+
+    // Look up the player's game now: the clean-up below removes them from playerGameMap (and can
+    // remove them from the game), and their spectators still need to be told they left.
+    const leftGameId = gameManager.playerGameMap.get(socket.id);
+    const leftGame = leftGameId ? gameManager.games.get(leftGameId) : null;
+    const leavingPlayer = leftGame ? leftGame.players.find(p => p.id === socket.id) : null;
+
     // Remove player from any matchmaking queues
     autoEndTurnPrefs.delete(socket.id);
     gameManager.endTutorialGame(socket.id);
@@ -2912,23 +2918,15 @@ io.on('connection', (socket) => {
       gameManager.handleDisconnect(socket.id);
     }
     
-    // Check if user was a player in a game and notify spectators
-    const gameId = gameManager.playerGameMap.get(socket.id);
-    if (gameId) {
-      const game = gameManager.games.get(gameId);
-      if (game && game.spectators && game.spectators.length > 0) {
-        const disconnectedPlayer = game.players.find(p => p.id === socket.id);
-        if (disconnectedPlayer) {
-          // Notify all spectators that a player disconnected
-          game.spectators.forEach(spectator => {
-            io.to(spectator.socketId).emit('spectated-player-disconnected', {
-              playerId: socket.id,
-              playerName: disconnectedPlayer.name
-            });
-          });
-          console.log(`👁️ Notified ${game.spectators.length} spectators about ${disconnectedPlayer.name}'s disconnection`);
-        }
-      }
+    // If they were a player in a game, notify that game's spectators
+    if (leftGame && leavingPlayer && leftGame.spectators && leftGame.spectators.length > 0) {
+      leftGame.spectators.forEach(spectator => {
+        io.to(spectator.socketId).emit('spectated-player-disconnected', {
+          playerId: socket.id,
+          playerName: leavingPlayer.name
+        });
+      });
+      console.log(`👁️ Notified ${leftGame.spectators.length} spectators about ${leavingPlayer.name}'s disconnection`);
     }
     
     // Clean up user session
