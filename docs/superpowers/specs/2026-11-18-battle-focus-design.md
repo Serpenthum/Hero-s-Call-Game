@@ -44,8 +44,10 @@ turn, active hero, battle log; centre = cards; right = Actions).
   special; cleared at turn change), refusal of a switch once locked, refusal of any action without a focus, refusal of
   damaging actions while the focus is dead, refusal to focus an untargetable enemy, and `activeHero.abilityTargeting`
   in the state so the client never re-derives the classification. Deploy the server before the site.
-- **Damage to everyone counts as damaging.** Fireball, Bomb Toss and Self Destruct are lost once the focus is dead
-  (they deal damage); Peace Treaty is not.
+- **Area attacks survive a fallen focus (owner, 2026-11-18).** Fireball, Bomb Toss and every activated special
+  (Self Destruct, Peace Treaty) still work once the focus is dead; they still need a focus first. Only single-target
+  damaging actions are lost: basic attack and enemy-kind damaging abilities, including ones that splash adjacent
+  enemies (Cleave, Thunderclap), Chrono Shift and Declare War.
 - **Beast Tamer** is classified from its state: before the beast is summoned the ability only summons (non-damaging);
   once summoned it commands an attack (damaging).
 - **No focusable enemy** (every living enemy untargetable): the hero can only End Turn, and the existing auto end-turn
