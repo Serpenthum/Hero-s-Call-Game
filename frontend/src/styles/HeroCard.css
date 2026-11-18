@@ -223,6 +223,15 @@
   font-size: 1.15em;
 }
 
+/* A hovered stat's tooltip has to clear the foil, the star, the status chips and the other gems. */
+.hero-card .card-stats:hover {
+  z-index: 8;
+}
+
+.hero-card .card-gem:hover {
+  z-index: 2;
+}
+
 .hero-card .card-gem {
   --gem-c: var(--stat-hp);
   --gem-hex: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
@@ -459,11 +468,6 @@
   font-size: 0.95em;
   line-height: 1.25;
   white-space: nowrap;
-}
-
-/* The tooltip's background is solid; its blur only makes it render see-through inside the card. */
-.hero-card .status-tooltip-text {
-  backdrop-filter: none;
 }
 
 /* The stat-change chip is red on red in the base styles; keep its text readable. */

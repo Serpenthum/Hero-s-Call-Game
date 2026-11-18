@@ -42,7 +42,9 @@ const buildFaceFixtures = (find: (name: string) => Hero) => {
     { label: 'Holographic', hero: full('Wizard'), props: { holo: true } },
     { label: 'Holographic favourite', hero: full('Ninja'), props: { holo: true, favorite: true } },
     { label: 'Glint and tilt', hero: full('Monk'), props: { glint: true, tilt: true } },
-    { label: 'Busy', hero: busy, props: { showFullInfo: true } }
+    { label: 'Busy', hero: busy, props: { showFullInfo: true } },
+    // A buffed stat with a hover tooltip, under the foil, the star and the status chips
+    { label: 'Busy holographic favourite', hero: { ...busy, modifiedAccuracy: '+3' }, props: { showFullInfo: true, holo: true, favorite: true } }
   ];
   const states: FaceFixture[] = [
     { label: 'Dead', hero: { ...full('Paladin'), currentHP: 0 } },
