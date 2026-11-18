@@ -129,7 +129,7 @@ test('game state carries focus and targeting');
   - `interface Focus { name: string; alive: boolean }`; `readFocus(attacker: Player | undefined, defender: Player | null | undefined): Focus | null` (looks only in `defender.team`; `alive` via `isHeroAlive`)
   - `turnFocus(gameState: GameState): { focus: Focus; defenderId: string } | null`: the active player's focus resolved on the other team; used to draw the marker for the acting player, the opponent and spectators alike.
   - `type Gate = { ok: true } | { ok: false; reason: 'need-focus' | 'fallen' }`
-  - `attackGate(focus: Focus | null): Gate`; `actionGate(t: AbilityTargeting, focus: Focus | null): Gate` (no focus → `need-focus`; dead focus and `t.damaging` → `fallen`)
+  - `attackGate(focus: Focus | null): Gate`; `actionGate(t: AbilityTargeting, focus: Focus | null): Gate` (no focus → `need-focus`; dead focus and `t.kind === 'enemy' && t.damaging` → `fallen`. Owner 2026-11-18: area attacks (kind `all`: Fireball, Bomb Toss, Self Destruct) still work after the focus falls; single-target attacks, including ones that splash adjacent enemies like Cleave or the Elementalist's ability, do not)
   - `attackLabel(focus: Focus | null, gate: Gate): string`; `actionLabel(name: string, t: AbilityTargeting, focus: Focus | null, gate: Gate): string` (`ok` and kind `enemy` → `"<name> on <Focus>"`; `ok` otherwise → name)
   - `tauntTargetFor(active: Hero, opponent: Player | null): string | null` (null when the hero ignores taunt or the taunter is dead; moved out of `BattlePhase.getTargetableEnemies`)
   - `interface FocusButtonInput { isMyTurn: boolean; isSpectating: boolean; inspected: { hero: Hero; side: CardSide }; focus: Focus | null; focusLocked: boolean; tauntTarget: string | null; activeHeroName: string }`
@@ -144,12 +144,12 @@ expect(attackLabel(warlock, attackGate(warlock))).toBe('Attack Warlock');
 expect(attackLabel(fallen, attackGate(fallen))).toBe('Warlock has fallen');
 expect(actionLabel('Wildshape', self, null, actionGate(self, null))).toBe('Focus an enemy first');
 expect(actionLabel('Wildshape', self, fallen, actionGate(self, fallen))).toBe('Wildshape');
-expect(actionGate(all, fallen)).toEqual({ ok: false, reason: 'fallen' });
+expect(actionGate(all, fallen)).toEqual({ ok: true }); // owner: area attacks still work after the focus falls
 expect(actionLabel('Fireball', all, warlock, actionGate(all, warlock))).toBe('Fireball');
 expect(actionLabel('Poison Strike', enemy, warlock, actionGate(enemy, warlock))).toBe('Poison Strike on Warlock');
 expect(actionLabel('Poison Strike', enemy, fallen, actionGate(enemy, fallen))).toBe('Warlock has fallen');
 expect(actionGate(specialTargeting('activated_aoe_heal'), fallen)).toEqual({ ok: true });
-expect(actionGate(specialTargeting('activated_aoe'), fallen)).toEqual({ ok: false, reason: 'fallen' });
+expect(actionGate(specialTargeting('activated_aoe'), fallen)).toEqual({ ok: true }); // Self Destruct is an area attack
 // readFocus looks only at the defender: both teams have 'Warlock'; attacker.selectedTarget 'Warlock';
 //   attacker's own Warlock at 0 HP, defender's alive -> { name: 'Warlock', alive: true }
 // turnFocus: currentTurn 1, players[1].selectedTarget 'Druid' -> { focus: { name: 'Druid', alive: true }, defenderId: players[0].id }
