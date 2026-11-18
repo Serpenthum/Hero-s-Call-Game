@@ -1,6 +1,13 @@
 const { v4: uuidv4 } = require('uuid');
 
 const DRAFT_TIME_MS = 30000; // one ban or pick round
+const RECONNECT_GRACE_MS = 30000; // how long a disconnected player has to come back before they forfeit
+// Games in these phases keep a disconnected player's seat for the grace period
+const RECONNECTABLE_PHASES = new Set(['draft', 'setup', 'initiative', 'battle']);
+// Modes where both seats are people (the tutorial is played against a bot)
+const PVP_MODES = new Set(['draft', 'random', 'survival', 'gauntlet']);
+// Account ids arrive as numbers from the database and sometimes as strings from clients
+const sameAccount = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
 const { 
   rollDice, 
   shuffleArray, 
@@ -38,7 +45,10 @@ class GameManager {
     this.survivalQueue = []; // Array of players waiting for survival mode
     this.database = database; // Database instance for victory points
     this.userSessions = new Map(); // playerId -> userId mapping for database operations
-    
+    this.reconnectGraceMs = RECONNECT_GRACE_MS;
+    // Set by the server: called with the outcome when a disconnected player's grace period runs out
+    this.onDisconnectTimeout = null;
+
     console.log(`Loaded ${this.allHeroes.length} total heroes, ${this.heroes.length} enabled for gameplay`);
   }
 
@@ -656,14 +666,8 @@ class GameManager {
       return { success: false, message: 'Game not found' };
     }
 
-    // Remove player from game
-    game.players = game.players.filter(p => p.id !== playerId);
-    this.playerGameMap.delete(playerId);
-
-    // If no players left, delete the game
-    if (game.players.length === 0) {
-      this.games.delete(gameId);
-    }
+    // Remove player from game (a game left with nobody connected is deleted)
+    this.removePlayerFromGame(game, playerId);
 
     console.log(`❌ Player ${playerId} cancelled survival search`);
     return { success: true };
@@ -5628,70 +5632,161 @@ class GameManager {
     };
   }
 
-  reconnectPlayer(socketId, gameId, playerName) {
-    const game = this.games.get(gameId);
-    if (!game) {
-      return { success: false, error: 'Game not found' };
+  // The account a seat belongs to. Seats are keyed by socket id, which changes on every reconnect.
+  userIdForPlayer(player) {
+    if (!player) return null;
+    return player.userId ?? this.userSessions.get(player.id) ?? null;
+  }
+
+  // A disconnect here keeps the seat open for the grace period instead of dropping the player
+  isSeatHeldOnDisconnect(game) {
+    return !!game && PVP_MODES.has(game.mode) && RECONNECTABLE_PHASES.has(game.phase) && game.players.length === 2;
+  }
+
+  // The live game this account dropped out of, if its seat is still being held
+  findHeldSeat(userId) {
+    if (userId === null || userId === undefined) return null;
+    for (const game of this.games.values()) {
+      if (!this.isSeatHeldOnDisconnect(game)) continue;
+      const player = game.players.find(p => p.connected === false && sameAccount(this.userIdForPlayer(p), userId));
+      if (!player) continue;
+      const timer = game.disconnectionTimers && game.disconnectionTimers.get(player.id);
+      if (timer && timer.surrendered) continue;
+      return { game, player };
+    }
+    return null;
+  }
+
+  // Puts a returning player back in their seat on a new socket. The account (userId) must own the seat;
+  // gameId is a hint (old clients send it), playerName is kept only for the old call signature.
+  reconnectPlayer(socketId, gameId, playerName, userId) {
+    if (userId === null || userId === undefined) {
+      return { success: false, error: 'Please log in again to rejoin your game' };
     }
 
-    const player = game.players.find(p => p.name === playerName);
-    if (!player) {
-      return { success: false, error: 'Player not found in game' };
-    }
-
-    // Check if player already surrendered from disconnection timeout
-    const oldPlayerId = game.players.find(p => p.name === playerName)?.id;
-    if (oldPlayerId && game.disconnectionTimers && game.disconnectionTimers.has(oldPlayerId)) {
-      const timerData = game.disconnectionTimers.get(oldPlayerId);
-      if (timerData.surrendered) {
-        return { success: false, error: 'You have already been surrendered due to disconnection' };
+    let seat = null;
+    const hinted = gameId ? this.games.get(gameId) : null;
+    if (hinted && this.isSeatHeldOnDisconnect(hinted)) {
+      const player = hinted.players.find(p => sameAccount(this.userIdForPlayer(p), userId));
+      if (player && player.connected === false) seat = { game: hinted, player };
+      else if (player && player.id === socketId) {
+        return { success: true, gameId: hinted.id, game: hinted, oldPlayerId: socketId, gameState: this.getFullGameState(hinted), reconnected: true };
       }
     }
+    if (!seat) seat = this.findHeldSeat(userId);
+    if (!seat) {
+      return { success: false, error: 'That game is no longer running' };
+    }
 
-    // Update player connection
+    const { game, player } = seat;
+    const timerData = game.disconnectionTimers && game.disconnectionTimers.get(player.id);
+    if (timerData && timerData.surrendered) {
+      return { success: false, error: 'You have already been surrendered due to disconnection' };
+    }
+
     const oldId = player.id;
-    player.id = socketId;
+    if (timerData && timerData.timeoutId) clearTimeout(timerData.timeoutId);
+    if (game.disconnectionTimers) game.disconnectionTimers.delete(oldId);
+    this.rekeyPlayer(game, oldId, socketId);
     player.connected = true;
-    this.playerGameMap.set(socketId, gameId);
-    
-    // Cancel disconnection countdown if it exists
-    if (game.disconnectionTimers && game.disconnectionTimers.has(oldId)) {
-      const timerData = game.disconnectionTimers.get(oldId);
-      if (timerData.timeoutId) {
-        clearTimeout(timerData.timeoutId);
-      }
-      game.disconnectionTimers.delete(oldId);
-      console.log(`✅ Player ${playerName} reconnected - cancelled disconnection countdown`);
-    }
-    
-    // Update the playerGameMap entry
-    this.playerGameMap.delete(oldId);
+    player.userId = userId;
+    console.log(`✅ Player ${player.name} reconnected to game ${game.id}`);
 
     return {
       success: true,
-      gameId,
+      gameId: game.id,
+      game,
+      oldPlayerId: oldId,
       gameState: this.getFullGameState(game),
       reconnected: true
     };
   }
 
+  // Moves everything keyed by a player's old socket id over to their new one
+  rekeyPlayer(game, oldId, newId) {
+    if (oldId === newId) return;
+    const player = game.players.find(p => p.id === oldId);
+    if (player) player.id = newId;
+    if (game.winner === oldId) game.winner = newId;
+    this.playerGameMap.delete(oldId);
+    this.playerGameMap.set(newId, game.id);
+    for (const map of [this.survivalStates, this.gauntletRuns]) {
+      if (map.has(oldId)) {
+        map.set(newId, map.get(oldId));
+        map.delete(oldId);
+      }
+    }
+    const userId = this.userSessions.get(oldId);
+    if (userId !== undefined && !this.userSessions.has(newId)) this.userSessions.set(newId, userId);
+    this.userSessions.delete(oldId);
+    for (const spectator of game.spectators || []) {
+      if (spectator.spectatingPlayerId === oldId) spectator.spectatingPlayerId = newId;
+    }
+  }
+
+  // Called for every player socket that closes. Returns { game, player } when the seat is held for a
+  // reconnect (the countdown has started), or null when the caller should clean up as before.
   handleDisconnect(playerId) {
     const gameId = this.playerGameMap.get(playerId);
-    if (gameId) {
-      const game = this.games.get(gameId);
-      if (game) {
-        const player = game.players.find(p => p.id === playerId);
-        if (player) {
-          player.connected = false;
-          
-          // Start disconnection countdown only if game is in battle phase
-          if (game.phase === 'battle') {
-            this.startDisconnectionCountdown(game, playerId);
-          }
-        }
-      }
+    if (!gameId) return null;
+    const game = this.games.get(gameId);
+    const player = game ? game.players.find(p => p.id === playerId) : null;
+    if (!game || !player) {
       this.playerGameMap.delete(playerId);
+      return null;
     }
+
+    if (this.isSeatHeldOnDisconnect(game)) {
+      player.connected = false;
+      if (player.userId === undefined || player.userId === null) player.userId = this.userSessions.get(playerId) ?? null;
+      // The seat stays mapped so server-driven moves (the draft clock) still find the game
+      this.startDisconnectionCountdown(game, playerId);
+      return { game, player };
+    }
+
+    player.connected = false;
+    this.playerGameMap.delete(playerId);
+    return null;
+  }
+
+  // Takes a player out of a game. A game with nobody connected left in it is closed.
+  removePlayerFromGame(game, playerId) {
+    game.players = game.players.filter(p => p.id !== playerId);
+    this.playerGameMap.delete(playerId);
+    if (game.players.every(p => p.connected === false)) this.closeGame(game);
+  }
+
+  // Lets go of a seat nobody came back to: its old socket id no longer maps to the game or the account
+  releaseSeat(game, playerId) {
+    if (this.playerGameMap.get(playerId) === game.id) this.playerGameMap.delete(playerId);
+    this.userSessions.delete(playerId);
+  }
+
+  // Deletes a game and everything still pointing at it
+  closeGame(game) {
+    this.clearDisconnectionTimers(game);
+    for (const p of game.players) {
+      if (p.connected === false) this.releaseSeat(game, p.id);
+      else if (this.playerGameMap.get(p.id) === game.id) this.playerGameMap.delete(p.id);
+    }
+    if (game.tutorial) this.playerGameMap.delete(game.tutorial.botId);
+    this.games.delete(game.id);
+  }
+
+  clearDisconnectionTimers(game) {
+    if (!game.disconnectionTimers) return;
+    for (const timer of game.disconnectionTimers.values()) {
+      if (timer.timeoutId) clearTimeout(timer.timeoutId);
+    }
+    game.disconnectionTimers.clear();
+  }
+
+  clearAllDisconnectionTimers() {
+    for (const game of this.games.values()) this.clearDisconnectionTimers(game);
+  }
+
+  hasDisconnectedPlayer(game) {
+    return !!game && game.players.some(p => p.connected === false);
   }
 
   // Draft clock: each ban or pick round lasts DRAFT_TIME_MS. The server calls this about once a second.
@@ -5775,93 +5870,120 @@ class GameManager {
     const player = game.players.find(p => p.id === playerId);
     if (!player) return;
 
-    console.log(`⏱️ Starting 30-second disconnection countdown for ${player.name}`);
+    const durationMs = this.reconnectGraceMs;
+    console.log(`⏱️ Starting ${Math.round(durationMs / 1000)}-second disconnection countdown for ${player.name}`);
 
     const startTime = Date.now();
     const timeoutId = setTimeout(() => {
-      this.handleDisconnectionTimeout(game, playerId);
-    }, 30000); // 30 seconds
+      this.handleDisconnectionTimeout(game.id, playerId).catch(err => console.error('Disconnection timeout failed:', err));
+    }, durationMs);
 
     game.disconnectionTimers.set(playerId, {
       startTime,
+      durationMs,
       timeoutId,
       surrendered: false,
       playerName: player.name
     });
 
-    // Notify the socket service that countdown has started (will be handled in server.js)
     if (this.io) {
       this.io.to(game.id).emit('disconnection-countdown-started', {
+        gameId: game.id,
         playerId,
         playerName: player.name,
-        remainingTime: 30
+        remainingTime: Math.ceil(durationMs / 1000),
+        remainingMs: durationMs,
+        durationMs
       });
     }
   }
 
-  async handleDisconnectionTimeout(game, playerId) {
+  // The grace period ran out. In battle (or the initiative roll) the player who stayed wins, exactly as if
+  // the other had surrendered. Before the battle (draft) the game is called off. If nobody is connected
+  // the game ends with no winner and nothing is paid or recorded.
+  async handleDisconnectionTimeout(gameId, playerId) {
+    const game = this.games.get(gameId);
+    if (!game || !game.disconnectionTimers) return null;
     const timerData = game.disconnectionTimers.get(playerId);
-    if (!timerData) return;
+    if (!timerData) return null;
 
     const player = game.players.find(p => p.id === playerId);
-    if (!player) return;
-
-    // Check if player reconnected (connected flag is true)
-    if (player.connected) {
-      console.log(`✅ Player ${player.name} reconnected before timeout - clearing countdown`);
+    if (!player || player.connected) {
       game.disconnectionTimers.delete(playerId);
-      return;
+      return null;
     }
 
-    debugLog(` Disconnection timeout reached for ${player.name} - forcing surrender`);
+    // The game already finished some other way (a win on the board, a surrender): just let the seat go
+    if (!RECONNECTABLE_PHASES.has(game.phase)) {
+      game.disconnectionTimers.delete(playerId);
+      this.releaseSeat(game, playerId);
+      if (game.players.every(p => p.connected === false)) this.closeGame(game);
+      return null;
+    }
 
-    // Mark as surrendered to prevent reconnection
     timerData.surrendered = true;
+    const opponent = game.players.find(p => p.id !== playerId);
+    const opponentHere = !!opponent && opponent.connected !== false;
+    const inBattle = game.phase === 'battle' || game.phase === 'initiative';
 
-    // Force surrender the disconnected player
-    const opponentPlayer = game.players.find(p => p.id !== playerId);
-    if (opponentPlayer) {
+    let outcome;
+    if (opponentHere && inBattle) {
+      outcome = 'forfeit';
       game.phase = 'ended';
-      game.winner = opponentPlayer.id;
+      game.winner = opponent.id;
+      game.endReason = 'disconnect';
+      console.log(`🏆 ${opponent.name} wins: ${player.name} did not come back in time`);
+      // Victory points are paid like any other win (surrender uses the same path)
+      this.handleGameCompletion(game.id, opponent.id, 'disconnect').catch(error => {
+        console.error('Error awarding victory points for disconnection forfeit:', error);
+      });
+    } else {
+      outcome = opponentHere ? 'cancelled' : 'abandoned';
+      game.phase = 'ended';
+      game.winner = null;
+      game.endReason = opponentHere ? 'opponent-left' : 'abandoned';
+      console.log(`🚫 Game ${game.id} ${outcome}: ${player.name} did not come back in time`);
+    }
 
-      console.log(`🏆 ${opponentPlayer.name} wins by disconnection forfeit`);
+    const result = {
+      success: true,
+      gameId: game.id,
+      outcome,
+      winner: game.winner,
+      surrenderedBy: playerId,
+      byDisconnect: true,
+      disconnectedPlayer: playerId,
+      disconnectedPlayerName: player.name,
+      gameState: this.getFullGameState(game)
+    };
 
-      // Update database stats for disconnected player (loss)
-      const disconnectedUserId = this.userSessions.get(playerId);
-      if (disconnectedUserId && this.database) {
-        try {
-          await this.database.updatePlayerStats(disconnectedUserId, false, game.mode);
-          debugLog(` Updated loss for disconnected player ${player.name} (userId: ${disconnectedUserId})`);
-        } catch (error) {
-          console.error(`❌ Error updating stats for disconnected player:`, error);
-        }
-      }
+    if (this.io) {
+      this.io.to(game.id).emit('game-ended-by-disconnection', {
+        gameId: game.id,
+        outcome,
+        winner: game.winner,
+        winnerName: outcome === 'forfeit' ? opponent.name : null,
+        disconnectedPlayer: playerId,
+        disconnectedPlayerName: player.name,
+        gameState: result.gameState
+      });
+    }
 
-      // Update database stats for winner
-      const winnerUserId = this.userSessions.get(opponentPlayer.id);
-      if (winnerUserId && this.database) {
-        try {
-          await this.database.updatePlayerStats(winnerUserId, true, game.mode);
-          debugLog(` Updated win for ${opponentPlayer.name} (userId: ${winnerUserId})`);
-        } catch (error) {
-          console.error(`❌ Error updating stats for winner:`, error);
-        }
-      }
-
-      // Notify both players via socket service (will be handled in server.js)
-      if (this.io) {
-        this.io.to(game.id).emit('game-ended-by-disconnection', {
-          winner: opponentPlayer.id,
-          winnerName: opponentPlayer.name,
-          disconnectedPlayer: playerId,
-          disconnectedPlayerName: player.name,
-          gameState: this.getFullGameState(game)
-        });
+    this.clearDisconnectionTimers(game);
+    if (this.onDisconnectTimeout) {
+      try {
+        await this.onDisconnectTimeout(result, game);
+      } catch (error) {
+        console.error('Disconnection timeout handler failed:', error);
       }
     }
 
-    // Clean up the timer
-    game.disconnectionTimers.delete(playerId);
+    // A seat nobody came back to is released. A game with nobody connected is closed.
+    for (const p of game.players) {
+      if (p.connected === false) this.releaseSeat(game, p.id);
+    }
+    if (outcome !== 'forfeit' || game.players.every(p => p.connected === false)) this.closeGame(game);
+    return result;
   }
 
   getDisconnectionTimer(gameId, playerId) {
@@ -5871,13 +5993,15 @@ class GameManager {
     const timerData = game.disconnectionTimers.get(playerId);
     if (!timerData) return null;
 
-    const elapsed = Date.now() - timerData.startTime;
-    const remaining = Math.max(0, 30 - Math.floor(elapsed / 1000));
+    const durationMs = timerData.durationMs || RECONNECT_GRACE_MS;
+    const remainingMs = Math.max(0, durationMs - (Date.now() - timerData.startTime));
 
     return {
       playerId,
       playerName: timerData.playerName,
-      remainingTime: remaining,
+      remainingTime: Math.ceil(remainingMs / 1000),
+      remainingMs,
+      durationMs,
       surrendered: timerData.surrendered
     };
   }
@@ -5980,6 +6104,7 @@ class GameManager {
       currentDraftPhase: game.currentDraftPhase || 0,
       draftTurn: game.draftTurn || 0,
       winner: game.winner,
+      endReason: game.endReason || null, // 'disconnect' when the loser never came back
       draftCards: game.draftCards,
       battleLog: game.battleLog || [] // Include battle log for spectators and reconnection
     };
@@ -7898,15 +8023,8 @@ class GameManager {
       }
     }
 
-    // Remove player from game
-    game.players = game.players.filter(p => p.id !== playerId);
-    this.playerGameMap.delete(playerId);
-
-    // If no players left, delete the game
-    if (game.players.length === 0) {
-      this.games.delete(gameId);
-      console.log(`🗑️ Deleted empty game ${gameId}`);
-    }
+    // Remove player from game (a game left with nobody connected is deleted)
+    this.removePlayerFromGame(game, playerId);
 
     const preservedState = isSurvivalMode ? await this.getSurvivalState(playerId) : null;
     
@@ -9012,3 +9130,5 @@ class GameManager {
 }
 
 module.exports = GameManager;
+
+GameManager.DRAFT_TIME_MS = DRAFT_TIME_MS;

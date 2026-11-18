@@ -66,8 +66,17 @@ test('spectators hear when a player in the watched game disconnects', async () =
   const spectate = await watcher.waitFor('spectate-result');
   assert.equal(spectate.success, true);
 
+  // Mid-battle the seat is held for a reconnect: spectators see the countdown, the player has not left
   a.close();
+  const countdown = await watcher.waitFor('disconnection-countdown-started');
+  assert.equal(countdown.playerId, ra.playerId);
+  assert.equal(countdown.playerName, 'Admin1');
+  assert.equal(watcher.frames.some(f => f.t === 'spectated-player-disconnected'), false);
+
+  // Once the battle is over a disconnect is a real exit, and spectators are told the player left
+  b.send('surrender-game');
+  await watcher.waitFor('game-surrendered');
+  b.close();
   const notice = await watcher.waitFor('spectated-player-disconnected');
-  assert.equal(notice.playerId, ra.playerId);
-  assert.equal(notice.playerName, 'Admin1');
+  assert.equal(notice.playerName, 'Admin2');
 });
