@@ -2581,9 +2581,6 @@ class GameManager {
       }
     }
 
-    // The focus can no longer change this turn (set before any auto-advance resets it)
-    player.focusLocked = true;
-
     // Handle attack usage tracking
     if (currentHero.name === 'Monk') {
       // Monk logic: Track total attacks remaining (starts at 1, ability adds 1 more)
@@ -2871,9 +2868,8 @@ class GameManager {
       results = this.processAbilityEffects(ability, currentHero, target, player, opponent, game, null, allyTargetId, null, null);
     }
     
-    // Track ability usage; the focus can no longer change this turn
+    // Track ability usage
     player.hasUsedAbility = true;
-    player.focusLocked = true;
 
     // For heroes that can use abilities multiple times, track specific ability usage
     const hasMultipleAbilityUse = hasSpecialEffect(currentHero, 'use_ability_twice') || 
@@ -3002,7 +2998,6 @@ class GameManager {
 
     player.pendingChronoPick = null;
     player.hasUsedAbility = true;
-    player.focusLocked = true;
 
     // Check win condition after any hero deaths from ability effects
     const winner = this.checkWinCondition(game);
@@ -5156,7 +5151,6 @@ class GameManager {
     // Mark special as permanently used (persists through resurrection)
     currentHero.permanentDisables.special = true;
     player.hasUsedSpecial = true;
-    player.focusLocked = true;
 
     // Check if the current hero died from self-destruct
     if (currentHero.currentHP === 0) {
@@ -5207,6 +5201,8 @@ class GameManager {
     const info = this.getCurrentTurnInfo(game);
     if (!info || !info.hero || game.phase !== 'battle') return false;
     const { player, hero } = info;
+    // A Chrono Shift ability pick is still open, so the turn is not over
+    if (player.pendingChronoPick) return false;
     // Nothing can happen before a focus, and there may be no enemy left that can be focused
     if (!player.selectedTarget && !this.canFocusAnyEnemy(game, player, hero)) return true;
     // A fallen focus leaves only the self and area abilities and the activated specials

@@ -215,6 +215,22 @@ test('Chrono Shift pick is made once, and only after Chrono Shift', () => {
   assert.deepEqual(pick(gm.useTimekeeperSelectedAbility('p0', 'Warlock', 'Blood Hunter', 1)), none, 'a second pick');
 });
 
+test('hasNoActionsLeft is false while a Chrono Shift pick is pending', () => {
+  const game = startBattle(gm, ['Timekeeper', 'Blood Hunter', 'Cleric'], ENEMIES);
+  const warlock = hero(game, 1, 'Warlock');
+  warlock.HP = 200;
+  warlock.currentHP = 200;
+  select(gm, 'p0', 'Warlock');
+  setD20(20);
+  assert.equal(gm.basicAttack('p0', 'Warlock').success, true);
+  const shift = gm.useAbility('p0', 0, 'Warlock', 'Blood Hunter');
+  assert.equal(shift.success, true, shift.error);
+  assert.ok(game.players[0].pendingChronoPick, 'a pick is pending');
+  assert.equal(gm.hasNoActionsLeft(game), false, 'the pick is still open');
+  assert.equal(gm.useTimekeeperSelectedAbility('p0', 'Warlock', 'Blood Hunter', 0).success, true);
+  assert.equal(gm.hasNoActionsLeft(game), true, 'nothing left once the pick is made');
+});
+
 test('a revived focus is still focused', () => {
   const game = startBattle(gm, ['Barbarian', 'Fighter', 'Cleric'], ['Fighter', 'Angel', 'Cleric']);
   const fighter = hero(game, 1, 'Fighter');

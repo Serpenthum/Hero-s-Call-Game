@@ -657,12 +657,6 @@
   cursor: not-allowed;
 }
 
-/* The chosen enemy target stays enlarged until the attacker's turn ends. */
-.battle-layout .hero-card.hero-layout-card.selected:not(.dead) {
-  transform: scale(1.1);
-  z-index: 15;
-}
-
 /* Battle Focus: the acting player's chosen enemy, shown to both players and spectators. It is the only thing
    that says who is being attacked, so it has to stand apart from the thin ember edge every enemy card has:
    a thick bright red ring round the card and a red halo that pulses slowly.

@@ -225,7 +225,6 @@
 
   .App .battle-layout .action-prompt,
   .App .battle-layout .hero-info,
-  .App .battle-layout .selected-target,
   .App .battle-layout .ability-description {
     font-size: var(--phone-actions-font);
     overflow-wrap: anywhere;

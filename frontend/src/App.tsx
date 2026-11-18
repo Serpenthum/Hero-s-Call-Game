@@ -2255,6 +2255,14 @@ function App() {
     if (spectatedPlayerGone) stopSpectatingWithNotice('The player you were watching left the game.');
   }, [spectatedPlayerGone, stopSpectatingWithNotice]);
 
+  // A Chrono Shift ability pick belongs to the turn it was offered in; drop it when the turn passes
+  const turnPlayerIndex = state.gameState?.currentTurn;
+  const turnHeroPlayerIndex = state.gameState?.activeHero?.playerIndex;
+  const turnHeroIndex = state.gameState?.activeHero?.heroIndex;
+  useEffect(() => {
+    setState(prev => (prev.timekeeperAbilitySelection ? { ...prev, timekeeperAbilitySelection: undefined } : prev));
+  }, [turnPlayerIndex, turnHeroPlayerIndex, turnHeroIndex]);
+
   const getCurrentPlayer = (): Player | null => {
     if (!state.gameState || !state.playerId) {
       return null;
