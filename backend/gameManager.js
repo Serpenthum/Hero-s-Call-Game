@@ -22,7 +22,7 @@ const {
   processEndOfTurn,
   calculateEffectiveDefense
 } = require('./utils');
-const { classifyAbility, specialDamaging } = require('./abilityTargeting');
+const { classifyAbility, lostWithFallenFocus } = require('./abilityTargeting');
 
 // Battle Focus refusals (exact copy shown to players)
 const FOCUS_FIRST = 'Focus an enemy first';
@@ -2698,9 +2698,6 @@ class GameManager {
     }
 
     const targeting = classifyAbility(currentHero.Ability[abilityIndex], currentHero);
-    if (targeting.damaging && this.isFocusFallen(game, player)) {
-      return { success: false, error: FOCUS_FALLEN };
-    }
 
     // Check if hero can use abilities (not silenced or permanently disabled)
     if (currentHero.statusEffects?.silenced) {
@@ -2721,6 +2718,11 @@ class GameManager {
     // Check if abilities are permanently disabled (Dragon Rider's Dismount)
     if (currentHero.permanentDisables?.abilities) {
       return { success: false, error: 'This hero\'s abilities are permanently disabled' };
+    }
+
+    // A single-target damaging ability is lost with its focus; area and self abilities still work
+    if (lostWithFallenFocus(targeting) && this.isFocusFallen(game, player)) {
+      return { success: false, error: FOCUS_FALLEN };
     }
 
     // Get the ability first
@@ -2782,8 +2784,8 @@ class GameManager {
         return { success: false, error: tauntValidation.error };
       }
 
-      // Check if the focus is still alive (for abilities that target enemies)
-      if (selectedTargetHero && selectedTargetHero.currentHP <= 0) {
+      // Check if the focus is still alive (an area ability goes ahead without it)
+      if (!isAOEAbility && selectedTargetHero && selectedTargetHero.currentHP <= 0) {
         return { success: false, error: 'Cannot target dead heroes' };
       }
 
@@ -2967,6 +2969,13 @@ class GameManager {
     const focusError = this.focusError(game, player, true);
     if (focusError) return { success: false, error: focusError };
 
+    // The pick only follows a Chrono Shift that hit this turn and commanded an ally with several
+    // abilities; it can be made once, for that ally
+    const pending = player.pendingChronoPick;
+    if (!pending || pending.ally !== allyTargetId) {
+      return { success: false, error: 'No Chrono Shift pick is pending' };
+    }
+
     // Find the ally to command; the enemy is always the focus (timekeeperTargetId is ignored)
     const allyToCommand = this.findAllyHeroByName(game, timekeeper, allyTargetId);
     const primaryTarget = this.focusedHero(game, player);
@@ -2990,6 +2999,7 @@ class GameManager {
     // Process the Timekeeper ability with the selected ability index
     const results = this.processTimekeeperSelectedAbility(chronoShiftAbility, timekeeper, primaryTarget, player, opponent, game, allyToCommand, selectedAbilityIndex);
 
+    player.pendingChronoPick = null;
     player.hasUsedAbility = true;
     player.focusLocked = true;
 
@@ -4723,6 +4733,7 @@ class GameManager {
       
       nextTurnInfo.player.selectedTarget = null;
       nextTurnInfo.player.focusLocked = false;
+      nextTurnInfo.player.pendingChronoPick = null;
 
       debugLog(` Reset action flags for player ${game.currentPlayerTurn}`);
     }
@@ -4962,8 +4973,8 @@ class GameManager {
       return { success: false, error: 'Special ability is not manually activatable' };
     }
 
-    // Needs a focus like every action; a damaging special (Self Destruct) is lost with a fallen focus
-    const focusError = this.focusError(game, player, specialDamaging(special));
+    // Needs a focus like every action; activated specials hit everyone, so a fallen focus doesn't stop them
+    const focusError = this.focusError(game, player, false);
     if (focusError) return { success: false, error: focusError };
 
     // Check if already used (at hero level, persists through resurrection)
@@ -5159,6 +5170,11 @@ class GameManager {
         };
       }
       
+      // The Mech's turn is over: drop its focus so nobody sees a stale marker during the next turn
+      player.selectedTarget = null;
+      player.focusLocked = false;
+      player.pendingChronoPick = null;
+
       // Advance to next player's turn since current hero died
       const nextTurnInfo = this.advanceToNextValidTurn(game);
       if (nextTurnInfo) {
@@ -5190,12 +5206,11 @@ class GameManager {
     const { player, hero } = info;
     // Nothing can happen before a focus, and there may be no enemy left that can be focused
     if (!player.selectedTarget && !this.canFocusAnyEnemy(game, player, hero)) return true;
-    // A fallen focus leaves only the non-damaging actions
+    // A fallen focus leaves only the self and area abilities and the activated specials
     if (player.selectedTarget && this.isFocusFallen(game, player)) {
-      const selfAbility = this.canHeroUseAbility(player, hero) &&
-        hero.Ability.some(a => !classifyAbility(a, hero).damaging && !(player.usedAbilities || []).includes(a.name));
-      const healSpecial = this.canHeroActivateSpecial(hero) && this.activatableSpecials(hero).some(s => !specialDamaging(s));
-      return !selfAbility && !healSpecial;
+      const usableAbility = this.canHeroUseAbility(player, hero) &&
+        hero.Ability.some(a => !lostWithFallenFocus(classifyAbility(a, hero)) && !(player.usedAbilities || []).includes(a.name));
+      return !usableAbility && !this.canHeroActivateSpecial(hero);
     }
     return !this.canHeroAttack(player, hero) &&
       !this.canHeroUseAbility(player, hero) &&
@@ -5235,12 +5250,6 @@ class GameManager {
     }
     return opponent.team.some(h => h.currentHP > 0 &&
       (!h.statusEffects?.untargetable || h.statusEffects.untargetableAttacker === hero.name));
-  }
-
-  activatableSpecials(hero) {
-    if (!hero.Special) return [];
-    const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
-    return specials.filter(s => s.category === 'activated_aoe' || s.category === 'activated_aoe_heal');
   }
 
   canHeroAttack(player, hero) {
@@ -5520,6 +5529,7 @@ class GameManager {
     }
     currentTurnInfo.player.selectedTarget = null; // Clear target selection
     currentTurnInfo.player.focusLocked = false;
+    currentTurnInfo.player.pendingChronoPick = null;
 
     // Remove first pick silence debuff at end of turn (first player disadvantage cleanup)
     if (currentTurnInfo.hero.statusEffects?.silenced && 
@@ -7004,6 +7014,8 @@ class GameManager {
         message: `${caster.name} commands ${allyToCommand.name}! Select which ability to use.`,
         timekeeperTarget: primaryTarget.name
       });
+      // useTimekeeperSelectedAbility accepts exactly one pick for this ally this turn
+      casterPlayer.pendingChronoPick = { ally: allyToCommand.name };
       return results;
     }
 

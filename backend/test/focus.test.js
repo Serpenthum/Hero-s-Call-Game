@@ -88,7 +88,7 @@ test('focus locks after the first action', () => {
   const actions = [
     ['Barbarian', () => gm.basicAttack('p0', 'Shroomguard')],
     ['Barbarian', () => gm.useAbility('p0', 0, 'Shroomguard')],
-    ['Mech', () => gm.activateSpecial('p0')]
+    ['Diplomat', () => gm.activateSpecial('p0')]
   ];
   for (const [name, act] of actions) {
     gm = makeManager();
@@ -96,39 +96,38 @@ test('focus locks after the first action', () => {
     select(gm, 'p0', 'Shroomguard');
     const result = act();
     assert.equal(result.success, true, `${name}: ${result.error}`);
+    assert.equal(gm.getCurrentTurnInfo(game).player.id, 'p0', `${name}: still p0's turn`);
     assert.equal(game.players[0].focusLocked, true, name);
-    // Self Destruct kills the Mech and hands the turn over, so there is no later pick to refuse
-    if (game.phase !== 'battle' || gm.getCurrentTurnInfo(game).player.id !== 'p0') continue;
     assert.deepEqual(pick(gm.selectTarget('p0', 'Warlock')), locked, name);
     assert.equal(game.players[0].selectedTarget, 'Shroomguard', name);
   }
 });
 
-test('focus locks after Mech Self Destruct even if the turn moved on', () => {
+test('Mech Self Destruct ends the turn and clears its focus', () => {
   const game = battle('Mech');
   select(gm, 'p0', 'Shroomguard');
   assert.equal(gm.activateSpecial('p0').success, true);
-  // The Mech died, so p1 now acts and is free to focus
-  const info = gm.getCurrentTurnInfo(game);
-  if (game.phase === 'battle' && info.player.id === 'p1') {
-    assert.equal(game.players[1].focusLocked, false);
-  }
+  // The Mech died, so p1 now acts; p0's stale focus must not be broadcast during p1's turn
+  assert.equal(game.phase, 'battle');
+  assert.equal(gm.getCurrentTurnInfo(game).player.id, 'p1');
+  assert.equal(game.players[0].selectedTarget, null);
+  assert.equal(game.players[0].focusLocked, false);
+  assert.equal(game.players[1].focusLocked, false);
+  const state = gm.getFullGameState(game);
+  assert.equal(state.players[0].selectedTarget, null);
+  assert.equal(state.players[0].focusLocked, false);
 });
 
-test('damaging actions are lost when the focus falls', () => {
+test('single-target damaging actions are lost when the focus falls', () => {
   let game = battle('Barbarian');
   killFocus(game);
   assert.deepEqual(pick(gm.useAbility('p0', 0, 'Warlock')), FALLEN, 'Barbarian ability');
 
+  // Cleave hits the focus and splashes a neighbour: still lost with the focus
   gm = makeManager();
-  game = battle('Wizard');
+  game = startBattle(gm, ['Fighter', 'Wizard', 'Cleric'], ENEMIES);
   killFocus(game);
-  assert.deepEqual(pick(gm.useAbility('p0', 0, 'Warlock')), FALLEN, 'Fireball');
-
-  gm = makeManager();
-  game = battle('Mech');
-  killFocus(game);
-  assert.deepEqual(pick(gm.activateSpecial('p0')), FALLEN, 'Self Destruct');
+  assert.deepEqual(pick(gm.useAbility('p0', 0, 'Warlock')), FALLEN, 'Cleave');
 
   gm = makeManager();
   game = battle('Timekeeper');
@@ -137,7 +136,15 @@ test('damaging actions are lost when the focus falls', () => {
   assert.deepEqual(pick(gm.useTimekeeperSelectedAbility('p0', 'Warlock', 'Fighter', 0)), FALLEN, 'Chrono Shift pick');
 });
 
-test('non-damaging actions survive a fallen focus', () => {
+test('a silenced hero with a fallen focus is told it is silenced', () => {
+  const game = battle('Barbarian');
+  killFocus(game);
+  hero(game, 0, 'Barbarian').statusEffects.silenced = true;
+  assert.deepEqual(pick(gm.useAbility('p0', 0, 'Warlock')),
+    { success: false, error: 'Hero is silenced and cannot use abilities' });
+});
+
+test('self, area and special actions survive a fallen focus', () => {
   let game = battle('Druid');
   hero(game, 0, 'Druid').currentHP = 5;
   killFocus(game);
@@ -163,6 +170,40 @@ test('non-damaging actions survive a fallen focus', () => {
   result = gm.useAbility('p0', 0, 'Warlock');
   assert.equal(result.success, true, result.error);
   assert.equal(hero(game, 0, 'Beast Tamer').statusEffects.beast_active, true);
+
+  // Area attacks still go off: Fireball and Self Destruct hit the enemies left standing
+  gm = makeManager();
+  game = battle('Wizard');
+  killFocus(game);
+  result = gm.useAbility('p0', 0, 'Warlock');
+  assert.equal(result.success, true, result.error);
+  assert.equal(result.target, 'All Enemies');
+
+  gm = makeManager();
+  game = battle('Mech');
+  killFocus(game);
+  result = gm.activateSpecial('p0');
+  assert.equal(result.success, true, result.error);
+});
+
+test('Chrono Shift pick is made once, and only after Chrono Shift', () => {
+  const game = startBattle(gm, ['Timekeeper', 'Blood Hunter', 'Cleric'], ENEMIES);
+  const warlock = hero(game, 1, 'Warlock');
+  warlock.HP = 200;
+  warlock.currentHP = 200;
+  select(gm, 'p0', 'Warlock');
+  const none = { success: false, error: 'No Chrono Shift pick is pending' };
+  assert.deepEqual(pick(gm.useTimekeeperSelectedAbility('p0', 'Warlock', 'Blood Hunter', 0)), none, 'no Chrono Shift yet');
+
+  setD20(20);
+  const shift = gm.useAbility('p0', 0, 'Warlock', 'Blood Hunter');
+  assert.equal(shift.success, true, shift.error);
+  assert.ok(shift.results.some(r => r.type === 'ability_selection_required'), 'Blood Hunter has two abilities to pick from');
+
+  assert.deepEqual(pick(gm.useTimekeeperSelectedAbility('p0', 'Warlock', 'Cleric', 0)), none, 'a different ally');
+  const first = gm.useTimekeeperSelectedAbility('p0', 'Warlock', 'Blood Hunter', 0);
+  assert.equal(first.success, true, first.error);
+  assert.deepEqual(pick(gm.useTimekeeperSelectedAbility('p0', 'Warlock', 'Blood Hunter', 1)), none, 'a second pick');
 });
 
 test('a revived focus is still focused', () => {
@@ -187,6 +228,16 @@ test('untargetable enemies cannot be focused', () => {
   assert.equal(game.players[0].selectedTarget, null);
 });
 
+test('the hero that triggered a Vanish can still focus it', () => {
+  const game = battle('Barbarian');
+  const warlock = hero(game, 1, 'Warlock');
+  warlock.statusEffects.untargetable = true;
+  warlock.statusEffects.untargetableAttacker = 'Barbarian';
+  const result = gm.selectTarget('p0', 'Warlock');
+  assert.equal(result.success, true, result.error);
+  assert.equal(game.players[0].selectedTarget, 'Warlock');
+});
+
 test('no focusable enemy leaves no actions', () => {
   const game = battle('Barbarian');
   assert.equal(gm.hasNoActionsLeft(game), false);
@@ -205,6 +256,18 @@ test('hasNoActionsLeft after the focus falls', () => {
   assert.equal(gm.hasNoActionsLeft(game), false, 'Druid can still Wildshape');
   assert.equal(gm.useAbility('p0', 0, 'Warlock').success, true);
   assert.equal(gm.hasNoActionsLeft(game), true);
+
+  gm = makeManager();
+  game = battle('Wizard');
+  killFocus(game);
+  assert.equal(gm.hasNoActionsLeft(game), false, 'Wizard can still Fireball');
+  assert.equal(gm.useAbility('p0', 0, 'Warlock').success, true);
+  assert.equal(gm.hasNoActionsLeft(game), true);
+
+  gm = makeManager();
+  game = battle('Mech');
+  killFocus(game);
+  assert.equal(gm.hasNoActionsLeft(game), false, 'Mech can still Self Destruct');
 });
 
 test('focus lock resets at turn change', () => {
