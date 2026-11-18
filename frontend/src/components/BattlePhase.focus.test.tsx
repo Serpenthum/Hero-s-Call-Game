@@ -14,7 +14,8 @@ vi.mock('../socketService', () => ({
   },
 }));
 
-import BattlePhase from './BattlePhase';
+import BattlePhase, { FocusButton } from './BattlePhase';
+import { focusButtonState } from '../battle/focus';
 import type { GameState, Hero, Player } from '../types';
 import type { AbilityTargeting } from '../battle/focus';
 
@@ -40,6 +41,7 @@ const HEROES: Record<string, () => Hero> = {
   }),
   Timekeeper: () => hero('Timekeeper', { Ability: [ability('Chrono Shift')] }),
   Warlock: () => hero('Warlock', { Ability: [ability('Hex')] }),
+  Wizard: () => hero('Wizard', { Ability: [ability('Fireball')] }),
   Shroomguard: () => hero('Shroomguard'),
   'Plague Spreader': () => hero('Plague Spreader'),
 };
@@ -48,8 +50,9 @@ const TARGETING: Record<string, AbilityTargeting[]> = {
   Barbarian: [{ kind: 'enemy', damaging: true }],
   Druid: [{ kind: 'self', damaging: false }],
   Mech: [],
-  Timekeeper: [{ kind: 'enemy', damaging: false }],
+  Timekeeper: [{ kind: 'enemy', damaging: true }], // a command at a dead focus is lost (server)
   Warlock: [{ kind: 'enemy', damaging: true }],
+  Wizard: [{ kind: 'all', damaging: true }],
 };
 
 const player = (id: string, names: string[], extra: Partial<Player> = {}): Player => ({
@@ -192,5 +195,87 @@ describe('BattlePhase focus', () => {
 
     const live = render({ active: 'Timekeeper', me: { selectedTarget: 'Warlock' } });
     expect(isDisabled(button(live, 'Chrono Shift on Warlock'))).toBe(false);
+  });
+
+  it('loses Chrono Shift once the focus has fallen', () => {
+    const html = render({ active: 'Timekeeper', warlockHP: 0, me: { selectedTarget: 'Warlock', focusLocked: true } });
+    const chrono = html.match(/<button[^>]*data-tutorial="ability"[^>]*>[^<]*<\/button>/)![0];
+    expect(chrono).toContain('>Warlock has fallen<');
+    expect(isDisabled(chrono)).toBe(true);
+  });
+
+  it('keeps area abilities and activated specials after the focus has fallen', () => {
+    const fallen = { warlockHP: 0, me: { selectedTarget: 'Warlock', focusLocked: true, hasUsedAttack: true } };
+    const wizard = render({ active: 'Wizard', ...fallen });
+    expect(isDisabled(button(wizard, 'Fireball'))).toBe(false);
+    expect(isDisabled(button(wizard, 'Warlock has fallen'))).toBe(true);
+
+    const mech = render({ active: 'Mech', ...fallen });
+    const special = mech.match(/<button[^>]*special-button[^>]*>[^<]*<\/button>/)![0];
+    expect(special).toContain('>Self Destruct<');
+    expect(isDisabled(special)).toBe(false);
+    expect(special).not.toContain('style=');
+  });
+
+  it('blocks abilities at a living briber, but not self abilities', () => {
+    const bribe = { cannotTargetWithAbility: { owner: 'Warlock' } } as any;
+    const barbarian = state({ active: 'Barbarian', me: { selectedTarget: 'Warlock' } });
+    barbarian.me.team[0].statusEffects = bribe;
+    const html = renderToStaticMarkup(
+      <BattlePhase gameState={barbarian.gameState} currentPlayer={barbarian.me} opponent={barbarian.them} playerId="me" />
+    );
+    expect(isDisabled(button(html, 'Reckless Swing on Warlock (Bribed)'))).toBe(true);
+    expect(isDisabled(button(html, 'Attack Warlock'))).toBe(false);
+
+    const druid = state({ active: 'Druid', me: { selectedTarget: 'Warlock' } });
+    druid.me.team[0].statusEffects = bribe;
+    const druidHtml = renderToStaticMarkup(
+      <BattlePhase gameState={druid.gameState} currentPlayer={druid.me} opponent={druid.them} playerId="me" />
+    );
+    expect(isDisabled(button(druidHtml, 'Wildshape'))).toBe(false);
+    expect(druidHtml).not.toContain('(Bribed)');
+  });
+
+  it('disables a stunned Monk with attacks left', () => {
+    const monk = state({ active: 'Barbarian', me: { selectedTarget: 'Warlock', monkAttacksRemaining: 1 } as any });
+    monk.me.team[0].name = 'Monk';
+    monk.gameState.activeHero!.name = 'Monk';
+    monk.me.team[0].statusEffects = { stun: { active: true } } as any;
+    const html = renderToStaticMarkup(
+      <BattlePhase gameState={monk.gameState} currentPlayer={monk.me} opponent={monk.them} playerId="me" />
+    );
+    const attack = button(html, 'Attack Warlock (1 left)');
+    expect(attack).toContain('(Stunned)');
+    expect(isDisabled(attack)).toBe(true);
+  });
+
+  it('renders the Focus button from its state', () => {
+    const warlock = HEROES.Warlock();
+    const base = {
+      isMyTurn: true, isSpectating: false, inspected: { hero: warlock, side: 'enemy' as const },
+      focus: null, focusLocked: false, tauntTarget: null, activeHeroName: 'Barbarian',
+    };
+    const show = (input: typeof base | any) => {
+      const s = focusButtonState(input);
+      if (!s.show) throw new Error('hidden');
+      return renderToStaticMarkup(<FocusButton state={s} onFocus={() => {}} />);
+    };
+    const ready = show(base);
+    expect(ready).toContain('data-tutorial="focus"');
+    expect(ready).toContain('data-keep-details');
+    expect(ready).toContain('>Focus Warlock<');
+    expect(isDisabled(ready)).toBe(false);
+
+    const focused = show({ ...base, focus: { name: 'Warlock', alive: true } });
+    expect(focused).toContain('>Focused<');
+    expect(isDisabled(focused)).toBe(true);
+
+    const locked = show({ ...base, focus: { name: 'Shroomguard', alive: true }, focusLocked: true });
+    expect(locked).toContain('>Focus locked<');
+    expect(isDisabled(locked)).toBe(true);
+
+    const taunted = show({ ...base, tauntTarget: 'Shroomguard' });
+    expect(taunted).toContain('>Taunted: focus Shroomguard<');
+    expect(isDisabled(taunted)).toBe(true);
   });
 });

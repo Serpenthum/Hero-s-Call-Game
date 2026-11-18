@@ -17,6 +17,7 @@ import {
   tauntTargetFor,
   focusButtonState,
 } from '../battle/focus';
+import type { FocusButtonState } from '../battle/focus';
 import Icon from './ui/Icon';
 import RewardsDisplay from './RewardsDisplay';
 import BattleFX from './BattleFX';
@@ -128,6 +129,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   const activeHeroIndex = gameState.activeHero?.heroIndex;
   useEffect(() => {
     setInspected(null);
+    // A Chrono Shift / ally-target pick left open (e.g. the turn timer ran out) belongs to the old turn
+    setSelectingAllyForAbility(null);
   }, [gameState.currentTurn, activeHeroPlayerIndex, activeHeroIndex]);
   useEffect(() => {
     if (gameState.phase === 'ended') setInspected(null);
@@ -543,7 +546,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                 return (
                   <div className="action-prompt">
                     <div>Waiting for {activeHero.hero.name}</div>
-                    <div style={{ fontSize: '12px', color: '#888' }}>
+                    <div className="action-prompt-sub">
                       Opponent's Turn
                     </div>
                     {theirFocus && (
@@ -576,7 +579,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
               return (
                 <div className="action-prompt">
                   <div>Your hero {activeHero.hero.name} has fallen! Turn will advance automatically...</div>
-                  <div style={{ fontSize: '12px', color: '#888' }}>
+                  <div className="action-prompt-sub">
                     (Backend is handling turn advancement)
                   </div>
                 </div>
@@ -632,18 +635,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   Focus: {focus ? <strong>{focus.name}</strong> : 'none'}
                 </div>
 
-                {focusButton.show && (
-                  <button
-                    className="action-button focus-button"
-                    data-tutorial="focus"
-                    data-keep-details
-                    disabled={!focusButton.enabled}
-                    onClick={() => {
-                      if (inspectedEnemy) socketService.selectTarget(inspectedEnemy.name);
-                    }}
-                  >
-                    {focusButton.label}
-                  </button>
+                {focusButton.show && inspectedEnemy && (
+                  <FocusButton state={focusButton} onFocus={() => socketService.selectTarget(inspectedEnemy.name)} />
                 )}
 
                 {/* Show basic attack button only if hero has basic attack */}
@@ -653,10 +646,11 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                     const usedAttacks = myPlayerData.usedAttacks || 0;
                     const gate = attackGate(focus);
                     let attackButtonText = attackLabel(focus, gate);
-                    // Check if hero is stunned (has disableAttack status)
+                    // Check if hero is stunned (Dual Defender's disableAttack, or a stun): the server refuses both
                     const isStunned = activeHero.hero.statusEffects?.disableAttack === true ||
                                      (typeof activeHero.hero.statusEffects?.disableAttack === 'object' &&
-                                      activeHero.hero.statusEffects.disableAttack?.active);
+                                      activeHero.hero.statusEffects.disableAttack?.active) ||
+                                     !!(activeHero.hero.statusEffects as any)?.stun?.active;
 
                     let isAttackDisabled = !gate.ok || isStunned;
 
@@ -672,7 +666,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       const monkAttacksRemaining = (myPlayerData as any).monkAttacksRemaining || 0;
                       if (monkAttacksRemaining > 0) {
                         attackButtonText += ` (${monkAttacksRemaining} left)`;
-                        isAttackDisabled = !gate.ok;
+                        isAttackDisabled = !gate.ok || isStunned;
                       } else {
                         attackButtonText += ' (Used)';
                         isAttackDisabled = true;
@@ -868,11 +862,6 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       onClick={() => {
                         closeDetails();
                         socketService.activateSpecial();
-                      }}
-                      style={{
-                        backgroundColor: isDisabled ? '#666' : '#ff4444',
-                        color: 'white',
-                        fontWeight: 'bold'
                       }}
                     >
                       {buttonText}
@@ -1096,6 +1085,22 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
       </>
     );
 };
+
+// The Focus button for the enemy shown in the details panel (state from focus.ts focusButtonState)
+export const FocusButton: React.FC<{
+  state: Extract<FocusButtonState, { show: true }>;
+  onFocus: () => void;
+}> = ({ state, onFocus }) => (
+  <button
+    className="action-button focus-button"
+    data-tutorial="focus"
+    data-keep-details
+    disabled={!state.enabled}
+    onClick={onFocus}
+  >
+    {state.label}
+  </button>
+);
 
 // Wrapper keeps the animation layer mounted across phase changes (e.g. the killing blow ending the game)
 const BattlePhase: React.FC<BattlePhaseProps> = (props) => {

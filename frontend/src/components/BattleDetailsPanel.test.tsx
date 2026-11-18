@@ -44,8 +44,12 @@ describe('BattleDetailsPanel', () => {
     expect(html).not.toContain('Fallen');
   });
 
-  it('tags a focused hero', () => {
-    expect(render({ isFocused: true })).toContain('Focused');
+  it('tags a focused hero without marking the panel card', () => {
+    const html = render({ isFocused: true });
+    expect(html).toContain('Focused');
+    // Only the board's card carries the marker, so selectors for it never find the panel
+    expect(html).not.toContain('data-focused');
+    expect(html).not.toMatch(/hero-card[^"]*focused/);
   });
 
   it('tags a fallen hero', () => {

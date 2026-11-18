@@ -19,6 +19,22 @@
   overflow-wrap: anywhere;
 }
 
+/* Activated specials (Self Destruct, Peace Treaty, Explosion): ember when ready, the usual disabled look otherwise */
+.battle-layout .action-button.special-button:not(:disabled) {
+  background: var(--ember);
+  border-color: var(--ember-hi);
+  color: var(--bone);
+}
+
+.battle-layout .action-button.special-button:hover:not(:disabled) {
+  background: var(--ember-hi);
+}
+
+.battle-layout .action-prompt-sub {
+  font-size: 12px;
+  color: var(--bone-dim);
+}
+
 /* Phones, plus short desktop windows where the labels and avatars would crowd out the log and heroes */
 @media (max-width: 600px), (max-width: 1000px) and (max-height: 600px), (max-width: 1400px) and (max-height: 720px) {
   /*
@@ -495,5 +511,21 @@
   .App:has(.battle-layout) .friends-icon-tooltip,
   .App:has(.battle-layout) .message-icon-tooltip {
     bottom: 46px;
+  }
+
+  /* End Turn stays in view however many actions there are: it sticks to the bottom of the scrolling box.
+     The "Focus: X" line is dropped here; the card's marker and the Attack/ability labels already name it. */
+  .App .battle-layout .action-buttons > .focus-line {
+    display: none;
+  }
+
+  .App .battle-layout .action-buttons > .end-turn-button {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    /* Opaque version of the box's own tint, covering the gap and padding around it */
+    --end-turn-bg: color-mix(in srgb, var(--bone) 10%, var(--walnut));
+    background: var(--end-turn-bg);
+    box-shadow: 0 -5px 0 var(--end-turn-bg), 0 5px 0 var(--end-turn-bg);
   }
 }

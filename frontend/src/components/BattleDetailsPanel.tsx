@@ -71,7 +71,8 @@ const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isF
         <CloseButton onClick={onClose} label="Close details" className="battle-details-close" />
       </header>
       <div className="battle-details-card" ref={cardRef}>
-        <HeroCard hero={hero} isEnemy={side === 'enemy'} isFocused={isFocused} readable="none" disableHPAnimations />
+        {/* Not isFocused: the board's card is the one marked (data-focused); here the "Focused" tag says it */}
+        <HeroCard hero={hero} isEnemy={side === 'enemy'} readable="none" disableHPAnimations />
       </div>
     </aside>
   );
