@@ -8,6 +8,8 @@ interface BattleDetailsPanelProps {
   hero: Hero;
   side: CardSide;
   isFocused: boolean;
+  // A tap on the card closes it
+  onClose?: () => void;
 }
 
 // Card proportions (width : height)
@@ -17,10 +19,10 @@ const CARD_H = 391;
 const EDGE_GAP = 8;
 
 // A tapped battle card, shown at the top of the left column and nothing else: no header, no tags, no close button
-// (it closes on a tap on empty space, Escape, an action or the turn change; see BattlePhase). The card is as large as
+// (it closes on a tap on itself or on empty space, Escape, an action or the turn change; see BattlePhase). The card is as large as
 // the column's height allows, so its own face carries the ability and special text; on phones it grows past the
 // column over the board. A fallen hero shows as dead on the card itself, and the focused enemy wears the focus ring.
-const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isFocused }) => {
+const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isFocused, onClose }) => {
   const panelRef = useRef<HTMLElement>(null);
 
   useLayoutEffect(() => {
@@ -61,6 +63,7 @@ const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isF
       data-tutorial="details-panel"
       role="dialog"
       aria-label={hero.name}
+      onClick={onClose}
     >
       {/* Not isFocused on the card: only the board's card carries data-focused; the ring here is CSS */}
       <HeroCard hero={hero} isEnemy={side === 'enemy'} readable="none" disableHPAnimations />

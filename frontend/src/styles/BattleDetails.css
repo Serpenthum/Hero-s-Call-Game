@@ -59,14 +59,18 @@
   padding: 0;
   background: none;
   border: 0;
-  cursor: default;
   animation: battle-details-in var(--dur) var(--ease) both;
+}
+
+/* A tap on the card closes it */
+.battle-details,
+.battle-details .hero-card.hero-layout-card {
+  cursor: pointer;
 }
 
 .battle-details .hero-card.hero-layout-card {
   --card-w: var(--details-card-w, 200px);
   margin: 0;
-  cursor: default;
 }
 
 /* The focused enemy wears the board's focus ring here too (without data-focused, which marks the board card only) */
@@ -75,6 +79,12 @@
   --card-glow:
     0 0 0 max(4px, 0.4em) var(--focus-c),
     0 0 clamp(8px, 1.1em, 12px) clamp(2px, 0.3em, 3px) var(--focus-glow);
+}
+
+/* A fallen focus: the ring goes faint, as on the board (HeroCard.css .hero-card.focused.dead); it never moved here */
+.battle-details--focused .hero-card.hero-layout-card.dead {
+  --card-frame: color-mix(in srgb, var(--focus-c) 35%, var(--leather-hi));
+  --card-glow: 0 0 0 max(4px, 0.4em) color-mix(in srgb, var(--focus-c) 35%, transparent);
 }
 
 @keyframes battle-details-in {

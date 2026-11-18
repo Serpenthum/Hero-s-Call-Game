@@ -261,7 +261,10 @@ function App() {
   // How many of the six battle heroes are visible during the tutorial intro; null = all
   const [tutorialReveal, setTutorialReveal] = useState<number | null>(null);
   // The battle card shown in the details panel over the left column (null when closed); the tutorial reads it
-  const [, setBattleInspect] = useState<InspectedCard | null>(null);
+  const [battleInspect, setBattleInspect] = useState<InspectedCard | null>(null);
+  // Bumped to close the details panel from outside the battle screen (the tutorial clears the board for a prompt)
+  const [battleDetailsCloseSignal, setBattleDetailsCloseSignal] = useState(0);
+  const closeBattleDetails = useCallback(() => setBattleDetailsCloseSignal(n => n + 1), []);
   const tutorialStartedRef = useRef(false);
   const [searchMode, setSearchMode] = useState<'draft' | 'random' | null>(null);
   const [incomingChallenge, setIncomingChallenge] = useState<{ fromId: number; from: string } | null>(null);
@@ -2452,6 +2455,7 @@ function App() {
             spectators={state.spectators}
             turnTimer={turnTimer}
             isTutorial={tutorial.stage === 'battle'}
+            closeDetailsSignal={battleDetailsCloseSignal}
             tutorialReveal={tutorial.stage === 'battle' ? tutorialReveal : null}
             timekeeperAbilitySelection={state.timekeeperAbilitySelection}
             onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
@@ -2914,6 +2918,8 @@ function App() {
           gameState={state.gameState}
           playerId={state.playerId}
           battleLog={state.battleLog}
+          inspected={battleInspect}
+          onCloseInspect={closeBattleDetails}
           onRevealChange={setTutorialReveal}
           onSkip={handleSkipTutorial}
         />

@@ -110,7 +110,8 @@ export function focusButtonState(input: FocusButtonInput): FocusButtonState {
   if (focus || focusLocked) return { show: false };
   const disabled = (label: string): FocusButtonState => ({ show: true, enabled: false, label });
   if (tauntTarget && tauntTarget !== target.name) return disabled(`Taunted: focus ${tauntTarget}`);
-  const effects = target.statusEffects;
+  // The server forces a taunted hero's focus onto a living taunter, even an untargetable one
+  const effects = tauntTarget ? undefined : target.statusEffects;
   if (effects?.untargetable && effects.untargetableAttacker !== activeHeroName) return disabled("Can't be targeted");
   return { show: true, enabled: true, label: `Focus ${target.name}` };
 }

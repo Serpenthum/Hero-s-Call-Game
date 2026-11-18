@@ -71,6 +71,8 @@ interface BattlePhaseProps {
   };
   // The card shown in the details panel (null when it is closed), for the tutorial
   onInspectChange?: (inspected: InspectedCard | null) => void;
+  // Closes the details panel whenever it changes (the tutorial clears the board for a prompt)
+  closeDetailsSignal?: number;
 }
 
 const BattlePhaseView: React.FC<BattlePhaseProps> = ({ 
@@ -90,7 +92,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   timekeeperAbilitySelection,
   onClearTimekeeperSelection,
   rewardsData,
-  onInspectChange
+  onInspectChange,
+  closeDetailsSignal
 }) => {
 
   const [initiativeChoice, setInitiativeChoice] = useState<boolean | null>(null);
@@ -124,6 +127,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     };
   }, [inspected]);
 
+  useEffect(() => {
+    if (closeDetailsSignal) setInspected(null);
+  }, [closeDetailsSignal]);
+
   // ...and when the turn passes, the active hero changes, or the battle ends
   const activeHeroPlayerIndex = gameState.activeHero?.playerIndex;
   const activeHeroIndex = gameState.activeHero?.heroIndex;
@@ -149,6 +156,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         hero={hero}
         side={inspected.side}
         isFocused={isFocused}
+        onClose={closeDetails}
       />,
       slot
     );
@@ -294,7 +302,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     const active = getCurrentHero();
     if (!active) return false;
     const tauntTarget = tauntTargetFor(active, opponent);
-    if (tauntTarget && tauntTarget !== enemy.name) return true;
+    // The server forces a taunted hero's focus onto a living taunter, even an untargetable one
+    if (tauntTarget) return tauntTarget !== enemy.name;
     const effects = enemy.statusEffects;
     return !!effects?.untargetable && effects.untargetableAttacker !== active.name;
   };
@@ -586,6 +595,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
             // My focus (null until an enemy is focused) and the Focus button for the enemy in the details panel
             const focus = readFocus(myPlayerData, opponent);
+            const tauntTarget = tauntTargetFor(activeHero.hero, opponent);
             const inspectedEnemy = inspected?.side === 'enemy' ? opponent?.team.find(h => h.name === inspected.name) : undefined;
             const focusButton = inspectedEnemy
               ? focusButtonState({
@@ -594,7 +604,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   inspected: { hero: inspectedEnemy, side: 'enemy' },
                   focus,
                   focusLocked: !!myPlayerData.focusLocked,
-                  tauntTarget: tauntTargetFor(activeHero.hero, opponent),
+                  tauntTarget,
                   activeHeroName: activeHero.hero.name,
                 })
               : { show: false as const };
@@ -645,7 +655,9 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   {focusButton.show && inspectedEnemy ? (
                     <FocusButton state={focusButton} onFocus={() => socketService.selectTarget(inspectedEnemy.name)} />
                   ) : (
-                    <div className="action-prompt focus-hint">Tap an enemy to focus</div>
+                    <div className="action-prompt focus-hint">
+                      {tauntTarget ? `Taunted: tap ${tauntTarget} to focus` : 'Tap an enemy to focus'}
+                    </div>
                   )}
                 </div>
               );

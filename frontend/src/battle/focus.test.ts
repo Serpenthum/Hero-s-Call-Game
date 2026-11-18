@@ -216,4 +216,10 @@ describe('focusButtonState', () => {
     expect(focusButtonState({ ...base, inspected: { hero: hero('Paladin'), side: 'enemy' }, tauntTarget: 'Paladin' }))
       .toEqual({ show: true, enabled: true, label: 'Focus Paladin' });
   });
+
+  it('lets a taunted hero focus its taunter even when the taunter is untargetable (the server forces it)', () => {
+    const hidden = hero('Paladin', { statusEffects: { untargetable: true } as Hero['statusEffects'] });
+    expect(focusButtonState({ ...base, inspected: { hero: hidden, side: 'enemy' }, tauntTarget: 'Paladin' }))
+      .toEqual({ show: true, enabled: true, label: 'Focus Paladin' });
+  });
 });

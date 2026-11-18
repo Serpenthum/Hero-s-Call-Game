@@ -158,6 +158,18 @@ describe('BattlePhase focus', () => {
     expect(bar).not.toContain('Attack');
   });
 
+  it('names the taunter in the hint, and counts an untargetable taunter as focusable', () => {
+    const s = state({ active: 'Druid' });
+    s.me.team[0].statusEffects = { taunt: { target: 'Warlock' } } as any;
+    s.them.team.forEach(h => { h.statusEffects = { untargetable: true } as any; });
+    const bar = actionBar(renderToStaticMarkup(
+      <BattlePhase gameState={s.gameState} currentPlayer={s.me} opponent={s.them} playerId="me" />
+    ));
+    expect(bar).toContain('Taunted: tap Warlock to focus');
+    expect(bar).not.toContain('No enemy can be focused');
+    expect(bar).not.toContain('<button');
+  });
+
   it('brings back every action with its own label once focused, and marks the card', () => {
     const html = render({ active: 'Barbarian', me: focused() });
     expect(isDisabled(button(html, 'Attack (1D6)'))).toBe(false);

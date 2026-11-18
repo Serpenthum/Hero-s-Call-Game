@@ -1,29 +1,35 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { GameState } from '../../types';
 import { socketService } from '../../socketService';
+import type { InspectedCard } from '../../battle/focus';
 import TutorialOverlay, { OverlayStep } from './TutorialOverlay';
-
-interface LogEntryLike {
-  id: string;
-  crit?: boolean;
-  attacker?: string;
-}
+import {
+  LogEntryLike,
+  NEEDS_CLEAR_BOARD,
+  Prompt,
+  PromptKind,
+  PromptProgress,
+  actionButton,
+  pickBattlePrompt,
+  promptAbandoned,
+  promptFinished,
+  usedAbilityOf,
+  usedAttackOf,
+} from './battlePrompts';
 
 interface BattleTutorialProps {
   gameState: GameState;
   playerId: string | null;
   battleLog: LogEntryLike[];
+  // The card in the battle details panel (null when closed)
+  inspected: InspectedCard | null;
+  // Closes the details panel: it covers the battle log, and on phones part of the board
+  onCloseInspect: () => void;
   onRevealChange: (count: number | null) => void;
   onSkip: () => void;
 }
 
 type IntroStage = 'welcome' | 'heroes' | 'roll' | 'won' | 'choose' | 'hp' | 'defense' | 'accuracy' | 'attack' | 'image' | 'final' | 'done';
-type PromptKind = 'poison' | 'crit' | 'log' | 'target' | 'attack' | 'ability' | 'endturn';
-
-interface Prompt {
-  kind: PromptKind;
-  step: OverlayStep;
-}
 
 const DRUID = '.player-area [data-hero-name="Druid"]';
 const REVEAL_DELAY_MS = 2000;
@@ -87,7 +93,7 @@ const INTRO_STEPS: Record<Exclude<IntroStage, 'done'>, OverlayStep> = {
   },
   image: {
     key: 'image',
-    text: 'Your hero\'s abilities and specials are written on the card. On a small screen, tap the card to read it large. Each turn, your hero can use 1 attack and 1 ability on the same enemy. Each hero is unique and brings something new to the battlefield.',
+    text: "Your hero's abilities and specials are written on the card. Tap any card to read it in the panel on the left. Each turn, your hero can use 1 attack and 1 ability.",
     // The rules text is hidden on tiny cards (a sideways phone), so fall back to the whole card
     target: [`${DRUID} .card-details`, DRUID],
     side: 'left',
@@ -115,10 +121,9 @@ const NEXT_INTRO: Partial<Record<IntroStage, IntroStage>> = {
   final: 'done'
 };
 
-const actionButton = (name: string, enabledOnly = false) =>
-  `.action-bar [data-tutorial="${name}"]${enabledOnly ? ':not([disabled])' : ''}`;
-
-const BattleTutorial: React.FC<BattleTutorialProps> = ({ gameState, playerId, battleLog, onRevealChange, onSkip }) => {
+const BattleTutorial: React.FC<BattleTutorialProps> = ({
+  gameState, playerId, battleLog, inspected, onCloseInspect, onRevealChange, onSkip
+}) => {
   const [stage, setStage] = useState<IntroStage>('welcome');
   const [revealDone, setRevealDone] = useState(false);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
@@ -130,8 +135,13 @@ const BattleTutorial: React.FC<BattleTutorialProps> = ({ gameState, playerId, ba
   const me = gameState.players[myIdx];
   const opp = gameState.players[1 - myIdx];
   const myTurn = gameState.phase === 'battle' && gameState.currentTurn === myIdx && !gameState.winner;
-  const usedAttack = !!me && (me.hasUsedAttack || (me.usedAttacks || 0) > 0);
-  const usedAbility = !!me && (me.hasUsedAbility || (me.usedAbilities?.length || 0) > 0);
+  const progress: PromptProgress = {
+    focused: !!me?.selectedTarget,
+    inspectedEnemy: inspected?.side === 'enemy',
+    usedAttack: !!me && usedAttackOf(me),
+    usedAbility: !!me && usedAbilityOf(me),
+    myTurn
+  };
 
   // Heroes grow in one by one, starting a couple of seconds after the prompt appears
   useEffect(() => {
@@ -160,135 +170,43 @@ const BattleTutorial: React.FC<BattleTutorialProps> = ({ gameState, playerId, ba
     const next = NEXT_INTRO[stage];
     if (!next) return;
     if (stage === 'heroes') revealRef.current(null);
+    // The card tapped in the 'image' step stays open; the next steps point at the board
+    if (stage === 'image' && inspected) onCloseInspect();
     if (stage === 'final') socketService.tutorialContinue('intro');
     setStage(next);
   };
 
-  const pickPrompt = (): Prompt | null => {
-    if (!me) return null;
-    const heroNames = new Set(me.team.map(h => h.name));
-
-    if (!shown.current.has('poison')) {
-      const poisoned = me.team.find(h => (h.statusEffects?.poison || 0) > 0);
-      if (poisoned) {
-        return {
-          kind: 'poison',
-          step: {
-            key: 'poison',
-            text: "Looks like you've been poisoned. Poison lasts forever and does its damage at the end of that hero's turn.",
-            target: [`.player-area [data-hero-name="${poisoned.name}"] .status-effect.poison`, `.player-area [data-hero-name="${poisoned.name}"]`],
-            showNext: true
-          }
-        };
-      }
-    }
-
-    if (!shown.current.has('crit')) {
-      const critEntry = battleLog.find(e => e.crit && e.attacker && heroNames.has(e.attacker));
-      if (critEntry) {
-        return {
-          kind: 'crit',
-          step: {
-            key: 'crit',
-            text: "That's a critical hit! A crit means you do the maximum damage you can roll on your damage dice!",
-            target: [`[data-log-id="${critEntry.id}"]`, '.battle-log-section'],
-            showNext: true
-          }
-        };
-      }
-    }
-
-    if (!shown.current.has('log') && battleLog.length > 0) {
-      const newest = battleLog[battleLog.length - 1];
-      return {
-        kind: 'log',
-        step: {
-          key: 'log',
-          text: "This is the battle log. It'll tell you what happened and what dice were rolled.",
-          target: [`[data-log-id="${newest.id}"]`, '.battle-log-section'],
-          showNext: true
-        }
-      };
-    }
-
-    if (!myTurn) return null;
-
-    if (!me.selectedTarget) {
-      if (shown.current.has('target')) return null;
-      return {
-        kind: 'target',
-        step: {
-          key: 'target',
-          text: 'Click on an enemy hero to choose who to target!',
-          target: ['.opponent-area .team-display'],
-          interactive: true
-        }
-      };
-    }
-
-    const attackReady = !!document.querySelector(actionButton('attack', true));
-    const abilityReady = !!document.querySelector(actionButton('ability', true));
-
-    if (!shown.current.has('attack') && !usedAttack && attackReady) {
-      return {
-        kind: 'attack',
-        step: {
-          key: 'attack-btn',
-          text: "Now press Attack to strike your target with your hero's basic attack!",
-          target: [actionButton('attack')],
-          interactive: true
-        }
-      };
-    }
-
-    if (!shown.current.has('ability') && usedAttack && !usedAbility && abilityReady) {
-      return {
-        kind: 'ability',
-        step: {
-          key: 'ability-btn',
-          text: 'Your hero can also use an ability on the same enemy. Press the ability button!',
-          target: [actionButton('ability', true)],
-          interactive: true
-        }
-      };
-    }
-
-    if (!shown.current.has('endturn') && usedAttack && (usedAbility || !abilityReady)) {
-      return {
-        kind: 'endturn',
-        step: {
-          key: 'end-turn-btn',
-          text: usedAbility
-            ? "You're out of actions for this hero. Press End Turn to pass to your opponent!"
-            : "This hero can't use an ability right now. Press End Turn to pass to your opponent!",
-          target: [actionButton('end-turn')],
-          interactive: true
-        }
-      };
-    }
-    return null;
-  };
-
   // Show the next relevant prompt once the intro is over and nothing else is showing
   useEffect(() => {
-    if (stage !== 'done' || prompt || gameState.phase === 'ended' || gameState.winner) return;
-    const next = pickPrompt();
+    if (stage !== 'done' || prompt || !me || gameState.phase === 'ended' || gameState.winner) return;
+    const next = pickBattlePrompt({
+      me,
+      myTurn,
+      battleLog,
+      shown: shown.current,
+      inspected,
+      attackReady: !!document.querySelector(actionButton('attack', true)),
+      abilityReady: !!document.querySelector(actionButton('ability', true))
+    });
     if (next) {
       shown.current.add(next.kind);
+      if (inspected && NEEDS_CLEAR_BOARD.has(next.kind)) onCloseInspect();
       setPrompt(next);
     }
   });
 
-  // Action prompts close themselves once the player does the thing they point at
+  // Action prompts close themselves once the player does the thing they point at. One whose button went away
+  // first (the turn ran out, or the panel closed before Focus) is forgotten so it is asked again.
   useEffect(() => {
     if (!prompt || !me) return;
-    const finished =
-      (prompt.kind === 'target' && !!me.selectedTarget) ||
-      (prompt.kind === 'attack' && usedAttack) ||
-      (prompt.kind === 'ability' && usedAbility) ||
-      (prompt.kind === 'endturn' && !myTurn);
-    if (finished) setPrompt(null);
-  }, [prompt, me?.selectedTarget, usedAttack, usedAbility, myTurn]);
+    if (promptFinished(prompt.kind, progress)) {
+      setPrompt(null);
+    } else if (promptAbandoned(prompt.kind, progress)) {
+      shown.current.delete(prompt.kind);
+      if (prompt.kind === 'focus') shown.current.delete('inspect');
+      setPrompt(null);
+    }
+  }, [prompt, progress.focused, progress.inspectedEnemy, progress.usedAttack, progress.usedAbility, myTurn]);
 
   const handlePromptNext = () => {
     if (!prompt) return;
