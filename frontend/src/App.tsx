@@ -8,7 +8,7 @@ import CardLayoutTest from './components/CardLayoutTest';
 import UiKit from './components/ui/UiKit';
 import DevScreens from './components/ui/DevScreens';
 import RotatePrompt from './components/RotatePrompt';
-import InstallHint from './install/InstallHint.tsx'; // extension needed: installHint.ts shares the name on case-insensitive disks
+import InstallHint from './install/InstallHint';
 import { CardReaderProvider } from './cards/CardReader';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';

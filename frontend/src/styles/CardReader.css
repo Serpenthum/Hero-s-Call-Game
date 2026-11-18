@@ -20,8 +20,8 @@
   align-items: center;
   gap: var(--space-4);
   margin: auto;
-  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
-    max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  padding: max(20px, var(--safe-top)) max(20px, var(--safe-right))
+    max(20px, var(--safe-bottom)) max(20px, var(--safe-left));
   animation: card-reader-pop 280ms var(--ease) both;
 }
 

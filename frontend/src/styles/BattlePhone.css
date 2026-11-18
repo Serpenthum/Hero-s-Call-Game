@@ -7,17 +7,17 @@
   .App:has(.battle-layout) {
     /* Cards are kept a little under full row height so the sidebar and actions can be wider */
     --phone-card-shrink: 0.85;
-    --phone-card-h: min(calc((50dvh - 8px) * var(--phone-card-shrink)), 469px);
+    --phone-card-h: min(calc((var(--app-height) / 2 - 8px) * var(--phone-card-shrink)), 469px);
     /* 3 cards at 260/391 aspect plus gaps and frame */
     --phone-cards-w: calc(3 * 0.665 * var(--phone-card-h) + 10px);
     /* Minimum sidebar + actions + label widths (136 + 100 + 52) and breathing room */
-    --phone-spare: calc(100vw - var(--phone-cards-w) - 288px - 32px);
+    --phone-spare: calc(100vw - var(--safe-left) - var(--safe-right) - var(--phone-cards-w) - 288px - 32px);
     --phone-sidebar-width: clamp(136px, calc(136px + var(--phone-spare) * 0.4), 320px);
     --phone-actions-width: clamp(100px, calc(100px + var(--phone-spare) * 0.3), 220px);
     --phone-label-width: clamp(52px, calc(52px + var(--phone-spare) * 0.3), 220px);
     --phone-sidebar-font: clamp(11px, calc(var(--phone-sidebar-width) / 18), 14px);
     --phone-actions-font: clamp(11px, calc(var(--phone-actions-width) / 12), 14px);
-    --phone-avatar: clamp(32px, calc(var(--phone-label-width) - 12px), calc(50dvh - 56px));
+    --phone-avatar: clamp(32px, calc(var(--phone-label-width) - 12px), calc(var(--app-height) / 2 - 56px));
   }
 
   /* Very short screens need every pixel for the cards */
@@ -156,14 +156,18 @@
     overflow: visible;
   }
 
+  /* Fixed to the viewport, so it pads out the insets itself: the background reaches the edge under the
+     notch, the controls stay beside the board (which the padded app root already keeps clear) */
   .App .battle-layout .action-bar {
     position: fixed;
-    width: var(--phone-actions-width);
-    height: var(--app-height);
+    top: 0;
+    width: calc(var(--phone-actions-width) + var(--safe-right));
+    height: 100dvh;
     box-sizing: border-box;
     border-left: 1px solid var(--brass);
-    padding-top: 0;
-    padding-bottom: 66px;
+    padding-top: var(--safe-top);
+    padding-right: var(--safe-right);
+    padding-bottom: calc(66px + var(--safe-bottom));
   }
 
   .App .battle-layout .action-bar > * {
@@ -295,11 +299,11 @@
   .App:has(.battle-layout) .message-icon {
     width: 36px;
     height: 36px;
-    bottom: max(6px, env(safe-area-inset-bottom));
+    bottom: max(6px, var(--safe-bottom));
   }
 
-  .App:has(.battle-layout) .friends-icon { left: 8px; }
-  .App:has(.battle-layout) .message-icon { left: 50px; }
+  .App:has(.battle-layout) .friends-icon { left: calc(8px + var(--safe-left)); }
+  .App:has(.battle-layout) .message-icon { left: calc(50px + var(--safe-left)); }
 
   .App:has(.battle-layout) .friends-icon-svg,
   .App:has(.battle-layout) .message-icon-svg {
@@ -323,8 +327,8 @@
   }
 
   .App:has(.battle-layout) .floating-surrender-button {
-    bottom: max(6px, env(safe-area-inset-bottom)) !important;
-    right: 6px !important;
+    bottom: max(6px, var(--safe-bottom)) !important;
+    right: calc(6px + var(--safe-right)) !important;
     padding: 7px 5px !important;
     font-size: var(--phone-actions-font) !important;
     max-width: calc(var(--phone-actions-width) - 12px);
@@ -332,17 +336,17 @@
   }
 
   .App:has(.battle-layout) .turn-timer-bar {
-    right: calc(var(--phone-actions-width) / 2);
+    right: calc(var(--phone-actions-width) / 2 + var(--safe-right));
     width: calc(var(--phone-actions-width) - 16px);
-    bottom: 44px;
+    bottom: calc(44px + var(--safe-bottom));
     height: 10px;
   }
 
   .App:has(.battle-layout) .spectator-count-button {
     width: 30px !important;
     height: 30px !important;
-    bottom: 6px !important;
-    right: calc(var(--phone-actions-width) + 6px) !important;
+    bottom: max(6px, var(--safe-bottom)) !important;
+    right: calc(var(--phone-actions-width) + 6px + var(--safe-right)) !important;
     font-size: 14px !important;
   }
 }

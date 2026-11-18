@@ -1042,10 +1042,10 @@
 }
 
 .action-bar {
-  width: clamp(200px, 18vw, 300px); /* Responsive width */
+  width: calc(clamp(200px, 18vw, 300px) + var(--safe-right)); /* Responsive width, plus the right inset it pads out */
   background: color-mix(in srgb, var(--felt-deep) 80%, transparent);
   border-left: 2px solid var(--brass);
-  padding: 0; /* Remove padding to reach edge */
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) 0; /* Background to the edge, content clear of the notch */
   margin: 0; /* Ensure no margin */
   overflow-y: auto; /* Enable vertical scrolling */
   overflow-x: hidden; /* Prevent horizontal scroll */
@@ -1273,7 +1273,7 @@
 
 .challenge-notice {
   position: fixed;
-  top: 20px;
+  top: calc(20px + var(--safe-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 3000;

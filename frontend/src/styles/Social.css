@@ -7,8 +7,8 @@
 /* Friends Icon - positioned at bottom left */
 .friends-icon {
   position: fixed;
-  bottom: 20px;
-  left: 30px;
+  bottom: calc(20px + var(--safe-bottom));
+  left: calc(30px + var(--safe-left));
   z-index: 1500;
   background: linear-gradient(135deg, color-mix(in srgb, var(--brass) 90%, transparent) 0%, color-mix(in srgb, var(--brass) 95%, transparent) 100%);
   border: 2px solid color-mix(in srgb, var(--brass) 70%, transparent);
@@ -77,8 +77,8 @@
 /* Message Icon */
 .message-icon {
   position: fixed;
-  bottom: 20px;
-  left: 110px; /* Position next to friends icon */
+  bottom: calc(20px + var(--safe-bottom));
+  left: calc(110px + var(--safe-left)); /* Position next to friends icon */
   width: 60px;
   height: 60px;
   background: color-mix(in srgb, var(--walnut) 95%, transparent);
@@ -783,8 +783,8 @@
   .friends-icon {
         width: 50px;
         height: 50px;
-        bottom: 15px;
-        left: 25px;
+        bottom: calc(15px + var(--safe-bottom));
+        left: calc(25px + var(--safe-left));
       }
 
   .friends-icon-svg {
@@ -795,7 +795,7 @@
   .message-icon {
         width: 50px;
         height: 50px;
-        bottom: 15px;
-        left: 85px;
+        bottom: calc(15px + var(--safe-bottom));
+        left: calc(85px + var(--safe-left));
       }
 }

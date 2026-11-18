@@ -44,8 +44,8 @@ const MIGRATED = [
   'cards/useLongPress.test.ts',
   'cards/CardReader.tsx',
   'styles/CardReader.css',
-  'install/installHint.ts',
-  'install/installHint.test.ts',
+  'install/installHintKind.ts',
+  'install/installHintKind.test.ts',
   'install/InstallHint.tsx',
   'styles/InstallHint.css',
 ];

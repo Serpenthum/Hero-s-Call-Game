@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import CloseButton from '../components/CloseButton';
-import { installHintKind, INSTALL_HINT_DISMISSED_KEY } from './installHint.ts';
+import { installHintKind, INSTALL_HINT_DISMISSED_KEY } from './installHintKind';
 import '../styles/InstallHint.css';
 
 interface BeforeInstallPromptEvent extends Event {

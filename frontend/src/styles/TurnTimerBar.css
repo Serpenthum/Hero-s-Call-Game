@@ -1,9 +1,9 @@
 .turn-timer-bar {
   position: fixed;
   /* Horizontally centered in the fixed right action bar (same width clamp as .action-bar) */
-  right: calc(clamp(200px, 18vw, 300px) / 2);
+  right: calc(clamp(200px, 18vw, 300px) / 2 + var(--safe-right));
   transform: translateX(50%);
-  bottom: 80px;
+  bottom: calc(80px + var(--safe-bottom));
   width: 180px;
   height: 14px;
   padding: 2px;

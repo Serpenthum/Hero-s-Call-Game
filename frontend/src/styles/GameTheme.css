@@ -91,10 +91,10 @@
 
 /* Floating controls in the corners of the battle screen */
 .floating-surrender-button, .spectator-count-button, .spectator-list-modal, .opponent-disconnect-notice { position: fixed; z-index: 1000; }
-.floating-surrender-button { right: 20px; bottom: 20px; }
+.floating-surrender-button { right: calc(20px + var(--safe-right)); bottom: calc(20px + var(--safe-bottom)); }
 .spectator-count-button {
-  right: 220px;
-  bottom: 20px;
+  right: calc(220px + var(--safe-right));
+  bottom: calc(20px + var(--safe-bottom));
   width: 3.5rem;
   height: 3.5rem;
   display: flex;
@@ -112,8 +112,8 @@
 }
 .spectator-count-button:hover { background: var(--leather); transform: none; }
 .spectator-list-modal {
-  right: 220px;
-  bottom: 90px;
+  right: calc(220px + var(--safe-right));
+  bottom: calc(90px + var(--safe-bottom));
   min-width: 220px;
   max-width: 300px;
   max-height: 300px;
@@ -129,8 +129,8 @@
 .spectator-list-modal ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
 .spectator-list-modal li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--leather); border-radius: var(--radius-control); font-size: var(--text-sm); }
 .opponent-disconnect-notice {
-  right: 20px;
-  bottom: 130px;
+  right: calc(20px + var(--safe-right));
+  bottom: calc(130px + var(--safe-bottom));
   min-width: 200px;
   padding: var(--space-3) var(--space-5);
   text-align: center;
@@ -152,8 +152,8 @@
 /* Draft clock: a brass dial in the corner for the last 10 seconds of a round */
 .draft-clock {
   position: fixed;
-  top: var(--space-5);
-  right: var(--space-5);
+  top: calc(var(--space-5) + var(--safe-top));
+  right: calc(var(--space-5) + var(--safe-right));
   z-index: 900;
   width: 6rem;
   height: 6rem;
@@ -187,8 +187,8 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-4);
-    padding: max(var(--space-6), env(safe-area-inset-top)) max(var(--space-6), env(safe-area-inset-right))
-      max(var(--space-6), env(safe-area-inset-bottom)) max(var(--space-6), env(safe-area-inset-left));
+    padding: max(var(--space-6), var(--safe-top)) max(var(--space-6), var(--safe-right))
+      max(var(--space-6), var(--safe-bottom)) max(var(--space-6), var(--safe-left));
     text-align: center;
     background: var(--felt-surface);
     color: var(--bone);

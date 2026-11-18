@@ -577,8 +577,8 @@ body, html {
 /* Draft Info Sidebar - Combined */
 .draft-info-sidebar {
   position: fixed;
-  left: clamp(8px, 1vw, 15px);
-  top: clamp(60px, 8vh, 80px);
+  left: calc(clamp(8px, 1vw, 15px) + var(--safe-left));
+  top: calc(clamp(60px, 8vh, 80px) + var(--safe-top));
   width: clamp(180px, 20vw, 240px);
   background: linear-gradient(135deg, color-mix(in srgb, var(--walnut) 95%, transparent) 0%, var(--walnut) 100%);
   border: 2px solid color-mix(in srgb, var(--brass) 35%, transparent);
