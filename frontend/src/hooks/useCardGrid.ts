@@ -25,7 +25,8 @@ export function calculateCardGrid(width: number, height: number, rowExtra = 0, m
   let columns = fixedColumns ?? Math.max(1, Math.floor((availableWidth + gap) / (PREFERRED_CARD_WIDTH + gap)));
   if (fixedColumns === undefined && minCardWidth !== undefined) {
     const heightScale = Math.min(1.2, (availableHeight - gap * (rows - 1) - rowExtra * rows) / (rows * CARD_HEIGHT));
-    const heightLimitedWidth = CARD_WIDTH * heightScale;
+    // Floored at the minimum: a near-zero (or negative) measured height must not produce a huge column count
+    const heightLimitedWidth = Math.max(minCardWidth, CARD_WIDTH * heightScale);
     columns = Math.max(1,
       Math.floor((availableWidth + gap) / (heightLimitedWidth + gap)),
       Math.floor((availableWidth + gap) / (minCardWidth + gap)));

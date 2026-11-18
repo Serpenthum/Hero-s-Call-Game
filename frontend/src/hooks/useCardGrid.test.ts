@@ -20,6 +20,13 @@ describe('calculateCardGrid', () => {
     expect(cardWidth(wide.scale)).toBeGreaterThanOrEqual(130);
   });
 
+  it('never counts more columns than the minimum card width allows, even for a near-zero height', () => {
+    // 600 wide, minimum 130: at most floor((588 + 18) / (130 + 18)) = 4 columns
+    for (const height of [1, 5, 13, 20, 60]) {
+      expect(calculateCardGrid(600, height, 0, Infinity, undefined, undefined, undefined, 130).columns).toBeLessThanOrEqual(4);
+    }
+  });
+
   it('leaves fixed columns alone', () => {
     expect(calculateCardGrid(600, 320, 0, 1, 4, undefined, undefined, 130).columns).toBe(4);
   });

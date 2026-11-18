@@ -443,10 +443,13 @@
   z-index: 10000;
 }
 
+/* A purchased card stays readable (tapping it opens the card reader); only buying it again is blocked */
 .shop-hero-card.purchased {
   opacity: 0.6;
-  cursor: not-allowed;
   filter: grayscale(50%);
+}
+
+.shop-hero-wrapper:has(.shop-hero-card.purchased) .shop-buy-btn {
   pointer-events: none;
 }
 
@@ -751,9 +754,7 @@
 
 .pack-content-hero .shop-hero-card.purchased {
   opacity: 0.6;
-  cursor: not-allowed;
   filter: grayscale(50%);
-  pointer-events: none;
 }
 
 .pack-content-hero .shop-hero-card.purchased:hover {

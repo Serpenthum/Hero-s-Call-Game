@@ -175,7 +175,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
   };
 
   const handlePurchaseHero = async (heroName: string) => {
-    if (purchasing || victoryPoints < 5) return;
+    if (purchasing || victoryPoints < 5 || purchasedHeroes.has(heroName)) return;
 
     setPurchasing(true);
     try {

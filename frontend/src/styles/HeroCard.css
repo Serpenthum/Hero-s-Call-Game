@@ -808,8 +808,8 @@
 
 .collection-card-preview > .game-close-btn {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: calc(16px + var(--safe-top));
+  right: calc(16px + var(--safe-right));
 }
 
 .survival-card-slot.survival-card-placeholder {

@@ -87,8 +87,9 @@ const INTRO_STEPS: Record<Exclude<IntroStage, 'done'>, OverlayStep> = {
   },
   image: {
     key: 'image',
-    text: 'Read your hero\'s abilities and specials directly on the card. Each turn, your hero can use 1 attack and 1 ability on the same enemy. Each hero is unique and brings something new to the battlefield.',
-    target: [`${DRUID} .card-details`],
+    text: 'Your hero\'s abilities and specials are written on the card. On a small screen, tap the card to read it large. Each turn, your hero can use 1 attack and 1 ability on the same enemy. Each hero is unique and brings something new to the battlefield.',
+    // The rules text is hidden on tiny cards (a sideways phone), so fall back to the whole card
+    target: [`${DRUID} .card-details`, DRUID],
     side: 'left',
     interactive: true,
     showNext: true
