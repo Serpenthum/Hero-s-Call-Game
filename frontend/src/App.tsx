@@ -16,6 +16,7 @@ import MessageIcon from './components/MessageIcon';
 import config from './config';
 import { authHeaders, setAuthToken } from './authSession';
 import { battleEventBus } from './battleAnimations';
+import { watchedPlayerLeft } from './spectating';
 import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
@@ -228,7 +229,10 @@ function App() {
   const [incomingChallenge, setIncomingChallenge] = useState<{ fromId: number; from: string } | null>(null);
   const [challengeNotice, setChallengeNotice] = useState<{ text: string; cancellable: boolean } | null>(null);
   const challengeNoticeTimeoutRef = useRef<number | null>(null);
-  
+  // Socket listeners are registered once, so they read spectating through this ref (not stale state)
+  const isSpectatingRef = useRef(false);
+  isSpectatingRef.current = state.isSpectating;
+
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
 
@@ -1465,10 +1469,9 @@ function App() {
 
     socket.on('spectated-player-disconnected', (data) => {
       console.log('⚠️ Spectated player disconnected:', data.playerName);
-      // If we're spectating, show an alert and stop spectating
-      if (state.isSpectating) {
-        alert(`${data.playerName} has disconnected from the game.`);
-        handleStopSpectating();
+      // If we're spectating, stop and say why
+      if (isSpectatingRef.current) {
+        stopSpectatingWithNotice(`${data.playerName} left the game.`);
       }
     });
 
@@ -2148,6 +2151,20 @@ function App() {
     }));
   };
 
+  // Leaves spectating and shows a short notice saying why (e.g. the watched player left)
+  const stopSpectatingWithNotice = (text: string) => {
+    handleStopSpectating();
+    if (challengeNoticeTimeoutRef.current) window.clearTimeout(challengeNoticeTimeoutRef.current);
+    setChallengeNotice({ text, cancellable: false });
+    challengeNoticeTimeoutRef.current = window.setTimeout(() => setChallengeNotice(null), 4000);
+  };
+
+  // The watched player can drop out of the game state (they left the game); go back to the lobby
+  const spectatedPlayerGone = watchedPlayerLeft(state.isSpectating, state.spectatingPlayerId, state.gameState);
+  useEffect(() => {
+    if (spectatedPlayerGone) stopSpectatingWithNotice('The player you were watching left the game.');
+  }, [spectatedPlayerGone]);
+
   const getCurrentPlayer = (): Player | null => {
     if (!state.gameState || !state.playerId) {
       return null;
@@ -2251,6 +2268,7 @@ function App() {
           onStartGauntlet={handleStartGauntlet}
           onSpectateGame={handleSpectateGame}
           victoryPoints={state.victoryPoints}
+          onVictoryPointsChange={(vp: number) => setState(prev => ({ ...prev, victoryPoints: vp }))}
           user={state.user}
           onLogout={handleLogout}
           isSearching={isSearchingForMatch || (state.gameState?.phase === 'waiting')}
@@ -2272,7 +2290,8 @@ function App() {
       const otherPlayer = state.gameState.players.find(p => p.id !== state.spectatingPlayerId) || null;
       
       if (!spectatedPlayer) {
-        return <div>Error: Could not find spectated player</div>;
+        // The watched player left; the effect above takes the spectator back to the lobby
+        return null;
       }
 
       // Route spectators directly to battle phase with the spectated player's perspective

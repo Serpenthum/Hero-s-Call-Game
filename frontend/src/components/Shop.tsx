@@ -17,9 +17,14 @@ interface ShopProps {
   victoryPoints: number;
   availableHeroes: string[]; // Heroes the player already owns
   onPurchaseComplete: () => void; // Callback to refresh user data
+  onVictoryPointsChange?: (victoryPoints: number) => void; // New balance, straight from the purchase reply
 }
 
-const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHeroes, onPurchaseComplete }) => {
+const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHeroes, onPurchaseComplete, onVictoryPointsChange }) => {
+  // The purchase reply carries the new balance; show it at once (a pack's refresh waits for its animation)
+  const applyNewBalance = (newVP: unknown) => {
+    if (typeof newVP === 'number') onVictoryPointsChange?.(newVP);
+  };
   const [unownedHeroes, setUnownedHeroes] = useState<Hero[]>([]);
   const [saleHeroes, setSaleHeroes] = useState<Hero[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -190,6 +195,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       if (data.success) {
         // Mark hero as purchased in current session
         setPurchasedHeroes(prev => new Set(prev).add(heroName));
+        applyNewBalance(data.newVP);
         console.log(`✅ Hero purchased: ${data.heroCount} total heroes`);
         onPurchaseComplete(); // Refresh user data
       } else {
@@ -221,7 +227,8 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       
       if (data.success) {
         const heroesReceived = data.heroesReceived || [];
-        
+        applyNewBalance(data.newVP);
+
         // Mark received heroes as purchased in the shop
         setPurchasedHeroes(prev => {
           const newSet = new Set(prev);

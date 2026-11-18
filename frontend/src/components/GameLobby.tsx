@@ -39,6 +39,8 @@ interface GameLobbyProps {
   onStartGauntlet: () => void;
   onSpectateGame?: (gameId: string, spectatingPlayerId: string) => void;
   victoryPoints: number;
+  // Called with the new balance as soon as a shop purchase is confirmed
+  onVictoryPointsChange?: (victoryPoints: number) => void;
   user: User;
   onLogout: () => void;
   isSearching?: boolean;
@@ -61,7 +63,7 @@ const RANKED_MODE_NAMES: Record<RankedMode, string> = { draft: 'Draft mode', sur
 // Phase 5 turns this on once the Gauntlet backend fixes land.
 const SHOW_GAUNTLET = true;
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onStartGauntlet, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onStartGauntlet, victoryPoints, onVictoryPointsChange, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
   // Refresh on entering the lobby so a new UTC day resets the list.
   useEffect(() => {
     socketService.getQuests();
@@ -530,6 +532,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
           victoryPoints={victoryPoints}
           availableHeroes={user.available_heroes}
           onPurchaseComplete={handlePurchaseComplete}
+          onVictoryPointsChange={onVictoryPointsChange}
         />
       )}
 
