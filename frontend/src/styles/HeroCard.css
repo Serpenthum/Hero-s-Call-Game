@@ -663,10 +663,9 @@
   z-index: 15;
 }
 
-/* Fallen: grey and dark. */
+/* Fallen: grey and dark. Still readable (tap, press or right-click), never chosen. */
 .hero-card.dead {
   --card-frame: var(--leather-hi);
-  pointer-events: none;
 }
 
 .hero-card.dead .card-art {

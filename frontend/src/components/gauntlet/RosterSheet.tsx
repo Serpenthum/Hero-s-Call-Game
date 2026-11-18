@@ -45,7 +45,7 @@ const RosterSheet: React.FC<RosterSheetProps> = ({ roster, teamIndices, pick, lo
                 aria-pressed={pick ? undefined : place >= 0}
                 onClick={() => (pick ? onPick(index) : onToggleTeam(index))}
               >
-                <HeroCard hero={hero} showFullInfo={false} disableHPAnimations />
+                <HeroCard hero={hero} showFullInfo={false} disableHPAnimations readable="press" />
               </button>
               {place >= 0 && <span className="gt-place" aria-hidden="true">{place + 1}</span>}
               <div className="ui-hpbar gt-hp" aria-hidden="true"><div className="ui-hpbar__fill" style={{ width: `${percent}%` }} /></div>

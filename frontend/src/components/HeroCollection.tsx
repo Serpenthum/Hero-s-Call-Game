@@ -71,6 +71,7 @@ const HeroCard = React.memo<{
       showFullInfo={false}
       disableHPAnimations
       onClick={handleClick}
+      readable="none"
     >
       {isFavorite && (
         <Icon name="star" size={18} className="favorite-star" />
@@ -506,7 +507,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       {selectedHeroIndex !== null && sortedHeroes[selectedHeroIndex] && (
         <div className="collection-card-preview" role="dialog" aria-modal="true" aria-label={sortedHeroes[selectedHeroIndex].name}>
           <CloseButton onClick={() => setSelectedHeroIndex(null)} />
-          <SharedHeroCard hero={sortedHeroes[selectedHeroIndex]} showFullInfo={false} disableHPAnimations />
+          <SharedHeroCard hero={sortedHeroes[selectedHeroIndex]} showFullInfo={false} disableHPAnimations readable="none" />
           {userId && (
             <div className="favorite-button-container">
               <button 

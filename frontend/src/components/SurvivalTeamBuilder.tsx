@@ -457,6 +457,7 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                         isSelectable={!placeholder}
                         isSelected={!placeholder && isHeroSelected(hero)}
                         onClick={() => handleHeroSelect(hero)}
+                        readable="press"
                         showFullInfo={false}
                         disableHPAnimations
                       >

@@ -213,6 +213,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
               isSelectable={!currentPlayer.bannedCard}
               isSelected={selectedCard === hero.name}
               onClick={() => setSelectedCard(hero.name)}
+              readable="press"
             />
           ))}
         </div>
@@ -286,6 +287,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
                 isSelectable={canPick()}
                 isSelected={selectedCard === hero.name}
                 onClick={() => canPick() && setSelectedCard(hero.name)}
+                readable="press"
               />
             ))}
           </div>
@@ -373,6 +375,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
             <HeroCard
               hero={getHeroByName(draggedHero)!}
               isSelectable={false}
+              readable="none"
             />
           </div>
         )}

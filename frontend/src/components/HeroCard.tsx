@@ -4,6 +4,8 @@ import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
 import { getAnimSpeed } from '../battleAnimations';
 import { ReadMode, resolveReadMode, pickTextSize } from '../cards/cardRules';
+import { useCardReader } from '../cards/CardReader';
+import { useLongPress } from '../cards/useLongPress';
 import '../styles/HeroCard.css';
 
 export type HeroCardData = Omit<Hero, 'Ability' | 'Special'> & {
@@ -103,6 +105,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const resurrectionProcessedRef = useRef(false); // Track if we've processed the current resurrection
   const cardRef = useRef<HTMLDivElement>(null);
   const lowerRef = useRef<HTMLDivElement>(null);
+  const reader = useCardReader();
+  const openReader = () => reader.open(hero, { holo, favorite });
+  const pressHandlers = useLongPress(openReader);
 
   const currentHP = hero.currentHP !== undefined ? hero.currentHP : (typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP);
   const maxHP = typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP;
@@ -926,17 +931,38 @@ const HeroCard: React.FC<HeroCardProps> = ({
     ['--card-rx', '--card-ry', '--card-mx', '--card-my'].forEach(name => card.style.removeProperty(name));
   };
 
+  // A fallen hero can still be read, but never chosen.
+  const isDead = currentHP <= 0;
+  const canChoose = isSelectable && !isDead;
+  const readMode = resolveReadMode({ readable, isSelectable: canChoose });
+  const handleClick = (event: React.MouseEvent) => {
+    if (canChoose) onClick?.();
+    if (readMode !== 'tap') return;
+    // The tap is spent on reading; a wrapper that closes on click (the pack opening) must not also react.
+    event.stopPropagation();
+    openReader();
+  };
+  const handlePointerMoveAll = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (readMode === 'press') pressHandlers.onPointerMove(event);
+    if (followPointer) handlePointerMove(event);
+  };
+
   return (
     <div
       ref={cardRef}
       className={`${getCardClasses()}${faceClasses ? ` ${faceClasses}` : ''}`}
       data-anim-key={animKey}
       data-hero-name={animKey ? hero.name : undefined}
-      data-read-mode={resolveReadMode({ readable, isSelectable })}
-      onClick={isSelectable ? onClick : undefined}
-      onPointerMove={followPointer ? handlePointerMove : undefined}
+      data-read-mode={readMode}
+      onClick={canChoose || readMode === 'tap' ? handleClick : undefined}
+      onPointerDown={readMode === 'press' ? pressHandlers.onPointerDown : undefined}
+      onPointerMove={readMode === 'press' || followPointer ? handlePointerMoveAll : undefined}
+      onPointerUp={readMode === 'press' ? pressHandlers.onPointerUp : undefined}
+      onPointerCancel={readMode === 'press' ? pressHandlers.onPointerCancel : undefined}
+      onClickCapture={readMode === 'press' ? pressHandlers.onClickCapture : undefined}
+      onContextMenu={readMode !== 'none' ? pressHandlers.onContextMenu : undefined}
       onPointerLeave={followPointer ? handlePointerLeave : undefined}
-      style={{ cursor: isSelectable ? 'pointer' : 'default' }}
+      style={{ cursor: canChoose ? 'pointer' : readMode === 'tap' ? 'zoom-in' : undefined }}
     >
       <img
         src={getImagePath()}

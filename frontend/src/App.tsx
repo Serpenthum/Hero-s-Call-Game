@@ -8,6 +8,7 @@ import CardLayoutTest from './components/CardLayoutTest';
 import UiKit from './components/ui/UiKit';
 import DevScreens from './components/ui/DevScreens';
 import RotatePrompt from './components/RotatePrompt';
+import { CardReaderProvider } from './cards/CardReader';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
 import MessageIcon from './components/MessageIcon';
@@ -2858,4 +2859,13 @@ function App() {
   );
 }
 
-export default App;
+// Any card in the app can be opened large in the card reader.
+function AppWithCardReader() {
+  return (
+    <CardReaderProvider>
+      <App />
+    </CardReaderProvider>
+  );
+}
+
+export default AppWithCardReader;

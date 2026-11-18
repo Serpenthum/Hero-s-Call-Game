@@ -40,6 +40,10 @@ const MIGRATED = [
   'components/RotatePrompt.tsx',
   'cards/cardRules.ts',
   'cards/cardRules.test.ts',
+  'cards/useLongPress.ts',
+  'cards/useLongPress.test.ts',
+  'cards/CardReader.tsx',
+  'styles/CardReader.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
