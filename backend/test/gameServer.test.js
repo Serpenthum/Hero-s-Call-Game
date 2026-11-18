@@ -131,3 +131,32 @@ test('ADMIN_PASSWORD sync does not touch a normal player named like an admin', a
     await fresh.cleanup();
   }
 });
+
+// The tutorial bot acts through the same rules as a player, so it must focus an enemy before acting
+test('the tutorial bot focuses, acts and ends its turn', { timeout: 20000 }, async () => {
+  const c = connect();
+  const waitLong = async (t, pred = () => true) => {
+    for (let i = 0; i < 1000; i++) {
+      const f = c.frames.find(x => x.t === t && pred(x.d[0]));
+      if (f) return f.d[0];
+      await new Promise(r => setTimeout(r, 10));
+    }
+    throw new Error(`never received ${t}`);
+  };
+  c.send('join-tutorial', { name: 'Learner' });
+  await waitLong('game-start');
+  c.send('roll-initiative');
+  await waitLong('initiative-rolled');
+  c.send('choose-turn-order', { goFirst: false }); // the bot goes first
+  await waitLong('battle-start');
+  c.send('tutorial-continue', { hold: 'intro' });
+
+  const focused = await waitLong('target-selected');
+  assert.equal(focused.success, true);
+  const acted = await waitLong('attack-result', r => r.success);
+  assert.equal(acted.target, focused.selectedTarget, 'the bot acts on its focus');
+  c.send('tutorial-continue', { hold: 'log' });
+  const ended = await waitLong('turn-ended');
+  assert.equal(ended.success, true);
+  c.send('tutorial-skip');
+});

@@ -22,6 +22,13 @@ const {
   processEndOfTurn,
   calculateEffectiveDefense
 } = require('./utils');
+const { classifyAbility, specialDamaging } = require('./abilityTargeting');
+
+// Battle Focus refusals (exact copy shown to players)
+const FOCUS_FIRST = 'Focus an enemy first';
+const FOCUS_LOCKED = 'Focus is locked for this turn';
+const FOCUS_UNTARGETABLE = "Can't be targeted";
+const FOCUS_FALLEN = 'Your focused target has fallen';
 
 // Debug mode - set to false in production for better performance
 const DEBUG = typeof process !== 'undefined' && process.env && process.env.DEBUG_GAME === 'true';
@@ -2436,7 +2443,11 @@ class GameManager {
 
     const player = currentTurnInfo.player;
     const currentHero = currentTurnInfo.hero;
-    
+
+    // Focus is the first action of every turn, and a basic attack is lost with a fallen focus
+    const focusError = this.focusError(game, player, true);
+    if (focusError) return { success: false, error: focusError };
+
     // For Monks, use their specific attack tracking system
     if (currentHero.name === 'Monk') {
       if (player.monkAttacksRemaining <= 0) {
@@ -2471,11 +2482,6 @@ class GameManager {
       return { success: false, error: 'This hero cannot attack this turn' };
     }
 
-    // Check if target is selected
-    if (!player.selectedTarget) {
-      return { success: false, error: 'Must select a target first' };
-    }
-
     // Validate target against taunt restrictions
     const tauntValidation = this.validateTargetAgainstTaunt(currentHero, player.selectedTarget);
     if (!tauntValidation.valid) {
@@ -2484,7 +2490,7 @@ class GameManager {
 
     // Find target
     const opponent = game.players[1 - currentTurnInfo.playerIndex];
-    const target = opponent.team.find(h => h.name === player.selectedTarget);
+    const target = this.focusedHero(game, player);
     
     if (!target || target.currentHP <= 0) {
       return { success: false, error: 'Invalid target' };
@@ -2574,6 +2580,9 @@ class GameManager {
         statusEffects.push(...counterAttackResults);
       }
     }
+
+    // The focus can no longer change this turn (set before any auto-advance resets it)
+    player.focusLocked = true;
 
     // Handle attack usage tracking
     if (currentHero.name === 'Monk') {
@@ -2678,9 +2687,19 @@ class GameManager {
 
     const player = currentTurnInfo.player;
     const currentHero = currentTurnInfo.hero;
-    
+
+    // Focus is the first action of every turn, whatever the ability's kind
+    if (!player.selectedTarget) {
+      return { success: false, error: FOCUS_FIRST };
+    }
+
     if (!currentHero || !currentHero.Ability[abilityIndex]) {
       return { success: false, error: 'Invalid ability' };
+    }
+
+    const targeting = classifyAbility(currentHero.Ability[abilityIndex], currentHero);
+    if (targeting.damaging && this.isFocusFallen(game, player)) {
+      return { success: false, error: FOCUS_FALLEN };
     }
 
     // Check if hero can use abilities (not silenced or permanently disabled)
@@ -2707,14 +2726,13 @@ class GameManager {
     // Get the ability first
     const ability = currentHero.Ability[abilityIndex];
     
-    // Check Hoarder's custom silence - prevent using abilities against Hoarder if debuffed
-    if (currentHero.statusEffects?.cannotTargetWithAbility) {
+    // Check Hoarder's custom silence - prevent using abilities against Hoarder if debuffed.
+    // A self ability is not used against anyone, so only enemy and all-enemy abilities are checked.
+    if (currentHero.statusEffects?.cannotTargetWithAbility && targeting.kind !== 'self') {
       const debuff = currentHero.statusEffects.cannotTargetWithAbility;
-      // Check if trying to target the Hoarder who applied the debuff
-      const opponent = game.players[1 - currentTurnInfo.playerIndex];
-      const targetHero = opponent.team.find(h => h.name === targetId) || 
-                        player.team.find(h => h.name === targetId);
-      
+      // Check if the focus is the Hoarder who applied the debuff
+      const targetHero = this.focusedHero(game, player);
+
       // Compare by identity when possible: the target must be the bribing Hoarder, not a same-named hero
       const isBriber = debuff.ownerId ? targetHero && targetHero.id === debuff.ownerId : targetHero && targetHero.name === debuff.owner;
       if (isBriber) {
@@ -2751,44 +2769,44 @@ class GameManager {
       return { success: false, error: 'Already used ability this turn' };
     }
 
-    // Check if target is selected
-    if (!player.selectedTarget) {
-      return { success: false, error: 'Must select a target first' };
-    }
-
-    // Validate target against taunt restrictions  
-    const tauntValidation = this.validateTargetAgainstTaunt(currentHero, player.selectedTarget);
-    if (!tauntValidation.valid) {
-      return { success: false, error: tauntValidation.error };
-    }
     const opponent = game.players[1 - currentTurnInfo.playerIndex];
+    // The focus is always an enemy; self abilities land on the caster and skip the target checks
+    const selectedTargetHero = this.focusedHero(game, player);
+    const isSelfAbility = targeting.kind === 'self';
+    const isAOEAbility = targeting.kind === 'all';
 
-    // Check if the selected target is still alive (for abilities that target enemies)
-    const selectedTargetHero = opponent.team.find(h => h.name === player.selectedTarget) || 
-                               player.team.find(h => h.name === player.selectedTarget);
-    
-    if (selectedTargetHero && selectedTargetHero.currentHP <= 0) {
-      return { success: false, error: 'Cannot target dead heroes' };
-    }
+    if (!isSelfAbility) {
+      // Validate target against taunt restrictions
+      const tauntValidation = this.validateTargetAgainstTaunt(currentHero, player.selectedTarget);
+      if (!tauntValidation.valid) {
+        return { success: false, error: tauntValidation.error };
+      }
 
-    // Check if the selected target is untargetable (but allow AOE abilities and the original attacker)
-    const isAOEAbility = ability.target_type === 'all_enemies' || 
-                        (ability.primary_effects && ability.primary_effects.some(effect => effect.target === 'all_enemies'));
-    
-    if (selectedTargetHero && selectedTargetHero.statusEffects?.untargetable && !isAOEAbility) {
-      // Allow the original attacker who triggered Vanish to still target
-      if (selectedTargetHero.statusEffects.untargetableAttacker !== currentHero.name) {
-        return { success: false, error: 'Cannot target this hero - they are untargetable' };
+      // Check if the focus is still alive (for abilities that target enemies)
+      if (selectedTargetHero && selectedTargetHero.currentHP <= 0) {
+        return { success: false, error: 'Cannot target dead heroes' };
+      }
+
+      // Check if the focus is untargetable (but allow AOE abilities and the original attacker)
+      if (selectedTargetHero && selectedTargetHero.statusEffects?.untargetable && !isAOEAbility) {
+        // Allow the original attacker who triggered Vanish to still target
+        if (selectedTargetHero.statusEffects.untargetableAttacker !== currentHero.name) {
+          return { success: false, error: 'Cannot target this hero - they are untargetable' };
+        }
       }
     }
-    
+
     // Check if this is a multi-target ability (like cleave)
     const isMultiTargetAbility = ability.target_type === 'multi_target' || ability.category === 'multi_target_damage';
-    
+
     let results = [];
     let targetName;
-    
-    if (isAOEAbility) {
+
+    if (isSelfAbility) {
+      // Self abilities (Wildshape, Bloodbath, summons) are cast on the caster, focus or no living focus
+      targetName = currentHero.name;
+      results = this.processAbilityEffects(ability, currentHero, currentHero, player, opponent, game, null, allyTargetId, null, null);
+    } else if (isAOEAbility) {
       // For AOE abilities, process all enemy targets
       const allEnemyTargets = opponent.team.filter(h => h.currentHP > 0);
       
@@ -2805,13 +2823,8 @@ class GameManager {
       }
     } else if (isMultiTargetAbility) {
       // For multi-target abilities like cleave, process each target individually with separate rolls
-      let primaryTarget = opponent.team.find(h => h.name === player.selectedTarget);
-      
-      // If not found in opponent team, look in player's team (for healing abilities)
-      if (!primaryTarget) {
-        primaryTarget = player.team.find(h => h.name === player.selectedTarget);
-      }
-      
+      const primaryTarget = selectedTargetHero;
+
       if (!primaryTarget) {
         return { success: false, error: 'Selected target not found' };
       }
@@ -2844,14 +2857,9 @@ class GameManager {
         results.push(...targetResults);
       }
     } else {
-      // Single target ability - use existing logic
-      let target = opponent.team.find(h => h.name === player.selectedTarget);
-      
-      // If not found in opponent team, look in player's team (for healing abilities)
-      if (!target) {
-        target = player.team.find(h => h.name === player.selectedTarget);
-      }
-      
+      // Single target ability: the focused enemy
+      const target = selectedTargetHero;
+
       if (!target) {
         return { success: false, error: 'Selected target not found' };
       }
@@ -2860,9 +2868,10 @@ class GameManager {
       results = this.processAbilityEffects(ability, currentHero, target, player, opponent, game, null, allyTargetId, null, null);
     }
     
-    // Track ability usage
+    // Track ability usage; the focus can no longer change this turn
     player.hasUsedAbility = true;
-    
+    player.focusLocked = true;
+
     // For heroes that can use abilities multiple times, track specific ability usage
     const hasMultipleAbilityUse = hasSpecialEffect(currentHero, 'use_ability_twice') || 
                                  hasSpecialEffect(currentHero, 'use_twice_per_turn') ||
@@ -2954,9 +2963,13 @@ class GameManager {
       return { success: false, error: 'Only Timekeeper can use this method' };
     }
 
-    // Find the ally and enemy targets
+    // Chrono Shift is damaging: it needs a focus, and is lost once the focus has fallen
+    const focusError = this.focusError(game, player, true);
+    if (focusError) return { success: false, error: focusError };
+
+    // Find the ally to command; the enemy is always the focus (timekeeperTargetId is ignored)
     const allyToCommand = this.findAllyHeroByName(game, timekeeper, allyTargetId);
-    const primaryTarget = this.findEnemyHeroByName(game, timekeeper, timekeeperTargetId);
+    const primaryTarget = this.focusedHero(game, player);
     
     if (!allyToCommand || !primaryTarget) {
       return { success: false, error: 'Invalid target selection' };
@@ -2976,8 +2989,9 @@ class GameManager {
 
     // Process the Timekeeper ability with the selected ability index
     const results = this.processTimekeeperSelectedAbility(chronoShiftAbility, timekeeper, primaryTarget, player, opponent, game, allyToCommand, selectedAbilityIndex);
-    
+
     player.hasUsedAbility = true;
+    player.focusLocked = true;
 
     // Check win condition after any hero deaths from ability effects
     const winner = this.checkWinCondition(game);
@@ -4708,7 +4722,8 @@ class GameManager {
       }
       
       nextTurnInfo.player.selectedTarget = null;
-      
+      nextTurnInfo.player.focusLocked = false;
+
       debugLog(` Reset action flags for player ${game.currentPlayerTurn}`);
     }
     
@@ -4765,6 +4780,11 @@ class GameManager {
       return { success: false, error: 'Not your turn' };
     }
 
+    // The focus is chosen once per turn: after the first action it stays put
+    if (currentTurnInfo.player.focusLocked) {
+      return { success: false, error: FOCUS_LOCKED };
+    }
+
     // Check if hero is taunted - if so, must target the taunting hero (unless it ignores taunts, like Barbarian)
     const currentHero = currentTurnInfo.hero;
     const canIgnoreTaunt = this.hasPassiveModifier(currentHero, 'ignore_taunt');
@@ -4789,6 +4809,11 @@ class GameManager {
     
     if (!target) {
       return { success: false, error: 'Invalid target - hero not found or dead' };
+    }
+
+    // Vanished heroes can't be focused, except by the attacker that triggered the Vanish
+    if (target.statusEffects?.untargetable && target.statusEffects.untargetableAttacker !== currentHero.name) {
+      return { success: false, error: FOCUS_UNTARGETABLE };
     }
 
     // Set the selected target first
@@ -4936,6 +4961,10 @@ class GameManager {
     if (!special) {
       return { success: false, error: 'Special ability is not manually activatable' };
     }
+
+    // Needs a focus like every action; a damaging special (Self Destruct) is lost with a fallen focus
+    const focusError = this.focusError(game, player, specialDamaging(special));
+    if (focusError) return { success: false, error: focusError };
 
     // Check if already used (at hero level, persists through resurrection)
     if (!currentHero.permanentDisables) {
@@ -5113,6 +5142,7 @@ class GameManager {
     // Mark special as permanently used (persists through resurrection)
     currentHero.permanentDisables.special = true;
     player.hasUsedSpecial = true;
+    player.focusLocked = true;
 
     // Check if the current hero died from self-destruct
     if (currentHero.currentHP === 0) {
@@ -5158,9 +5188,59 @@ class GameManager {
     const info = this.getCurrentTurnInfo(game);
     if (!info || !info.hero || game.phase !== 'battle') return false;
     const { player, hero } = info;
+    // Nothing can happen before a focus, and there may be no enemy left that can be focused
+    if (!player.selectedTarget && !this.canFocusAnyEnemy(game, player, hero)) return true;
+    // A fallen focus leaves only the non-damaging actions
+    if (player.selectedTarget && this.isFocusFallen(game, player)) {
+      const selfAbility = this.canHeroUseAbility(player, hero) &&
+        hero.Ability.some(a => !classifyAbility(a, hero).damaging && !(player.usedAbilities || []).includes(a.name));
+      const healSpecial = this.canHeroActivateSpecial(hero) && this.activatableSpecials(hero).some(s => !specialDamaging(s));
+      return !selfAbility && !healSpecial;
+    }
     return !this.canHeroAttack(player, hero) &&
       !this.canHeroUseAbility(player, hero) &&
       !this.canHeroActivateSpecial(hero);
+  }
+
+  // The enemy hero `player` has focused (looked up only on the opposing team), or null
+  focusedHero(game, player) {
+    if (!player || !player.selectedTarget) return null;
+    const index = game.players.indexOf(player);
+    if (index === -1) return null;
+    const opponent = game.players[1 - index];
+    return (opponent && opponent.team.find(h => h.name === player.selectedTarget)) || null;
+  }
+
+  // True when a focus is set and that enemy is down (an Angel revive brings it back above 0 HP)
+  isFocusFallen(game, player) {
+    const focus = this.focusedHero(game, player);
+    return !!focus && focus.currentHP <= 0;
+  }
+
+  // The refusal for an action, or null: no focus at all, or a damaging action with a fallen focus
+  focusError(game, player, damaging) {
+    if (!player.selectedTarget) return FOCUS_FIRST;
+    if (damaging && this.isFocusFallen(game, player)) return FOCUS_FALLEN;
+    return null;
+  }
+
+  // Whether selectTarget could succeed for this hero (a living taunter, or a living enemy it may target)
+  canFocusAnyEnemy(game, player, hero) {
+    const index = game.players.indexOf(player);
+    const opponent = game.players[1 - index];
+    if (!opponent) return false;
+    if (!this.hasPassiveModifier(hero, 'ignore_taunt') && hero.statusEffects?.taunt?.target) {
+      const taunter = this.findEnemyHeroByName(game, hero, hero.statusEffects.taunt.target);
+      if (taunter && taunter.currentHP > 0) return true;
+    }
+    return opponent.team.some(h => h.currentHP > 0 &&
+      (!h.statusEffects?.untargetable || h.statusEffects.untargetableAttacker === hero.name));
+  }
+
+  activatableSpecials(hero) {
+    if (!hero.Special) return [];
+    const specials = Array.isArray(hero.Special) ? hero.Special : [hero.Special];
+    return specials.filter(s => s.category === 'activated_aoe' || s.category === 'activated_aoe_heal');
   }
 
   canHeroAttack(player, hero) {
@@ -5439,6 +5519,7 @@ class GameManager {
       currentTurnInfo.player.usedAbilities = [];
     }
     currentTurnInfo.player.selectedTarget = null; // Clear target selection
+    currentTurnInfo.player.focusLocked = false;
 
     // Remove first pick silence debuff at end of turn (first player disadvantage cleanup)
     if (currentTurnInfo.hero.statusEffects?.silenced && 
@@ -6143,6 +6224,7 @@ class GameManager {
         usedAbilities: p.usedAbilities || [],
         usedAttacks: p.usedAttacks || 0,
         selectedTarget: p.selectedTarget || null,
+        focusLocked: !!p.focusLocked,
         bannedCard: p.bannedCard,
         attackOrder: p.attackOrder || [],
         initiativeRoll: p.initiativeRoll,
@@ -6156,7 +6238,9 @@ class GameManager {
       activeHero: currentTurnInfo ? {
         name: currentTurnInfo.hero.name,
         playerIndex: currentTurnInfo.playerIndex,
-        heroIndex: currentTurnInfo.heroIndex
+        heroIndex: currentTurnInfo.heroIndex,
+        // One { kind, damaging } per ability of the active hero, in order (Beast Tamer's depends on its beast)
+        abilityTargeting: (currentTurnInfo.hero.Ability || []).map(a => classifyAbility(a, currentTurnInfo.hero))
       } : null,
       currentDraftPhase: game.currentDraftPhase || 0,
       draftTurn: game.draftTurn || 0,

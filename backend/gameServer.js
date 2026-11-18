@@ -950,13 +950,24 @@ function withTutorialRig(actorId, run) {
 async function tutorialBotStep(game, t, info) {
   const { player, hero } = info;
   const enemy = game.players.find(p => p.id !== t.botId);
-  const alive = enemy.team.filter(h => h.currentHP > 0);
+  // Like a player, the bot must focus an enemy before acting, and keeps that focus once it has acted
+  const focusable = enemy.team.filter(h => h.currentHP > 0 &&
+    (!h.statusEffects?.untargetable || h.statusEffects.untargetableAttacker === hero.name));
   // The assassin's opening turn goes at the Beast Tamer so the poison lesson can't kill the Druid
   const assassinOpening = hero.name === 'Assassin' && !t.assassinActed;
-  const target = (assassinOpening && alive.find(h => h.name === 'Beast Tamer')) ||
-    alive.find(h => h.name === 'Druid') ||
-    alive.reduce((lowest, h) => (!lowest || h.currentHP < lowest.currentHP ? h : lowest), null);
-  if (target) gameManager.selectTarget(t.botId, target.name);
+  let target = (assassinOpening && focusable.find(h => h.name === 'Beast Tamer')) ||
+    focusable.find(h => h.name === 'Druid') ||
+    focusable.reduce((lowest, h) => (!lowest || h.currentHP < lowest.currentHP ? h : lowest), null);
+  if (player.focusLocked) {
+    target = gameManager.focusedHero(game, player);
+  } else if (target) {
+    const selected = gameManager.selectTarget(t.botId, target.name);
+    if (selected.success) io.to(selected.gameId).emit('target-selected', selected);
+    // A taunt can force the focus onto the taunter
+    target = selected.success ? gameManager.focusedHero(game, player) : null;
+  }
+  // The bot's heroes only have damaging actions, so a fallen focus leaves it nothing to do
+  if (target && target.currentHP <= 0) target = null;
 
   // Ability first, then attack
   let kind = null;
