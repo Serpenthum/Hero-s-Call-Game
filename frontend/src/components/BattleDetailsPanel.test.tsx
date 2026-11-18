@@ -30,12 +30,13 @@ const render = (props: Partial<{ hero: Hero; side: 'enemy' | 'ally'; isFocused: 
   );
 
 describe('BattleDetailsPanel', () => {
-  it('shows the hero, its rules and its side', () => {
+  it('shows the hero card and its side, with no separate rules text', () => {
     const html = render();
     expect(html).toContain('Warlock');
-    expect(html).toContain('Ability:');
-    expect(html).toContain('Curse the focused enemy for two turns.');
-    expect(html).toContain('Special:');
+    expect(html).toContain('aria-label="Warlock"');
+    expect(html).toContain('battle-details-card');
+    expect(html).not.toContain('battle-details-rules');
+    expect(html).not.toContain('More');
     expect(html).toContain('data-side="enemy"');
     expect(html).toContain('Enemy');
     expect(html).toContain('aria-label="Close details"');
@@ -64,11 +65,13 @@ describe('BattleDetailsPanel', () => {
     expect(render({ side: 'enemy', ownerName: 'Admin2' })).not.toContain('>Enemy<');
   });
 
-  it('keeps the header to the name and the close X, with the tags over the card', () => {
+  it('puts the tags and the close X in the header, and the name only on the card', () => {
     const html = render({ isFocused: true });
     const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
-    expect(header).not.toContain('battle-details-tag');
-    const card = html.slice(html.indexOf('battle-details-card'));
-    expect(card.indexOf('battle-details-tags')).toBeLessThan(card.indexOf('battle-details-rules'));
+    expect(header).toContain('battle-details-tag--enemy');
+    expect(header).toContain('Focused');
+    expect(header).toContain('aria-label="Close details"');
+    expect(header).not.toContain('Warlock');
+    expect(header).not.toContain('battle-details-name');
   });
 });
