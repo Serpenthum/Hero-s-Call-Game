@@ -78,7 +78,6 @@
   transform: none;
   box-shadow: none;
 }
-.lobby-player-name-icon { display: none; } /* tap hint: short screens only, where the portrait is hidden */
 .profile-avatar-btn {
   flex-shrink: 0;
   width: 3.5rem;
@@ -371,23 +370,22 @@
     padding: var(--space-3);
   }
 
-  /* Ledger: no portrait (the name opens the profile); the bottom stays clear of the friends dock */
+  /* Ledger: the bottom stays clear of the friends dock */
   .lobby-ledger {
     gap: var(--space-2);
     padding: var(--space-3) var(--space-3) calc(40px + max(6px, var(--safe-bottom)));
   }
-  .profile-avatar-btn { display: none; }
+  /* Header: a small portrait just left of the name, in one row; both open the profile */
+  .lobby-player { justify-content: flex-start; gap: var(--space-2); }
+  .profile-avatar-btn { order: -1; width: 38px; height: 38px; }
   .lobby-player h2 { font-size: var(--text-lg); }
-  /* The name is the way into the profile here: a real tap target with a small profile icon */
   .lobby-player-name,
   .lobby-player-name:hover {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
     min-height: 32px;
   }
   .lobby-player-name-text { min-width: 0; }
-  .lobby-player-name-icon { display: block; flex-shrink: 0; color: var(--brass-hi); }
   .lobby-section-title { padding-bottom: var(--space-1); font-size: var(--text-md); }
   .lobby-quests { gap: var(--space-1); }
   .lobby-quest {

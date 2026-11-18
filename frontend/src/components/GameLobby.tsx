@@ -442,7 +442,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
       <main className="lobby-main">
         <aside className="lobby-ledger ui-panel">
           <div className="lobby-player">
-            {/* The name also opens the profile, for short screens where the portrait button is hidden */}
+            {/* The name opens the profile too, as does the portrait beside it */}
             <h2>
               <button
                 type="button"
@@ -452,8 +452,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
                 title="Profile"
               >
                 <span className="lobby-player-name-text">{user.username}</span>
-                {/* Tap hint, shown on short screens only */}
-                <Icon name="user" size={16} className="lobby-player-name-icon" />
               </button>
             </h2>
             <button
