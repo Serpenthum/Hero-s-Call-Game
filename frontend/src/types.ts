@@ -101,6 +101,7 @@ export interface StatusEffects {
     source: string;
   };
   untargetable: boolean;
+  untargetableAttacker?: string; // The one hero that may still target an untargetable hero
   damageStacks?: number;
   defenseReduction?: number;
   grantedAdvantage?: boolean;
@@ -147,7 +148,8 @@ export interface Player {
   hasUsedSpecial?: boolean;
   usedAbilities?: string[];
   usedAttacks?: number;
-  selectedTarget?: string | null;
+  selectedTarget?: string | null; // Battle focus: a hero on the opponent's team
+  focusLocked?: boolean; // Set by the first action of the turn; the focus can no longer change
   initiativeRoll?: number;
   monkAttacksRemaining?: number;
   oneTwoPunchAttacksRemaining?: number;
@@ -174,6 +176,7 @@ export interface GameState {
     name: string;
     playerIndex: number;
     heroIndex: number;
+    abilityTargeting?: import('./battle/focus').AbilityTargeting[]; // One entry per ability of the active hero
   } | null;
   currentDraftPhase: number;
   draftTurn: number;
