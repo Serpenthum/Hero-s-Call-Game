@@ -225,3 +225,15 @@
     animation: skull-jaw 0.17s ease-in-out infinite alternate;
   }
 }
+
+/* ===== Short screens (sideways phones) ===== */
+@media (max-height: 500px) {
+  /* In battle the top-right corner is the action column's "Actions" heading. The bottom of the left
+     sidebar is free during the tutorial (the friends dock that normally sits there is hidden). */
+  body:has(.battle-layout) .tut-skip {
+    top: auto;
+    right: auto;
+    bottom: max(6px, var(--safe-bottom));
+    left: calc(8px + var(--safe-left));
+  }
+}

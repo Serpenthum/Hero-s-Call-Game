@@ -305,12 +305,13 @@
   body:has(.game-lobby-modern) .message-icon-svg { width: 18px; height: 18px; }
   body:has(.game-lobby-modern) .friends-icon .notification-badge,
   body:has(.game-lobby-modern) .message-icon .notification-badge {
-    min-width: 14px;
-    height: 14px;
-    padding: 0 2px;
-    top: -5px;
-    right: -5px;
-    font-size: 9px;
+    /* Same size as the battle dock badge; text never below 12px (--text-xs shrinks with the root size) */
+    min-width: 18px;
+    height: 18px;
+    padding: 0 3px;
+    top: -6px;
+    right: -6px;
+    font-size: max(12px, var(--text-xs));
   }
   body:has(.game-lobby-modern) .friends-icon-tooltip,
   body:has(.game-lobby-modern) .message-icon-tooltip { bottom: 46px; }
