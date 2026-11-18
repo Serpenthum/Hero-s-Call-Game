@@ -12,6 +12,66 @@ const TEST_TEAMS = [
   { name: 'Test Team', heroes: ['Elementalist', 'Angel', 'Dual Defender'], isEnemy: false }
 ] as const;
 
+// "Face states": every look the card can take, at the widths the game uses.
+const FACE_WIDTHS = [350, 260, 195, 143, 78];
+const LONG_TEXT_HEROES = ['Arcane Archer', 'Ninja', 'Shroomguard'];
+const LONG_TEXT_WIDTHS = [195, 143];
+const STATE_WIDTHS = [195, 78];
+
+type FaceFixture = { label: string; hero: Hero; props?: Partial<React.ComponentProps<typeof HeroCard>> };
+
+const buildFaceFixtures = (find: (name: string) => Hero) => {
+  const full = (name: string): Hero => { const hero = find(name); return { ...hero, currentHP: hero.HP, maxHP: hero.HP }; };
+  const busy = {
+    ...full('Shroomguard'),
+    currentHP: 7,
+    statusEffects: {
+      poison: 3,
+      taunt: { target: 'Paladin' },
+      silenced: { active: true, duration: 2 },
+      statModifiers: { Defense: -2 },
+      totem_count: 2,
+      inspiration: 1
+    },
+    passiveBuffs: [{ stat: 'accuracy', value: 1, sourceHero: 'Bard', sourceName: 'Song' }]
+  } as unknown as Hero;
+
+  const looks: FaceFixture[] = [
+    { label: 'Plain', hero: full('Paladin') },
+    { label: 'Favourite', hero: full('Brawler'), props: { favorite: true } },
+    { label: 'Holographic', hero: full('Wizard'), props: { holo: true } },
+    { label: 'Holographic favourite', hero: full('Ninja'), props: { holo: true, favorite: true } },
+    { label: 'Glint and tilt', hero: full('Monk'), props: { glint: true, tilt: true } },
+    { label: 'Busy', hero: busy, props: { showFullInfo: true } }
+  ];
+  const states: FaceFixture[] = [
+    { label: 'Dead', hero: { ...full('Paladin'), currentHP: 0 } },
+    { label: 'Banned', hero: full('Wizard'), props: { isBanned: true } },
+    { label: 'Selected', hero: full('Brawler'), props: { isSelected: true } },
+    { label: 'Selectable', hero: full('Angel'), props: { isSelectable: true } },
+    { label: 'Current turn', hero: full('Monk'), props: { isCurrentTurn: true } },
+    { label: 'Blocked', hero: full('Engineer'), props: { isBlocked: true } },
+    { label: 'Enemy', hero: full('Blood Hunter'), props: { isEnemy: true } },
+    { label: 'Dragon Rider dismounted', hero: { ...full('Dragon Rider'), permanentDisables: { abilities: true } } as unknown as Hero }
+  ];
+  const longText: FaceFixture[] = LONG_TEXT_HEROES.map(name => ({ label: name, hero: full(name) }));
+  return { looks, states, longText };
+};
+
+const FaceRow: React.FC<{ title: string; width: number; fixtures: FaceFixture[] }> = ({ title, width, fixtures }) => (
+  <div className="card-face-states-row" style={{ '--hero-card-scale': width / 260 } as React.CSSProperties}>
+    <h3>{title} · {width}px</h3>
+    <div className="card-face-states-cards">
+      {fixtures.map(fixture => (
+        <figure key={fixture.label}>
+          <HeroCard hero={fixture.hero} showFullInfo={false} disableHPAnimations {...fixture.props} />
+          <figcaption>{fixture.label}</figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+);
+
 const isHero = (value: unknown): value is Hero => {
   if (!value || typeof value !== 'object') return false;
 
@@ -26,6 +86,7 @@ const isHero = (value: unknown): value is Hero => {
 
 const CardLayoutTest: React.FC<CardLayoutTestProps> = ({ onExit }) => {
   const [teams, setTeams] = useState<Array<{ name: string; heroes: Hero[]; isEnemy: boolean }> | null>(null);
+  const [faces, setFaces] = useState<ReturnType<typeof buildFaceFixtures> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -59,21 +120,28 @@ const CardLayoutTest: React.FC<CardLayoutTestProps> = ({ onExit }) => {
           return;
         }
 
+        const findHero = (name: string) => {
+          const hero = heroList.find(candidate => candidate.name === name);
+          if (!hero) {
+            throw new Error(`The test battle needs the ${name} hero, but it was not returned by the server.`);
+          }
+          return hero;
+        };
+
         const loadedTeams = TEST_TEAMS.map(team => {
           const selectedHeroes = team.heroes.map(name => {
-            const hero = heroList.find(candidate => candidate.name === name);
-            if (!hero) {
-              throw new Error(`The test battle needs the ${name} hero, but it was not returned by the server.`);
-            }
-
+            const hero = findHero(name);
             return { ...hero, currentHP: hero.HP, maxHP: hero.HP };
           });
 
           return { name: team.name, heroes: selectedHeroes, isEnemy: team.isEnemy };
         });
 
+        const loadedFaces = buildFaceFixtures(findHero);
+
         if (!controller.signal.aborted) {
           setTeams(loadedTeams);
+          setFaces(loadedFaces);
         }
       } catch (loadError) {
         if (controller.signal.aborted) return;
@@ -138,6 +206,14 @@ const CardLayoutTest: React.FC<CardLayoutTestProps> = ({ onExit }) => {
               </div>
             </section>
           ))}
+          {faces && (
+            <section className="card-face-states" aria-label="Face states">
+              <h2>Face states</h2>
+              {FACE_WIDTHS.map(width => <FaceRow key={`looks-${width}`} title="Looks" width={width} fixtures={faces.looks} />)}
+              {STATE_WIDTHS.map(width => <FaceRow key={`states-${width}`} title="Battle and draft states" width={width} fixtures={faces.states} />)}
+              {LONG_TEXT_WIDTHS.map(width => <FaceRow key={`long-${width}`} title="Longest texts" width={width} fixtures={faces.longText} />)}
+            </section>
+          )}
         </div>
       ) : (
         <div className="card-layout-test-loading" role="status" aria-label="Loading test battle" />

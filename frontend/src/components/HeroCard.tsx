@@ -2,6 +2,8 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Hero, Ability } from '../types';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
+import { getAnimSpeed } from '../battleAnimations';
+import { ReadMode, resolveReadMode, pickTextSize } from '../cards/cardRules';
 import '../styles/HeroCard.css';
 
 export type HeroCardData = Omit<Hero, 'Ability' | 'Special'> & {
@@ -24,7 +26,47 @@ interface HeroCardProps {
   tutorialReveal?: 'hidden' | 'grow'; // Tutorial: card is invisible, or grows in from nothing
   className?: string;
   children?: React.ReactNode;
+  holo?: boolean; // Holographic foil: rainbow sheen, sparkle and a bright rim
+  favorite?: boolean; // Gold star in the top-right corner
+  glint?: boolean; // A light sweep across the card every few seconds
+  tilt?: boolean; // The card leans toward the pointer (and the foil follows it)
+  readable?: ReadMode; // How the large view opens; defaults from isSelectable
 }
+
+// Largest share of the card's height the name-and-rules panel may cover.
+const LOWER_PANEL_MAX = 0.62;
+// 14px on a 260px card: the size today's card gives short rules text.
+const CARD_TEXT_MAX_EM = 1.08;
+
+// Glint, tilt and holo drift stop with "Battle animations: off" and with the system's reduced-motion setting.
+const cardMotionOff = () =>
+  getAnimSpeed() === 'off' ||
+  (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+const STAT_ICONS = {
+  hp: (
+    <svg className="card-gem-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+    </svg>
+  ),
+  defense: (
+    <svg className="card-gem-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3z" />
+    </svg>
+  ),
+  accuracy: (
+    <svg className="card-gem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="6.5" />
+      <path d="M12 2v5.5M12 16.5V22M2 12h5.5M16.5 12H22" />
+      <circle cx="12" cy="12" r="1.1" fill="currentColor" />
+    </svg>
+  ),
+  attack: (
+    <svg className="card-gem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 3l12 12M20 3L8 15M13.5 18.5l5-5M10.5 18.5l-5-5M17 17l3.5 3.5M7 17l-3.5 3.5" />
+    </svg>
+  )
+};
 
 const HeroCard: React.FC<HeroCardProps> = ({
   hero,
@@ -40,7 +82,12 @@ const HeroCard: React.FC<HeroCardProps> = ({
   animKey,
   tutorialReveal,
   className = '',
-  children
+  children,
+  holo = false,
+  favorite = false,
+  glint = false,
+  tilt = false,
+  readable
 }) => {
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
   const [hpColor, setHpColor] = useState<string>('');
@@ -54,7 +101,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const poisonAnimationRef = useRef<number | null>(null);
   const wasDismountedRef = useRef(false);
   const resurrectionProcessedRef = useRef(false); // Track if we've processed the current resurrection
-  const detailsRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const lowerRef = useRef<HTMLDivElement>(null);
 
   const currentHP = hero.currentHP !== undefined ? hero.currentHP : (typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP);
   const maxHP = typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP;
@@ -807,58 +855,36 @@ const HeroCard: React.FC<HeroCardProps> = ({
   };
 
   const cardSpecials = Array.isArray(hero.Special) ? hero.Special : hero.Special ? [hero.Special] : [];
-  const cardTextLength = [...(hero.Ability || []), ...cardSpecials].reduce(
-    (length, item) => length + item.name.length + item.description.length,
-    0
-  );
-  const cardDetailsClass = [
-    'card-details',
-    cardTextLength > 150 || hero.Ability.length + cardSpecials.length > 2 ? 'card-details-compact' : '',
-    cardTextLength > 180 || hero.Ability.length + cardSpecials.length > 2 ? 'card-details-dense' : ''
-  ].filter(Boolean).join(' ');
 
   useLayoutEffect(() => {
-    const details = detailsRef.current;
-    if (!details) return;
+    const card = cardRef.current;
+    const lower = lowerRef.current;
+    if (!card || !lower) return;
 
+    // The largest rules-text size at which the name-and-rules panel covers no more than its share of the card
+    // and the name stays clear of the stat rail above it.
     const fitText = () => {
-      if (details.clientHeight === 0) return;
-
-      const previousOverflow = details.style.overflowY;
-      details.style.overflowY = 'hidden';
-      const lastSection = details.lastElementChild;
-      const detailsStyle = getComputedStyle(details);
-      const bottomPadding = parseFloat(detailsStyle.paddingBottom);
-      // Find the largest quarter-pixel size that fits the fixed text panel.
-      let low = 36;
-      let high = 56;
-      let best = low;
-      while (low <= high) {
-        const candidate = Math.floor((low + high) / 2);
-        details.style.setProperty('--card-text-size', `${candidate / 4}px`);
-        const contentBottom = lastSection instanceof HTMLElement ?
-          lastSection.offsetTop + lastSection.offsetHeight +
-            parseFloat(getComputedStyle(lastSection).marginBottom) + bottomPadding : 0;
-        // Reserve a pixel so fractional scaling cannot trigger a scrollbar and narrower wrapping.
-        if (details.scrollHeight <= details.clientHeight && contentBottom <= details.clientHeight - 1) {
-          best = candidate;
-          low = candidate + 1;
-        } else {
-          high = candidate - 1;
-        }
-      }
-      details.style.setProperty('--card-text-size', `${best / 4}px`);
-      details.style.overflowY = previousOverflow;
+      if (card.clientHeight === 0) return;
+      const limit = card.clientHeight * LOWER_PANEL_MAX;
+      const rail = card.querySelector<HTMLElement>('.card-stats');
+      const name = lower.querySelector<HTMLElement>('.card-hero-name');
+      const railBottom = rail ? rail.offsetTop + rail.offsetHeight : 0;
+      const size = pickTextSize(sizeEm => {
+        card.style.setProperty('--card-text-size', `${sizeEm}em`);
+        const nameTop = lower.offsetTop + (name ? name.offsetTop : 0);
+        return lower.offsetHeight <= limit && nameTop >= railBottom;
+      }, CARD_TEXT_MAX_EM);
+      card.style.setProperty('--card-text-size', `${size}em`);
     };
 
     fitText();
     const observer = new ResizeObserver(fitText);
-    observer.observe(details);
+    observer.observe(card);
     return () => observer.disconnect();
-  }, [hero.Ability, hero.Special, cardDetailsClass]);
+  }, [hero.Ability, hero.Special, hero.name]);
 
   const renderCardDetails = () => (
-    <div className={cardDetailsClass} ref={detailsRef}>
+    <div className="card-details">
       {hero.Ability?.map((ability, index) => (
         <section key={`ability-${index}`} className="card-text-section">
           <h4><span className="card-type-label">Ability:</span> {ability.name}</h4>
@@ -874,55 +900,102 @@ const HeroCard: React.FC<HeroCardProps> = ({
     </div>
   );
 
+  const still = (holo || glint || tilt) && cardMotionOff();
+  const followPointer = tilt && !still;
+  const faceClasses = [
+    holo ? 'card-holo' : '',
+    followPointer ? 'card-tilt' : '',
+    still ? 'card-still' : ''
+  ].filter(Boolean).join(' ');
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const card = event.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    card.classList.add('card-hovering');
+    card.style.setProperty('--card-ry', `${(x - 0.5) * 24}deg`);
+    card.style.setProperty('--card-rx', `${(0.5 - y) * 24}deg`);
+    card.style.setProperty('--card-mx', `${x * 100}%`);
+    card.style.setProperty('--card-my', `${y * 100}%`);
+  };
+
+  const handlePointerLeave = (event: React.PointerEvent<HTMLDivElement>) => {
+    const card = event.currentTarget;
+    card.classList.remove('card-hovering');
+    ['--card-rx', '--card-ry', '--card-mx', '--card-my'].forEach(name => card.style.removeProperty(name));
+  };
+
   return (
     <div
-      className={getCardClasses()}
+      ref={cardRef}
+      className={`${getCardClasses()}${faceClasses ? ` ${faceClasses}` : ''}`}
       data-anim-key={animKey}
       data-hero-name={animKey ? hero.name : undefined}
+      data-read-mode={resolveReadMode({ readable, isSelectable })}
       onClick={isSelectable ? onClick : undefined}
+      onPointerMove={followPointer ? handlePointerMove : undefined}
+      onPointerLeave={followPointer ? handlePointerLeave : undefined}
       style={{ cursor: isSelectable ? 'pointer' : 'default' }}
     >
-      {renderStatusEffects()}
-      {renderCompanions()}
-      
-      <img 
+      <img
         src={getImagePath()}
         decoding="async"
-        loading="lazy" 
-        alt={hero.name} 
-        className={`hero-image ${isFlipping ? 'card-flip' : ''}`}
+        loading="lazy"
+        alt={hero.name}
+        className={`card-art ${isFlipping ? 'card-flip' : ''}`}
         onError={(e) => {
           // Fallback to a placeholder if image doesn't exist
           (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
         }}
       />
-
-      <h3 className="card-hero-name">{hero.name}</h3>
+      <div className="card-edge" aria-hidden="true" />
 
       <div className="card-stats">
-        <div className="hero-stats-row" data-tutorial="hp" role="group" aria-label="Health">
-          <span className="stat-icon card-stat-icon card-stat-icon-health" aria-hidden="true">❤️</span>
-          <span style={{ color: hpColor || 'inherit' }}>
-            {animatedHP !== null ? `${animatedHP}/${maxHP}` : `${currentHP}/${maxHP}`}
-          </span>
+        <div className="card-gem card-gem-hp" data-tutorial="hp" role="group" aria-label="Health">
+          {STAT_ICONS.hp}
+          <b className="card-gem-value">
+            <span style={{ color: hpColor || 'inherit' }}>
+              {animatedHP !== null ? `${animatedHP}/${maxHP}` : `${currentHP}/${maxHP}`}
+            </span>
+          </b>
         </div>
-        <div className="hero-stats-row" data-tutorial="defense" role="group" aria-label="Defense">
-          <span className="stat-icon card-stat-icon card-stat-icon-defense" aria-hidden="true">🛡️</span>
-          {renderEffectiveDefense(false)}
+        <div className="card-gem card-gem-defense" data-tutorial="defense" role="group" aria-label="Defense">
+          {STAT_ICONS.defense}
+          <b className="card-gem-value">{renderEffectiveDefense(false)}</b>
         </div>
-        <div className="hero-stats-row" data-tutorial="accuracy" role="group" aria-label="Accuracy">
-          <span className="stat-icon card-stat-icon card-stat-icon-accuracy" aria-hidden="true">🎯</span>
-          {renderBuffedStat('accuracy', hero.Accuracy, hero.modifiedAccuracy, hero.passiveBuffs, false)}
+        <div className="card-gem card-gem-accuracy" data-tutorial="accuracy" role="group" aria-label="Accuracy">
+          {STAT_ICONS.accuracy}
+          <b className="card-gem-value">{renderBuffedStat('accuracy', hero.Accuracy, hero.modifiedAccuracy, hero.passiveBuffs, false)}</b>
         </div>
-        <div className="hero-stats-row" data-tutorial="attack" role="group" aria-label="Attack">
-          <span className="stat-icon card-stat-icon card-stat-icon-attack" aria-hidden="true">⚔️</span>
-          {renderBuffedStat('attack', hero.BasicAttack, hero.modifiedBasicAttack, hero.passiveBuffs, false)}
+        <div className="card-gem card-gem-attack" data-tutorial="attack" role="group" aria-label="Attack">
+          {STAT_ICONS.attack}
+          <b className="card-gem-value">{renderBuffedStat('attack', hero.BasicAttack, hero.modifiedBasicAttack, hero.passiveBuffs, false)}</b>
         </div>
       </div>
 
-      <div className="hero-card-content">
+      <div className="card-lower" ref={lowerRef}>
+        {renderCompanions()}
+        <h3 className="card-hero-name">{hero.name}</h3>
+        <div className="card-rule" aria-hidden="true" />
         {renderCardDetails()}
       </div>
+
+      {glint && !still && <div className="card-glint" aria-hidden="true" />}
+      {holo && (
+        <>
+          <div className="card-sheen" aria-hidden="true" />
+          <div className="card-spark" aria-hidden="true" />
+        </>
+      )}
+      {favorite && (
+        <div className="card-fav-star" role="img" aria-label="Favourite">
+          <svg viewBox="0 0 24 24" fill="currentColor" strokeWidth="1" aria-hidden="true">
+            <path d="M12 2.5l2.9 6.1 6.6.9-4.8 4.6 1.2 6.6L12 17.5l-5.9 3.2 1.2-6.6L2.5 9.5l6.6-.9z" />
+          </svg>
+        </div>
+      )}
+      <div className="card-status">{renderStatusEffects()}</div>
       {children}
     </div>
   );

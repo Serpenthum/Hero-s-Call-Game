@@ -89,7 +89,8 @@
     font-size: 13px;
   }
 
-  .App:has(.battle-layout) .current-turn,
+  /* The turn banner, not the hero card that shares the class name */
+  .App:has(.battle-layout) .current-turn:not(.hero-card),
   .App:has(.battle-layout) .opponent-turn {
     font-size: var(--phone-sidebar-font);
     padding: 4px;

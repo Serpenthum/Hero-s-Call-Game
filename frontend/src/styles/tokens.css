@@ -41,6 +41,14 @@
   --holo-blue: #5a82ff;
   --holo-violet: #c85aff;
   --holo-rim: #f4e2a8;
+  --holo-glow: #8cc8ff;
+  --holo-spark-cool: #bee6ff;
+  --holo-spark-warm: #fff0c8;
+  --fav-gold-edge: #7a5a12;
+  --card-ink: #080a09;
+  --card-black: #000;
+  --card-white: #fff;
+  --card-text: #ece6d8;
 
   /* Type */
   --font-display: 'Grenze Gotisch', Georgia, serif;

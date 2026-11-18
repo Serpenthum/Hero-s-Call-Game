@@ -352,13 +352,6 @@
   --hero-card-height-scale: var(--grid-card-scale);
 }
 
-.favorite-hero-section .favorite-hero-display .hero-card.hero-layout-card:hover:not(.shop-hero-card) {
-  transform: none;
-  z-index: auto;
-  border-color: var(--leather-hi);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--felt-deep) 45%, transparent);
-}
-
 .favorite-hero-stats {
   flex-shrink: 0;
   color: var(--bone-dim);
