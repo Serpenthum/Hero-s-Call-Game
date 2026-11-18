@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { socketService } from './socketService';
 import { GameState, Player, Hero, Quest, PendingQuestReward } from './types';
 import GameLobby from './components/GameLobby';
@@ -16,7 +16,7 @@ import MessageIcon from './components/MessageIcon';
 import config from './config';
 import { authHeaders, setAuthToken } from './authSession';
 import { battleEventBus } from './battleAnimations';
-import { watchedPlayerLeft } from './spectating';
+import { watchedPlayerLeft, spectatorReactionToLeaver } from './spectating';
 import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
@@ -232,6 +232,10 @@ function App() {
   // Socket listeners are registered once, so they read spectating through this ref (not stale state)
   const isSpectatingRef = useRef(false);
   isSpectatingRef.current = state.isSpectating;
+  const spectatingPlayerIdRef = useRef<string | null>(null);
+  spectatingPlayerIdRef.current = state.spectatingPlayerId;
+  const [spectateNotice, setSpectateNotice] = useState<string | null>(null);
+  const spectateNoticeTimeoutRef = useRef<number | null>(null);
 
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
@@ -1469,10 +1473,10 @@ function App() {
 
     socket.on('spectated-player-disconnected', (data) => {
       console.log('⚠️ Spectated player disconnected:', data.playerName);
-      // If we're spectating, stop and say why
-      if (isSpectatingRef.current) {
-        stopSpectatingWithNotice(`${data.playerName} left the game.`);
-      }
+      // Watching the player who left: stop and say why. Watching the player who stayed: keep watching.
+      const reaction = spectatorReactionToLeaver(isSpectatingRef.current, spectatingPlayerIdRef.current, data.playerId);
+      if (reaction === 'leave') stopSpectatingWithNotice(`${data.playerName} left the game.`);
+      else if (reaction === 'notify') showSpectateNotice(`${data.playerName} left the game.`);
     });
 
     socket.on('returned-to-lobby', (data) => {
@@ -2138,7 +2142,8 @@ function App() {
     // This function is kept for interface compatibility
   };
 
-  const handleStopSpectating = () => {
+  // Stable (setters, refs and the socket only), so socket listeners and effects can use it
+  const handleStopSpectating = useCallback(() => {
     console.log('👁️ Stopping spectation');
     socketService.leaveSpectate();
     setState(prev => ({
@@ -2149,21 +2154,27 @@ function App() {
       spectators: [],
       battleLog: []
     }));
-  };
+  }, []);
 
-  // Leaves spectating and shows a short notice saying why (e.g. the watched player left)
-  const stopSpectatingWithNotice = (text: string) => {
+  // A short spectating notice ("X left the game."). It has its own slot, so it never replaces a
+  // pending challenge notice and its Cancel button.
+  const showSpectateNotice = useCallback((text: string) => {
+    if (spectateNoticeTimeoutRef.current) window.clearTimeout(spectateNoticeTimeoutRef.current);
+    setSpectateNotice(text);
+    spectateNoticeTimeoutRef.current = window.setTimeout(() => setSpectateNotice(null), 4000);
+  }, []);
+
+  // Leaves spectating and says why (e.g. the watched player left)
+  const stopSpectatingWithNotice = useCallback((text: string) => {
     handleStopSpectating();
-    if (challengeNoticeTimeoutRef.current) window.clearTimeout(challengeNoticeTimeoutRef.current);
-    setChallengeNotice({ text, cancellable: false });
-    challengeNoticeTimeoutRef.current = window.setTimeout(() => setChallengeNotice(null), 4000);
-  };
+    showSpectateNotice(text);
+  }, [handleStopSpectating, showSpectateNotice]);
 
   // The watched player can drop out of the game state (they left the game); go back to the lobby
   const spectatedPlayerGone = watchedPlayerLeft(state.isSpectating, state.spectatingPlayerId, state.gameState);
   useEffect(() => {
     if (spectatedPlayerGone) stopSpectatingWithNotice('The player you were watching left the game.');
-  }, [spectatedPlayerGone]);
+  }, [spectatedPlayerGone, stopSpectatingWithNotice]);
 
   const getCurrentPlayer = (): Player | null => {
     if (!state.gameState || !state.playerId) {
@@ -2854,6 +2865,11 @@ function App() {
               Cancel
             </button>
           )}
+        </div>
+      )}
+      {state.user && spectateNotice && (
+        <div className={`challenge-notice${challengeNotice ? ' challenge-notice--stacked' : ''}`} role="status">
+          <span>{spectateNotice}</span>
         </div>
       )}
 

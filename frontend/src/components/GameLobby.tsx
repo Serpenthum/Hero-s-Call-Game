@@ -444,8 +444,16 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
           <div className="lobby-player">
             {/* The name also opens the profile, for short screens where the portrait button is hidden */}
             <h2>
-              <button type="button" className="lobby-player-name" onClick={() => setShowProfileModal(true)}>
-                {user.username}
+              <button
+                type="button"
+                className="lobby-player-name"
+                onClick={() => setShowProfileModal(true)}
+                aria-label={`${user.username}, open profile`}
+                title="Profile"
+              >
+                <span className="lobby-player-name-text">{user.username}</span>
+                {/* Tap hint, shown on short screens only */}
+                <Icon name="user" size={16} className="lobby-player-name-icon" />
               </button>
             </h2>
             <button

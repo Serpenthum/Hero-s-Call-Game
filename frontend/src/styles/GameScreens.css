@@ -1288,6 +1288,9 @@
   font-size: 0.95rem;
 }
 
+/* A second notice (e.g. "X left the game.") while a challenge notice shows: sit just below it */
+.challenge-notice--stacked { top: calc(80px + var(--safe-top)); }
+
 .challenge-notice button {
   background: var(--ember-hi);
   border: none;

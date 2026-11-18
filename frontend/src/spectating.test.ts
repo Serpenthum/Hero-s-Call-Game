@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { watchedPlayerLeft } from './spectating';
+import { watchedPlayerLeft, spectatorReactionToLeaver } from './spectating';
+
+describe('spectatorReactionToLeaver', () => {
+  it('leaves when the watched player is the one who left', () => {
+    expect(spectatorReactionToLeaver(true, 'a', 'a')).toBe('leave');
+  });
+
+  it('keeps watching (with a notice) when the other player left', () => {
+    expect(spectatorReactionToLeaver(true, 'b', 'a')).toBe('notify');
+  });
+
+  it('ignores the event when not spectating', () => {
+    expect(spectatorReactionToLeaver(false, 'a', 'a')).toBe('ignore');
+  });
+
+  it('leaves when it cannot tell who left', () => {
+    expect(spectatorReactionToLeaver(true, 'a', undefined)).toBe('leave');
+  });
+});
 
 const players = [{ id: 'a' }, { id: 'b' }];
 

@@ -78,6 +78,7 @@
   transform: none;
   box-shadow: none;
 }
+.lobby-player-name-icon { display: none; } /* tap hint: short screens only, where the portrait is hidden */
 .profile-avatar-btn {
   flex-shrink: 0;
   width: 3.5rem;
@@ -306,7 +307,7 @@
 @keyframes lobby-fade { from { opacity: 0; } }
 
 /* Friends and messages dock: smaller on phones so it clears the placards, but still a 40px tap target */
-@media (max-width: 768px), (max-width: 1000px) and (max-height: 600px) {
+@media (max-width: 768px), (max-width: 1000px) and (max-height: 600px), (max-height: 500px) {
   body:has(.game-lobby-modern) .friends-icon,
   body:has(.game-lobby-modern) .message-icon {
     width: 40px;
@@ -377,6 +378,16 @@
   }
   .profile-avatar-btn { display: none; }
   .lobby-player h2 { font-size: var(--text-lg); }
+  /* The name is the way into the profile here: a real tap target with a small profile icon */
+  .lobby-player-name,
+  .lobby-player-name:hover {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 32px;
+  }
+  .lobby-player-name-text { min-width: 0; }
+  .lobby-player-name-icon { display: block; flex-shrink: 0; color: var(--brass-hi); }
   .lobby-section-title { padding-bottom: var(--space-1); font-size: var(--text-md); }
   .lobby-quests { gap: var(--space-1); }
   .lobby-quest {

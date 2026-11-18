@@ -313,12 +313,13 @@
 
   .App:has(.battle-layout) .friends-icon .notification-badge,
   .App:has(.battle-layout) .message-icon .notification-badge {
-    min-width: 14px;
-    height: 14px;
-    padding: 0 2px;
-    top: -5px;
-    right: -5px;
-    font-size: 9px;
+    /* Text never below 12px (--text-xs shrinks with the root size); badge sized to fit it */
+    min-width: 18px;
+    height: 18px;
+    padding: 0 3px;
+    top: -6px;
+    right: -6px;
+    font-size: max(12px, var(--text-xs));
   }
 
   .App:has(.battle-layout) .friends-icon-tooltip,
