@@ -224,6 +224,12 @@
 
   .disconnect-notice--stacked .disconnect-caption__title {
     font-size: 10px;
+    letter-spacing: 0;
+  }
+
+  /* The sidebar column is narrow: the word alone fits, the icon does not */
+  .disconnect-notice--stacked .disconnect-caption__title svg {
+    display: none;
   }
 
   .disconnect-notice--stacked .disconnect-caption__count {
