@@ -32,7 +32,7 @@
 }
 /* Sideways phone: modals keep a small margin from the screen edge, or the inset where that is larger */
 @media (max-height: 500px) {
-  .modal-overlay, .profile-modal-overlay, .requirement-modal-overlay, .quest-reward-overlay {
+  .modal-overlay, .profile-modal-overlay, .requirement-modal-overlay, .quest-reward-overlay, .shop-overlay {
     padding: max(var(--space-2), var(--safe-top)) max(var(--space-2), var(--safe-right))
       max(var(--space-2), var(--safe-bottom)) max(var(--space-2), var(--safe-left));
   }

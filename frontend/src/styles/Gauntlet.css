@@ -23,7 +23,7 @@
   border-bottom: 1px solid var(--brass-dim);
   box-shadow: 0 6px 18px var(--shade);
 }
-.gt-title { margin: 0; font: 400 var(--text-xl) / 1 var(--font-display); }
+.gt-title { margin: 0; font: 500 var(--text-xl) / 1 var(--font-display); }
 .gt-bar-actions { margin-left: auto; display: flex; gap: var(--space-2); }
 .gt-notice { margin: var(--space-3) var(--space-6) 0; }
 
@@ -37,7 +37,7 @@
 }
 .gt-side { align-self: stretch; min-height: 0; display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-5) var(--space-5) 5.25rem; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--brass-dim) transparent; /* clears the friends button */ }
 .gt-table { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; min-height: 0; }
-.gt-heading { margin: 0 0 var(--space-3); font: 400 var(--text-lg) / 1.1 var(--font-display); color: var(--bone); }
+.gt-heading { margin: 0 0 var(--space-3); font: 500 var(--text-lg) / 1.1 var(--font-display); color: var(--bone); }
 .gt-hint { margin: 0; font-size: var(--text-sm); color: var(--bone-dim); }
 
 /* Trial map */
@@ -53,7 +53,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font: 400 var(--text-sm) / 1 var(--font-display);
+  font: 500 var(--text-sm) / 1 var(--font-display);
   border: 1px solid var(--brass-dim);
   border-radius: 50%;
   color: var(--bone-dim);
@@ -103,7 +103,7 @@
   border-radius: var(--radius-control);
 }
 .gt-place-chip.is-filled { background: var(--leather); border-style: solid; }
-.gt-place-number { font: 400 var(--text-lg) / 1 var(--font-display); color: var(--brass-hi); }
+.gt-place-number { font: 500 var(--text-lg) / 1 var(--font-display); color: var(--brass-hi); }
 .gt-place-name { font-weight: 700; }
 .gt-place-hp { font-size: var(--text-sm); color: var(--bone-dim); font-variant-numeric: tabular-nums; }
 .gt-place-empty { font-size: var(--text-sm); color: var(--bone-dim); }
@@ -144,7 +144,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font: 400 var(--text-md) / 1 var(--font-display);
+  font: 500 var(--text-md) / 1 var(--font-display);
   color: var(--felt-deep);
   background: var(--brass-hi);
   border: 1px solid var(--brass);
@@ -172,7 +172,7 @@
 
 /* Results */
 .gt-results { width: min(30rem, 100%); display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-7); text-align: center; background: var(--walnut); box-shadow: var(--shadow-panel), var(--inset-frame); }
-.gt-results-title { margin: 0; font: 400 var(--text-2xl) / 1.1 var(--font-display); }
+.gt-results-title { margin: 0; font: 500 var(--text-2xl) / 1.1 var(--font-display); }
 .gt-results-list { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .gt-results-list > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); padding-bottom: var(--space-2); border-bottom: 1px solid var(--brass-dim); }
 .gt-results-list dt { color: var(--bone-dim); }
@@ -194,4 +194,79 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .gt-choice, .gt-slot-hit { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Sideways phone (short screens). Overrides the "page scrolls" rules above:
+   the Gauntlet fits one screen. The roster fills the left; the right column
+   holds the trial team and its Start button, then camp and the trial map
+   (that panel scrolls). The roster is on the left because the friends dock
+   sits in the bottom-left corner, over the empty felt beside the cards. The
+   offer panel runs the screen height. Text 12px or more, 40px tap targets.
+   --------------------------------------------------------------------------- */
+@media (max-height: 500px) {
+  .gt { height: var(--app-height); min-height: 0; overflow: hidden; padding-bottom: 0; }
+  .gt-centered { overflow-y: auto; justify-content: safe center; padding: var(--space-3); }
+  .gt .ui-btn { min-height: 40px; }
+
+  .gt-bar { flex-wrap: nowrap; gap: var(--space-3); padding: var(--space-1) var(--space-3); }
+  .gt-title { font-size: var(--text-lg); white-space: nowrap; }
+  .gt-bar .ui-badge { font-size: var(--text-sm); white-space: nowrap; }
+  .gt-bar-actions { gap: var(--space-1); }
+  .gt-notice { margin: var(--space-1) var(--space-3) 0; }
+
+  .gt-main {
+    grid-template-columns: minmax(0, 1fr) minmax(11rem, 15rem);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+  .gt-table { display: contents; }
+
+  /* Team: three stacked places, then Start */
+  .gt-team { grid-column: 2; grid-row: 1; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: var(--space-2); padding: var(--space-2); }
+  .gt-team-places { flex-direction: column; flex-wrap: nowrap; gap: var(--space-1); }
+  .gt-place-chip { min-width: 0; min-height: 40px; box-sizing: border-box; padding: 0 0 0 var(--space-2); }
+  .gt-place-number { font-size: var(--text-md); }
+  .gt-place-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .gt-place-hp { white-space: nowrap; }
+  .gt-place-remove { flex: none; width: 40px; height: 40px; align-items: center; justify-content: center; padding: 0; }
+  .gt-team-go { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: var(--space-1); }
+  .gt-team-go .gt-hint { text-align: center; }
+  .gt-searching { justify-content: center; font-size: var(--text-sm); text-align: center; }
+
+  /* Camp first (it is what you act on), then the map; this panel scrolls */
+  .gt-side { grid-column: 2; grid-row: 2; gap: var(--space-4); padding: var(--space-2); overflow-y: auto; }
+  .gt-camp { order: -1; }
+  .gt-heading { margin-bottom: var(--space-2); font-size: var(--text-md); }
+  .gt-choice { min-height: 40px; padding: var(--space-2); }
+  .gt-choice-title { font-size: var(--text-sm); }
+
+  /* Roster: the cards get the full height */
+  .gt .gt-roster { grid-column: 1; grid-row: 1 / -1; min-height: 0; flex: none; }
+  .gt-roster .responsive-card-grid { gap: var(--space-2); }
+  /* Health, fallen and place show on the card; only "Returns for one battle" has no other sign */
+  .gt-slot .gt-hp, .gt-slot .gt-status:not(.is-revived) { display: none; }
+  /* Without the status line the place badge says "on the team", so it sits above the card */
+  .gt-place { z-index: 2; top: -0.3rem; left: -0.3rem; width: 1.5rem; height: 1.5rem; font-size: var(--text-sm); }
+
+  /* Offer: the panel runs the screen height and the cards fill what is left */
+  .gt-offer-overlay {
+    padding: max(var(--space-2), var(--safe-top)) max(var(--space-2), var(--safe-right))
+      max(var(--space-2), var(--safe-bottom)) max(var(--space-2), var(--safe-left));
+  }
+  .gt-offer { gap: var(--space-2); padding: var(--space-2) var(--space-4); }
+  .gt-offer:has(.gt-offer-cards) { height: 100%; overflow: hidden; }
+  .gt-offer .gt-heading { margin: 0; }
+  /* The padding is room for each card's Choose button (the grid sizes cards to the content box) */
+  .gt-offer-cards { flex: 1; height: auto; min-height: 0; padding-bottom: 48px; }
+  .gt-offer-actions { flex-wrap: nowrap; }
+  .gt-replace { min-height: 40px; padding: var(--space-1) var(--space-3); }
+  .gt-replace-list { grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
+
+  .gt-results { gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+  .gt-results-title { font-size: var(--text-xl); }
+
+  /* The friends and messages dock would sit over the offer and abandon panels */
+  body:has(.gt .ui-modal-overlay) :is(.friends-icon, .message-icon) { visibility: hidden; }
 }

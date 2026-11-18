@@ -12,13 +12,13 @@
   box-shadow: 6px 0 18px var(--shade);
 }
 .survival-mode-title {
-  font: 400 var(--text-2xl) / 1 var(--font-display);
+  font: 500 var(--text-2xl) / 1 var(--font-display);
   color: var(--bone);
   text-shadow: none;
   border-bottom: 1px solid var(--brass-dim);
 }
 .survival-progress h3, .survival-used-heroes h3 {
-  font: 400 var(--text-lg) / 1 var(--font-display);
+  font: 500 var(--text-lg) / 1 var(--font-display);
   color: var(--bone);
   text-shadow: none;
 }
@@ -32,7 +32,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  font: 400 var(--text-lg) / 1 var(--font-display);
+  font: 500 var(--text-lg) / 1 var(--font-display);
   text-shadow: none;
 }
 .progress-achievement { color: var(--brass-hi); }
@@ -76,14 +76,14 @@
   box-shadow: var(--shadow-panel), var(--inset-frame);
   color: var(--bone);
 }
-.survival-end-content h2 { font: 400 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; }
+.survival-end-content h2 { font: 500 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; }
 .survival-end-content p { color: var(--bone-dim); }
 
 /* The roster sheet */
 .favorite-star { fill: currentColor; color: var(--brass-hi); }
 .selection-indicator { display: flex; align-items: center; justify-content: center; color: var(--felt-deep); background: var(--brass-hi); border-radius: 50%; }
 .matchmaking-status, .waiting-message { color: var(--bone); }
-.waiting-message h3 { display: flex; align-items: center; justify-content: center; gap: var(--space-2); font: 400 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; }
+.waiting-message h3 { display: flex; align-items: center; justify-content: center; gap: var(--space-2); font: 500 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; }
 .waiting-message p { color: var(--bone-dim); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -97,7 +97,7 @@
   border-radius: var(--radius-panel);
   box-shadow: var(--inset-frame);
 }
-.team-selection-header h2 { font: 400 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; text-transform: none; }
+.team-selection-header h2 { font: 500 var(--text-xl) / 1.1 var(--font-display); color: var(--bone); text-shadow: none; text-transform: none; }
 .team-selection-header p { font-size: var(--text-md); color: var(--bone-dim); }
 .survival-selected-team {
   border: 1px solid var(--brass-dim);
@@ -110,3 +110,111 @@
 .heroes-grid-container .pagination-arrow-overlay { border-width: 1px !important; }
 .hero-browser-side { border-right-color: var(--brass-dim); }
 .survival-team-builder select, .survival-team-builder input { font-family: var(--font-ui); }
+
+/* ---------------------------------------------------------------------------
+   Sideways phone (short screens). One screen, two columns: on the right the
+   team (three slots and Start battle) above the ledger, which scrolls; on the
+   left the hero browser fills the height. The builder's own wrappers step
+   aside (display: contents) so the team side and the ledger share a column.
+   The browser is on the left because the friends dock sits in the bottom-left
+   corner, over the empty felt beside the cards.
+   Text 12px or more, 40px tap targets, 16px fields (no iOS focus zoom).
+   --------------------------------------------------------------------------- */
+@media (max-height: 500px) {
+  .survival-mode-container { height: var(--app-height); max-height: none; }
+  .survival-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(11rem, 15rem);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+  }
+  .survival-main, .survival-team-builder, .survival-split-layout { display: contents; }
+
+  /* Team */
+  .team-selection-side {
+    grid-column: 2;
+    grid-row: 1;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--walnut);
+    border-left: 1px solid var(--brass-dim);
+    border-bottom: 1px solid var(--brass-dim);
+  }
+  .team-selection-header { margin: 0; text-align: left; }
+  .team-selection-header h2 { margin: 0; font-size: var(--text-md); }
+  .team-selection-header p { display: none; } /* the empty slots say "Choose a hero" */
+  .survival-selected-team { flex-direction: column; flex-wrap: nowrap; gap: var(--space-1); max-width: none; margin: 0; padding: 0; background: none; border: 0; }
+  .survival-team-slot { flex: none; height: 40px; aspect-ratio: auto; justify-content: flex-start; overflow: hidden; border-width: 1px; border-radius: var(--radius-control); }
+  .empty-slot-content { flex-direction: row; gap: var(--space-2); padding: 0 var(--space-2); }
+  .survival-team-slot .slot-number { font-size: var(--text-lg); }
+  .survival-team-slot .slot-hint { font-size: var(--text-sm); }
+  .selected-hero { display: flex; align-items: center; gap: var(--space-2); border-radius: 0; }
+  .selected-hero-image { flex: none; width: 40px; height: 40px; object-fit: cover; }
+  .selected-hero-name { position: static; min-width: 0; padding: 0; overflow: hidden; background: none; border-radius: 0; font-size: var(--text-sm); text-align: left; white-space: nowrap; text-overflow: ellipsis; }
+  .remove-hero-hint { display: none; }
+  .start-battle-container { margin: 0; }
+  .start-battle-btn { width: 100%; min-height: 40px; padding: 0 var(--space-3); font-size: var(--text-md); letter-spacing: 0; }
+  .matchmaking-status { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2); border-width: 1px; border-radius: var(--radius-panel); }
+  .waiting-message { margin: 0; }
+  .waiting-message h3 { margin: 0; font: 700 var(--text-sm) / 1.2 var(--font-ui); }
+  .waiting-message p, .waiting-message .loading-dots { display: none; }
+  .cancel-search-btn { width: 100%; min-height: 40px; padding: 0 var(--space-3); font-size: var(--text-sm); letter-spacing: 0; }
+
+  /* Ledger: title, then the two buttons, then progress and used heroes; this panel scrolls */
+  .survival-sidebar {
+    grid-column: 2;
+    grid-row: 2;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-right: 0;
+    border-left: 1px solid var(--brass-dim);
+    border-bottom: 0;
+    box-shadow: none;
+  }
+  .survival-mode-title { margin: 0; padding-bottom: var(--space-1); font-size: var(--text-lg); }
+  .survival-sidebar-buttons { order: -1; flex-direction: row; gap: var(--space-2); margin: 0; padding: 0; border: 0; }
+  .survival-sidebar-buttons .survival-btn { flex: 1; min-height: 40px; padding: var(--space-1); font-size: var(--text-sm); letter-spacing: 0; }
+  .survival-mode-title { order: -2; }
+  .survival-progress, .survival-used-heroes { margin: 0; padding: var(--space-2); }
+  .survival-progress h3, .survival-used-heroes h3 { margin: 0 0 var(--space-1); font-size: var(--text-md); }
+  .progress-section { margin-bottom: var(--space-1); }
+  .progress-label { margin-bottom: 2px; }
+  .progress-title, .progress-count { font-size: var(--text-sm); }
+  .progress-bar-container { height: 10px; }
+  .progress-achievement, .progress-elimination { margin-top: var(--space-1); padding: var(--space-1); font-size: var(--text-md); }
+  .no-used-heroes { padding: var(--space-1); }
+  .no-used-heroes p, .no-used-heroes .hint, .used-heroes-subtitle, .used-hero-name, .used-heroes-count { font-size: var(--text-sm); }
+  .used-heroes-list { max-height: none; }
+
+  /* Hero browser */
+  .hero-browser-side { grid-column: 1; grid-row: 1 / -1; height: auto; min-height: 0; padding: var(--space-2) var(--space-3); border: 0; }
+  .survival-team-builder .loading-state { grid-column: 1; grid-row: 1 / -1; height: auto; }
+  .survival-team-builder .hero-browser-header { flex-wrap: nowrap; gap: var(--space-2); margin: 0 0 var(--space-1); padding: var(--space-1) var(--space-2); }
+  .page-indicator { font-size: var(--text-sm); white-space: nowrap; }
+  .survival-header-controls { flex: 1; flex-wrap: nowrap; justify-content: flex-end; gap: var(--space-2); min-width: 0; }
+  .search-controls { min-width: 0; }
+  /* The labels stay for screen readers; the fields explain themselves */
+  .sort-controls label, .search-controls label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .survival-sort-dropdown, .survival-search-input { box-sizing: border-box; min-height: 40px; padding: 0 var(--space-2); font-size: 16px; }
+  .survival-search-input { width: 9rem; min-width: 0; }
+  .heroes-grid-container { min-height: 0; padding: 0 var(--space-2); }
+  .survival-team-builder .heroes-grid-container .pagination-arrow-overlay { top: 50%; bottom: auto; width: 40px; height: 40px; font-size: var(--text-lg); transform: translateY(-50%); }
+  .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.left-arrow { left: 0 !important; }
+  .survival-team-builder .heroes-grid-container button.pagination-arrow-overlay.right-arrow { right: 0 !important; }
+  .no-heroes-available { padding: var(--space-4); }
+
+  /* End and abandon panels: fit the height, 40px buttons */
+  .survival-end-modal {
+    box-sizing: border-box;
+    padding: max(var(--space-2), var(--safe-top)) max(var(--space-2), var(--safe-right))
+      max(var(--space-2), var(--safe-bottom)) max(var(--space-2), var(--safe-left));
+  }
+  .survival-end-content { box-sizing: border-box; max-height: 100%; margin: 0; padding: var(--space-4) var(--space-5); overflow-y: auto; }
+  .survival-end-content h2 { margin: 0 0 var(--space-2); }
+  .survival-end-content p { margin: 0 0 var(--space-3); font-size: var(--text-md); }
+  .survival-end-buttons { flex-direction: row; gap: var(--space-3); }
+  .survival-end-buttons .survival-btn { min-height: 40px; }
+}
