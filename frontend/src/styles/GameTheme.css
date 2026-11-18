@@ -90,7 +90,7 @@
 .banned-cards-section h3 { color: var(--ember-hi); text-shadow: none; letter-spacing: 0; }
 
 /* Floating controls in the corners of the battle screen */
-.floating-surrender-button, .spectator-count-button, .spectator-list-modal, .opponent-disconnect-notice { position: fixed; z-index: 1000; }
+.floating-surrender-button, .spectator-count-button, .spectator-list-modal { position: fixed; z-index: 1000; }
 .floating-surrender-button { right: calc(20px + var(--safe-right)); bottom: calc(20px + var(--safe-bottom)); }
 .spectator-count-button {
   right: calc(220px + var(--safe-right));
@@ -128,22 +128,6 @@
 .spectator-list-modal h3 { margin: 0 0 var(--space-3); padding-bottom: var(--space-2); font: 400 var(--text-lg) / 1.1 var(--font-display); border-bottom: 1px solid var(--brass-dim); }
 .spectator-list-modal ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
 .spectator-list-modal li { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--leather); border-radius: var(--radius-control); font-size: var(--text-sm); }
-.opponent-disconnect-notice {
-  right: calc(20px + var(--safe-right));
-  bottom: calc(130px + var(--safe-bottom));
-  min-width: 200px;
-  padding: var(--space-3) var(--space-5);
-  text-align: center;
-  color: var(--bone);
-  background: var(--walnut);
-  border: 1px solid var(--ember);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-panel);
-}
-.opponent-disconnect-notice .notice-title { display: flex; align-items: center; justify-content: center; gap: var(--space-2); font-size: var(--text-sm); margin-bottom: var(--space-1); }
-.opponent-disconnect-notice .notice-count { font: 400 var(--text-2xl) / 1 var(--font-display); color: var(--ember-hi); }
-.opponent-disconnect-notice .notice-hint { font-size: var(--text-xs); color: var(--bone-dim); margin-top: var(--space-1); }
-
 @media (prefers-reduced-motion: reduce) {
   .turn-indicator, .game-over-title { animation: none; }
   .action-button, .return-to-lobby-button { transition: none; }

@@ -51,6 +51,10 @@
   to { transform: scale(1.4); opacity: 1; }
 }
 
+/* Stopped while a player is disconnected: the fuse holds where it was and the ember dims */
+.turn-timer-bar--paused .turn-timer-fill { animation: none; }
+.turn-timer-bar--paused .turn-timer-fill::after { animation: none; opacity: 0.4; }
+
 @media (prefers-reduced-motion: reduce) {
   .turn-timer-fill::after { animation: none; }
 }

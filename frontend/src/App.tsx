@@ -17,6 +17,7 @@ import config from './config';
 import { authHeaders, setAuthToken } from './authSession';
 import { battleEventBus } from './battleAnimations';
 import { watchedPlayerLeft, spectatorReactionToLeaver } from './spectating';
+import { countdownMs, deadlinesFromState, staleGameAfterLogin } from './reconnect';
 import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
@@ -82,6 +83,26 @@ const markKills = (entries: BattleLogEntry[], event?: { targets?: Array<{ name: 
   if (dead.size === 0) return entries;
   return entries.map(e => (e.target && dead.has(e.target) && (e.damage || 0) > 0 ? { ...e, killed: true } : e));
 };
+
+// The server keeps the battle log in its own shape; a spectator or a rejoining player starts from it.
+const convertBackendLog = (backendLog: any[]): BattleLogEntry[] => backendLog.map((entry: any, index: number) => ({
+  id: entry.id || `backend-${Date.now()}-${index}`,
+  timestamp: entry.timestamp || Date.now(),
+  action: entry.message || entry.action || 'Unknown action',
+  damage: entry.damage,
+  healing: entry.healing,
+  hit: entry.hit,
+  crit: entry.isCritical || entry.crit,
+  attacker: entry.source || entry.caster || entry.attacker,
+  target: entry.target,
+  attackRoll: entry.attackRoll,
+  attackTotal: entry.attackTotal,
+  advantageInfo: entry.advantageInfo,
+  damageRoll: entry.damageRoll?.rolls || entry.damageRoll,
+  damageTotal: entry.damageTotal || entry.damage,
+  abilityName: entry.specialName || entry.abilityName,
+  isSpecial: entry.type?.includes('special')
+}));
 
 interface User {
   id: number;
@@ -219,7 +240,9 @@ function App() {
   const pendingSearchRef = useRef<{ name: string; mode: 'draft' | 'random' } | null>(null);
   const [isSearchingForMatch, setIsSearchingForMatch] = useState(false);
   const [showCardLayoutTest, setShowCardLayoutTest] = useState(false);
-  const [turnTimer, setTurnTimer] = useState<{ playerId: string; deadline: number; durationMs: number } | null>(null);
+  const [turnTimer, setTurnTimer] = useState<{ playerId: string; deadline: number; durationMs: number; paused?: boolean; remainingMs?: number } | null>(null);
+  // Players who dropped out of the current game: player id -> when their seat is given up (local clock)
+  const [disconnectDeadlines, setDisconnectDeadlines] = useState<Record<string, number>>({});
   const [draftTimer, setDraftTimer] = useState<{ round: number; durationMs: number; deadline: number } | null>(null);
   const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
   // How many of the six battle heroes are visible during the tutorial intro; null = all
@@ -236,6 +259,9 @@ function App() {
   spectatingPlayerIdRef.current = state.spectatingPlayerId;
   const [spectateNotice, setSpectateNotice] = useState<string | null>(null);
   const spectateNoticeTimeoutRef = useRef<number | null>(null);
+  // The game on screen, for socket listeners (registered once) that must compare against it
+  const gameStateRef = useRef<GameState | null>(null);
+  gameStateRef.current = state.gameState;
 
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
@@ -260,45 +286,10 @@ function App() {
     }
   }, [state.victoryPoints]);
 
-  // Save active game state to localStorage for reconnection
+  // Players who dropped out only matter for the game they dropped out of
   useEffect(() => {
-    if (state.gameState && state.playerId && state.user && state.gameState.mode !== 'tutorial') {
-      const gameData = {
-        gameId: state.gameState.id,
-        playerId: state.playerId,
-        playerName: state.user.username,
-        phase: state.gameState.phase,
-        timestamp: Date.now()
-      };
-      localStorage.setItem('heroCallActiveGame', JSON.stringify(gameData));
-    } else {
-      localStorage.removeItem('heroCallActiveGame');
-    }
-  }, [state.gameState, state.playerId, state.user]);
-
-  // Attempt to reconnect to active game on load
-  useEffect(() => {
-    if (state.user && !state.gameState) {
-      const storedGame = localStorage.getItem('heroCallActiveGame');
-      if (storedGame) {
-        try {
-          const gameData = JSON.parse(storedGame);
-          // Only attempt reconnect if game is recent (within 30 minutes)
-          const timeSinceGame = Date.now() - gameData.timestamp;
-          if (timeSinceGame < 30 * 60 * 1000) {
-            console.log('🔄 Attempting to reconnect to game:', gameData.gameId);
-            socketService.reconnectToGame(gameData.gameId, gameData.playerName);
-          } else {
-            console.log('⏰ Stored game too old, not reconnecting');
-            localStorage.removeItem('heroCallActiveGame');
-          }
-        } catch (error) {
-          console.error('Failed to parse stored game data:', error);
-          localStorage.removeItem('heroCallActiveGame');
-        }
-      }
-    }
-  }, [state.user, state.gameState]);
+    setDisconnectDeadlines({});
+  }, [state.gameState?.id]);
 
   useEffect(() => {
     // Load heroes data - only load if user is authenticated
@@ -324,23 +315,35 @@ function App() {
     if (state.user.id > 0) socketService.authenticate(state.user.id);
 
     // Socket event handlers for reconnection
+    // Back in the seat we dropped out of (after a refresh, a reopened app or a dropped network)
     socket.on('reconnect-success', (gameState) => {
       console.log('✅ Reconnected to game successfully:', gameState);
       pendingSearchRef.current = null;
+      pendingSurvivalSearchRef.current = null;
+      const rejoinedSameGame = gameStateRef.current?.id === gameState.id;
       setState(prev => ({
         ...prev,
         gameState: gameState,
-        playerId: socketService.socket?.id || null,
+        playerId: socketService.getSocket()?.id || null,
         isConnected: true,
-        error: null
+        error: null,
+        isSpectating: false,
+        spectatingPlayerId: null,
+        // A reloaded page lost which mode screen the battle belongs to
+        isSurvivalMode: gameState.mode === 'survival' ? true : prev.isSurvivalMode,
+        showSurvival: false,
+        showGauntlet: gameState.mode === 'gauntlet',
+        // Keep the log we have if we never left the screen; otherwise start from the server's copy
+        battleLog: rejoinedSameGame && prev.battleLog.length > 0 ? prev.battleLog : convertBackendLog(gameState.battleLog || [])
       }));
+      setDisconnectDeadlines(deadlinesFromState(gameState, Date.now()));
       setIsSearchingForMatch(false);
+      setIsSearchingForSurvivalMatch(false);
       setSearchMode(null);
     });
 
     socket.on('reconnect-failed', (data) => {
       console.log('❌ Reconnection failed:', data.message);
-      localStorage.removeItem('heroCallActiveGame');
       setState(prev => ({
         ...prev,
         error: data.message
@@ -648,7 +651,7 @@ function App() {
 
     socket.on('turn-timer', (data) => {
       // Server sends remaining time so client clock skew doesn't matter
-      setTurnTimer({ playerId: data.playerId, durationMs: data.durationMs, deadline: Date.now() + data.remainingMs });
+      setTurnTimer({ playerId: data.playerId, durationMs: data.durationMs, deadline: Date.now() + data.remainingMs, paused: !!data.paused, remainingMs: data.remainingMs });
     });
 
     socket.on('draft-timer', (data) => {
@@ -1428,25 +1431,8 @@ function App() {
       console.log('👁️ Spectate result:', data);
       if (data.success && data.gameState) {
         // Convert backend battleLog to frontend format
-        const backendLog = data.gameState.battleLog || [];
-        const convertedLog: BattleLogEntry[] = backendLog.map((entry: any, index: number) => ({
-          id: entry.id || `backend-${Date.now()}-${index}`,
-          timestamp: entry.timestamp || Date.now(),
-          action: entry.message || entry.action || 'Unknown action',
-          damage: entry.damage,
-          healing: entry.healing,
-          hit: entry.hit,
-          crit: entry.isCritical || entry.crit,
-          attacker: entry.source || entry.caster || entry.attacker,
-          target: entry.target,
-          attackRoll: entry.attackRoll,
-          attackTotal: entry.attackTotal,
-          advantageInfo: entry.advantageInfo,
-          damageRoll: entry.damageRoll?.rolls || entry.damageRoll,
-          damageTotal: entry.damageTotal || entry.damage,
-          abilityName: entry.specialName || entry.abilityName,
-          isSpecial: entry.type?.includes('special')
-        }));
+        const convertedLog = convertBackendLog(data.gameState.battleLog || []);
+        setDisconnectDeadlines(deadlinesFromState(data.gameState, Date.now()));
 
         setState(prev => ({
           ...prev,
@@ -1477,6 +1463,40 @@ function App() {
       const reaction = spectatorReactionToLeaver(isSpectatingRef.current, spectatingPlayerIdRef.current, data.playerId);
       if (reaction === 'leave') stopSpectatingWithNotice(`${data.playerName} left the game.`);
       else if (reaction === 'notify') showSpectateNotice(`${data.playerName} left the game.`);
+    });
+
+    // A player in our game dropped out; the server holds their seat and counts down
+    socket.on('disconnection-countdown-started', (data) => {
+      const ms = countdownMs(data);
+      if (ms === null) return;
+      setDisconnectDeadlines(prev => ({ ...prev, [data.playerId]: Date.now() + ms }));
+    });
+
+    // They came back on a new connection (a new player id): follow them
+    socket.on('player-reconnected', (data) => {
+      setDisconnectDeadlines(prev => {
+        const next = { ...prev };
+        delete next[data.oldPlayerId];
+        return next;
+      });
+      setState(prev => {
+        if (!prev.gameState || prev.gameState.id !== data.gameId) return prev;
+        const watched = prev.isSpectating && prev.spectatingPlayerId === data.oldPlayerId;
+        return {
+          ...prev,
+          gameState: data.gameState,
+          spectatingPlayerId: watched ? data.playerId : prev.spectatingPlayerId
+        };
+      });
+    });
+
+    // The countdown ran out. A forfeit's result screen comes with 'game-surrendered'; a game called
+    // off before the battle comes with 'draft-abandoned'; spectators are sent home separately.
+    socket.on('game-ended-by-disconnection', (data) => {
+      setDisconnectDeadlines({});
+      if (data.outcome === 'forfeit' && data.gameState) {
+        setState(prev => (prev.gameState && prev.gameState.id === data.gameState.id ? { ...prev, gameState: data.gameState } : prev));
+      }
     });
 
     socket.on('returned-to-lobby', (data) => {
@@ -1663,6 +1683,17 @@ function App() {
 
     socket.on('authentication-success', (data) => {
       console.log('Socket authentication successful for user:', data.userId);
+      // Logged in again on a new connection. A spectate never survives that (the server dropped it).
+      if (isSpectatingRef.current) stopSpectatingWithNotice('Your connection dropped, so you stopped spectating.');
+      if (data.activeGame) {
+        // The server is holding our seat in a game we dropped out of: take it back
+        socketService.reconnectToGame(data.activeGame.gameId);
+      } else if (staleGameAfterLogin(gameStateRef.current, null, false)) {
+        // The game we were showing finished (or we ran out of time) while we were away
+        setState(prev => ({ ...prev, gameState: null, battleLog: [] }));
+        setTurnTimer(null);
+        showSpectateNotice('Your battle ended while you were disconnected.');
+      }
       // Request current survival state after successful authentication
       socketService.getSurvivalState();
       socketService.getQuests();
@@ -2254,6 +2285,7 @@ function App() {
           currentPlayer={gauntletMe}
           opponent={gauntletFoe}
           playerId={gauntletId}
+          disconnectDeadlines={disconnectDeadlines}
           onReturnToLobby={handleGauntletBattleFinished}
           turnTimer={turnTimer}
           timekeeperAbilitySelection={state.timekeeperAbilitySelection}
@@ -2317,6 +2349,7 @@ function App() {
             currentPlayer={spectatedPlayer}
             opponent={otherPlayer}
             playerId={state.spectatingPlayerId}
+            disconnectDeadlines={disconnectDeadlines}
             onReturnToLobby={handleReturnToLobby}
             isSurvivalMode={state.isSurvivalMode}
             isSpectating={true}
@@ -2362,6 +2395,7 @@ function App() {
             currentPlayer={currentPlayer}
             opponent={opponent}
             playerId={state.playerId!}
+            disconnectDeadlines={disconnectDeadlines}
             onReturnToLobby={handleReturnToLobby}
             isSurvivalMode={state.isSurvivalMode}
             isSpectating={state.isSpectating}

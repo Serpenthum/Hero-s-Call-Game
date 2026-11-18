@@ -28,6 +28,7 @@ const PATHS = {
   chat: 'M4 5h16v11H9l-5 4z',
   userPlus: 'M4 20a6 6 0 0 1 12 0M7 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M19 8v6M16 11h6',
   userMinus: 'M4 20a6 6 0 0 1 12 0M7 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0M16 11h6',
+  wifiOff: 'M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M9 16a4.5 4.5 0 0 1 6 0M12 19.5v.01M4 3l16 18',
 } as const;
 
 export type IconName = keyof typeof PATHS;

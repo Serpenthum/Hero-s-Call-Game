@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
@@ -6,6 +6,7 @@ import Icon from './ui/Icon';
 import RewardsDisplay from './RewardsDisplay';
 import BattleFX from './BattleFX';
 import TurnTimerBar from './TurnTimerBar';
+import { DisconnectCaption, DisconnectOverlay } from './DisconnectBadge';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
 import { isHeroAlive } from '../heroHealth';
@@ -23,7 +24,9 @@ interface BattlePhaseProps {
   spectatingPlayerId?: string;
   onStopSpectating?: () => void;
   spectators?: Array<{ socketId: string; username: string; spectatingPlayerId: string }>;
-  turnTimer?: { playerId: string; deadline: number; durationMs: number } | null;
+  turnTimer?: { playerId: string; deadline: number; durationMs: number; paused?: boolean; remainingMs?: number } | null;
+  // Players who dropped out: player id -> when their seat is given up (local clock)
+  disconnectDeadlines?: Record<string, number>;
   isTutorial?: boolean;
   // Tutorial: how many of the six heroes (opp0, me0, opp1, me1, ...) are shown; null/undefined = all
   tutorialReveal?: number | null;
@@ -62,6 +65,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   onStopSpectating,
   spectators = [],
   turnTimer = null,
+  disconnectDeadlines = {},
   isTutorial = false,
   tutorialReveal = null,
   timekeeperAbilitySelection,
@@ -73,37 +77,49 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   const [selectingAllyForAbility, setSelectingAllyForAbility] = useState<{ abilityIndex: number; targetId: string } | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState<boolean>(false);
   const [showSpectatorList, setShowSpectatorList] = useState<boolean>(false);
-  const [opponentDisconnectTime, setOpponentDisconnectTime] = useState<number | null>(null);
   const playerGrid = useCardGrid({ fixedColumns: Math.max(1, currentPlayer.team.length), gap: 4, frameSpace: 2 });
   const opponentGrid = useCardGrid({ fixedColumns: Math.max(1, opponent?.team.length ?? 0), gap: 4, frameSpace: 2 });
 
-  // Poll for disconnection timer updates
-  useEffect(() => {
-    if (!opponent || opponent.connected || !gameState || gameState.phase !== 'battle') {
-      setOpponentDisconnectTime(null);
-      return;
-    }
+  // A player who dropped out (the server holds their seat and counts down) until the game ends
+  const isDisconnected = (player: Player | null | undefined): player is Player =>
+    !!player && gameState.phase !== 'ended' && (player.connected === false || disconnectDeadlines[player.id] !== undefined);
+  const deadlineFor = (player: Player) => disconnectDeadlines[player.id] ?? null;
 
-    // Check if opponent has a disconnection timer
-    if (opponent.disconnectionTimer && opponent.disconnectionTimer.remainingTime > 0) {
-      setOpponentDisconnectTime(opponent.disconnectionTimer.remainingTime);
-      
-      // Update countdown every second
-      const interval = setInterval(() => {
-        setOpponentDisconnectTime(prev => {
-          if (prev === null || prev <= 0) {
-            clearInterval(interval);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(interval);
-    } else {
-      setOpponentDisconnectTime(null);
-    }
-  }, [opponent, gameState]);
+  // The avatar beside a team, with the disconnect countdown over it when that player dropped out
+  const renderPlayerBadge = (player: Player | null, isOpponentSide: boolean) => {
+    const off = isDisconnected(player);
+    const icon = player?.profile_icon;
+    return (
+      <>
+        <div className={`player-profile-icon${off ? ' player-profile-icon--disconnected' : ''}`}>
+          <span className="profile-icon-frame">
+            <img
+              src={`${config.IMAGE_BASE_URL}/hero-images/${(icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
+              alt={icon || 'Default'}
+              className="profile-icon-small"
+              onError={(e) => {
+                console.log('Profile icon failed to load:', icon);
+                (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
+                  <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100%" height="100%" fill="#333"/>
+                    <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="6" fill="#999" text-anchor="middle" dy=".3em">No Image</text>
+                  </svg>
+                `)}`;
+              }}
+            />
+            {off && <DisconnectOverlay deadline={deadlineFor(player)} />}
+          </span>
+        </div>
+        {off && (
+          <DisconnectCaption
+            deadline={deadlineFor(player)}
+            name={player.name}
+            viewerIsOpponent={isOpponentSide && !isSpectating}
+          />
+        )}
+      </>
+    );
+  };
 
   // Helper function to check if current ability selection is Timekeeper's Chrono Shift
   const isTimekeeperChronoShift = () => {
@@ -364,22 +380,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
           <div className="opponent-area">
             <div className="team-label-container">
               <h3 className="team-label opponent-label" title={opponent?.name || 'Opponent Player'}>{opponent?.name || 'Opponent Player'}</h3>
-              <div className="player-profile-icon">
-                <img 
-                  src={`${config.IMAGE_BASE_URL}/hero-images/${(opponent?.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
-                  alt={opponent?.profile_icon || 'Default'}
-                  className="profile-icon-small"
-                  onError={(e) => {
-                    console.log('Opponent profile icon failed to load:', opponent?.profile_icon);
-                    (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
-                      <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="100%" height="100%" fill="#333"/>
-                        <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="6" fill="#999" text-anchor="middle" dy=".3em">No Image</text>
-                      </svg>
-                    `)}`;
-                  }}
-                />
-              </div>
+              {renderPlayerBadge(opponent, true)}
             </div>
 
             <div className="team-display" ref={opponentGrid.ref} style={opponentGrid.style}>
@@ -415,22 +416,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
           <div className="player-area">
             <div className="team-label-container">
               <h3 className="team-label player-label" title={currentPlayer.name || 'Your Team'}>{currentPlayer.name || 'Your Team'}</h3>
-              <div className="player-profile-icon">
-                <img 
-                  src={`${config.IMAGE_BASE_URL}/hero-images/${(currentPlayer.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
-                  alt={currentPlayer.profile_icon || 'Default'}
-                  className="profile-icon-small"
-                  onError={(e) => {
-                    console.log('Current player profile icon failed to load:', currentPlayer.profile_icon);
-                    (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
-                      <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-                          <rect width="100%" height="100%" fill="#333"/>
-                          <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="6" fill="#999" text-anchor="middle" dy=".3em">No Image</text>
-                        </svg>
-                      `)}`;
-                  }}
-                />
-              </div>
+              {renderPlayerBadge(currentPlayer, false)}
             </div>
             <div className="team-display" ref={playerGrid.ref} style={playerGrid.style}>
               {currentPlayer.team.map((hero, heroIndex) => (
@@ -496,6 +482,14 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             (() => {
             if (!isMyTurn()) {
               const activeHero = getCurrentActiveHero();
+              if (isDisconnected(opponent) && gameState.phase === 'battle') {
+                return (
+                  <div className="action-prompt">
+                    <div>{opponent.name} disconnected</div>
+                    <div className="ui-hint">The turn clock is stopped until they are back</div>
+                  </div>
+                );
+              }
               if (activeHero) {
                 return (
                   <div className="action-prompt">
@@ -856,6 +850,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
       // Spectator view - just show who won
       const winnerPlayer = gameState.players.find(p => p.id === gameState.winner);
       const winnerName = winnerPlayer?.name || 'Unknown';
+      const leaver = gameState.endReason === 'disconnect' ? gameState.players.find(p => p.id !== gameState.winner) : null;
       
       return (
         <div className="game-over-overlay">
@@ -863,7 +858,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             <div className="game-over-content">
               <h2 className="game-over-title">{winnerName} Wins!</h2>
               <p className="game-over-message">
-                The battle has ended.
+                {leaver ? `${leaver.name} disconnected and did not come back in time.` : 'The battle has ended.'}
               </p>
               <button 
                 className="return-to-lobby-button"
@@ -890,6 +885,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             <p className="game-over-message">
               {isTutorial
                 ? (isWinner ? 'You defeated the skeleton scout and completed the tutorial!' : 'You were defeated, but you completed the tutorial!')
+                : isWinner && gameState.endReason === 'disconnect'
+                ? 'Your opponent disconnected and did not come back in time.'
                 : isWinner 
                 ? 'Congratulations! You have defeated your opponent!' 
                 : 'Better luck next time! Your opponent was victorious.'}
@@ -984,18 +981,9 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         </div>
       )}
 
-      {/* Opponent Disconnection Countdown - Bottom Right above Surrender */}
-      {!isSpectating && opponent && !opponent.connected && opponentDisconnectTime !== null && opponentDisconnectTime > 0 && gameState.phase === 'battle' && (
-        <div className="opponent-disconnect-notice" role="status">
-          <div className="notice-title"><Icon name="warning" /> {opponent.name} disconnected</div>
-          <div className="notice-count">{opponentDisconnectTime}s</div>
-          <div className="notice-hint">Auto-forfeit in progress</div>
-        </div>
-      )}
-
       {/* Turn timer - bottom right above Surrender, active player only */}
       {!isSpectating && turnTimer && turnTimer.playerId === playerId && gameState.phase === 'battle' && !gameState.winner && (
-        <TurnTimerBar key={turnTimer.deadline} deadline={turnTimer.deadline} durationMs={turnTimer.durationMs} />
+        <TurnTimerBar key={turnTimer.deadline} deadline={turnTimer.deadline} durationMs={turnTimer.durationMs} paused={turnTimer.paused} remainingMs={turnTimer.remainingMs} />
       )}
 
       {/* Floating Surrender Button - Bottom Right (only for players, not spectators) */}

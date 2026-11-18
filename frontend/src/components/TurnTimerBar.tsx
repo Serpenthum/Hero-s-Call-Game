@@ -7,14 +7,18 @@ const WARNING_MS = 10000;
 interface TurnTimerBarProps {
   deadline: number;
   durationMs: number;
+  // The server stopped the clock (a player is disconnected) with remainingMs left on it
+  paused?: boolean;
+  remainingMs?: number;
 }
 
-// Hidden until the last 10 seconds of the turn, then burns down like a fuse.
-const TurnTimerBar: React.FC<TurnTimerBarProps> = ({ deadline, durationMs }) => {
+// Hidden until the last 10 seconds of the turn, then burns down like a fuse. A stopped clock holds still.
+const TurnTimerBar: React.FC<TurnTimerBarProps> = ({ deadline, durationMs, paused = false, remainingMs }) => {
   const [burnMs, setBurnMs] = useState<number | null>(null);
+  const warningMs = Math.min(WARNING_MS, durationMs);
 
   useEffect(() => {
-    const warningMs = Math.min(WARNING_MS, durationMs);
+    if (paused) return;
     let stopSound: (() => void) | null = null;
 
     const begin = () => {
@@ -32,11 +36,22 @@ const TurnTimerBar: React.FC<TurnTimerBarProps> = ({ deadline, durationMs }) => 
       if (timeout !== undefined) window.clearTimeout(timeout);
       stopSound?.();
     };
-  }, [deadline, durationMs]);
+  }, [deadline, warningMs, paused]);
+
+  if (paused) {
+    // Only shown if it was already burning, so it doesn't pop up mid-turn
+    const left = remainingMs ?? 0;
+    if (left <= 0 || left > warningMs) return null;
+    return (
+      <div className="turn-timer-bar turn-timer-bar--paused" role="timer" aria-label="Turn clock stopped">
+        <div className="turn-timer-fill" style={{ ['--burn-start' as string]: `${(left / warningMs) * 100}%` }} />
+      </div>
+    );
+  }
 
   if (burnMs === null) return null;
 
-  const startPercent = Math.min(100, (burnMs / Math.min(WARNING_MS, durationMs)) * 100);
+  const startPercent = Math.min(100, (burnMs / warningMs) * 100);
 
   return (
     <div className="turn-timer-bar" role="timer" aria-label="Time left in your turn">

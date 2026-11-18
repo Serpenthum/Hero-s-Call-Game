@@ -453,19 +453,6 @@
     font-size: 14px;
   }
 
-  /* Opponent-disconnect notice: over the bottom of the board, beside the action bar */
-  .App:has(.battle-layout) .opponent-disconnect-notice {
-    right: calc(var(--phone-actions-width) + 6px + var(--safe-right));
-    bottom: var(--phone-dock-bottom);
-    min-width: 0;
-    padding: var(--space-2) var(--space-4);
-  }
-
-  .App:has(.battle-layout) .opponent-disconnect-notice .notice-title,
-  .App:has(.battle-layout) .opponent-disconnect-notice .notice-hint {
-    font-size: 12px;
-  }
-
   /* Friends and messages dock: a 40px tap target with a readable badge */
   .App:has(.battle-layout) .friends-icon,
   .App:has(.battle-layout) .message-icon {

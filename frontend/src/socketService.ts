@@ -63,9 +63,10 @@ class SocketService {
   }
 
   // Reconnection method
-  reconnectToGame(gameId: string, playerName: string) {
-    console.log(`🔄 SocketService reconnecting to game: ${gameId} as ${playerName}`);
-    this.socket?.emit('reconnect-game', { gameId, playerName });
+  // Takes back our seat in a game we dropped out of. The server checks the logged-in account owns it.
+  reconnectToGame(gameId?: string) {
+    console.log(`🔄 SocketService reconnecting to game: ${gameId ?? '(any held seat)'}`);
+    this.socket?.emit('reconnect-game', { gameId });
   }
 
   // Game-specific methods
