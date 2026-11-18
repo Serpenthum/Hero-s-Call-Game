@@ -5782,8 +5782,10 @@ class GameManager {
     this.survivalStates.delete(playerId);
     // The server's hook saves the in-memory Gauntlet run (with whatever happened while the player was
     // away) before dropping it, whichever way the game ended
-    if (this.onSeatReleased) this.onSeatReleased(playerId, userId);
+    // (It returns the save's promise, or null; callers that can wait for it do.)
+    const saved = this.onSeatReleased ? this.onSeatReleased(playerId, userId) : null;
     this.gauntletRuns.delete(playerId);
+    return saved || Promise.resolve();
   }
 
   // Deletes a game and everything still pointing at it
@@ -5951,7 +5953,7 @@ class GameManager {
     // The game already finished some other way (a win on the board, a surrender): just let the seat go
     if (!RECONNECTABLE_PHASES.has(game.phase)) {
       game.disconnectionTimers.delete(playerId);
-      this.releaseSeat(game, playerId);
+      await this.releaseSeat(game, playerId);
       if (game.players.every(p => p.connected === false)) this.closeGame(game);
       return null;
     }
@@ -6035,9 +6037,8 @@ class GameManager {
     }
 
     // A seat nobody came back to is released. A game with nobody connected is closed.
-    for (const p of game.players) {
-      if (p.connected === false) this.releaseSeat(game, p.id);
-    }
+    // A released seat's Gauntlet run is saved before we carry on
+    await Promise.all(game.players.filter(p => p.connected === false).map(p => this.releaseSeat(game, p.id)));
     if (outcome !== 'forfeit' || game.players.every(p => p.connected === false)) this.closeGame(game);
     return result;
   }

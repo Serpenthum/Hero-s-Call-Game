@@ -2356,7 +2356,7 @@ function App() {
           victoryPoints={state.victoryPoints}
           onVictoryPointsChange={(vp: number) => setState(prev => ({ ...prev, victoryPoints: vp }))}
           user={state.user}
-          onLogout={handleLogout}
+          onLogout={() => handleLogout()}
           isSearching={isSearchingForMatch || (state.gameState?.phase === 'waiting')}
           searchMode={searchMode}
           onCancelSearch={handleCancelSearch}

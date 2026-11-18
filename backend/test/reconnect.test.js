@@ -572,3 +572,22 @@ test('a Gauntlet run is saved when the game ended another way while its player w
   });
   assert.equal(ctx.gm.gauntletRuns.has(a.socketId), false);
 });
+
+test('a login whose tab never connects does not leave a token that works forever', async (t) => {
+  const ctx = await setup(t, { resumeWindowMs: 300 });
+  await ctx.api('POST', '/api/register', { username: 'resume3', password: 'secret1' });
+  const res = await ctx.api('POST', '/api/login', { username: 'resume3', password: 'secret1' });
+  // The tab closed before its socket logged in; much later the saved token is tried
+  await sleep(450);
+  const late = ctx.connect();
+  late.send('authenticate', { userId: res.json.user.id, token: res.json.token });
+  assert.equal((await late.waitFor('authentication-failed')).message, 'Please log in again');
+
+  // A socket that logs in within the window keeps the token alive
+  const again = await ctx.api('POST', '/api/login', { username: 'resume3', password: 'secret1' });
+  const live = await ctx.resume({ userId: again.json.user.id, token: again.json.token });
+  await sleep(450);
+  const second = await ctx.resume({ userId: again.json.user.id, token: again.json.token });
+  assert.equal(second.auth.userId, again.json.user.id);
+  await live.waitFor('force-logout');
+});

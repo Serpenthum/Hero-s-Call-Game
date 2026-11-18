@@ -58,6 +58,13 @@ function expireTokenLater(userId) {
   }, RESUME_WINDOW_MS));
 }
 
+// A login's token also expires if no socket ever logs in with it (the first authenticate cancels this)
+function issueLoginToken(userId) {
+  const token = auth.issueToken(userId);
+  expireTokenLater(userId);
+  return token;
+}
+
 function isStaleSocket(socket) {
   const hb = heartbeatOf(socket);
   const limit = hb ? Math.max(STALE_SOCKET_MS, hb * 3) : LEGACY_STALE_SOCKET_MS;
@@ -230,7 +237,7 @@ router.post('/api/login', async (req, res) => {
     const response = { 
       success: true, 
       message: 'Login successful',
-      token: auth.issueToken(user.id),
+      token: issueLoginToken(user.id),
       user: {
         id: user.id,
         username: user.username,
@@ -382,7 +389,7 @@ router.post('/api/admin-login', async (req, res) => {
     const response = { 
       success: true, 
       user: user,
-      token: auth.issueToken(user.id),
+      token: issueLoginToken(user.id),
       message: `Logged in as ${user.username}`
     };
     
@@ -1592,14 +1599,14 @@ gameManager.setIo(io);
 // A seat nobody came back to drops its per-socket settings. Its Gauntlet run is saved to the account
 // first (it may hold a loss, or a win if the game ended another way), so nothing is lost when the
 // in-memory copy goes.
+// Returns the save, so the game manager can wait for it before carrying on.
 gameManager.onSeatReleased = (playerId, userId) => {
   autoEndTurnPrefs.delete(playerId);
   const run = gameManager.getGauntletSaveState(playerId);
-  if (run && userId) {
-    database.saveGauntletState(userId, run).catch(error => {
-      console.error('Could not save the Gauntlet run of a disconnected player:', error);
-    });
-  }
+  if (!run || !userId) return null;
+  return database.saveGauntletState(userId, run).catch(error => {
+    console.error('Could not save the Gauntlet run of a disconnected player:', error);
+  });
 };
 
 // Tells the room the game changed under them. Old clients have no listener for the reconnect events,
