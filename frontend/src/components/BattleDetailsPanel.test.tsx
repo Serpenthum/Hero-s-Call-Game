@@ -18,64 +18,36 @@ const warlock = (currentHP = 20): Hero => ({
   Special: [{ name: 'Dark Pact', description: 'Gains strength when an ally falls.', effects: [] }],
 });
 
-const render = (props: Partial<{ hero: Hero; side: 'enemy' | 'ally'; isFocused: boolean; ownerName: string }> = {}) =>
+const render = (props: Partial<{ hero: Hero; side: 'enemy' | 'ally'; isFocused: boolean }> = {}) =>
   renderToStaticMarkup(
-    <BattleDetailsPanel
-      hero={props.hero ?? warlock()}
-      side={props.side ?? 'enemy'}
-      isFocused={props.isFocused ?? false}
-      onClose={() => {}}
-      ownerName={props.ownerName}
-    />
+    <BattleDetailsPanel hero={props.hero ?? warlock()} side={props.side ?? 'enemy'} isFocused={props.isFocused ?? false} />
   );
 
 describe('BattleDetailsPanel', () => {
-  it('shows the hero card and its side, with no separate rules text', () => {
+  it('shows only the card: no header, tags, close button or separate rules text', () => {
     const html = render();
     expect(html).toContain('Warlock');
     expect(html).toContain('aria-label="Warlock"');
-    expect(html).toContain('battle-details-card');
-    expect(html).not.toContain('battle-details-rules');
-    expect(html).not.toContain('More');
     expect(html).toContain('data-side="enemy"');
-    expect(html).toContain('Enemy');
-    expect(html).toContain('aria-label="Close details"');
-    expect(html).not.toContain('Focused<');
-    expect(html).not.toContain('Fallen');
+    expect(html).toContain('hero-card');
+    for (const gone of ['<header', 'battle-details-tag', 'Close details', 'Enemy', 'battle-details-rules', 'More']) {
+      expect(html).not.toContain(gone);
+    }
+    expect(render({ side: 'ally' })).not.toContain('Your hero');
   });
 
-  it('tags a focused hero without marking the panel card', () => {
+  it('puts the focus ring on the card without marking it as the board focus', () => {
     const html = render({ isFocused: true });
-    expect(html).toContain('Focused');
-    // Only the board's card carries the marker, so selectors for it never find the panel
+    expect(html).toContain('battle-details--focused');
+    expect(html).not.toContain('>Focused<');
     expect(html).not.toContain('data-focused');
-    expect(html).not.toMatch(/hero-card[^"]*focused/);
+    expect(html).not.toMatch(/hero-card[^"]*\bfocused\b/);
+    expect(render()).not.toContain('battle-details--focused');
   });
 
-  it('tags a fallen hero', () => {
-    expect(render({ hero: warlock(0) })).toContain('Fallen');
-  });
-
-  it('tags your own hero', () => {
-    const html = render({ side: 'ally' });
-    expect(html).toContain('Your hero');
-    expect(html).toContain('data-side="ally"');
-  });
-
-  it("shows spectators the owner's name instead of Enemy / Your hero", () => {
-    const html = render({ side: 'ally', ownerName: 'Admin1' });
-    expect(html).toContain('Admin1');
-    expect(html).not.toContain('Your hero');
-    expect(render({ side: 'enemy', ownerName: 'Admin2' })).not.toContain('>Enemy<');
-  });
-
-  it('puts the tags and the close X in the header, and the name only on the card', () => {
-    const html = render({ isFocused: true });
-    const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
-    expect(header).toContain('battle-details-tag--enemy');
-    expect(header).toContain('Focused');
-    expect(header).toContain('aria-label="Close details"');
-    expect(header).not.toContain('Warlock');
-    expect(header).not.toContain('battle-details-name');
+  it('shows a fallen hero as dead on the card, with no tag', () => {
+    const html = render({ hero: warlock(0) });
+    expect(html).toMatch(/hero-card[^"]*\bdead\b/);
+    expect(html).not.toContain('Fallen');
   });
 });

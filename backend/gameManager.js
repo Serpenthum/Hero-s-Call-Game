@@ -4792,7 +4792,7 @@ class GameManager {
       return { success: false, error: 'Not your turn' };
     }
 
-    // The focus is chosen once per turn: after the first action it stays put
+    // The focus is chosen once per turn and is final as soon as it is chosen
     if (currentTurnInfo.player.focusLocked) {
       return { success: false, error: FOCUS_LOCKED };
     }
@@ -4804,6 +4804,7 @@ class GameManager {
       const tauntTarget = this.findEnemyHeroByName(game, currentHero, currentHero.statusEffects.taunt.target);
       if (tauntTarget && tauntTarget.currentHP > 0) {
         currentTurnInfo.player.selectedTarget = tauntTarget.name;
+        currentTurnInfo.player.focusLocked = true;
         return {
           success: true,
           gameId,
@@ -4828,8 +4829,9 @@ class GameManager {
       return { success: false, error: FOCUS_UNTARGETABLE };
     }
 
-    // Set the selected target first
+    // Set the focus; it is locked for the rest of the turn
     currentTurnInfo.player.selectedTarget = target.name;
+    currentTurnInfo.player.focusLocked = true;
     
     // Check for Paladin's Shield of Faith special - triggers when opponent targets adjacent ally
     // (Removed from here - now handled at end of turn)

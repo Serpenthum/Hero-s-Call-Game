@@ -124,56 +124,64 @@ function button(html: string, label: string): string {
 const isDisabled = (b: string) => /<button[^>]*\sdisabled=""/.test(b);
 const focusedCount = (html: string) => (html.match(/data-focused="true"/g) ?? []).length;
 
+// The Actions sidebar only (the floating Surrender button follows it in the markup)
+const actionBar = (html: string) => {
+  const bar = html.slice(html.indexOf('class="action-bar"'));
+  const end = bar.indexOf('<button class="ui-btn ui-btn--danger floating-surrender-button');
+  return end < 0 ? bar : bar.slice(0, end);
+};
+const abilityButton = (html: string) => html.match(/<button[^>]*data-tutorial="ability"[^>]*>[^<]*<\/button>/)![0];
+const specialButton = (html: string) => html.match(/<button[^>]*special-button[^>]*>[^<]*<\/button>/)![0];
+const focused = (extra: Partial<Player> = {}) => ({ selectedTarget: 'Warlock', focusLocked: true, ...extra });
+const fallenFocus = { warlockHP: 0, me: focused({ hasUsedAttack: true }) };
+
 describe('BattlePhase focus', () => {
-  it('disables every action until an enemy is focused', () => {
-    const barbarian = render({ active: 'Barbarian' });
-    const attack = button(barbarian, 'Focus an enemy first');
-    expect(attack).toContain('data-tutorial="attack"');
-    expect(isDisabled(attack)).toBe(true);
-    const abilityButtons = (barbarian.match(/<button[^>]*data-tutorial="ability"[^>]*>[^<]*<\/button>/g) ?? []);
-    expect(abilityButtons).toHaveLength(1);
-    expect(abilityButtons[0]).toContain('>Focus an enemy first<');
-    expect(isDisabled(abilityButtons[0] ?? '')).toBe(true);
-    expect(isDisabled(button(barbarian, 'End Turn'))).toBe(false);
-    expect(barbarian).toContain('Focus: none');
-    expect(focusedCount(barbarian)).toBe(0);
-
-    const druid = render({ active: 'Druid' });
-    const wildshape = druid.match(/<button[^>]*data-tutorial="ability"[^>]*>[^<]*<\/button>/)![0];
-    expect(wildshape).toContain('>Focus an enemy first<');
-    expect(isDisabled(wildshape)).toBe(true);
-
-    const mech = render({ active: 'Mech' });
-    const special = mech.match(/<button[^>]*special-button[^>]*>[^<]*<\/button>/)![0];
-    expect(special).toContain('>Focus an enemy first<');
-    expect(isDisabled(special)).toBe(true);
-    expect(isDisabled(button(mech, 'End Turn'))).toBe(false);
+  it('shows only how to focus until an enemy is focused', () => {
+    for (const active of ['Barbarian', 'Druid', 'Mech']) {
+      const bar = actionBar(render({ active }));
+      expect(bar, active).toContain('Tap an enemy to focus');
+      expect(bar, active).not.toContain('<button');
+      expect(bar, active).not.toContain(`<strong>${active}</strong>`);
+      expect(bar, active).not.toContain('Focus:');
+    }
+    expect(focusedCount(render({ active: 'Barbarian' }))).toBe(0);
   });
 
-  it('labels and enables actions on a live focus, and marks the card', () => {
-    const html = render({ active: 'Barbarian', me: { selectedTarget: 'Warlock' } });
-    expect(isDisabled(button(html, 'Attack Warlock'))).toBe(false);
-    expect(isDisabled(button(html, 'Reckless Swing on Warlock'))).toBe(false);
-    expect(html).toContain('Focus: <strong>Warlock</strong>');
+  it('offers End Turn when no enemy can be focused', () => {
+    const s = state({ active: 'Barbarian' });
+    s.them.team.forEach(h => { h.statusEffects = { untargetable: true } as any; });
+    const bar = actionBar(renderToStaticMarkup(
+      <BattlePhase gameState={s.gameState} currentPlayer={s.me} opponent={s.them} playerId="me" />
+    ));
+    expect(bar).toContain('No enemy can be focused');
+    expect(isDisabled(button(bar, 'End Turn'))).toBe(false);
+    expect(bar).not.toContain('Attack');
+  });
+
+  it('brings back every action with its own label once focused, and marks the card', () => {
+    const html = render({ active: 'Barbarian', me: focused() });
+    expect(isDisabled(button(html, 'Attack (1D6)'))).toBe(false);
+    expect(isDisabled(button(html, 'Reckless Swing'))).toBe(false);
+    expect(isDisabled(button(html, 'End Turn'))).toBe(false);
+    expect(actionBar(html)).toContain('<strong>Barbarian</strong>');
+    expect(actionBar(html)).not.toContain('Focus:');
+    expect(html).not.toContain('Attack Warlock');
+    expect(html).not.toContain('data-tutorial="focus"');
     expect(focusedCount(html)).toBe(1);
     expect(html).toMatch(/data-focused="true"[^>]*>[\s\S]*?Warlock/);
     expect(html).not.toContain('Target Dead');
   });
 
-  it('keeps self abilities after the focus has fallen', () => {
-    const html = render({
-      active: 'Druid',
-      warlockHP: 0,
-      me: { selectedTarget: 'Warlock', focusLocked: true, hasUsedAttack: true },
-    });
-    expect(isDisabled(button(html, 'Warlock has fallen'))).toBe(true);
+  it('marks lost actions (Target Dead) and keeps self abilities after the focus has fallen', () => {
+    const html = render({ active: 'Druid', ...fallenFocus });
+    expect(isDisabled(button(html, 'Attack (1D6) (Target Dead)'))).toBe(true);
     expect(isDisabled(button(html, 'Wildshape'))).toBe(false);
+    expect(abilityButton(html)).not.toContain('Target Dead');
     expect(focusedCount(html)).toBe(1);
-    expect(html).not.toContain('Target Dead');
   });
 
   it('shows the opponent and spectators the marker on the focused hero', () => {
-    const mirror = { active: 'Warlock', myTeam: ENEMIES, turn: 'them' as const, them: { selectedTarget: 'Warlock' } };
+    const mirror = { active: 'Warlock', myTeam: ENEMIES, turn: 'them' as const, them: focused() };
     const opponentView = render(mirror);
     expect(focusedCount(opponentView)).toBe(1);
     const playerArea = opponentView.slice(opponentView.indexOf('class="player-area"'));
@@ -187,64 +195,55 @@ describe('BattlePhase focus', () => {
     expect(focusedCount(spectatorPlayerArea)).toBe(1);
   });
 
-  it('gates Chrono Shift on the focus', () => {
-    const none = render({ active: 'Timekeeper' });
-    const chrono = none.match(/<button[^>]*data-tutorial="ability"[^>]*>[^<]*<\/button>/)![0];
-    expect(chrono).toContain('>Focus an enemy first<');
-    expect(isDisabled(chrono)).toBe(true);
-
-    const live = render({ active: 'Timekeeper', me: { selectedTarget: 'Warlock' } });
-    expect(isDisabled(button(live, 'Chrono Shift on Warlock'))).toBe(false);
-  });
-
-  it('loses Chrono Shift once the focus has fallen', () => {
-    const html = render({ active: 'Timekeeper', warlockHP: 0, me: { selectedTarget: 'Warlock', focusLocked: true } });
-    const chrono = html.match(/<button[^>]*data-tutorial="ability"[^>]*>[^<]*<\/button>/)![0];
-    expect(chrono).toContain('>Warlock has fallen<');
-    expect(isDisabled(chrono)).toBe(true);
+  it('gates Chrono Shift on a living focus', () => {
+    expect(actionBar(render({ active: 'Timekeeper' }))).not.toContain('Chrono Shift');
+    const live = render({ active: 'Timekeeper', me: focused() });
+    expect(abilityButton(live)).toContain('>Chrono Shift<');
+    expect(isDisabled(abilityButton(live))).toBe(false);
+    const dead = render({ active: 'Timekeeper', warlockHP: 0, me: focused() });
+    expect(abilityButton(dead)).toContain('>Chrono Shift (Target Dead)<');
+    expect(isDisabled(abilityButton(dead))).toBe(true);
   });
 
   it('keeps area abilities and activated specials after the focus has fallen', () => {
-    const fallen = { warlockHP: 0, me: { selectedTarget: 'Warlock', focusLocked: true, hasUsedAttack: true } };
-    const wizard = render({ active: 'Wizard', ...fallen });
-    expect(isDisabled(button(wizard, 'Fireball'))).toBe(false);
-    expect(isDisabled(button(wizard, 'Warlock has fallen'))).toBe(true);
+    const wizard = render({ active: 'Wizard', ...fallenFocus });
+    expect(abilityButton(wizard)).toContain('>Fireball<');
+    expect(isDisabled(abilityButton(wizard))).toBe(false);
+    expect(isDisabled(button(wizard, 'Attack (1D6) (Target Dead)'))).toBe(true);
 
-    const mech = render({ active: 'Mech', ...fallen });
-    const special = mech.match(/<button[^>]*special-button[^>]*>[^<]*<\/button>/)![0];
-    expect(special).toContain('>Self Destruct<');
-    expect(isDisabled(special)).toBe(false);
-    expect(special).not.toContain('style=');
+    const mech = render({ active: 'Mech', ...fallenFocus });
+    expect(specialButton(mech)).toContain('>Self Destruct<');
+    expect(isDisabled(specialButton(mech))).toBe(false);
+    expect(specialButton(mech)).not.toContain('style=');
   });
 
-  it('blocks abilities at a living briber, but not self abilities', () => {
-    const bribe = { cannotTargetWithAbility: { owner: 'Warlock' } } as any;
-    const barbarian = state({ active: 'Barbarian', me: { selectedTarget: 'Warlock' } });
-    barbarian.me.team[0].statusEffects = bribe;
-    const html = renderToStaticMarkup(
-      <BattlePhase gameState={barbarian.gameState} currentPlayer={barbarian.me} opponent={barbarian.them} playerId="me" />
+  function renderWith(setup: Setup, statusEffects: any, rename?: string) {
+    const s = state(setup);
+    s.me.team[0].statusEffects = statusEffects;
+    if (rename) { s.me.team[0].name = rename; s.gameState.activeHero!.name = rename; }
+    return renderToStaticMarkup(
+      <BattlePhase gameState={s.gameState} currentPlayer={s.me} opponent={s.them} playerId="me" />
     );
-    expect(isDisabled(button(html, 'Reckless Swing on Warlock (Bribed)'))).toBe(true);
-    expect(isDisabled(button(html, 'Attack Warlock'))).toBe(false);
+  }
 
-    const druid = state({ active: 'Druid', me: { selectedTarget: 'Warlock' } });
-    druid.me.team[0].statusEffects = bribe;
-    const druidHtml = renderToStaticMarkup(
-      <BattlePhase gameState={druid.gameState} currentPlayer={druid.me} opponent={druid.them} playerId="me" />
-    );
-    expect(isDisabled(button(druidHtml, 'Wildshape'))).toBe(false);
-    expect(druidHtml).not.toContain('(Bribed)');
+  it('blocks abilities at a living briber, but not self abilities', () => {
+    const bribe = { cannotTargetWithAbility: { owner: 'Warlock' } };
+    const barbarian = renderWith({ active: 'Barbarian', me: focused() }, bribe);
+    expect(isDisabled(button(barbarian, 'Reckless Swing (Bribed)'))).toBe(true);
+    expect(isDisabled(button(barbarian, 'Attack (1D6)'))).toBe(false);
+
+    const druid = renderWith({ active: 'Druid', me: focused() }, bribe);
+    expect(isDisabled(button(druid, 'Wildshape'))).toBe(false);
+    expect(druid).not.toContain('(Bribed)');
   });
 
   it('disables a stunned Monk with attacks left', () => {
-    const monk = state({ active: 'Barbarian', me: { selectedTarget: 'Warlock', monkAttacksRemaining: 1 } as any });
-    monk.me.team[0].name = 'Monk';
-    monk.gameState.activeHero!.name = 'Monk';
-    monk.me.team[0].statusEffects = { stun: { active: true } } as any;
-    const html = renderToStaticMarkup(
-      <BattlePhase gameState={monk.gameState} currentPlayer={monk.me} opponent={monk.them} playerId="me" />
+    const html = renderWith(
+      { active: 'Barbarian', me: focused({ monkAttacksRemaining: 1 } as any) },
+      { stun: { active: true } },
+      'Monk'
     );
-    const attack = button(html, 'Attack Warlock (1 left)');
+    const attack = button(html, 'Attack (1D6) (1 left)');
     expect(attack).toContain('(Stunned)');
     expect(isDisabled(attack)).toBe(true);
   });
@@ -255,10 +254,10 @@ describe('BattlePhase focus', () => {
       isMyTurn: true, isSpectating: false, inspected: { hero: warlock, side: 'enemy' as const },
       focus: null, focusLocked: false, tauntTarget: null, activeHeroName: 'Barbarian',
     };
-    const show = (input: typeof base | any) => {
-      const s = focusButtonState(input);
-      if (!s.show) throw new Error('hidden');
-      return renderToStaticMarkup(<FocusButton state={s} onFocus={() => {}} />);
+    const show = (input: any) => {
+      const st = focusButtonState(input);
+      if (!st.show) throw new Error('hidden');
+      return renderToStaticMarkup(<FocusButton state={st} onFocus={() => {}} />);
     };
     const ready = show(base);
     expect(ready).toContain('data-tutorial="focus"');
@@ -266,16 +265,14 @@ describe('BattlePhase focus', () => {
     expect(ready).toContain('>Focus Warlock<');
     expect(isDisabled(ready)).toBe(false);
 
-    const focused = show({ ...base, focus: { name: 'Warlock', alive: true } });
-    expect(focused).toContain('>Focused<');
-    expect(isDisabled(focused)).toBe(true);
-
-    const locked = show({ ...base, focus: { name: 'Shroomguard', alive: true }, focusLocked: true });
-    expect(locked).toContain('>Focus locked<');
-    expect(isDisabled(locked)).toBe(true);
-
     const taunted = show({ ...base, tauntTarget: 'Shroomguard' });
     expect(taunted).toContain('>Taunted: focus Shroomguard<');
     expect(isDisabled(taunted)).toBe(true);
+
+    const vanished = show({ ...base, inspected: { hero: { ...warlock, statusEffects: { untargetable: true } }, side: 'enemy' } });
+    expect(vanished).toMatch(/>Can(&#x27;|')t be targeted</);
+    expect(isDisabled(vanished)).toBe(true);
+
+    expect(focusButtonState({ ...base, focus: { name: 'Warlock', alive: true }, focusLocked: true })).toEqual({ show: false });
   });
 });

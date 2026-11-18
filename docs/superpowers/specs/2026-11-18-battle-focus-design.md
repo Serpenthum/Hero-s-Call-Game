@@ -13,16 +13,23 @@ turn, active hero, battle log; centre = cards; right = Actions).
 
 ## Rules (owner, binding)
 
-1. Tapping any hero card in battle shows its full details in a panel covering the left column (over the battle log).
-   It closes on a tap on empty space, on taking an action (attack, ability, special), or when the turn changes.
-2. On your turn, tapping an **enemy** shows it and adds a **Focus** button to the Actions sidebar. Nothing is targeted yet.
-3. Focus locks that enemy as this turn's target: a clear marker on its card (red glow, crosshair) and the action
-   buttons name it ("Attack Warlock").
-4. **Focus is the first action.** Until an enemy is focused, every action is disabled and reads "Focus an enemy
-   first": attack, every ability (including Wildshape, Bloodbath, Fireball) and activated specials (Self Destruct,
-   Peace Treaty). Passive and start-of-turn specials still run before focus, as today. The old auto-target is gone.
-5. Focus can be switched freely until the player's first action that turn; then it is locked for the rest of the turn.
-6. If the focused enemy dies you cannot refocus. Damaging actions are lost; non-damaging ones (heals, Bloodbath,
+1. Tapping any hero card in battle shows that card, large, at the top of the left column (over the battle log); on
+   phones it grows over the board to the screen height so its own face carries the ability and special text. Only
+   the card is drawn: no box, header, tags or close button (owner, 2026-11-18). A fallen hero shows dead on the card;
+   the focused enemy wears the focus ring. It closes on a tap on empty space, Escape, taking an action (attack,
+   ability, special), or when the turn changes.
+2. On your turn, tapping an **enemy** shows it and puts a **Focus** button in the Actions sidebar. Nothing is
+   targeted yet.
+3. Focus makes that enemy this turn's target: a clear marker on its card (red glow, crosshair). The action buttons
+   keep their own labels ("Attack (1D6)", "Fireball"); the marker shows whom they hit (owner, 2026-11-18).
+4. **Focus is the first action.** Until an enemy is focused, the Actions sidebar shows only the Focus button, or
+   "Tap an enemy to focus" when no enemy is shown: no hero name, attack, abilities, specials or End Turn (owner,
+   2026-11-18). Passive and start-of-turn specials still run before focus, as today. The old auto-target is gone.
+   Once focused, the Focus button goes away and every normal button, End Turn included, comes back.
+5. **Focus is final once chosen** (owner, 2026-11-18): the server locks it on the select itself, and a second select
+   that turn is refused ("Focus is locked for this turn").
+6. If the focused enemy dies you cannot refocus. Lost actions keep their label plus " (Target Dead)" and are
+   disabled. Damaging actions are lost; non-damaging ones (heals, Bloodbath,
    Wildshape, summons, Peace Treaty) stay usable. Today the server refuses any ability once the target is dead; that
    changes.
 7. **You never focus an ally.** Focus only says whom the active hero is attacking.
@@ -40,8 +47,8 @@ turn, active hero, battle log; centre = cards; right = Actions).
   also covers the left column. Spectators get the panel and the marker, never a Focus button.
 - **The server enforces rules 4–9.** The protocol already carries it: the server keeps `player.selectedTarget`, uses
   it for every action, sends it in every game state, and broadcasts `target-selected` to the game room (players and
-  spectators). Additions: `focusLocked` (set by the first successful attack, ability, Chrono Shift pick or activated
-  special; cleared at turn change), refusal of a switch once locked, refusal of any action without a focus, refusal of
+  spectators). Additions: `focusLocked` (set when the focus is chosen, including a taunt-forced one; cleared at turn
+  change, kept across `rekeyPlayer`), refusal of a second select that turn, refusal of any action without a focus, refusal of
   damaging actions while the focus is dead, refusal to focus an untargetable enemy, and `activeHero.abilityTargeting`
   in the state so the client never re-derives the classification. Deploy the server before the site.
 - **Area attacks survive a fallen focus (owner, 2026-11-18).** Fireball, Bomb Toss and every activated special
@@ -50,14 +57,18 @@ turn, active hero, battle log; centre = cards; right = Actions).
   enemies (Cleave, Thunderclap), Chrono Shift and Declare War.
 - **Beast Tamer** is classified from its state: before the beast is summoned the ability only summons (non-damaging);
   once summoned it commands an attack (damaging).
-- **No focusable enemy** (every living enemy untargetable): the hero can only End Turn, and the existing auto end-turn
-  applies, as it does when the focus has fallen and nothing non-damaging is left.
-- **Panel layout.** Header (name, "Enemy"/"Your hero", "Focused", "Fallen", close X), the live `HeroCard` taking at
-  most about half the panel's height (tiny mode on a sideways phone), then every ability and special as plain text at
-  the sidebar font size (never under 12px), scrolling if long.
-- Labels: "Focus Warlock", "Focused", "Focus locked", "Taunted: focus Paladin", "Can't be targeted", "Attack Warlock",
-  "Poison Strike on Warlock" (abilities aimed at the focus), "Fireball" / "Wildshape" (others), "Warlock has fallen",
-  "Focus an enemy first".
+- **No focusable enemy** (every living enemy untargetable): the existing auto end-turn ends the turn. Where it does
+  not run (gauntlet, tutorial, or auto end-turn switched off) the sidebar says "No enemy can be focused" and offers
+  End Turn. Auto end-turn also applies when the focus has fallen and nothing non-damaging is left.
+- **Panel layout.** Just the live `HeroCard`, fixed at the top-left of the left column: the largest card that fits
+  the column's height. On a computer it stays within the column's width; on phones and short windows it may cover
+  the board, so the full face (130px and up) is readable (about 210-220px wide on a sideways phone).
+- **Opponent's turn.** The waiting prompt adds "Focus: Warlock" when the opponent has focused one of your heroes (it
+  fits without crowding at 667x375 and 844x390).
+- Labels: "Tap an enemy to focus", "Focus Warlock", "Taunted: focus Paladin", "Can't be targeted" (the last two on a
+  disabled Focus button), "No enemy can be focused", the original action labels ("Attack (1D6)", "Poison Strike",
+  "Fireball") with the existing suffixes "(Used)", "(Silenced)", "(Stunned)", "(1/2)", "(Bribed)", and
+  "(Target Dead)" on an action lost with a fallen focus.
 
 ## Ability classification (derived from `backend/heros.json`)
 
@@ -86,4 +97,4 @@ target a chosen ally (Healer, Pixie, Blacksmith) are out of scope and need their
   not a focus) and the Timekeeper ability picker.
 - No card reader changes outside battle; draft, binder, shop and gauntlet keep tap / press reading.
 - No new hero art; the crosshair marker is the only drawing.
-- No AI changes: the tutorial bot keeps selecting then acting through the same server calls.
+- No AI changes: the tutorial bot keeps selecting once, then acting, through the same server calls.

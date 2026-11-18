@@ -1,5 +1,6 @@
-/* Battle card details: a tapped card shown over the left column (the battle log), with its rules as plain text.
-   The panel covers the whole .battle-combined-info, which is its positioning parent. */
+/* Battle card details: a tapped card shown at the top of the left column (over the battle log) at its largest, so
+   the card's own face carries its ability and special text; on phones it grows over the board to the screen
+   height. */
 
 /*
  * The battle sidebar fills the window's height at every size, so the panel over it does too (the phone layout in
@@ -45,113 +46,35 @@
   max-height: none;
 }
 
+/* Just the card: no box, border, header or tags. Fixed at the top-left of the column (BattleDetailsPanel sets the
+   position and the card width); the card's own frame and drop shadow set it apart from the board. */
 .battle-details {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  padding: var(--space-2);
-  box-sizing: border-box;
-  container: battle-details / size;
-  background: var(--walnut);
-  border: 1px solid var(--brass-dim);
-  border-radius: var(--radius-control);
-  color: var(--bone);
-  font-family: var(--font-ui);
+  position: fixed;
+  top: var(--details-top, 0);
+  left: var(--details-left, 0);
+  z-index: 40;
+  display: block;
+  width: max-content;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
   cursor: default;
   animation: battle-details-in var(--dur) var(--ease) both;
 }
 
-.battle-details[data-side="enemy"] {
-  border-color: color-mix(in srgb, var(--ember) 60%, var(--brass-dim));
-}
-
-/* Header: one 40px row with the tags (side, Focused, Fallen) and the close X; the card shows the name */
-.battle-details-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  height: 40px;
-}
-
-.battle-details .battle-details-close {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-}
-
-/* The tags share the row's width; the side tag gives way first and ends in an ellipsis */
-.battle-details-tags {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow: hidden;
-}
-
-.battle-details-tag {
-  min-width: 0;
-  flex-shrink: 0;
-  padding: 1px 6px;
-  box-sizing: border-box;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--brass-dim);
-  background: var(--leather);
-  color: var(--bone-dim);
-  font: 700 12px / 1.35 var(--font-ui);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.battle-details-tag--enemy,
-.battle-details-tag--ally {
-  flex-shrink: 1;
-}
-
-.battle-details-tag--enemy {
-  color: var(--bone);
-  border-color: var(--ember);
-  background: color-mix(in srgb, var(--ember) 45%, var(--leather));
-}
-
-.battle-details-tag--ally {
-  color: var(--bone);
-  border-color: var(--verdigris);
-  background: color-mix(in srgb, var(--verdigris) 40%, var(--leather));
-}
-
-.battle-details-tag--focused {
-  color: var(--walnut);
-  border-color: var(--brass-hi);
-  background: var(--brass-hi);
-}
-
-.battle-details-tag--fallen {
-  color: var(--bone);
-  border-color: var(--bone-dim);
-  background: var(--felt-deep);
-}
-
-/* The live card fills the rest of the column: the largest width that fits at 260:391 (BattleDetailsPanel).
-   From 130px wide it shows its full face, with the ability and special text on the card. */
-.battle-details-card {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
-
-.battle-details .battle-details-card .hero-card.hero-layout-card {
-  --card-w: var(--details-card-w, min(100cqw, (100cqh - 48px) * 260 / 391));
+.battle-details .hero-card.hero-layout-card {
+  --card-w: var(--details-card-w, 200px);
   margin: 0;
   cursor: default;
+}
+
+/* The focused enemy wears the board's focus ring here too (without data-focused, which marks the board card only) */
+.battle-details--focused .hero-card.hero-layout-card {
+  --card-frame: var(--focus-c);
+  --card-glow:
+    0 0 0 max(3px, 0.25em) var(--focus-c),
+    0 0 max(10px, 1.3em) max(3px, 0.4em) var(--focus-glow);
 }
 
 @keyframes battle-details-in {
@@ -165,10 +88,10 @@
   }
 }
 
-/* ==================== Short screens (sideways phones) ==================== */
-@media (max-height: 500px) {
+/* Phones held sideways (and short windows, which use the phone layout): the card may grow past the column over the
+   board, up to the screen height. BattleDetailsPanel reads this flag. */
+@media (max-width: 1000px) and (max-height: 600px), (max-width: 1400px) and (max-height: 720px) {
   .battle-details {
-    padding: 4px;
-    gap: 4px;
+    --details-side: 1;
   }
 }

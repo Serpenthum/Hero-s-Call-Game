@@ -66,20 +66,14 @@ export function actionGate(t: AbilityTargeting, focus: Focus | null): Gate {
   return OK;
 }
 
-function blockedLabel(focus: Focus | null, gate: Gate): string | null {
-  if (gate.ok) return null;
-  if (gate.reason === 'fallen' && focus) return `${focus.name} has fallen`;
-  return 'Focus an enemy first';
+// Buttons keep their own labels ("Attack (1D6)", "Fireball"): the marker on the card shows whom they hit.
+// An action lost with a fallen focus says so. Before a focus the actions are hidden, so need-focus adds nothing.
+export function attackLabel(base: string, gate: Gate): string {
+  return !gate.ok && gate.reason === 'fallen' ? `${base} (Target Dead)` : base;
 }
 
-export function attackLabel(focus: Focus | null, gate: Gate): string {
-  return blockedLabel(focus, gate) ?? (focus ? `Attack ${focus.name}` : 'Focus an enemy first');
-}
-
-export function actionLabel(name: string, t: AbilityTargeting, focus: Focus | null, gate: Gate): string {
-  const blocked = blockedLabel(focus, gate);
-  if (blocked) return blocked;
-  return t.kind === 'enemy' && focus ? `${name} on ${focus.name}` : name;
+export function actionLabel(name: string, gate: Gate): string {
+  return attackLabel(name, gate);
 }
 
 function ignoresTaunt(hero: Hero): boolean {
@@ -112,9 +106,9 @@ export function focusButtonState(input: FocusButtonInput): FocusButtonState {
   const { isMyTurn, isSpectating, inspected, focus, focusLocked, tauntTarget, activeHeroName } = input;
   const target = inspected.hero;
   if (!isMyTurn || isSpectating || inspected.side !== 'enemy' || !isHeroAlive(target)) return { show: false };
+  // The focus is final once chosen, so the button goes away with it
+  if (focus || focusLocked) return { show: false };
   const disabled = (label: string): FocusButtonState => ({ show: true, enabled: false, label });
-  if (focus?.name === target.name) return disabled('Focused');
-  if (focusLocked) return disabled('Focus locked');
   if (tauntTarget && tauntTarget !== target.name) return disabled(`Taunted: focus ${tauntTarget}`);
   const effects = target.statusEffects;
   if (effects?.untargetable && effects.untargetableAttacker !== activeHeroName) return disabled("Can't be targeted");

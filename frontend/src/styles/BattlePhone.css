@@ -513,12 +513,7 @@
     bottom: 46px;
   }
 
-  /* End Turn stays in view however many actions there are: it sticks to the bottom of the scrolling box.
-     The "Focus: X" line is dropped here; the card's marker and the Attack/ability labels already name it. */
-  .App .battle-layout .action-buttons > .focus-line {
-    display: none;
-  }
-
+  /* End Turn stays in view however many actions there are: it sticks to the bottom of the scrolling box */
   .App .battle-layout .action-buttons > .end-turn-button {
     position: sticky;
     bottom: 0;

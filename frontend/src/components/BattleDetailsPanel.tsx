@@ -1,79 +1,69 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import type { Hero } from '../types';
 import type { CardSide } from '../battle/focus';
-import { isHeroAlive } from '../heroHealth';
 import HeroCard from './HeroCard';
-import CloseButton from './CloseButton';
 import '../styles/BattleDetails.css';
 
 interface BattleDetailsPanelProps {
   hero: Hero;
   side: CardSide;
   isFocused: boolean;
-  onClose: () => void;
-  // Spectators: the player who owns the hero, shown instead of "Enemy" / "Your hero"
-  ownerName?: string;
 }
 
 // Card proportions (width : height)
 const CARD_W = 260;
 const CARD_H = 391;
+// Space kept clear between a phone panel and the screen's right edge
+const EDGE_GAP = 8;
 
-export function sideTag(side: CardSide, ownerName?: string): string {
-  if (ownerName) return ownerName;
-  return side === 'enemy' ? 'Enemy' : 'Your hero';
-}
-
-// A tapped battle card, shown over the left column: the live card, as large as the column allows, so its own
-// face carries the ability and special text. The header holds the tags and the close X.
-const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isFocused, onClose, ownerName }) => {
-  const fallen = !isHeroAlive(hero);
+// A tapped battle card, shown at the top of the left column and nothing else: no header, no tags, no close button
+// (it closes on a tap on empty space, Escape, an action or the turn change; see BattlePhase). The card is as large as
+// the column's height allows, so its own face carries the ability and special text; on phones it grows past the
+// column over the board. A fallen hero shows as dead on the card itself, and the focused enemy wears the focus ring.
+const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isFocused }) => {
   const panelRef = useRef<HTMLElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
-    const card = cardRef.current;
-    if (!panel || !card) return;
+    if (!panel) return;
+    const column = panel.parentElement?.closest<HTMLElement>('.battle-combined-info') ?? panel.parentElement;
 
-    // The largest card that fits the space under the header, at the card's aspect ratio
     const fit = () => {
-      if (card.clientHeight === 0 && card.clientWidth === 0) return;
-      const cardW = Math.min(card.clientWidth, (card.clientHeight * CARD_W) / CARD_H);
-      card.style.setProperty('--details-card-w', `${Math.max(0, Math.floor(cardW))}px`);
+      // The panel is fixed over the column it belongs to (the sidebar clips anything wider than the column)
+      const box = column?.getBoundingClientRect();
+      if (!box || box.height === 0) return;
+      // Phones (a media query sets --details-side) may cover the board; larger screens stay inside the column
+      const phone = getComputedStyle(panel).getPropertyValue('--details-side').trim() === '1';
+      const maxW = phone ? window.innerWidth - box.left - EDGE_GAP : box.width;
+      const cardW = Math.max(0, Math.floor(Math.min((box.height * CARD_W) / CARD_H, maxW)));
+      panel.style.setProperty('--details-top', `${box.top}px`);
+      panel.style.setProperty('--details-left', `${box.left}px`);
+      panel.style.setProperty('--details-card-w', `${cardW}px`);
     };
 
     fit();
     const observer = new ResizeObserver(fit);
-    observer.observe(panel);
-    observer.observe(card);
-    return () => observer.disconnect();
+    if (column) observer.observe(column);
+    // The phone switch is a media query, and a resize can move the column without resizing it
+    window.addEventListener('resize', fit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', fit);
+    };
   }, [hero.name]);
 
-  const tag = sideTag(side, ownerName);
   return (
     <aside
       ref={panelRef}
-      className="battle-details"
+      className={`battle-details${isFocused ? ' battle-details--focused' : ''}`}
       data-side={side}
       data-keep-details
       data-tutorial="details-panel"
       role="dialog"
       aria-label={hero.name}
     >
-      <header className="battle-details-header">
-        {/* The card shows its own name, so the header carries only the tags and the close X */}
-        <div className="battle-details-tags">
-          <span className={`battle-details-tag battle-details-tag--${side}`} title={tag}>{tag}</span>
-          {isFocused && <span className="battle-details-tag battle-details-tag--focused">Focused</span>}
-          {fallen && <span className="battle-details-tag battle-details-tag--fallen">Fallen</span>}
-        </div>
-        <CloseButton onClick={onClose} label="Close details" className="battle-details-close" />
-      </header>
-      <div className="battle-details-card" ref={cardRef}>
-        {/* Not isFocused: the board's card is the one marked (data-focused); here the "Focused" tag says it */}
-        <HeroCard hero={hero} isEnemy={side === 'enemy'} readable="none" disableHPAnimations />
-      </div>
+      {/* Not isFocused on the card: only the board's card carries data-focused; the ring here is CSS */}
+      <HeroCard hero={hero} isEnemy={side === 'enemy'} readable="none" disableHPAnimations />
     </aside>
   );
 };

@@ -149,8 +149,6 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         hero={hero}
         side={inspected.side}
         isFocused={isFocused}
-        onClose={closeDetails}
-        ownerName={isSpectating ? owner.name : undefined}
       />,
       slot
     );
@@ -620,6 +618,39 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
               );
             }
 
+            // Before a focus the sidebar holds only the Focus button (or how to get it): nothing else can be done yet
+            if (!focus) {
+              // Safety net: with no enemy that can be focused the server normally ends the turn itself, but it
+              // doesn't in gauntlet or with auto end-turn switched off, so End Turn is offered then
+              const canFocusAny = !!opponent?.team.some(h => isHeroAlive(h) && !isEnemyBlocked(h));
+              if (!canFocusAny) {
+                return (
+                  <div className="action-buttons focus-step">
+                    <div className="action-prompt focus-hint">No enemy can be focused</div>
+                    <button
+                      className="action-button end-turn-button"
+                      data-tutorial="end-turn"
+                      onClick={() => {
+                        closeDetails();
+                        socketService.endTurn();
+                      }}
+                    >
+                      End Turn
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <div className="action-buttons focus-step">
+                  {focusButton.show && inspectedEnemy ? (
+                    <FocusButton state={focusButton} onFocus={() => socketService.selectTarget(inspectedEnemy.name)} />
+                  ) : (
+                    <div className="action-prompt focus-hint">Tap an enemy to focus</div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <div className="action-buttons">
                 <div className="hero-info">
@@ -631,13 +662,6 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   </div>
                 </div>
                 
-                <div className="selected-target focus-line">
-                  Focus: {focus ? <strong>{focus.name}</strong> : 'none'}
-                </div>
-
-                {focusButton.show && inspectedEnemy && (
-                  <FocusButton state={focusButton} onFocus={() => socketService.selectTarget(inspectedEnemy.name)} />
-                )}
 
                 {/* Show basic attack button only if hero has basic attack */}
                 {activeHero.hero.BasicAttack !== "—" && (
@@ -645,7 +669,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                     const canMultipleAttacks = canUseMultipleAttacks(activeHero.hero);
                     const usedAttacks = myPlayerData.usedAttacks || 0;
                     const gate = attackGate(focus);
-                    let attackButtonText = attackLabel(focus, gate);
+                    let attackButtonText = attackLabel(`Attack (${formatDamageWithStacks(activeHero.hero)})`, gate);
                     // Check if hero is stunned (Dual Defender's disableAttack, or a stun): the server refuses both
                     const isStunned = activeHero.hero.statusEffects?.disableAttack === true ||
                                      (typeof activeHero.hero.statusEffects?.disableAttack === 'object' &&
@@ -698,7 +722,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                         data-tutorial="attack"
                         onClick={() => {
                           closeDetails();
-                          if (focus) socketService.basicAttack(focus.name);
+                          socketService.basicAttack(focus.name);
                         }}
                       >
                         {attackButtonText}
@@ -726,7 +750,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
                   // For heroes with multiple abilities (like Blood Hunter), check individual ability usage
                   let isDisabled;
-                  let buttonText = actionLabel(ability.name, targeting, focus, gate);
+                  let buttonText = actionLabel(ability.name, gate);
                   
                   if (isPermanentlyDisabled) {
                     isDisabled = true;
@@ -776,7 +800,6 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       disabled={isDisabled}
                       data-tutorial="ability"
                       onClick={() => {
-                        if (!focus) return;
                         closeDetails();
                         // Special case for Timekeeper's Chrono Shift - needs to select ally to command
                         if (activeHero.hero.name === 'Timekeeper' && ability.name === 'Chrono Shift') {
@@ -852,7 +875,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   const targeting = specialTargeting((special as any)?.category);
                   const gate = actionGate(targeting, focus);
                   const isDisabled = isUsed || !gate.ok;
-                  const label = actionLabel(specialName, targeting, focus, gate);
+                  const label = actionLabel(specialName, gate);
                   const buttonText = isUsed ? `${label} (Used)` : label;
                   
                   return (

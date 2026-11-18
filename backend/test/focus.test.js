@@ -1,4 +1,4 @@
-// Battle Focus: a hero must focus an enemy before acting; the focus locks after the first action.
+// Battle Focus: a hero must focus an enemy before acting; the focus locks as soon as it is chosen.
 const { test, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { makeManager, startBattle, hero, setD20, setRandom, resetDice, select } = require('./support/battle');
@@ -73,14 +73,26 @@ test('every action needs a focus', () => {
   }
 });
 
-test('focus can switch before acting', () => {
+test('focus locks when chosen', () => {
   const game = battle('Barbarian');
   select(gm, 'p0', 'Warlock');
-  select(gm, 'p0', 'Shroomguard');
-  assert.equal(game.players[0].selectedTarget, 'Shroomguard');
+  assert.equal(game.players[0].focusLocked, true);
+  assert.deepEqual(pick(gm.selectTarget('p0', 'Shroomguard')), { success: false, error: 'Focus is locked for this turn' });
+  assert.equal(game.players[0].selectedTarget, 'Warlock');
 });
 
-test('focus locks after the first action', () => {
+test('a taunt forces the focus, and locks it', () => {
+  const game = battle('Fighter');
+  hero(game, 0, 'Fighter').statusEffects.taunt = { target: 'Shroomguard', duration: 1 };
+  const result = gm.selectTarget('p0', 'Warlock');
+  assert.equal(result.success, true, result.error);
+  assert.equal(result.forced, true);
+  assert.equal(game.players[0].selectedTarget, 'Shroomguard');
+  assert.equal(game.players[0].focusLocked, true);
+  assert.deepEqual(pick(gm.selectTarget('p0', 'Shroomguard')), { success: false, error: 'Focus is locked for this turn' });
+});
+
+test('focus stays locked after the first action', () => {
   const locked = { success: false, error: 'Focus is locked for this turn' };
   const actions = [
     ['Barbarian', () => gm.basicAttack('p0', 'Shroomguard')],
@@ -294,7 +306,7 @@ test('game state carries focus and targeting', () => {
   let state = gm.getFullGameState(game);
   assert.equal(state.players[0].selectedTarget, 'Warlock');
   assert.deepEqual(state.activeHero.abilityTargeting, [{ kind: 'enemy', damaging: true }]);
-  assert.equal(state.players[0].focusLocked, false);
+  assert.equal(state.players[0].focusLocked, true, 'locked when chosen');
   assert.equal(gm.basicAttack('p0', 'Warlock').success, true);
   state = gm.getFullGameState(game);
   assert.equal(state.players[0].focusLocked, true);

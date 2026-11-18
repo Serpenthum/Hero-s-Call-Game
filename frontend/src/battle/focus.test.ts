@@ -71,35 +71,35 @@ describe('targeting', () => {
 describe('gates and labels', () => {
   it('needs a focus before attacking', () => {
     expect(attackGate(null)).toEqual({ ok: false, reason: 'need-focus' });
-    expect(attackLabel(null, attackGate(null))).toBe('Focus an enemy first');
+    expect(attackLabel('Attack (1D6)', attackGate(null))).toBe('Attack (1D6)');
   });
 
-  it('names the focus on the attack, and says when it has fallen', () => {
+  it('keeps the original attack label, adding (Target Dead) once the focus falls', () => {
     expect(attackGate(warlock)).toEqual({ ok: true });
-    expect(attackLabel(warlock, attackGate(warlock))).toBe('Attack Warlock');
+    expect(attackLabel('Attack (1D6)', attackGate(warlock))).toBe('Attack (1D6)');
     expect(attackGate(fallen)).toEqual({ ok: false, reason: 'fallen' });
-    expect(attackLabel(fallen, attackGate(fallen))).toBe('Warlock has fallen');
+    expect(attackLabel('Attack (1D6)', attackGate(fallen))).toBe('Attack (1D6) (Target Dead)');
   });
 
   it('needs a focus before any ability, even a self ability', () => {
     expect(actionGate(self, null)).toEqual({ ok: false, reason: 'need-focus' });
-    expect(actionLabel('Wildshape', self, null, actionGate(self, null))).toBe('Focus an enemy first');
+    expect(actionLabel('Wildshape', actionGate(self, null))).toBe('Wildshape');
   });
 
   it('keeps self abilities after the focus falls', () => {
-    expect(actionLabel('Wildshape', self, fallen, actionGate(self, fallen))).toBe('Wildshape');
+    expect(actionLabel('Wildshape', actionGate(self, fallen))).toBe('Wildshape');
   });
 
   it('keeps area attacks after the focus falls (owner ruling)', () => {
     expect(actionGate(all, fallen)).toEqual({ ok: true });
-    expect(actionLabel('Fireball', all, warlock, actionGate(all, warlock))).toBe('Fireball');
-    expect(actionLabel('Fireball', all, fallen, actionGate(all, fallen))).toBe('Fireball');
+    expect(actionLabel('Fireball', actionGate(all, warlock))).toBe('Fireball');
+    expect(actionLabel('Fireball', actionGate(all, fallen))).toBe('Fireball');
   });
 
-  it('names the focus on single-target abilities and loses them once it falls', () => {
-    expect(actionLabel('Poison Strike', enemy, warlock, actionGate(enemy, warlock))).toBe('Poison Strike on Warlock');
+  it('keeps plain ability names, and loses single-target ones once the focus falls', () => {
+    expect(actionLabel('Poison Strike', actionGate(enemy, warlock))).toBe('Poison Strike');
     expect(actionGate(enemy, fallen)).toEqual({ ok: false, reason: 'fallen' });
-    expect(actionLabel('Poison Strike', enemy, fallen, actionGate(enemy, fallen))).toBe('Warlock has fallen');
+    expect(actionLabel('Poison Strike', actionGate(enemy, fallen))).toBe('Poison Strike (Target Dead)');
   });
 
   it('keeps non-damaging enemy abilities after the focus falls', () => {
@@ -193,13 +193,10 @@ describe('focusButtonState', () => {
     expect(focusButtonState({ ...base, inspected: { hero: hero('Warlock'), side: 'ally' } })).toEqual({ show: false });
   });
 
-  it('says Focused on the current focus', () => {
-    expect(focusButtonState({ ...base, focus: warlock })).toEqual({ show: true, enabled: false, label: 'Focused' });
-  });
-
-  it('says Focus locked once the focus is locked on another enemy', () => {
-    expect(focusButtonState({ ...base, focus: { name: 'Shroomguard', alive: true }, focusLocked: true }))
-      .toEqual({ show: true, enabled: false, label: 'Focus locked' });
+  it('goes away once a focus is chosen (it is final)', () => {
+    expect(focusButtonState({ ...base, focus: warlock, focusLocked: true })).toEqual({ show: false });
+    expect(focusButtonState({ ...base, focus: { name: 'Shroomguard', alive: true }, focusLocked: true })).toEqual({ show: false });
+    expect(focusButtonState({ ...base, focus: warlock })).toEqual({ show: false });
   });
 
   it("refuses an untargetable enemy unless the active hero is its allowed attacker", () => {
