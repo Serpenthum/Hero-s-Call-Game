@@ -8,6 +8,7 @@ import CardLayoutTest from './components/CardLayoutTest';
 import UiKit from './components/ui/UiKit';
 import DevScreens from './components/ui/DevScreens';
 import RotatePrompt from './components/RotatePrompt';
+import InstallHint from './install/InstallHint.tsx'; // extension needed: installHint.ts shares the name on case-insensitive disks
 import { CardReaderProvider } from './cards/CardReader';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
@@ -2706,7 +2707,10 @@ function App() {
       </div>
 
 
-      {state.gameState && state.gameState.phase !== 'waiting' && <RotatePrompt />}
+      <RotatePrompt />
+
+      {/* Install hint: lobby only */}
+      {state.user && (!state.gameState || state.gameState.phase === 'waiting') && !state.showSurvival && !state.showGauntlet && tutorial.stage === null && <InstallHint />}
 
       {/* Survival Battle Transition */}
       {state.isTransitioningToBattle && (

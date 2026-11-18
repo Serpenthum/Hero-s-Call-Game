@@ -1,5 +1,24 @@
 :root {
   --image-base-url: 'http://localhost:3001';
+  /* The screen height left once the notch and home indicator are kept clear (the app root is padded by them) */
+  --app-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+/* Safe areas: the status bar is translucent and the app is full screen, so keep content clear of the notch,
+   rounded corners and home indicator. Backgrounds still run edge to edge (body and the overlays). */
+.App {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.modal-overlay,
+.profile-modal-overlay,
+.quest-reward-overlay,
+.requirement-modal-overlay,
+.shop-overlay,
+.collection-fullscreen,
+.selection-overlay,
+.game-over-overlay,
+.initiative-overlay {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 /* Root font size for responsive scaling */

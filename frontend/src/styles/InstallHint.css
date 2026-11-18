@@ -1,0 +1,19 @@
+/* Install hint: a slim bar at the bottom of the lobby, above the home indicator. Modals cover it. */
+.install-hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100vw - 2 * var(--space-4) - env(safe-area-inset-left) - env(safe-area-inset-right));
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+}
+
+.install-hint-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--bone);
+}

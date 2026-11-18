@@ -34,7 +34,7 @@
   }
 
   .App:has(.battle-layout) .app-layout {
-    height: 100dvh;
+    height: var(--app-height);
     min-height: 0;
   }
 
@@ -44,7 +44,7 @@
 
   .App:has(.battle-layout) .game-sidebar {
     width: var(--phone-sidebar-width);
-    height: 100dvh;
+    height: var(--app-height);
     max-height: none;
     box-sizing: border-box;
     display: flex;
@@ -150,8 +150,8 @@
   .App .battle-layout.battle-layout {
     flex-direction: row;
     min-height: 0;
-    height: 100dvh;
-    max-height: 100dvh;
+    height: var(--app-height);
+    max-height: var(--app-height);
     margin-right: var(--phone-actions-width);
     overflow: visible;
   }
@@ -159,7 +159,7 @@
   .App .battle-layout .action-bar {
     position: fixed;
     width: var(--phone-actions-width);
-    height: 100dvh;
+    height: var(--app-height);
     box-sizing: border-box;
     border-left: 1px solid var(--brass);
     padding-top: 0;

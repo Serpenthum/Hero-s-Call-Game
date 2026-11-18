@@ -10,7 +10,8 @@
   align-items: center;
   z-index: 10000;
   backdrop-filter: blur(8px);
-  padding: clamp(12px, 3vw, 40px);
+  padding: max(clamp(12px, 3vw, 40px), env(safe-area-inset-top)) max(clamp(12px, 3vw, 40px), env(safe-area-inset-right))
+    max(clamp(12px, 3vw, 40px), env(safe-area-inset-bottom)) max(clamp(12px, 3vw, 40px), env(safe-area-inset-left));
   box-sizing: border-box;
 }
 

@@ -44,6 +44,10 @@ const MIGRATED = [
   'cards/useLongPress.test.ts',
   'cards/CardReader.tsx',
   'styles/CardReader.css',
+  'install/installHint.ts',
+  'install/installHint.test.ts',
+  'install/InstallHint.tsx',
+  'styles/InstallHint.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
