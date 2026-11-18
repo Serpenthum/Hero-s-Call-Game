@@ -212,6 +212,8 @@ function App() {
   const [isSearchingForSurvivalMatch, setIsSearchingForSurvivalMatch] = useState(false);
   // Server drops queue entries on disconnect, so keep the request to re-queue after a reconnect.
   const pendingSurvivalSearchRef = useRef<{ name: string; team: Hero[] } | null>(null);
+  // Draft/random search in progress, so a reconnect can log back in and rejoin the queue
+  const pendingSearchRef = useRef<{ name: string; mode: 'draft' | 'random' } | null>(null);
   const [isSearchingForMatch, setIsSearchingForMatch] = useState(false);
   const [showCardLayoutTest, setShowCardLayoutTest] = useState(false);
   const [turnTimer, setTurnTimer] = useState<{ playerId: string; deadline: number; durationMs: number } | null>(null);
@@ -314,6 +316,7 @@ function App() {
     // Socket event handlers for reconnection
     socket.on('reconnect-success', (gameState) => {
       console.log('✅ Reconnected to game successfully:', gameState);
+      pendingSearchRef.current = null;
       setState(prev => ({
         ...prev,
         gameState: gameState,
@@ -373,6 +376,7 @@ function App() {
           // Only clear searching state if the game is ready (has 2 players)
           if (data.gameReady) {
             console.log('🎮 Game ready! Clearing search state');
+            pendingSearchRef.current = null;
             setIsSearchingForMatch(false);
             setSearchMode(null);
           } else {
@@ -383,6 +387,7 @@ function App() {
       } else {
         // Show the server's reason (e.g. Draft unlock level, not enough heroes) when it gives one
         const reason = (data as any).error || (data as any).message;
+        pendingSearchRef.current = null;
         setState(prev => ({ ...prev, error: reason || 'Failed to join game' }));
         // Clear searching state on failure
         setIsSearchingForMatch(false);
@@ -411,6 +416,7 @@ function App() {
 
     socket.on('search-cancelled', (data) => {
       if (data.success) {
+        pendingSearchRef.current = null;
         setIsSearchingForMatch(false);
         setSearchMode(null);
         // Reset game state when search is cancelled
@@ -451,6 +457,7 @@ function App() {
     socket.on('game-start', (data) => {
       // Stop searching when game starts
       pendingSurvivalSearchRef.current = null;
+      pendingSearchRef.current = null;
       setIsSearchingForSurvivalMatch(false);
       setIsSearchingForMatch(false);
       setSearchMode(null);
@@ -1393,6 +1400,15 @@ function App() {
       }
     });
 
+    // A reconnect is a brand-new socket to the server: log it back in, then rejoin the queue we were in.
+    // Effect re-runs on user id change, so capturing it here is never stale.
+    const reconnectUserId = state.user.id;
+    (socket as any).on('reconnect', () => {
+      if (reconnectUserId > 0) socketService.authenticate(reconnectUserId);
+      const pending = pendingSearchRef.current;
+      if (pending) socketService.joinGame(pending.name, pending.mode);
+    });
+
     socket.on('disconnect', () => {
       setState(prev => ({ ...prev, isConnected: false }));
     });
@@ -1738,6 +1754,7 @@ function App() {
     setState(prev => ({ ...prev, playerName }));
     setIsSearchingForMatch(true);
     setSearchMode(mode);
+    pendingSearchRef.current = { name: playerName, mode };
     socketService.joinGame(playerName, mode);
   };
 
@@ -1849,6 +1866,7 @@ function App() {
   };
 
   const handleCancelSearch = () => {
+    pendingSearchRef.current = null;
     socketService.cancelSearch();
     setIsSearchingForMatch(false);
     setSearchMode(null);
@@ -1983,6 +2001,7 @@ function App() {
     // Disconnect socket
     socketService.disconnect();
     pendingSurvivalSearchRef.current = null;
+    pendingSearchRef.current = null;
     setIsSearchingForSurvivalMatch(false);
   };
 
