@@ -89,7 +89,10 @@ export class Socket<_E = any> {
       const wasReconnect = this.everConnected;
       this.everConnected = true;
       this.attempt = 0;
-      const pending = this.buffer;
+      // Frames queued before the first connection go out now. Frames queued while reconnecting are
+      // dropped: the new connection is a new session that is not logged in yet, so a replayed game
+      // action would only fail (the app logs in again and rejoins its game on 'reconnect').
+      const pending = wasReconnect ? [] : this.buffer;
       this.buffer = [];
       for (const s of pending) this.rawSend(s);
       this.startHeartbeat();
@@ -118,16 +121,45 @@ export class Socket<_E = any> {
       this.pongTimer = setTimeout(() => {
         this.pongTimer = null;
         // No pong: the connection is dead. Drop it and take the normal reconnect path.
-        const ws = this.ws;
-        this.ws = null;
-        try {
-          ws?.close();
-        } catch {
-          /* ignore */
-        }
-        this.onTransportClosed();
+        this.dropConnection();
       }, this.pongTimeout);
     }, this.pingInterval);
+  }
+
+  // Closes the current connection as dead and takes the normal reconnect path
+  dropConnection() {
+    if (this.stopped) return;
+    const ws = this.ws;
+    if (!ws) return;
+    this.ws = null;
+    try {
+      ws.close();
+    } catch {
+      /* ignore */
+    }
+    this.onTransportClosed();
+  }
+
+  // Checks the connection now (the page came back into view, or the network came back): pings with a
+  // short timeout when connected, and retries at once when not, even after giving up.
+  probe(timeoutMs = 3000) {
+    if (this.stopped || this.kicked) return;
+    if (this.connected) {
+      this.rawSend(JSON.stringify({ t: '__ping', d: [] }));
+      if (this.pongTimer) clearTimeout(this.pongTimer);
+      this.pongTimer = setTimeout(() => {
+        this.pongTimer = null;
+        this.dropConnection();
+      }, timeoutMs);
+      return;
+    }
+    if (this.ws) return; // already connecting
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.attempt = Math.max(this.attempt, 1);
+    this.open();
   }
 
   private clearPongTimer() {

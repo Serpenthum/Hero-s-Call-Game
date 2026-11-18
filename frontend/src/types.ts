@@ -279,7 +279,7 @@ export interface Message {
 
 export interface SocketEvents {
   // Client to Server
-  'authenticate': (data: { userId: number; token: string | null }) => void;
+  'authenticate': (data: { userId: number; token: string | null; heartbeatMs?: number }) => void;
   'join-game': (data: { name: string; mode?: 'draft' | 'random' | 'friendly'; roomName?: string }) => void;
   'join-survival-game': (data: { name: string; team: Hero[] }) => void;
   'cancel-survival-search': () => void;
@@ -339,7 +339,8 @@ export interface SocketEvents {
 
   // Server to Client
   // activeGame: a game this account dropped out of that is still holding its seat
-  'authentication-success': (data: { userId: number; activeGame?: { gameId: string; mode: string; phase: string } | null }) => void;
+  // rejoined: the server already put this connection back in that game ('reconnect-success' came first)
+  'authentication-success': (data: { userId: number; activeGame?: { gameId: string; mode: string; phase: string } | null; rejoined?: boolean }) => void;
   'authentication-failed': (data: { message: string }) => void;
   'force-logout': (data: { message: string }) => void;
   'join-result': (data: { success: boolean; gameId: string; playerId: string; players: Player[]; gameReady: boolean; draftCards?: any; mode?: 'draft' | 'random' | 'friendly' | 'survival' | 'tutorial'; roomName?: string }) => void;

@@ -6,7 +6,8 @@ import Icon from './ui/Icon';
 import RewardsDisplay from './RewardsDisplay';
 import BattleFX from './BattleFX';
 import TurnTimerBar from './TurnTimerBar';
-import { DisconnectCaption, DisconnectOverlay } from './DisconnectBadge';
+import { DisconnectCaption, DisconnectNotice, DisconnectOverlay } from './DisconnectBadge';
+import { DisconnectCountdown } from '../reconnect';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
 import { isHeroAlive } from '../heroHealth';
@@ -26,7 +27,7 @@ interface BattlePhaseProps {
   spectators?: Array<{ socketId: string; username: string; spectatingPlayerId: string }>;
   turnTimer?: { playerId: string; deadline: number; durationMs: number; paused?: boolean; remainingMs?: number } | null;
   // Players who dropped out: player id -> when their seat is given up (local clock)
-  disconnectDeadlines?: Record<string, number>;
+  disconnectDeadlines?: Record<string, DisconnectCountdown>;
   isTutorial?: boolean;
   // Tutorial: how many of the six heroes (opp0, me0, opp1, me1, ...) are shown; null/undefined = all
   tutorialReveal?: number | null;
@@ -107,12 +108,12 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                 `)}`;
               }}
             />
-            {off && <DisconnectOverlay deadline={deadlineFor(player)} />}
+            {off && <DisconnectOverlay countdown={deadlineFor(player)} />}
           </span>
         </div>
         {off && (
           <DisconnectCaption
-            deadline={deadlineFor(player)}
+            countdown={deadlineFor(player)}
             name={player.name}
             viewerIsOpponent={isOpponentSide && !isSpectating}
           />
@@ -295,6 +296,15 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     return (
       <div className="initiative-overlay">
         <div className="initiative-phase">
+          {/* The opponent dropped out during the roll: say so above the roll itself */}
+          {isDisconnected(opponent) && (
+            <DisconnectNotice
+              countdown={deadlineFor(opponent)}
+              name={opponent.name}
+              profileIcon={opponent.profile_icon}
+              viewerIsOpponent={!isSpectating}
+            />
+          )}
           <h2>Starting Roll!</h2>
           <p>Roll a 20-sided die to determine turn order!</p>
           
@@ -463,6 +473,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         {/* Action Bar - always show for visual consistency */}
         <div className="action-bar">
           <h3>{isSpectating ? 'Spectating' : 'Actions'}</h3>
+          {/* My turn, but the opponent dropped out: my clock is stopped until they are back */}
+          {!isSpectating && gameState.phase === 'battle' && isMyTurn() && isDisconnected(opponent) && (
+            <div className="ui-hint turn-clock-stopped">Turn clock stopped while {opponent.name} reconnects</div>
+          )}
           {isSpectating ? (
             // Spectator mode - show minimal UI with stop spectating button
             <div className="spectator-controls">

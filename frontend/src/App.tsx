@@ -14,10 +14,10 @@ import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
 import MessageIcon from './components/MessageIcon';
 import config from './config';
-import { authHeaders, setAuthToken } from './authSession';
+import { authHeaders, setAuthToken, saveSession, restoreSession, clearSession } from './authSession';
 import { battleEventBus } from './battleAnimations';
 import { watchedPlayerLeft, spectatorReactionToLeaver } from './spectating';
-import { countdownMs, deadlinesFromState, staleGameAfterLogin } from './reconnect';
+import { countdownFrom, deadlinesFromState, staleGameAfterLogin, DisconnectCountdown } from './reconnect';
 import BattleTutorial from './components/tutorial/BattleTutorial';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
@@ -26,6 +26,7 @@ import './styles/Social.css';
 import './styles/GameTheme.css';
 import './styles/BattleLog.css';
 import './styles/Panels.css';
+import './styles/Reconnecting.css';
 
 const DraftPhase = lazy(() => import('./components/DraftPhase'));
 const BattlePhase = lazy(() => import('./components/BattlePhase'));
@@ -190,6 +191,9 @@ function App() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [pendingQuestReward, setPendingQuestReward] = useState<PendingQuestReward | null>(null);
 
+  // A refresh in this tab logs straight back in (the socket then rejoins any battle in progress)
+  const [restoredSession] = useState(() => restoreSession<User>());
+
   const [state, setState] = useState<AppState>({
     gameState: null,
     playerId: null,
@@ -211,8 +215,8 @@ function App() {
     survivalLosses: 0,
     
     // Authentication state
-    user: null,
-    showLogin: true, // Start with login page
+    user: restoredSession ? restoredSession.user : null,
+    showLogin: !restoredSession, // Start with login page unless this tab is already logged in
     showRegister: false,
 
     // Spectator state
@@ -242,7 +246,9 @@ function App() {
   const [showCardLayoutTest, setShowCardLayoutTest] = useState(false);
   const [turnTimer, setTurnTimer] = useState<{ playerId: string; deadline: number; durationMs: number; paused?: boolean; remainingMs?: number } | null>(null);
   // Players who dropped out of the current game: player id -> when their seat is given up (local clock)
-  const [disconnectDeadlines, setDisconnectDeadlines] = useState<Record<string, number>>({});
+  const [disconnectDeadlines, setDisconnectDeadlines] = useState<Record<string, DisconnectCountdown>>({});
+  // Our own connection dropped (after having been up): show "Reconnecting..." until it is back
+  const [connectionLost, setConnectionLost] = useState(false);
   const [draftTimer, setDraftTimer] = useState<{ round: number; durationMs: number; deadline: number } | null>(null);
   const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
   // How many of the six battle heroes are visible during the tutorial intro; null = all
@@ -290,6 +296,11 @@ function App() {
   useEffect(() => {
     setDisconnectDeadlines({});
   }, [state.gameState?.id]);
+
+  // Keep this tab's saved login in step with the account (it is cleared on sign out)
+  useEffect(() => {
+    if (state.user) saveSession(state.user);
+  }, [state.user]);
 
   useEffect(() => {
     // Load heroes data - only load if user is authenticated
@@ -344,6 +355,13 @@ function App() {
 
     socket.on('reconnect-failed', (data) => {
       console.log('❌ Reconnection failed:', data.message);
+      // Too late (the countdown ran out first): don't leave a battle on screen that nothing updates
+      if (staleGameAfterLogin(gameStateRef.current, null, isSpectatingRef.current)) {
+        setState(prev => ({ ...prev, gameState: null, battleLog: [] }));
+        setTurnTimer(null);
+        showSpectateNotice('Your battle ended while you were disconnected.');
+        return;
+      }
       setState(prev => ({
         ...prev,
         error: data.message
@@ -1407,6 +1425,7 @@ function App() {
 
     socket.on('connect', () => {
       setState(prev => ({ ...prev, isConnected: true }));
+      setConnectionLost(false);
       const pending = pendingSurvivalSearchRef.current;
       if (pending) {
         socketService.joinSurvivalGame(pending.name, pending.team);
@@ -1422,8 +1441,10 @@ function App() {
       if (pending) socketService.joinGame(pending.name, pending.mode);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason: string) => {
       setState(prev => ({ ...prev, isConnected: false }));
+      // Our own sign-out closes the socket on purpose; anything else is a lost connection
+      if (reason !== 'io client disconnect') setConnectionLost(true);
     });
 
     // Spectator mode listeners
@@ -1467,9 +1488,9 @@ function App() {
 
     // A player in our game dropped out; the server holds their seat and counts down
     socket.on('disconnection-countdown-started', (data) => {
-      const ms = countdownMs(data);
-      if (ms === null) return;
-      setDisconnectDeadlines(prev => ({ ...prev, [data.playerId]: Date.now() + ms }));
+      const countdown = countdownFrom(data, Date.now());
+      if (!countdown) return;
+      setDisconnectDeadlines(prev => ({ ...prev, [data.playerId]: countdown }));
     });
 
     // They came back on a new connection (a new player id): follow them
@@ -1490,8 +1511,8 @@ function App() {
       });
     });
 
-    // The countdown ran out. A forfeit's result screen comes with 'game-surrendered'; a game called
-    // off before the battle comes with 'draft-abandoned'; spectators are sent home separately.
+    // The countdown ran out. A forfeit's result screen comes with 'game-surrendered' (in any phase);
+    // spectators of an abandoned game are sent home separately.
     socket.on('game-ended-by-disconnection', (data) => {
       setDisconnectDeadlines({});
       if (data.outcome === 'forfeit' && data.gameState) {
@@ -1684,11 +1705,13 @@ function App() {
     socket.on('authentication-success', (data) => {
       console.log('Socket authentication successful for user:', data.userId);
       // Logged in again on a new connection. A spectate never survives that (the server dropped it).
-      if (isSpectatingRef.current) stopSpectatingWithNotice('Your connection dropped, so you stopped spectating.');
+      const wasSpectating = isSpectatingRef.current;
+      if (wasSpectating) stopSpectatingWithNotice('Your connection dropped, so you stopped spectating.');
       if (data.activeGame) {
-        // The server is holding our seat in a game we dropped out of: take it back
-        socketService.reconnectToGame(data.activeGame.gameId);
-      } else if (staleGameAfterLogin(gameStateRef.current, null, false)) {
+        // The server holds our seat in a game we dropped out of. Current servers put us back in it while
+        // logging us in ('reconnect-success' came first); otherwise ask.
+        if (!data.rejoined) socketService.reconnectToGame(data.activeGame.gameId);
+      } else if (!wasSpectating && staleGameAfterLogin(gameStateRef.current, null, false)) {
         // The game we were showing finished (or we ran out of time) while we were away
         setState(prev => ({ ...prev, gameState: null, battleLog: [] }));
         setTurnTimer(null);
@@ -1701,9 +1724,13 @@ function App() {
 
     socket.on('authentication-failed', (data) => {
       console.error('Socket authentication failed:', data.message);
+      // The saved login no longer works (the server restarted, or signed in elsewhere): forget it
+      clearSession();
       // If authentication fails due to duplicate login, log out the user
       if (data.message.includes('already logged in')) {
         alert('Multiple sessions detected\n\n' + data.message);
+        handleLogout();
+      } else if (data.message === 'Please log in again') {
         handleLogout();
       } else {
         setState(prev => ({ ...prev, error: data.message || 'Authentication failed' }));
@@ -1712,6 +1739,7 @@ function App() {
 
     socket.on('force-logout', (data) => {
       console.log('Force logout received:', data.message);
+      clearSession();
       alert(data.message);
       handleLogout();
     });
@@ -2002,6 +2030,9 @@ function App() {
 
   const handleLogout = async () => {
     const currentUser = state.user;
+    // This tab no longer remembers the login
+    clearSession();
+    setConnectionLost(false);
     
     // Clear stored game state
     localStorage.removeItem('heroCallActiveGame');
@@ -2383,6 +2414,7 @@ function App() {
             opponent={opponent}
             allHeroes={state.allHeroes}
             draftTimer={draftTimer}
+            disconnectDeadlines={disconnectDeadlines}
           />
         );
 
@@ -2904,6 +2936,12 @@ function App() {
       {state.user && spectateNotice && (
         <div className={`challenge-notice${challengeNotice ? ' challenge-notice--stacked' : ''}`} role="status">
           <span>{spectateNotice}</span>
+        </div>
+      )}
+      {state.user && connectionLost && (
+        <div className="reconnecting-banner" role="status">
+          <span className="reconnecting-banner__dot" aria-hidden="true" />
+          Reconnecting…
         </div>
       )}
 

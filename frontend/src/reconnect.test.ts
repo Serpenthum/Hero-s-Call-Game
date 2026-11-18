@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdownMs, deadlinesFromState, forfeitLabel, isLiveGamePhase, secondsLeft, staleGameAfterLogin } from './reconnect';
+import { countdownFraction, countdownFrom, countdownMs, deadlinesFromState, forfeitLabel, isLiveGamePhase, secondsLeft, staleGameAfterLogin } from './reconnect';
 
 describe('countdownMs', () => {
   it('prefers milliseconds and falls back to seconds from older servers', () => {
@@ -15,17 +15,33 @@ describe('deadlinesFromState', () => {
   it('turns each disconnected player countdown into a local deadline', () => {
     const state = {
       players: [
-        { id: 'a', connected: false, disconnectionTimer: { remainingMs: 20000 } },
+        { id: 'a', connected: false, disconnectionTimer: { remainingMs: 20000, durationMs: 25000 } },
         { id: 'b', connected: true, disconnectionTimer: null }
       ]
     };
-    expect(deadlinesFromState(state, 1000)).toEqual({ a: 21000 });
+    expect(deadlinesFromState(state, 1000)).toEqual({ a: { deadline: 21000, durationMs: 25000 } });
   });
 
   it('ignores connected players and missing timers', () => {
     expect(deadlinesFromState({ players: [{ id: 'a', connected: true, disconnectionTimer: { remainingMs: 5 } }] }, 0)).toEqual({});
     expect(deadlinesFromState({ players: [{ id: 'a', connected: false }] }, 0)).toEqual({});
     expect(deadlinesFromState(null, 0)).toEqual({});
+  });
+});
+
+describe('countdownFrom and countdownFraction', () => {
+  it('keeps the length the server started the countdown with', () => {
+    expect(countdownFrom({ remainingMs: 8000, durationMs: 12000 }, 0)).toEqual({ deadline: 8000, durationMs: 12000 });
+    expect(countdownFrom({ remainingMs: 8000 }, 0)).toEqual({ deadline: 8000, durationMs: 8000 });
+    expect(countdownFrom(null, 0)).toBeNull();
+  });
+
+  it('sizes the bar from the countdown, not a fixed 30 s', () => {
+    const c = { deadline: 10000, durationMs: 10000 };
+    expect(countdownFraction(c, 0)).toBe(1);
+    expect(countdownFraction(c, 5000)).toBe(0.5);
+    expect(countdownFraction(c, 20000)).toBe(0);
+    expect(countdownFraction(null, 0)).toBe(1);
   });
 });
 

@@ -4,20 +4,30 @@ import config from './config';
 import { getAutoEndTurnEnabled } from './battleAnimations';
 import { getAuthToken } from './authSession';
 
+// A short heartbeat, so a dropped network is noticed within seconds (the server is told the interval
+// when we log in, and drops a seated player after about 20 s of silence)
+export const HEARTBEAT_MS = 8000;
+const PONG_TIMEOUT_MS = 5000;
+
 class SocketService {
   private socket: Socket<SocketEvents> | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private removeWindowListeners: (() => void) | null = null;
 
   connect(): Socket<SocketEvents> {
-    if (this.socket?.connected) {
+    // One socket per login: a socket that is reconnecting is reused, never replaced
+    if (this.socket) {
       return this.socket;
     }
 
+    // While logged in, keep trying to reconnect for as long as it takes (the backoff caps at 5 s)
     this.socket = createSocket(config.SOCKET_URL, {
-      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      pingIntervalMs: HEARTBEAT_MS,
+      pongTimeoutMs: PONG_TIMEOUT_MS,
     });
+    this.watchWindow();
 
     this.socket.on('connect', () => {
       console.log('Connected to server');
@@ -43,10 +53,29 @@ class SocketService {
   }
 
   disconnect() {
+    this.removeWindowListeners?.();
+    this.removeWindowListeners = null;
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
     }
+  }
+
+  // Phones freeze background pages and drop their sockets without telling us. Check the connection
+  // as soon as the page is back in view or the network returns; drop it at once when the network goes.
+  private watchWindow() {
+    if (typeof window === 'undefined') return;
+    const check = () => this.socket?.probe(3000);
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    const onOffline = () => this.socket?.dropConnection();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', check);
+    window.addEventListener('offline', onOffline);
+    this.removeWindowListeners = () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', check);
+      window.removeEventListener('offline', onOffline);
+    };
   }
 
   getSocket(): Socket<SocketEvents> | null {
@@ -59,7 +88,7 @@ class SocketService {
 
   // Authentication method
   authenticate(userId: number) {
-    this.socket?.emit('authenticate', { userId, token: getAuthToken() });
+    this.socket?.emit('authenticate', { userId, token: getAuthToken(), heartbeatMs: HEARTBEAT_MS });
   }
 
   // Reconnection method

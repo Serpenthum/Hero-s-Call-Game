@@ -4,6 +4,8 @@ import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
 import Icon from './ui/Icon';
 import DraftClock from './DraftClock';
+import { DisconnectNotice } from './DisconnectBadge';
+import { DisconnectCountdown } from '../reconnect';
 
 interface DraftPhaseProps {
   gameState: GameState;
@@ -11,6 +13,8 @@ interface DraftPhaseProps {
   opponent: Player | null;
   allHeroes: Hero[];
   draftTimer?: { round: number; deadline: number; durationMs: number } | null;
+  // Players who dropped out: player id -> their countdown (local clock)
+  disconnectDeadlines?: Record<string, DisconnectCountdown>;
 }
 
 const DraftPhase: React.FC<DraftPhaseProps> = ({ 
@@ -18,7 +22,8 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   currentPlayer, 
   opponent, 
   allHeroes,
-  draftTimer
+  draftTimer,
+  disconnectDeadlines = {}
 }) => {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [teamOrder, setTeamOrder] = useState<string[]>([]);
@@ -399,13 +404,27 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
     );
   };
 
-  if (gameState.phase === 'setup') {
-    return renderSetupPhase();
-  } else if (gameState.currentDraftPhase === 0) {
-    return renderBanPhase();
-  } else {
-    return renderPickPhase();
-  }
+  const content = gameState.phase === 'setup'
+    ? renderSetupPhase()
+    : gameState.currentDraftPhase === 0 ? renderBanPhase() : renderPickPhase();
+
+  // The opponent dropped out: show it, and how long until the win is ours, over the draft
+  const opponentAway = !!opponent && (opponent.connected === false || disconnectDeadlines[opponent.id] !== undefined);
+  return (
+    <>
+      {content}
+      {opponentAway && opponent && (
+        <div className="disconnect-notice-dock">
+          <DisconnectNotice
+            countdown={disconnectDeadlines[opponent.id] ?? null}
+            name={opponent.name}
+            profileIcon={opponent.profile_icon}
+            viewerIsOpponent={true}
+          />
+        </div>
+      )}
+    </>
+  );
 };
 
 export default DraftPhase;

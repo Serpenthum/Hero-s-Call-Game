@@ -8,7 +8,20 @@ export function isLiveGamePhase(phase: string | null | undefined): boolean {
   return !!phase && LIVE_PHASES.has(phase);
 }
 
-type TimerLike = { remainingMs?: number; remainingTime?: number } | null | undefined;
+type TimerLike = { remainingMs?: number; remainingTime?: number; durationMs?: number } | null | undefined;
+
+// A dropped player's countdown on the local clock: when the seat is given up, and how long the
+// countdown was when it started (the server can start it shorter than 30 s, so bars size from this)
+export interface DisconnectCountdown {
+  deadline: number;
+  durationMs: number;
+}
+
+export function countdownFrom(timer: TimerLike, now: number): DisconnectCountdown | null {
+  const ms = countdownMs(timer);
+  if (ms === null) return null;
+  return { deadline: now + ms, durationMs: Math.max(ms, timer?.durationMs ?? ms) };
+}
 
 // Milliseconds left on a countdown from the server (newer servers send remainingMs, older ones seconds)
 export function countdownMs(timer: TimerLike): number | null {
@@ -22,11 +35,11 @@ export function countdownMs(timer: TimerLike): number | null {
 export function deadlinesFromState(
   gameState: { players: Array<{ id: string; connected?: boolean; disconnectionTimer?: TimerLike }> } | null | undefined,
   now: number
-): Record<string, number> {
-  const out: Record<string, number> = {};
+): Record<string, DisconnectCountdown> {
+  const out: Record<string, DisconnectCountdown> = {};
   for (const p of gameState?.players ?? []) {
-    const ms = p.connected === false ? countdownMs(p.disconnectionTimer) : null;
-    if (ms !== null) out[p.id] = now + ms;
+    const countdown = p.connected === false ? countdownFrom(p.disconnectionTimer, now) : null;
+    if (countdown) out[p.id] = countdown;
   }
   return out;
 }
@@ -44,6 +57,12 @@ export function forfeitLabel(seconds: number | null, viewerIsOpponent: boolean):
 
 // After logging in again: should the client drop the game it still shows? Only when it was a live game
 // the server no longer holds a seat in (it ended, or the countdown ran out while we were away).
+// The bar under a countdown: the share of its own starting length that is left (0 to 1)
+export function countdownFraction(countdown: DisconnectCountdown | null, now: number): number {
+  if (!countdown || countdown.durationMs <= 0) return 1;
+  return Math.min(1, Math.max(0, (countdown.deadline - now) / countdown.durationMs));
+}
+
 export function staleGameAfterLogin(
   gameState: { id: string; phase: string; mode?: string } | null | undefined,
   activeGameId: string | null | undefined,

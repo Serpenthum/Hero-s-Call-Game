@@ -105,7 +105,15 @@ describe('realtime client', () => {
     expect(cb).toHaveBeenCalledWith(null, 'r');
   });
 
-  it('buffers emits while disconnected and flushes after reconnect', () => {
+  it('buffers emits before the first connection and flushes them on connect', () => {
+    const s = make();
+    s.emit('early', 1);
+    last().open();
+    last().serverSend({ t: '__welcome', d: ['id1'] });
+    expect(last().frames()).toEqual([{ t: 'early', d: [1] }]);
+  });
+
+  it('drops emits made while reconnecting (the new connection is not logged in yet)', () => {
     const s = make();
     const first = last();
     first.open();
@@ -123,8 +131,57 @@ describe('realtime client', () => {
     second.open();
     second.serverSend({ t: '__welcome', d: ['id2'] });
     expect(s.id).toBe('id2');
-    expect(second.frames()).toEqual([{ t: 'b', d: [] }]);
+    expect(second.frames()).toEqual([]);
     expect(events).toEqual(['disconnect:transport close', 'connect:id2']);
+  });
+
+  it('probe() pings at once and drops a connection that does not answer', () => {
+    const s = make();
+    last().open();
+    last().serverSend({ t: '__welcome', d: ['id1'] });
+    const onDisconnect = vi.fn();
+    s.on('disconnect', onDisconnect);
+    s.probe(3000);
+    expect(last().frames()).toEqual([{ t: '__ping', d: [] }]);
+    vi.advanceTimersByTime(2999);
+    expect(onDisconnect).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onDisconnect).toHaveBeenCalledWith('transport close');
+  });
+
+  it('probe() keeps a connection that answers', () => {
+    const s = make();
+    last().open();
+    last().serverSend({ t: '__welcome', d: ['id1'] });
+    s.probe(3000);
+    last().serverSend({ t: '__pong', d: [] });
+    vi.advanceTimersByTime(5000);
+    expect(s.connected).toBe(true);
+  });
+
+  it('probe() retries at once after giving up', () => {
+    const s = make({ reconnectionAttempts: 1 });
+    last().open();
+    last().serverSend({ t: '__welcome', d: ['id1'] });
+    last().serverClose();
+    vi.advanceTimersByTime(100);
+    last().serverClose(); // the one retry fails too: the client gives up
+    const count = FakeWS.instances.length;
+    vi.advanceTimersByTime(60000);
+    expect(FakeWS.instances.length).toBe(count);
+    s.probe();
+    expect(FakeWS.instances.length).toBe(count + 1);
+  });
+
+  it('dropConnection() closes at once and reconnects', () => {
+    const s = make();
+    const first = last();
+    first.open();
+    first.serverSend({ t: '__welcome', d: ['id1'] });
+    s.dropConnection();
+    expect(s.connected).toBe(false);
+    vi.advanceTimersByTime(100);
+    expect(last()).not.toBe(first);
   });
 
   it('fires reconnect_error and retries with backoff up to the limit', () => {
