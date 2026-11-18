@@ -29,6 +29,7 @@ import './styles/GameTheme.css';
 import './styles/BattleLog.css';
 import './styles/Panels.css';
 import './styles/Reconnecting.css';
+import type { InspectedCard } from './battle/focus';
 
 const DraftPhase = lazy(() => import('./components/DraftPhase'));
 const BattlePhase = lazy(() => import('./components/BattlePhase'));
@@ -259,6 +260,8 @@ function App() {
   const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
   // How many of the six battle heroes are visible during the tutorial intro; null = all
   const [tutorialReveal, setTutorialReveal] = useState<number | null>(null);
+  // The battle card shown in the details panel over the left column (null when closed)
+  const [battleInspect, setBattleInspect] = useState<InspectedCard | null>(null);
   const tutorialStartedRef = useRef(false);
   const [searchMode, setSearchMode] = useState<'draft' | 'random' | null>(null);
   const [incomingChallenge, setIncomingChallenge] = useState<{ fromId: number; from: string } | null>(null);
@@ -2333,6 +2336,7 @@ function App() {
           turnTimer={turnTimer}
           timekeeperAbilitySelection={state.timekeeperAbilitySelection}
           onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
+          onInspectChange={setBattleInspect}
         />
       ) : null;
       return (
@@ -2402,6 +2406,7 @@ function App() {
             timekeeperAbilitySelection={state.timekeeperAbilitySelection}
             onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
             rewardsData={rewardsData || undefined}
+            onInspectChange={setBattleInspect}
           />
         );
       }
@@ -2451,6 +2456,7 @@ function App() {
             timekeeperAbilitySelection={state.timekeeperAbilitySelection}
             onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
             rewardsData={rewardsData || undefined}
+            onInspectChange={setBattleInspect}
           />
         );
 
@@ -2636,7 +2642,8 @@ function App() {
           
           {/* Battle Phase Information - Combined Active Hero and Battle Log */}
           {state.gameState.phase === 'battle' && (
-            <div className="battle-combined-info">
+            <div className="battle-combined-info" data-details-open={battleInspect ? battleInspect.side : undefined}>
+              <div id="battle-details-slot" />
               <h3>Battle</h3>
               {((currentPlayer && opponent) || state.isSpectating) ? (
                 <>

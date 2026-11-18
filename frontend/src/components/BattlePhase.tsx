@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
+import BattleDetailsPanel from './BattleDetailsPanel';
+import { InspectedCard, turnFocus } from '../battle/focus';
 import Icon from './ui/Icon';
 import RewardsDisplay from './RewardsDisplay';
 import BattleFX from './BattleFX';
@@ -53,6 +56,8 @@ interface BattlePhaseProps {
     victoryPointsGained: number;
     leveledUp: boolean;
   };
+  // The card shown in the details panel (null when it is closed), for the tutorial
+  onInspectChange?: (inspected: InspectedCard | null) => void;
 }
 
 const BattlePhaseView: React.FC<BattlePhaseProps> = ({ 
@@ -71,13 +76,64 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   tutorialReveal = null,
   timekeeperAbilitySelection,
   onClearTimekeeperSelection,
-  rewardsData
+  rewardsData,
+  onInspectChange
 }) => {
 
   const [initiativeChoice, setInitiativeChoice] = useState<boolean | null>(null);
   const [selectingAllyForAbility, setSelectingAllyForAbility] = useState<{ abilityIndex: number; targetId: string } | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState<boolean>(false);
   const [showSpectatorList, setShowSpectatorList] = useState<boolean>(false);
+  // The card in the details panel over the left column (players and spectators)
+  const [inspected, setInspected] = useState<InspectedCard | null>(null);
+  const closeDetails = useCallback(() => setInspected(null), []);
+
+  useEffect(() => {
+    onInspectChange?.(inspected);
+  }, [inspected, onInspectChange]);
+
+  // The panel closes on a tap anywhere but a card or the panel, and on Escape
+  useEffect(() => {
+    if (!inspected) return;
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.('.hero-card, [data-keep-details]')) return;
+      setInspected(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setInspected(null);
+    };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [inspected]);
+
+  // ...and when the turn passes, the active hero changes, or the battle ends
+  const activeHeroPlayerIndex = gameState.activeHero?.playerIndex;
+  const activeHeroIndex = gameState.activeHero?.heroIndex;
+  useEffect(() => {
+    setInspected(null);
+  }, [gameState.currentTurn, activeHeroPlayerIndex, activeHeroIndex]);
+  useEffect(() => {
+    if (gameState.phase === 'ended') setInspected(null);
+  }, [gameState.phase]);
+
+  const renderDetailsPanel = () => {
+    if (!inspected || gameState.phase === 'ended') return null;
+    const owner = inspected.side === 'enemy' ? opponent : currentPlayer;
+    const hero = owner?.team.find(h => h.name === inspected.name);
+    const slot = typeof document !== 'undefined' ? document.getElementById('battle-details-slot') : null;
+    if (!owner || !hero || !slot) return null;
+    const focus = turnFocus(gameState);
+    const isFocused = !!focus && focus.defenderId === owner.id && focus.focus.name === hero.name;
+    return createPortal(
+      <BattleDetailsPanel hero={hero} side={inspected.side} isFocused={isFocused} onClose={closeDetails} />,
+      slot
+    );
+  };
   const playerGrid = useCardGrid({ fixedColumns: Math.max(1, currentPlayer.team.length), gap: 4, frameSpace: 2 });
   const opponentGrid = useCardGrid({ fixedColumns: Math.max(1, opponent?.team.length ?? 0), gap: 4, frameSpace: 2 });
 
@@ -133,6 +189,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   // Helper function to handle ally selection for abilities
   const handleAllyClick = (targetId: string) => {
     if (selectingAllyForAbility) {
+      closeDetails();
       socketService.useAbility(selectingAllyForAbility.abilityIndex, selectingAllyForAbility.targetId, targetId);
       setSelectingAllyForAbility(null);
     }
@@ -416,8 +473,11 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   onClick={() => {
                     if (isMyTurn() && targetableEnemies.includes(hero)) {
                       handleTargetSelection(hero.name);
+                      // Until the Focus button arrives, tapping an enemy targets it and shows its details
+                      setInspected({ name: hero.name, side: 'enemy' });
                     }
                   }}
+                  onInspect={() => setInspected({ name: hero.name, side: 'enemy' })}
                 />
               ))}
             </div>
@@ -464,6 +524,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       handleAllyClick(hero.name);
                     }
                   }}
+                  onInspect={() => setInspected({ name: hero.name, side: 'ally' })}
                 />
               ))}
             </div>
@@ -657,6 +718,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                         disabled={isAttackDisabled}
                         data-tutorial="attack"
                         onClick={() => {
+                          closeDetails();
                           socketService.basicAttack(myPlayerData.selectedTarget!);
                         }}
                       >
@@ -741,6 +803,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       disabled={isDisabled}
                       data-tutorial="ability"
                       onClick={() => {
+                        closeDetails();
                         // Special case for Timekeeper's Chrono Shift - needs to select ally to command
                         if (activeHero.hero.name === 'Timekeeper' && ability.name === 'Chrono Shift') {
                           setSelectingAllyForAbility({ abilityIndex: index, targetId: myPlayerData.selectedTarget! });
@@ -770,6 +833,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                           key={index}
                           className="ability-option-button"
                           onClick={() => {
+                            closeDetails();
                             socketService.useTimekeeperSelectedAbility(
                               timekeeperAbilitySelection.target,
                               timekeeperAbilitySelection.ally,
@@ -817,6 +881,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       className="action-button special-button"
                       disabled={isDisabled}
                       onClick={() => {
+                        closeDetails();
                         socketService.activateSpecial();
                       }}
                       style={{
@@ -834,6 +899,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   className="action-button end-turn-button"
                   data-tutorial="end-turn"
                   onClick={() => {
+                    closeDetails();
                     socketService.endTurn();
                   }}
                 >
@@ -942,7 +1008,12 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     );
   };
 
-  const battleContent = renderBattlePhase();
+  const battleContent = (
+    <>
+      {renderBattlePhase()}
+      {renderDetailsPanel()}
+    </>
+  );
   
   // If game is ended, show battle scene with overlay
   if (gameState.phase === 'ended') {

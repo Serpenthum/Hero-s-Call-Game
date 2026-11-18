@@ -3,7 +3,7 @@ import { Hero, Ability } from '../types';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
 import { getAnimSpeed } from '../battleAnimations';
-import { ReadMode, resolveReadMode, pickTextSize } from '../cards/cardRules';
+import { ReadMode, resolveReadMode, pickTextSize, ruleSections } from '../cards/cardRules';
 import { useCardReader } from '../cards/CardReader';
 import { useLongPress } from '../cards/useLongPress';
 import '../styles/HeroCard.css';
@@ -33,6 +33,9 @@ interface HeroCardProps {
   glint?: boolean; // A light sweep across the card every few seconds
   tilt?: boolean; // The card leans toward the pointer (and the foil follows it)
   readable?: ReadMode; // How the large view opens; defaults from isSelectable
+  // Battle: a tap that does not choose the card shows its details instead (no reader; fallen cards too)
+  onInspect?: () => void;
+  isFocused?: boolean; // Battle: this card is the active player's focus
 }
 
 // Largest share of the card's height the name-and-rules panel may cover.
@@ -89,7 +92,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   favorite = false,
   glint = false,
   tilt = false,
-  readable
+  readable,
+  onInspect,
+  isFocused = false
 }) => {
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
   const [hpColor, setHpColor] = useState<string>('');
@@ -296,6 +301,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
     if (isDead) classes += ' dead';
     if (isSelectable) classes += ' selectable';
     if (isSelected) classes += ' selected';
+    if (isFocused) classes += ' focused';
     if (isBlocked && !isDead && !isSelectable) classes += ' target-blocked';
     if (isBanned) classes += ' banned';
     if (isEnemy) classes += ' enemy';
@@ -859,8 +865,6 @@ const HeroCard: React.FC<HeroCardProps> = ({
     );
   };
 
-  const cardSpecials = Array.isArray(hero.Special) ? hero.Special : hero.Special ? [hero.Special] : [];
-
   useLayoutEffect(() => {
     const card = cardRef.current;
     const lower = lowerRef.current;
@@ -890,16 +894,13 @@ const HeroCard: React.FC<HeroCardProps> = ({
 
   const renderCardDetails = () => (
     <div className="card-details">
-      {hero.Ability?.map((ability, index) => (
-        <section key={`ability-${index}`} className="card-text-section">
-          <h4><span className="card-type-label">Ability:</span> {ability.name}</h4>
-          <p>{ability.description}</p>
-        </section>
-      ))}
-      {cardSpecials.map((special, index) => (
-        <section key={`special-${index}`} className="card-text-section card-special">
-          <h4><span className="card-type-label">Special:</span> {hero.name === 'Bomber' ? 'Explosion' : special.name}</h4>
-          <p>{special.description}</p>
+      {ruleSections(hero).map((section, index) => (
+        <section
+          key={`${section.label}-${index}`}
+          className={`card-text-section${section.label === 'Special' ? ' card-special' : ''}`}
+        >
+          <h4><span className="card-type-label">{section.label}:</span> {section.name}</h4>
+          <p>{section.description}</p>
         </section>
       ))}
     </div>
@@ -934,9 +935,16 @@ const HeroCard: React.FC<HeroCardProps> = ({
   // A fallen hero can still be read, but never chosen.
   const isDead = currentHP <= 0;
   const canChoose = isSelectable && !isDead;
-  const readMode = resolveReadMode({ readable, isSelectable: canChoose });
+  // A card that can be inspected never opens the reader; the battle's details panel replaces it.
+  const readMode = onInspect ? 'none' : resolveReadMode({ readable, isSelectable: canChoose });
   const handleClick = (event: React.MouseEvent) => {
     if (canChoose) onClick?.();
+    if (onInspect) {
+      if (canChoose) return;
+      event.stopPropagation();
+      onInspect();
+      return;
+    }
     if (readMode !== 'tap') return;
     // The tap is spent on reading; a wrapper that closes on click (the pack opening) must not also react.
     event.stopPropagation();
@@ -954,7 +962,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
       data-anim-key={animKey}
       data-hero-name={animKey ? hero.name : undefined}
       data-read-mode={readMode}
-      onClick={canChoose || readMode === 'tap' ? handleClick : undefined}
+      data-focused={isFocused ? 'true' : undefined}
+      onClick={canChoose || readMode === 'tap' || onInspect ? handleClick : undefined}
       onPointerDown={readMode === 'press' ? pressHandlers.onPointerDown : undefined}
       onPointerMove={readMode === 'press' || followPointer ? handlePointerMoveAll : undefined}
       onPointerUp={readMode === 'press' ? pressHandlers.onPointerUp : undefined}
@@ -962,7 +971,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       onClickCapture={readMode === 'press' ? pressHandlers.onClickCapture : undefined}
       onContextMenu={readMode !== 'none' ? pressHandlers.onContextMenu : undefined}
       onPointerLeave={followPointer ? handlePointerLeave : undefined}
-      style={{ cursor: canChoose ? 'pointer' : readMode === 'tap' ? 'zoom-in' : undefined }}
+      style={{ cursor: canChoose || onInspect ? 'pointer' : readMode === 'tap' ? 'zoom-in' : undefined }}
     >
       <img
         src={getImagePath()}

@@ -30,3 +30,23 @@ export function pickTextSize(
   }
   return minEm;
 }
+
+type RuleText = { name: string; description: string };
+export interface RuleSection {
+  label: 'Ability' | 'Special';
+  name: string;
+  description: string;
+}
+
+/** Every ability and then every special of a hero, as the card prints them. Bomber's special is named Explosion. */
+export function ruleSections(hero: { name: string; Ability?: RuleText[]; Special?: RuleText | RuleText[] }): RuleSection[] {
+  const specials = Array.isArray(hero.Special) ? hero.Special : hero.Special ? [hero.Special] : [];
+  return [
+    ...(hero.Ability ?? []).map(a => ({ label: 'Ability' as const, name: a.name, description: a.description })),
+    ...specials.map(s => ({
+      label: 'Special' as const,
+      name: hero.name === 'Bomber' ? 'Explosion' : s.name,
+      description: s.description,
+    })),
+  ];
+}

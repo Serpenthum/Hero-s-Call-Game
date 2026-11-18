@@ -1,0 +1,199 @@
+/* Battle card details: a tapped card shown over the left column (the battle log), with its rules as plain text.
+   The panel covers the whole .battle-combined-info, which is its positioning parent. */
+
+.battle-combined-info {
+  position: relative;
+}
+
+.battle-details {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-2);
+  box-sizing: border-box;
+  container-type: size;
+  background: var(--walnut);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-control);
+  color: var(--bone);
+  font-family: var(--font-ui);
+  cursor: default;
+  animation: battle-details-in var(--dur) var(--ease) both;
+}
+
+.battle-details[data-side="enemy"] {
+  border-color: color-mix(in srgb, var(--ember) 60%, var(--brass-dim));
+}
+
+/* Header: name, tags, close X */
+.battle-details-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  flex-shrink: 0;
+  min-height: 40px;
+  padding-right: 44px;
+  position: relative;
+}
+
+.battle-details-name {
+  margin: 0;
+  min-width: 0;
+  font: 400 var(--text-lg) / 1.1 var(--font-display);
+  color: var(--bone);
+  overflow-wrap: anywhere;
+}
+
+.battle-details-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.battle-details-tag {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--brass-dim);
+  background: var(--leather);
+  color: var(--bone-dim);
+  font: 700 12px / 1.4 var(--font-ui);
+  white-space: nowrap;
+}
+
+.battle-details-tag--enemy {
+  color: var(--bone);
+  border-color: var(--ember);
+  background: color-mix(in srgb, var(--ember) 22%, var(--leather));
+}
+
+.battle-details-tag--ally {
+  color: var(--bone);
+  border-color: var(--verdigris);
+  background: color-mix(in srgb, var(--verdigris) 20%, var(--leather));
+}
+
+.battle-details-tag--focused {
+  color: var(--walnut);
+  border-color: var(--brass-hi);
+  background: var(--brass-hi);
+}
+
+.battle-details-tag--fallen {
+  color: var(--bone-dim);
+  border-color: var(--bone-dim);
+  background: var(--felt-deep);
+}
+
+/* The close X is a 40px tap target in the header's top-right corner */
+.battle-details .battle-details-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+}
+
+/* The live card, at most about half the panel's height */
+.battle-details-card {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.battle-details .battle-details-card .hero-card.hero-layout-card {
+  --card-w: min(92cqw, 48cqh * 260 / 391);
+  margin: 0;
+  cursor: default;
+}
+
+/* Every ability and special as plain text, scrolling if long */
+.battle-details-rules {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--brass-dim) transparent;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.battle-details-rule + .battle-details-rule {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--brass-dim);
+}
+
+.battle-details .battle-details-rule h4 {
+  margin: 0 0 2px;
+  font: 700 1em / 1.25 var(--font-ui);
+  color: var(--bone);
+}
+
+.battle-details-label {
+  color: var(--brass-hi);
+}
+
+.battle-details-rule--special .battle-details-label {
+  color: var(--ember-hi);
+}
+
+.battle-details-rule p {
+  margin: 0;
+  color: var(--bone-dim);
+}
+
+@keyframes battle-details-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle-details {
+    animation: none;
+  }
+}
+
+/* Phones: rules text at the sidebar font size, never under 12px */
+@media (max-width: 600px), (max-width: 1000px) and (max-height: 600px), (max-width: 1400px) and (max-height: 720px) {
+  .battle-details-rules {
+    font-size: max(12px, var(--phone-sidebar-font, 14px));
+  }
+
+  .battle-details-name {
+    font-size: max(14px, calc(var(--phone-sidebar-font, 14px) * 1.2));
+  }
+}
+
+/* ==================== Short screens (sideways phones) ==================== */
+@media (max-height: 500px) {
+  .battle-details {
+    padding: 4px;
+    gap: 4px;
+  }
+
+  /* A 40px title bar (name and close X), with the tags on a line under it */
+  .battle-details-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 40px auto;
+    gap: 2px;
+    min-height: 0;
+  }
+
+  .battle-details-name {
+    align-self: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .battle-details .battle-details-card .hero-card.hero-layout-card {
+    --card-w: min(92cqw, 40cqh * 260 / 391);
+  }
+}

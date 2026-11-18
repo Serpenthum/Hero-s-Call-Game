@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveReadMode, pickTextSize, TINY_CARD_MAX_WIDTH } from './cardRules';
+import { resolveReadMode, pickTextSize, TINY_CARD_MAX_WIDTH, ruleSections } from './cardRules';
 
 describe('resolveReadMode', () => {
   it('defaults to tap', () => {
@@ -42,5 +42,28 @@ describe('pickTextSize', () => {
       expect(s).toBeGreaterThanOrEqual(0.8);
     }
     expect(tried.length).toBe(14);
+  });
+});
+
+describe('ruleSections', () => {
+  it('lists abilities first, then specials', () => {
+    const sections = ruleSections({
+      name: 'Warlock',
+      Special: [{ name: 'Pact', description: 'Special text' }],
+      Ability: [{ name: 'Hex', description: 'Ability text' }],
+    });
+    expect(sections).toEqual([
+      { label: 'Ability', name: 'Hex', description: 'Ability text' },
+      { label: 'Special', name: 'Pact', description: 'Special text' },
+    ]);
+  });
+  it("names Bomber's special Explosion", () => {
+    const sections = ruleSections({ name: 'Bomber', Ability: [], Special: [{ name: 'Self Destruct', description: 'Boom' }] });
+    expect(sections[0].name).toBe('Explosion');
+  });
+  it('accepts a single special object and no abilities', () => {
+    expect(ruleSections({ name: 'X', Special: { name: 'S', description: 'd' } })).toEqual([
+      { label: 'Special', name: 'S', description: 'd' },
+    ]);
   });
 });
