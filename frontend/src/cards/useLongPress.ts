@@ -70,7 +70,12 @@ export function useLongPress(onLongPress: () => void): LongPressHandlers {
   return useMemo<LongPressHandlers>(() => ({
     onPointerDown: event => {
       swallowClick.current = false;
-      if (event.button !== 0) return;
+      // A mouse long press ends over the reader, so this card never saw its pointerup: clear that stale press
+      // first, or the right-click below would think it had already opened the reader.
+      if (event.button !== 0) {
+        press.cancel();
+        return;
+      }
       press.down(event.clientX, event.clientY);
     },
     onPointerMove: event => press.move(event.clientX, event.clientY),

@@ -55,7 +55,7 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ offer, runState, fromBattle, re
             const hero: Hero = { ...entry.data, currentHP: entry.data.HP, maxHP: entry.data.HP };
             return (
               <div key={entry.name} className="gt-offer-card">
-                <HeroCard hero={hero} showFullInfo={false} disableHPAnimations readable="press" />
+                <HeroCard hero={hero} showFullInfo={false} disableHPAnimations readable="tap" />
                 <button type="button" className="ui-btn ui-btn--primary" disabled={busy} onClick={() => onChoose(entry.name)}>
                   Choose {entry.name}
                 </button>

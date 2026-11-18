@@ -268,7 +268,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, allHeroes, isOpen, on
                 {getFavoriteHero() ? (
                   <div className="favorite-hero-display">
                     <div className="responsive-card-viewport" ref={favoriteGrid.ref} style={favoriteGrid.style}>
-                      <HeroCard hero={getFavoriteHero()!} readable="press" />
+                      <HeroCard hero={getFavoriteHero()!} readable="tap" />
                     </div>
                     <div className="favorite-hero-stats">
                       <p>Used {playerStats?.hero_usage_count[playerStats.favorite_hero!] || 0} times</p>

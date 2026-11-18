@@ -81,6 +81,7 @@ const PackOpeningAnimation: React.FC<PackOpeningAnimationProps> = ({ heroes, onC
                 className={`hero-card-revealed ${phase === 'revealed' ? 'glow' : ''}`}
                 showFullInfo={false}
                 disableHPAnimations
+                readable="press"
               />
             </div>
           </div>

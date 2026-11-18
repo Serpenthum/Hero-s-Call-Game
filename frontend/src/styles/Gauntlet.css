@@ -127,8 +127,9 @@
   border-radius: var(--radius-panel);
   cursor: pointer;
 }
-.gt-slot-hit:hover:not(:disabled) { transform: none; box-shadow: none; background: none; }
-.gt-slot-hit:disabled { cursor: default; }
+.gt-slot-hit:hover { transform: none; box-shadow: none; background: none; }
+/* Looks as it did with the disabled attribute (index.css button:disabled), but its card can still be read. */
+.gt-slot-hit[aria-disabled="true"] { opacity: 0.6; cursor: default; }
 .gt-slot-hit:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 .gt-slot.is-on-team .gt-slot-hit { outline: 2px solid var(--brass-hi); outline-offset: 2px; }
 .gt-slot.is-target .gt-slot-hit { outline: 2px solid var(--verdigris); outline-offset: 2px; }

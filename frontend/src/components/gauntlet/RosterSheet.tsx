@@ -37,15 +37,20 @@ const RosterSheet: React.FC<RosterSheetProps> = ({ roster, teamIndices, pick, lo
               key={`${instance.hero_id}-${index}`}
               className={`gt-slot${fallen ? ' is-fallen' : ''}${place >= 0 ? ' is-on-team' : ''}${pick ? (target ? ' is-target' : ' is-dim') : ''}`}
             >
+              {/* aria-disabled rather than disabled: a disabled button swallows the clicks its card needs to be read. */}
               <button
                 type="button"
                 className="gt-slot-hit"
-                disabled={!clickable}
+                aria-disabled={!clickable}
                 aria-label={`${instance.hero_id}: ${status}, ${instance.current_hp} of ${instance.max_hp} health`}
                 aria-pressed={pick ? undefined : place >= 0}
-                onClick={() => (pick ? onPick(index) : onToggleTeam(index))}
+                onClick={() => {
+                  if (!clickable) return;
+                  if (pick) onPick(index);
+                  else onToggleTeam(index);
+                }}
               >
-                <HeroCard hero={hero} showFullInfo={false} disableHPAnimations readable="press" />
+                <HeroCard hero={hero} showFullInfo={false} disableHPAnimations readable={clickable ? 'press' : 'tap'} />
               </button>
               {place >= 0 && <span className="gt-place" aria-hidden="true">{place + 1}</span>}
               <div className="ui-hpbar gt-hp" aria-hidden="true"><div className="ui-hpbar__fill" style={{ width: `${percent}%` }} /></div>
