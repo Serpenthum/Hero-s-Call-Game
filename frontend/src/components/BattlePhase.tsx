@@ -4,7 +4,19 @@ import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
 import BattleDetailsPanel from './BattleDetailsPanel';
-import { InspectedCard, turnFocus } from '../battle/focus';
+import {
+  InspectedCard,
+  turnFocus,
+  readFocus,
+  attackGate,
+  actionGate,
+  attackLabel,
+  actionLabel,
+  specialTargeting,
+  UNKNOWN_TARGETING,
+  tauntTargetFor,
+  focusButtonState,
+} from '../battle/focus';
 import Icon from './ui/Icon';
 import RewardsDisplay from './RewardsDisplay';
 import BattleFX from './BattleFX';
@@ -275,57 +287,15 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
 
 
-  const getTargetableEnemies = (): Hero[] => {
-    // Spectators cannot target anyone
-    if (isSpectating) {
-      return [];
-    }
-    
-    // Only allow targeting if it's my turn AND I haven't selected a target yet
-    if (!isMyTurn()) {
-      return [];
-    }
-    
-    if (!opponent) {
-      return [];
-    }
-    
-    // Check if I already have a selected target
-    const myPlayerData = gameState.players.find(p => p.id === playerId);
-    if (myPlayerData?.selectedTarget) {
-      return [];
-    }
-
-    // Check if current hero is taunted (heroes like Barbarian ignore taunts and may pick anyone)
-    const currentHero = getCurrentHero();
-    const specials: any[] = currentHero?.Special
-      ? (Array.isArray(currentHero.Special) ? currentHero.Special : [currentHero.Special])
-      : [];
-    const ignoresTaunt = specials.some(special =>
-      special?.effects?.some((effect: any) => effect.type === 'passive_modifier' && effect.effect === 'ignore_taunt'));
-    if (!ignoresTaunt && currentHero?.statusEffects?.taunt?.target) {
-      const tauntTargetName = currentHero.statusEffects.taunt.target;
-      const tauntTarget = opponent.team.find(h => h.name === tauntTargetName);
-      if (tauntTarget) {
-        const hp = tauntTarget.currentHP !== undefined ? tauntTarget.currentHP : (typeof tauntTarget.HP === 'string' ? parseInt(tauntTarget.HP) : tauntTarget.HP);
-        // Return only the taunt target if alive, otherwise empty array
-        return hp > 0 ? [tauntTarget] : [];
-      }
-    }
-    
-    const targetable = opponent.team.filter(hero => {
-      const hp = hero.currentHP !== undefined ? hero.currentHP : (typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP);
-      const isAlive = hp > 0;
-      const isTargetable = !hero.statusEffects?.untargetable;
-      
-      return isAlive && isTargetable;
-    });
-    
-    return targetable;
-  };
-
-  const handleTargetSelection = (targetId: string) => {
-    socketService.selectTarget(targetId);
+  // My turn: an enemy the active hero could not focus right now (taunted elsewhere, or untargetable)
+  const isEnemyBlocked = (enemy: Hero): boolean => {
+    if (isSpectating || !isMyTurn() || !isHeroAlive(enemy)) return false;
+    const active = getCurrentHero();
+    if (!active) return false;
+    const tauntTarget = tauntTargetFor(active, opponent);
+    if (tauntTarget && tauntTarget !== enemy.name) return true;
+    const effects = enemy.statusEffects;
+    return !!effects?.untargetable && effects.untargetableAttacker !== active.name;
   };
 
   const revealFor = (isOpponentSide: boolean, heroIndex: number): 'hidden' | 'grow' | undefined => {
@@ -440,9 +410,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   };
 
   const renderBattlePhase = () => {
-    const targetableEnemies = getTargetableEnemies();
-    const selectedEnemyTarget = gameState.players.find(p => p.id === playerId)?.selectedTarget ?? null;
-    const choosingEnemyTarget = !isSpectating && isMyTurn() && !selectedEnemyTarget;
+    // The acting player's focus, marked for everyone on the defender's side
+    const marked = turnFocus(gameState);
+    const isMarked = (owner: Player | null, hero: Hero) =>
+      !!marked && !!owner && marked.defenderId === owner.id && marked.focus.name === hero.name;
     const isAllySelectable = (hero: Hero) => !!selectingAllyForAbility && (hero.currentHP ?? 0) > 0 && (
       !isTimekeeperChronoShift() || (hero.name !== 'Timekeeper' && !!hero.Ability && hero.Ability.length > 0)
     );
@@ -473,16 +444,9 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                            gameState.activeHero.heroIndex === heroIndex; // Match exact hero position
                   })()}
                   isEnemy={true}
-                  isSelectable={isMyTurn() && targetableEnemies.includes(hero)}
-                  isBlocked={choosingEnemyTarget && !targetableEnemies.includes(hero)}
-                  isSelected={selectedEnemyTarget === hero.name}
-                  onClick={() => {
-                    if (isMyTurn() && targetableEnemies.includes(hero)) {
-                      handleTargetSelection(hero.name);
-                      // Until the Focus button arrives, tapping an enemy targets it and shows its details
-                      setInspected({ name: hero.name, side: 'enemy' });
-                    }
-                  }}
+                  isBlocked={isEnemyBlocked(hero)}
+                  isFocused={isMarked(opponent, hero)}
+                  // A tap only shows the enemy; the Focus button in the action bar selects it
                   onInspect={() => setInspected({ name: hero.name, side: 'enemy' })}
                 />
               ))}
@@ -512,6 +476,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   })()}
                   isSelectable={isAllySelectable(hero)}
                   isBlocked={!!selectingAllyForAbility && !isAllySelectable(hero)}
+                  isFocused={isMarked(currentPlayer, hero)}
                   onClick={() => {
                     if (selectingAllyForAbility && (hero.currentHP ?? 0) > 0) {
                       closeDetails();
@@ -573,12 +538,17 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                 );
               }
               if (activeHero) {
+                // The opponent's focus, when it is one of my heroes
+                const theirFocus = readFocus(opponent ?? undefined, currentPlayer);
                 return (
                   <div className="action-prompt">
                     <div>Waiting for {activeHero.hero.name}</div>
                     <div style={{ fontSize: '12px', color: '#888' }}>
                       Opponent's Turn
                     </div>
+                    {theirFocus && (
+                      <div className="focus-line">Focus: <strong>{theirFocus.name}</strong></div>
+                    )}
                   </div>
                 );
               } else {
@@ -589,13 +559,6 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             // It's my turn - show normal action logic
             const myPlayerData = gameState.players.find(p => p.id === playerId);
             const activeHero = getCurrentActiveHero();
-            
-            // Helper function to check if the selected target is still alive
-            const isSelectedTargetAlive = () => {
-              if (!myPlayerData?.selectedTarget || !opponent) return false;
-              const targetHero = opponent.team.find(hero => hero.name === myPlayerData.selectedTarget);
-              return isHeroAlive(targetHero);
-            };
             
             if (!activeHero || !myPlayerData) {
               // No hero to act with: the battle has ended, or the state naming the active hero has not arrived yet
@@ -620,15 +583,20 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
               );
             }
 
-            if (!myPlayerData.selectedTarget) {
-              return (
-                <div className="action-prompt">
-                  Select an enemy to target first!
-                </div>
-              );
-            }
-
-
+            // My focus (null until an enemy is focused) and the Focus button for the enemy in the details panel
+            const focus = readFocus(myPlayerData, opponent);
+            const inspectedEnemy = inspected?.side === 'enemy' ? opponent?.team.find(h => h.name === inspected.name) : undefined;
+            const focusButton = inspectedEnemy
+              ? focusButtonState({
+                  isMyTurn: true,
+                  isSpectating,
+                  inspected: { hero: inspectedEnemy, side: 'enemy' },
+                  focus,
+                  focusLocked: !!myPlayerData.focusLocked,
+                  tauntTarget: tauntTargetFor(activeHero.hero, opponent),
+                  activeHeroName: activeHero.hero.name,
+                })
+              : { show: false as const };
 
             // Check if selecting ally for ability
             if (selectingAllyForAbility) {
@@ -660,37 +628,51 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   </div>
                 </div>
                 
-                <div className="selected-target">
-                  Target: <strong>{myPlayerData.selectedTarget}</strong>
+                <div className="selected-target focus-line">
+                  Focus: {focus ? <strong>{focus.name}</strong> : 'none'}
                 </div>
-                
+
+                {focusButton.show && (
+                  <button
+                    className="action-button focus-button"
+                    data-tutorial="focus"
+                    data-keep-details
+                    disabled={!focusButton.enabled}
+                    onClick={() => {
+                      if (inspectedEnemy) socketService.selectTarget(inspectedEnemy.name);
+                    }}
+                  >
+                    {focusButton.label}
+                  </button>
+                )}
+
                 {/* Show basic attack button only if hero has basic attack */}
                 {activeHero.hero.BasicAttack !== "—" && (
                   (() => {
                     const canMultipleAttacks = canUseMultipleAttacks(activeHero.hero);
                     const usedAttacks = myPlayerData.usedAttacks || 0;
-                    const oneTwoPunchRemaining = myPlayerData.oneTwoPunchAttacksRemaining || 0;
-                    let attackButtonText = `Attack (${formatDamageWithStacks(activeHero.hero)})`;
+                    const gate = attackGate(focus);
+                    let attackButtonText = attackLabel(focus, gate);
                     // Check if hero is stunned (has disableAttack status)
-                    const isStunned = activeHero.hero.statusEffects?.disableAttack === true || 
-                                     (typeof activeHero.hero.statusEffects?.disableAttack === 'object' && 
+                    const isStunned = activeHero.hero.statusEffects?.disableAttack === true ||
+                                     (typeof activeHero.hero.statusEffects?.disableAttack === 'object' &&
                                       activeHero.hero.statusEffects.disableAttack?.active);
-                    
-                    let isAttackDisabled = !isSelectedTargetAlive() || isStunned;
-                    
+
+                    let isAttackDisabled = !gate.ok || isStunned;
+
                     // For heroes that can attack multiple times, check attack count instead of hasUsedAttack
                     if (canMultipleAttacks) {
                       isAttackDisabled = isAttackDisabled || usedAttacks >= 2;
                     } else {
                       isAttackDisabled = isAttackDisabled || myPlayerData.hasUsedAttack;
                     }
-                    
+
                     // Handle Monk's attack tracking
                     if (activeHero.hero.name === 'Monk') {
                       const monkAttacksRemaining = (myPlayerData as any).monkAttacksRemaining || 0;
                       if (monkAttacksRemaining > 0) {
                         attackButtonText += ` (${monkAttacksRemaining} left)`;
-                        isAttackDisabled = !isSelectedTargetAlive();
+                        isAttackDisabled = !gate.ok;
                       } else {
                         attackButtonText += ' (Used)';
                         isAttackDisabled = true;
@@ -710,10 +692,6 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       }
                     }
                     
-                    if (!isSelectedTargetAlive() && !myPlayerData.hasUsedAttack && oneTwoPunchRemaining === 0) {
-                      attackButtonText += ' (Target Dead)';
-                    }
-                    
                     // Add stunned indicator
                     if (isStunned) {
                       attackButtonText += ' (Stunned)';
@@ -726,7 +704,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                         data-tutorial="attack"
                         onClick={() => {
                           closeDetails();
-                          socketService.basicAttack(myPlayerData.selectedTarget!);
+                          if (focus) socketService.basicAttack(focus.name);
                         }}
                       >
                         {attackButtonText}
@@ -748,9 +726,13 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   // Check if abilities are permanently disabled (Dragon Rider's Dismount)
                   const isPermanentlyDisabled = (activeHero.hero as any).permanentDisables?.abilities;
                   
+                  // Where the ability lands decides whether it needs a living focus (focus.ts actionGate)
+                  const targeting = gameState.activeHero?.abilityTargeting?.[index] ?? UNKNOWN_TARGETING;
+                  const gate = actionGate(targeting, focus);
+
                   // For heroes with multiple abilities (like Blood Hunter), check individual ability usage
                   let isDisabled;
-                  let buttonText = ability.name;
+                  let buttonText = actionLabel(ability.name, targeting, focus, gate);
                   
                   if (isPermanentlyDisabled) {
                     isDisabled = true;
@@ -783,26 +765,16 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                     buttonText += ' (Silenced)';
                   }
                   
-                  // Disable if bribed and trying to target the briber
+                  // Disable if bribed and the living focus is the briber (self abilities never touch it)
                   const cannotTargetWith = activeHero.hero.statusEffects?.cannotTargetWithAbility;
-                  if (cannotTargetWith && myPlayerData.selectedTarget) {
-                    // Find the selected target to check if it's the owner
-                    const selectedTargetHero = gameState.players
-                      .flatMap(p => p.team)
-                      .find(h => h.name === myPlayerData.selectedTarget);
-                    
-                    if (selectedTargetHero && selectedTargetHero.name === cannotTargetWith.owner) {
-                      isDisabled = true;
-                      buttonText += ' (Bribed)';
-                    }
-                  }
-                  
-                  // Disable if selected target is dead (but not if already disabled)
-                  if (!isSelectedTargetAlive() && !isSilenced && !isDisabled) {
+                  if (cannotTargetWith && focus?.alive && focus.name === cannotTargetWith.owner && targeting.kind !== 'self') {
                     isDisabled = true;
-                    buttonText += ' (Target Dead)';
+                    buttonText += ' (Bribed)';
                   }
-                  
+
+                  // No focus yet, or a single-target damaging ability whose focus has fallen
+                  if (!gate.ok) isDisabled = true;
+
                   return (
                     <button 
                       key={index}
@@ -810,18 +782,19 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       disabled={isDisabled}
                       data-tutorial="ability"
                       onClick={() => {
+                        if (!focus) return;
                         closeDetails();
                         // Special case for Timekeeper's Chrono Shift - needs to select ally to command
                         if (activeHero.hero.name === 'Timekeeper' && ability.name === 'Chrono Shift') {
-                          setSelectingAllyForAbility({ abilityIndex: index, targetId: myPlayerData.selectedTarget! });
+                          setSelectingAllyForAbility({ abilityIndex: index, targetId: focus.name });
                         }
                         // Check if this ability requires ally targeting (like Paladin's Divine Smite)
-                        else if (ability.requires_ally_target || 
-                                 (ability.secondary_effects && 
+                        else if (ability.requires_ally_target ||
+                                 (ability.secondary_effects &&
                                   ability.secondary_effects.some((effect: any) => effect.target === 'selected_ally'))) {
-                          setSelectingAllyForAbility({ abilityIndex: index, targetId: myPlayerData.selectedTarget! });
+                          setSelectingAllyForAbility({ abilityIndex: index, targetId: focus.name });
                         } else {
-                          socketService.useAbility(index, myPlayerData.selectedTarget!);
+                          socketService.useAbility(index, focus.name);
                         }
                       }}
                     >
@@ -879,9 +852,14 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   
                   // Check if permanently disabled (persists through resurrection)
                   const isPermanentlyDisabled = (activeHero.hero as any).permanentDisables?.special || false;
-                  const isDisabled = isPermanentlyDisabled || myPlayerData.hasUsedSpecial || false;
+                  const isUsed = isPermanentlyDisabled || myPlayerData.hasUsedSpecial || false;
                   const specialName = activeHero.hero.name === 'Bomber' ? 'Explosion' : (special as any).name;
-                  const buttonText = isDisabled ? `${specialName} (Used)` : specialName;
+                  // Activated specials are area effects: they need a focus first, but survive its fall
+                  const targeting = specialTargeting((special as any)?.category);
+                  const gate = actionGate(targeting, focus);
+                  const isDisabled = isUsed || !gate.ok;
+                  const label = actionLabel(specialName, targeting, focus, gate);
+                  const buttonText = isUsed ? `${label} (Used)` : label;
                   
                   return (
                     <button 

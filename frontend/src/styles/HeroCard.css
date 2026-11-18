@@ -663,6 +663,15 @@
   z-index: 15;
 }
 
+/* Battle Focus: the acting player's chosen enemy, shown to both players and spectators. A static ring and
+   red halo for now; the crosshair and its motion come later. Wins over the turn and blocked glows. */
+.battle-layout .hero-card.focused {
+  --card-frame: var(--focus-c);
+  --card-glow:
+    0 0 0 max(3px, 0.25em) var(--focus-c),
+    0 0 max(10px, 1.3em) max(3px, 0.4em) var(--focus-glow);
+}
+
 /* Fallen: grey and dark. Still readable (tap, press or right-click), never chosen. */
 .hero-card.dead {
   --card-frame: var(--leather-hi);

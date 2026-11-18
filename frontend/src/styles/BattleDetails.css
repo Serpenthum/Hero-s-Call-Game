@@ -192,6 +192,7 @@
   line-height: 1.35;
   scrollbar-width: thin;
   scrollbar-color: var(--brass) var(--felt-deep);
+  scrollbar-gutter: stable;
 }
 
 .battle-details-rules::-webkit-scrollbar {
@@ -276,5 +277,13 @@
   .battle-details {
     padding: 4px;
     gap: 4px;
+  }
+
+  /* A long tag ("Your hero", a spectator's username) stays on one line and ends in an ellipsis */
+  .battle-details-tag {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
   }
 }

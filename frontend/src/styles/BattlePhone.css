@@ -1,3 +1,24 @@
+/* Battle Focus, at every size: the Focus button in the action bar and the focus line above it */
+.battle-layout .action-button.focus-button:not(:disabled) {
+  background: var(--ember);
+  border-color: var(--focus-c);
+  color: var(--bone);
+  text-shadow: 0 1px 2px var(--shade);
+}
+
+.battle-layout .action-button.focus-button:hover:not(:disabled) {
+  background: var(--ember-hi);
+}
+
+.battle-layout .focus-line strong {
+  color: var(--focus-c);
+}
+
+.battle-layout .action-button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* Phones, plus short desktop windows where the labels and avatars would crowd out the log and heroes */
 @media (max-width: 600px), (max-width: 1000px) and (max-height: 600px), (max-width: 1400px) and (max-height: 720px) {
   /*
