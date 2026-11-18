@@ -76,6 +76,8 @@ test('spectators hear when a player in the watched game disconnects', async () =
   // Once the battle is over a disconnect is a real exit, and spectators are told the player left
   b.send('surrender-game');
   await watcher.waitFor('game-surrendered');
+  // Let the win be recorded before the test ends and the database closes
+  await b.waitFor('xp-update');
   b.close();
   const notice = await watcher.waitFor('spectated-player-disconnected');
   assert.equal(notice.playerName, 'Admin2');

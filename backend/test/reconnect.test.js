@@ -47,26 +47,26 @@ async function setup(t, timing) {
     return { frames, send, all, waitFor, socketId, close: () => conn.closed() };
   }
 
-  async function login(username, password = 'pw123456') {
+  async function login(username, password = 'pw123456', extra = {}) {
     if (password !== 'pw123456') await api('POST', '/api/register', { username, password });
     const res = await api('POST', '/api/login', { username, password });
-    return resume({ userId: res.json.user.id, token: res.json.token });
+    return resume({ userId: res.json.user.id, token: res.json.token }, extra);
   }
 
   // A new connection that logs in with a saved session (a refresh, a reopened app, a second tab)
-  async function resume({ userId, token }) {
+  async function resume({ userId, token }, extra = {}) {
     const client = connect();
     client.userId = userId;
     client.token = token;
-    client.send('authenticate', { userId, token });
+    client.send('authenticate', { userId, token, ...extra });
     client.auth = await client.waitFor('authentication-success');
     return client;
   }
 
   // Two admin accounts in a random battle (random battles start straight in the battle phase)
-  async function battle(mode = 'random') {
-    const a = await login('Admin1');
-    const b = await login('Admin2');
+  async function battle(mode = 'random', extra = {}) {
+    const a = await login('Admin1', 'pw123456', extra);
+    const b = await login('Admin2', 'pw123456', extra);
     a.send('join-game', { name: 'Admin1', mode });
     b.send('join-game', { name: 'Admin2', mode });
     const ra = await a.waitFor('join-result', r => r.gameId);
@@ -131,8 +131,10 @@ test('coming back within the grace period puts the player back in their seat', a
   // A refresh or reopened app: a new socket for the same account is told about the held game
   const a2 = await ctx.login('Admin1');
   assert.deepEqual(a2.auth.activeGame, { gameId, mode: 'random', phase: 'battle' });
-  a2.send('reconnect-game', { gameId: a2.auth.activeGame.gameId });
+  // The server puts the new connection back in its seat while logging it in (before the reply)
+  assert.equal(a2.auth.rejoined, true);
   const state = await a2.waitFor('reconnect-success');
+  assert.ok(a2.frames.findIndex(f => f.t === 'reconnect-success') < a2.frames.findIndex(f => f.t === 'authentication-success'));
   assert.equal(state.phase, 'battle');
   const me = state.players.find(p => p.name === 'Admin1');
   assert.equal(me.id, a2.socketId);
@@ -187,6 +189,7 @@ test('the turn clock stops while a player is disconnected and resumes when they 
   await back.waitFor('reconnect-success');
   const resumed = await stayer.waitFor('turn-timer', d => d.paused === false && d.playerId === back.socketId);
   assert.ok(resumed.remainingMs <= paused.remainingMs + 5);
+  assert.ok(resumed.remainingMs >= paused.remainingMs - 200, 'resumes with the time it had left, not a fresh or minimum clock');
   await eventually(() => stayer.all('turn-ended').length === 2, 2500);
 });
 
@@ -275,20 +278,25 @@ test('nobody else can take a held seat', async (t) => {
   assert.equal(ctx.gm.games.get(gameId).players.find(p => p.name === 'Admin1').connected, false);
 });
 
-test('a disconnect during the draft calls the game off for the player who stayed', async (t) => {
+test('a player who never comes back during the draft loses, and the player who stayed wins', async (t) => {
   const ctx = await setup(t, { reconnectGraceMs: 300 });
-  const { a, b, gameId, start } = await ctx.battle('draft');
+  const { a, b, rb, gameId, start } = await ctx.battle('draft');
   assert.equal(start.gameState.phase, 'draft');
   const winsBefore = (await ctx.stats(b.userId)).total_wins;
+  const lossesBefore = (await ctx.stats(a.userId)).total_losses;
 
   a.close();
   await b.waitFor('disconnection-countdown-started');
-  const off = await b.waitFor('draft-abandoned');
-  assert.equal(off.isOpponent, true);
-  assert.match(off.message, /Admin1 disconnected/);
-  await eventually(() => !ctx.gm.games.has(gameId));
-  assert.equal(ctx.gm.playerGameMap.has(b.socketId), false);
-  assert.equal((await ctx.stats(b.userId)).total_wins, winsBefore);
+  const ended = await b.waitFor('game-ended-by-disconnection');
+  assert.equal(ended.outcome, 'forfeit');
+  assert.equal(ended.winner, rb.playerId);
+  const surrendered = await b.waitFor('game-surrendered');
+  assert.equal(surrendered.gameState.phase, 'ended');
+  assert.equal(b.all('draft-abandoned').length, 0);
+  await b.waitFor('xp-update');
+  await eventually(async () => (await ctx.stats(b.userId)).total_wins === winsBefore + 1);
+  await eventually(async () => (await ctx.stats(a.userId)).total_losses === lossesBefore + 1);
+  assert.equal(ctx.gm.games.get(gameId).winner, rb.playerId);
 });
 
 test('a login replaces a connection that went silent, so the player can get back to their battle', async (t) => {
@@ -300,7 +308,7 @@ test('a login replaces a connection that went silent, so the player can get back
   assert.equal(busy.status, 409);
 
   // Once the old connection has been silent for longer than the ping interval it no longer blocks a login
-  ctx.io.sockets.sockets.get(a.socketId).lastSeen = Date.now() - 60000;
+  ctx.io.sockets.sockets.get(a.socketId).lastSeen = Date.now() - 70000;
   const again = await ctx.login('Admin1');
   await b.waitFor('disconnection-countdown-started');
   assert.equal(again.auth.activeGame.gameId, gameId);
@@ -319,6 +327,8 @@ test('a Survival forfeit counts as a win for one run and a loss for the other', 
   b.send('join-survival-game', { name: 'Admin2', team: team(['Druid', 'Paladin', 'Monk']) });
   const start = await b.waitFor('game-start');
   assert.equal(ctx.gm.games.get(start.gameState.id).mode, 'survival');
+  // Survival battles start at the initiative roll, so this is a forfeit before the battle proper
+  assert.equal(ctx.gm.games.get(start.gameState.id).phase, 'initiative');
 
   a.close();
   await b.waitFor('disconnection-countdown-started');
@@ -332,4 +342,157 @@ test('a Survival forfeit counts as a win for one run and a loss for the other', 
   back.send('get-survival-state');
   const run = await back.waitFor('survival-state-response');
   assert.equal(run.state.losses, 1);
+});
+
+// Drops a client the way a network failure does: the server side closes it without a close frame
+function dropSocket(ctx, socketId) {
+  const s = ctx.io.sockets.sockets.get(socketId);
+  if (s) s.disconnect();
+}
+
+test('a seated player whose network drops is noticed fast, and the countdown counts from their last message', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 3000, seatedIdleMs: 300, reconnectMinMs: 100 });
+  const { a, b, ra } = await ctx.battle('random', { heartbeatMs: 100 });
+  // B keeps pinging like a live client; A goes silent (no close frame) as if its network dropped
+  const keepAlive = setInterval(() => b.send('__ping'), 100);
+  t.after(() => clearInterval(keepAlive));
+  ctx.io.sockets.sockets.get(a.socketId).lastSeen = Date.now() - 1500;
+
+  const countdown = await b.waitFor('disconnection-countdown-started', () => true, 2500);
+  assert.equal(countdown.playerId, ra.playerId);
+  // 3 s of grace minus the ~1.5 s A was already silent
+  assert.ok(countdown.remainingMs <= 1700, 'countdown ' + countdown.remainingMs + ' should start from the last message');
+  assert.ok(countdown.remainingMs >= 500);
+});
+
+test('each player has a grace budget per game, so repeated disconnects cannot stall it', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 600, reconnectBudgetMs: 900, reconnectMinMs: 100 });
+  const { a, b, rb } = await ctx.battle();
+  const countdowns = () => b.all('disconnection-countdown-started');
+
+  // First drop: the full 600 ms. Back after about 350 ms.
+  dropSocket(ctx, a.socketId);
+  await eventually(() => countdowns().length === 1);
+  assert.equal(countdowns()[0].remainingMs, 600);
+  await sleep(350);
+  let back = await ctx.login('Admin1');
+  await back.waitFor('reconnect-success');
+
+  // Second drop: only what is left of the 900 ms budget (about 550 ms)
+  dropSocket(ctx, back.socketId);
+  await eventually(() => countdowns().length === 2);
+  assert.ok(countdowns()[1].remainingMs < countdowns()[0].remainingMs, 'the second countdown is shorter');
+  assert.ok(countdowns()[1].remainingMs <= 560, 'second countdown ' + countdowns()[1].remainingMs);
+  await sleep(350);
+  back = await ctx.login('Admin1');
+  await back.waitFor('reconnect-success');
+
+  // Third drop: the budget is all but gone, so the opponent wins almost at once
+  dropSocket(ctx, back.socketId);
+  await eventually(() => countdowns().length === 3);
+  assert.ok(countdowns()[2].remainingMs <= 250, 'third countdown ' + countdowns()[2].remainingMs);
+  const ended = await b.waitFor('game-ended-by-disconnection', () => true, 1000);
+  assert.equal(ended.winner, rb.playerId);
+});
+
+test('if one player runs out of time while the other is still inside theirs, the other wins on return', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 400, reconnectMinMs: 100 });
+  const { a, b, rb, gameId } = await ctx.battle();
+  const watcher = await ctx.login('watcher3', 'secret1');
+  watcher.send('spectate-game', { gameId, spectatingPlayerId: rb.playerId });
+  await watcher.waitFor('spectate-result');
+  const winsBefore = (await ctx.stats(b.userId)).total_wins;
+
+  a.close();
+  await sleep(200);
+  b.close();
+  // A's time runs out at 400 ms while B (gone at 200 ms) still has until 600 ms: nothing is decided yet
+  await sleep(300);
+  assert.equal(watcher.all('game-ended-by-disconnection').length, 0);
+  assert.equal(ctx.gm.games.get(gameId).phase, 'battle');
+
+  const b2 = await ctx.login('Admin2');
+  await b2.waitFor('reconnect-success');
+  const ended = await b2.waitFor('game-ended-by-disconnection');
+  assert.equal(ended.outcome, 'forfeit');
+  assert.equal(ended.winner, b2.socketId);
+  await eventually(async () => (await ctx.stats(b.userId)).total_wins === winsBefore + 1);
+
+  // A is too late: there is no seat to come back to
+  const a2 = await ctx.login('Admin1');
+  assert.equal(a2.auth.activeGame, null);
+  assert.equal(a2.all('reconnect-success').length, 0);
+});
+
+test('a rejoin that arrives just after the forfeit is refused cleanly', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 5000 });
+  const { a, b, ra, gameId } = await ctx.battle();
+  a.close();
+  await b.waitFor('disconnection-countdown-started');
+  // The countdown fires in the same tick the player's rejoin would arrive
+  const forfeit = ctx.gm.handleDisconnectionTimeout(gameId, ra.playerId);
+  const a2 = await ctx.login('Admin1');
+  a2.send('reconnect-game', { gameId });
+  await a2.waitFor('reconnect-failed');
+  await forfeit;
+  assert.equal(a2.auth.activeGame, null);
+  assert.equal(a2.all('reconnect-success').length, 0);
+  assert.equal(ctx.gm.playerGameMap.has(a2.socketId), false);
+  assert.equal((await b.waitFor('game-ended-by-disconnection')).outcome, 'forfeit');
+});
+
+test('a Gauntlet forfeit records the battle and saves the run of the player who left', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 300 });
+  const a = await ctx.login('Admin1');
+  const b = await ctx.login('Admin2');
+  for (const [c, name] of [[a, 'Admin1'], [b, 'Admin2']]) {
+    c.send('start-gauntlet-run', { name });
+    await c.waitFor('gauntlet-run-started', r => r.success);
+    c.send('set-gauntlet-battle-team', { teamIndices: [0, 1, 2] });
+    await c.waitFor('gauntlet-battle-team-set', r => r.success);
+  }
+  a.send('queue-for-gauntlet-trial');
+  await a.waitFor('gauntlet-queue-waiting');
+  b.send('queue-for-gauntlet-trial');
+  await b.waitFor('game-start');
+  const game = ctx.gm.games.get(ctx.gm.playerGameMap.get(b.socketId));
+  assert.equal(game.mode, 'gauntlet');
+
+  a.close();
+  await b.waitFor('disconnection-countdown-started');
+  const done = await b.waitFor('gauntlet-battle-complete');
+  assert.equal(done.won, true);
+  await eventually(async () => {
+    const saved = await ctx.server.gameManager.database.loadGauntletState(a.userId);
+    return !!(saved && saved.success && saved.runState);
+  });
+  assert.equal(ctx.gm.gauntletRuns.has(a.socketId), false, 'the dead socket no longer holds the run');
+});
+
+test('a seat nobody returns to leaves nothing behind', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 200 });
+  const { a, b, ra } = await ctx.battle();
+  ctx.gm.survivalStates.set(ra.playerId, { wins: 0, losses: 0, usedHeroes: [] });
+  a.close();
+  await b.waitFor('game-ended-by-disconnection');
+  await eventually(() => !ctx.gm.userSessions.has(ra.playerId));
+  assert.equal(ctx.gm.survivalStates.has(ra.playerId), false);
+  assert.equal(ctx.gm.playerGameMap.has(ra.playerId), false);
+});
+
+test('a connection already in another live game cannot take a held seat', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 5000 });
+  const { a, b, ra, gameId } = await ctx.battle();
+  a.close();
+  await b.waitFor('disconnection-countdown-started');
+  // This new connection is already seated in some other live game
+  const other = ctx.gm.createNewGame('other-game', 'random');
+  other.phase = 'battle';
+  other.players = [{ id: 'x', connected: true, team: [] }, { id: 'y', connected: true, team: [] }];
+  ctx.gm.games.set('other-game', other);
+  const a2 = ctx.connect();
+  ctx.gm.playerGameMap.set(a2.socketId, 'other-game');
+  a2.send('authenticate', { userId: a.userId, token: a.token });
+  await a2.waitFor('reconnect-failed');
+  assert.equal(ctx.gm.games.get(gameId).players.find(p => p.name === 'Admin1').id, ra.playerId);
 });

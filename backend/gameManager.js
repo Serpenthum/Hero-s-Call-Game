@@ -2,6 +2,8 @@ const { v4: uuidv4 } = require('uuid');
 
 const DRAFT_TIME_MS = 30000; // one ban or pick round
 const RECONNECT_GRACE_MS = 30000; // how long a disconnected player has to come back before they forfeit
+const RECONNECT_BUDGET_MS = 60000; // a player's total time away in one game; after that they forfeit at once
+const RECONNECT_MIN_MS = 3000; // a countdown never shows less than this, so the other player sees why they won
 // Games in these phases keep a disconnected player's seat for the grace period
 const RECONNECTABLE_PHASES = new Set(['draft', 'setup', 'initiative', 'battle']);
 // Modes where both seats are people (the tutorial is played against a bot)
@@ -45,7 +47,11 @@ class GameManager {
     this.survivalQueue = []; // Array of players waiting for survival mode
     this.database = database; // Database instance for victory points
     this.userSessions = new Map(); // playerId -> userId mapping for database operations
-    this.reconnectGraceMs = RECONNECT_GRACE_MS;
+    this.reconnectGraceMs = RECONNECT_GRACE_MS; // longest single countdown
+    this.reconnectBudgetMs = RECONNECT_BUDGET_MS; // all of a player's time away in one game
+    this.reconnectMinMs = RECONNECT_MIN_MS; // shortest countdown, even with the budget used up
+    // Set by the server: called with a socket id whose seat was given up (drops per-socket settings)
+    this.onSeatReleased = null;
     // Set by the server: called with the outcome when a disconnected player's grace period runs out
     this.onDisconnectTimeout = null;
 
@@ -4594,8 +4600,9 @@ class GameManager {
     });
     
     if (!hasAliveHeroes) {
-      // Current player has no alive heroes, check win condition
-      const winner = this.checkWinCondition(game);
+      // Current player has no alive heroes, check win condition. Only a battle in progress can be decided
+      // here: an ended game keeps its result (a forfeit in the draft has empty teams) and a draft has none yet.
+      const winner = game.phase === 'battle' ? this.checkWinCondition(game) : null;
       if (winner) {
         game.phase = 'ended';
         game.winner = winner;
@@ -5683,6 +5690,13 @@ class GameManager {
     if (timerData && timerData.surrendered) {
       return { success: false, error: 'You have already been surrendered due to disconnection' };
     }
+    // This connection is already playing another live game; taking the seat would orphan that one
+    const current = this.games.get(this.playerGameMap.get(socketId));
+    if (current && current !== game && this.isSeatHeldOnDisconnect(current)) {
+      return { success: false, error: 'You are already in another game' };
+    }
+    // The time spent away comes out of this player's budget for the game
+    if (timerData) player.graceUsedMs = (player.graceUsedMs || 0) + Math.max(0, Date.now() - timerData.since);
 
     const oldId = player.id;
     if (timerData && timerData.timeoutId) clearTimeout(timerData.timeoutId);
@@ -5697,6 +5711,8 @@ class GameManager {
       gameId: game.id,
       game,
       oldPlayerId: oldId,
+      // The other player ran out of time while we were both away: we win as soon as we are back
+      pendingForfeit: !!game.pendingForfeitBy,
       gameState: this.getFullGameState(game),
       reconnected: true
     };
@@ -5726,7 +5742,8 @@ class GameManager {
 
   // Called for every player socket that closes. Returns { game, player } when the seat is held for a
   // reconnect (the countdown has started), or null when the caller should clean up as before.
-  handleDisconnect(playerId) {
+  // since: when the player was last heard from (a dropped network is noticed some seconds late)
+  handleDisconnect(playerId, since = Date.now()) {
     const gameId = this.playerGameMap.get(playerId);
     if (!gameId) return null;
     const game = this.games.get(gameId);
@@ -5740,7 +5757,7 @@ class GameManager {
       player.connected = false;
       if (player.userId === undefined || player.userId === null) player.userId = this.userSessions.get(playerId) ?? null;
       // The seat stays mapped so server-driven moves (the draft clock) still find the game
-      this.startDisconnectionCountdown(game, playerId);
+      this.startDisconnectionCountdown(game, playerId, since);
       return { game, player };
     }
 
@@ -5760,6 +5777,10 @@ class GameManager {
   releaseSeat(game, playerId) {
     if (this.playerGameMap.get(playerId) === game.id) this.playerGameMap.delete(playerId);
     this.userSessions.delete(playerId);
+    // Survival runs are saved to the account as they change; Gauntlet runs are saved by the server first
+    this.survivalStates.delete(playerId);
+    this.gauntletRuns.delete(playerId);
+    if (this.onSeatReleased) this.onSeatReleased(playerId);
   }
 
   // Deletes a game and everything still pointing at it
@@ -5856,12 +5877,21 @@ class GameManager {
     };
   }
 
-  startDisconnectionCountdown(game, playerId) {
+  // How long this player may stay away now: each disconnect gets at most reconnectGraceMs, and the game
+  // gives each player reconnectBudgetMs in total. Time already spent silent (since) counts against both.
+  // Once the budget is gone a further disconnect still gets reconnectMinMs, so the badge is seen briefly.
+  disconnectAllowanceMs(player, since, now = Date.now()) {
+    const budgetLeft = this.reconnectBudgetMs - (player.graceUsedMs || 0);
+    const allowed = Math.min(this.reconnectGraceMs, budgetLeft) - Math.max(0, now - since);
+    return Math.max(Math.min(this.reconnectMinMs, this.reconnectGraceMs), allowed);
+  }
+
+  startDisconnectionCountdown(game, playerId, since = Date.now()) {
     if (!game.disconnectionTimers) {
       game.disconnectionTimers = new Map();
     }
 
-    // Don't start a new countdown if one already exists
+    // No second countdown for the same seat
     if (game.disconnectionTimers.has(playerId)) {
       console.log(`⏱️ Disconnection countdown already active for player ${playerId}`);
       return;
@@ -5870,15 +5900,16 @@ class GameManager {
     const player = game.players.find(p => p.id === playerId);
     if (!player) return;
 
-    const durationMs = this.reconnectGraceMs;
+    const startTime = Date.now();
+    const durationMs = this.disconnectAllowanceMs(player, since, startTime);
     console.log(`⏱️ Starting ${Math.round(durationMs / 1000)}-second disconnection countdown for ${player.name}`);
 
-    const startTime = Date.now();
     const timeoutId = setTimeout(() => {
       this.handleDisconnectionTimeout(game.id, playerId).catch(err => console.error('Disconnection timeout failed:', err));
     }, durationMs);
 
     game.disconnectionTimers.set(playerId, {
+      since: Math.min(since, startTime),
       startTime,
       durationMs,
       timeoutId,
@@ -5898,14 +5929,15 @@ class GameManager {
     }
   }
 
-  // The grace period ran out. In battle (or the initiative roll) the player who stayed wins, exactly as if
-  // the other had surrendered. Before the battle (draft) the game is called off. If nobody is connected
-  // the game ends with no winner and nothing is paid or recorded.
+  // A player's countdown ran out. The player who stayed wins in any phase (draft, setup, initiative or
+  // battle), exactly as if the other had surrendered. If the other player is away too but still inside
+  // their own countdown, the win waits for them: it is theirs if they come back, and the game is
+  // abandoned (no winner, nothing recorded) if they don't.
   async handleDisconnectionTimeout(gameId, playerId) {
     const game = this.games.get(gameId);
     if (!game || !game.disconnectionTimers) return null;
     const timerData = game.disconnectionTimers.get(playerId);
-    if (!timerData) return null;
+    if (!timerData || timerData.surrendered) return null;
 
     const player = game.players.find(p => p.id === playerId);
     if (!player || player.connected) {
@@ -5921,15 +5953,37 @@ class GameManager {
       return null;
     }
 
-    timerData.surrendered = true;
+    timerData.surrendered = true; // from here on this seat cannot be taken back
+    player.graceUsedMs = this.reconnectBudgetMs;
     const opponent = game.players.find(p => p.id !== playerId);
+    const opponentTimer = opponent && game.disconnectionTimers.get(opponent.id);
+    if (opponent && opponent.connected === false && opponentTimer && !opponentTimer.surrendered) {
+      game.pendingForfeitBy = playerId;
+      console.log(`⏳ ${player.name} ran out of time; ${opponent.name} wins if they come back in time`);
+      return { success: true, gameId: game.id, outcome: 'pending' };
+    }
+    return this.finishDisconnectedGame(game, playerId);
+  }
+
+  // The player who was waiting for a win came back: the win is theirs now
+  async resolvePendingForfeit(game) {
+    const loserId = game.pendingForfeitBy;
+    if (!loserId || !RECONNECTABLE_PHASES.has(game.phase)) return null;
+    return this.finishDisconnectedGame(game, loserId);
+  }
+
+  // Ends a game whose player (loserId) never came back: a forfeit win for the opponent if they are
+  // connected, otherwise abandoned with no winner.
+  async finishDisconnectedGame(game, loserId) {
+    const player = game.players.find(p => p.id === loserId);
+    const opponent = game.players.find(p => p.id !== loserId);
     const opponentHere = !!opponent && opponent.connected !== false;
-    const inBattle = game.phase === 'battle' || game.phase === 'initiative';
+    delete game.pendingForfeitBy;
 
     let outcome;
-    if (opponentHere && inBattle) {
+    game.phase = 'ended';
+    if (opponentHere) {
       outcome = 'forfeit';
-      game.phase = 'ended';
       game.winner = opponent.id;
       game.endReason = 'disconnect';
       console.log(`🏆 ${opponent.name} wins: ${player.name} did not come back in time`);
@@ -5938,11 +5992,10 @@ class GameManager {
         console.error('Error awarding victory points for disconnection forfeit:', error);
       });
     } else {
-      outcome = opponentHere ? 'cancelled' : 'abandoned';
-      game.phase = 'ended';
+      outcome = 'abandoned';
       game.winner = null;
-      game.endReason = opponentHere ? 'opponent-left' : 'abandoned';
-      console.log(`🚫 Game ${game.id} ${outcome}: ${player.name} did not come back in time`);
+      game.endReason = 'abandoned';
+      console.log(`🚫 Game ${game.id} abandoned: nobody came back`);
     }
 
     const result = {
@@ -5950,9 +6003,9 @@ class GameManager {
       gameId: game.id,
       outcome,
       winner: game.winner,
-      surrenderedBy: playerId,
+      surrenderedBy: loserId,
       byDisconnect: true,
-      disconnectedPlayer: playerId,
+      disconnectedPlayer: loserId,
       disconnectedPlayerName: player.name,
       gameState: this.getFullGameState(game)
     };
@@ -5963,7 +6016,7 @@ class GameManager {
         outcome,
         winner: game.winner,
         winnerName: outcome === 'forfeit' ? opponent.name : null,
-        disconnectedPlayer: playerId,
+        disconnectedPlayer: loserId,
         disconnectedPlayerName: player.name,
         gameState: result.gameState
       });

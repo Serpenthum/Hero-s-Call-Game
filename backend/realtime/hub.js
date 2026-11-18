@@ -141,9 +141,11 @@ function createHub({ maxFrameBytes = 65536 } = {}) {
     to(room) { return makeEmitter([room], null); },
     // Drop sockets that have sent nothing for more than maxSilentMs.
     // Closes WITHOUT __kick so a live-but-quiet client (throttled background tab) reconnects.
+    // maxSilentMs may be a function of the socket, so some sockets get a shorter limit.
     sweepIdle(now = Date.now(), maxSilentMs = 120000) {
       for (const s of Array.from(socketsMap.values())) {
-        if (now - s.lastSeen > maxSilentMs) {
+        const limit = typeof maxSilentMs === 'function' ? maxSilentMs(s) : maxSilentMs;
+        if (now - s.lastSeen > limit) {
           try { s._transport.close(4000, 'ping timeout'); } catch (_) { /* already closed */ }
           finish(s, 'ping timeout');
         }

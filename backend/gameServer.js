@@ -26,11 +26,20 @@ const loggedInUsers = new Map(); // userId -> socketId (to track who is logged i
 const onlinePlayersCache = new Map(); // socketId -> last request time (for rate limiting)
 const usernameCache = new Map(); // userId -> username, so presence lookups never hit the DB twice
 
-// Clients ping every 25 s. A socket silent for longer than this is almost certainly dead (its network
+// Clients ping every 8 s (older clients every 25 s). A socket silent for longer than this is almost certainly dead (its network
 // dropped without closing it), even though the idle sweep has not closed it yet.
-const STALE_SOCKET_MS = 40000;
+// Current clients say how often they ping (authenticate.heartbeatMs); three missed pings means dead.
+// Older clients ping every 25 s and say nothing, so they get a longer limit.
+const STALE_SOCKET_MS = 25000;
+const LEGACY_STALE_SOCKET_MS = 60000;
+function heartbeatOf(socket) {
+  const ms = Number(socket.data && socket.data.heartbeatMs);
+  return ms >= 100 && ms <= 60000 ? ms : null;
+}
 function isStaleSocket(socket) {
-  return typeof socket.lastSeen === 'number' && Date.now() - socket.lastSeen > STALE_SOCKET_MS;
+  const hb = heartbeatOf(socket);
+  const limit = hb ? Math.max(STALE_SOCKET_MS, hb * 3) : LEGACY_STALE_SOCKET_MS;
+  return typeof socket.lastSeen === 'number' && Date.now() - socket.lastSeen > limit;
 }
 
 async function getCachedUsername(userId) {
@@ -593,6 +602,8 @@ router.get('/api/heroes', (req, res) => {
 // Game state management
 const gameManager = new GameManager(heroes, database);
 if (timing.reconnectGraceMs) gameManager.reconnectGraceMs = timing.reconnectGraceMs;
+if (timing.reconnectBudgetMs) gameManager.reconnectBudgetMs = timing.reconnectBudgetMs;
+if (timing.reconnectMinMs !== undefined) gameManager.reconnectMinMs = timing.reconnectMinMs;
 const questService = new QuestService(database);
 
 // The account behind a seat. A player who dropped out has no live socket session any more, but the
@@ -764,9 +775,21 @@ function resumeTurnTimer(gameId) {
 }
 
 // Draft clock: the game manager does the auto-ban and auto-pick; here we tell the players.
-const IDLE_SOCKET_MS = 120000; // clients ping every 25 s; silence this long means a dead connection
+const IDLE_SOCKET_MS = 120000; // clients ping every 8 s; silence this long means a dead connection
+// A player seated in a live game against someone is dropped much sooner, so a lost network starts the
+// reconnect countdown (and stops the turn clock) within seconds. Lobby sockets keep the long limit:
+// their disconnect deletes chat history and shows them offline, which a throttled background tab
+// should not trigger.
+const SEATED_IDLE_MS = timing.seatedIdleMs || 20000;
+const LEGACY_SEATED_IDLE_MS = 40000; // older clients ping only every 25 s
+function idleLimitFor(socket) {
+  const game = gameManager.games.get(gameManager.playerGameMap.get(socket.id));
+  if (!game || !gameManager.isSeatHeldOnDisconnect(game)) return IDLE_SOCKET_MS;
+  const hb = heartbeatOf(socket);
+  return hb ? Math.max(SEATED_IDLE_MS, hb * 2.5) : LEGACY_SEATED_IDLE_MS;
+}
 const draftClock = setInterval(() => {
-  if (typeof io.sweepIdle === 'function') io.sweepIdle(Date.now(), IDLE_SOCKET_MS);
+  if (typeof io.sweepIdle === 'function') io.sweepIdle(Date.now(), idleLimitFor);
   for (const ev of gameManager.tickDraftTimers()) {
     if (ev.kind === 'timer') {
       io.to(ev.gameId).emit('draft-timer', { gameId: ev.gameId, round: ev.round, durationMs: ev.durationMs, remainingMs: ev.remainingMs });
@@ -1531,6 +1554,8 @@ async function checkGauntletGameCompletion(result) {
 
 // Inject io instance into gameManager for disconnection countdown events
 gameManager.setIo(io);
+// A seat nobody came back to drops its per-socket settings
+gameManager.onSeatReleased = (playerId) => autoEndTurnPrefs.delete(playerId);
 
 // Tells the room the game changed under them. Old clients have no listener for the reconnect events,
 // so in battle they also get the new state through 'battle-start' (it only replaces the game state).
@@ -1540,8 +1565,8 @@ function pushSeatChange(gameId, event, payload) {
   if (game && game.phase === 'battle') io.to(gameId).emit('battle-start', { gameState: payload.gameState });
 }
 
-// A disconnected player's grace period ran out (gameManager.handleDisconnectionTimeout has already
-// ended the game and sent 'game-ended-by-disconnection'). A forfeit is recorded like a surrender.
+// A disconnected player never came back (gameManager.finishDisconnectedGame has already ended the game
+// and sent 'game-ended-by-disconnection'). A forfeit is recorded like a surrender, in any phase.
 gameManager.onDisconnectTimeout = async (result, game) => {
   clearTurnTimer(result.gameId);
   clearAutoEndTimer(result.gameId);
@@ -1554,35 +1579,27 @@ gameManager.onDisconnectTimeout = async (result, game) => {
       await checkSurvivalGameCompletion(result);
     } else if (mode === 'gauntlet') {
       await checkGauntletGameCompletion(result);
-      // The loser is not here to carry on; save their run with the loss so it can be resumed later
-      const loserId = result.disconnectedPlayer;
-      const run = gameManager.getGauntletSaveState(loserId);
-      const userId = userIdOf(loserId);
-      if (run && userId) {
-        try {
-          await database.saveGauntletState(userId, run);
-        } catch (error) {
-          console.error('Could not save the Gauntlet run of a disconnected player:', error);
-        }
-      }
-      gameManager.gauntletRuns.delete(loserId);
     } else {
       await handleRegularGameCompletion(result);
     }
-    return;
   }
 
-  // Called off before the battle: the player who stayed goes back to the lobby, as for an abandoned draft
-  if (result.outcome === 'cancelled') {
-    for (const p of game.players) {
-      if (p.connected === false) continue;
-      io.to(p.id).emit('draft-abandoned', {
-        message: `${result.disconnectedPlayerName} disconnected, so the game was called off.`,
-        isOpponent: true
-      });
+  // Nobody is here to carry on a Gauntlet run: save it (with any loss) so it can be resumed later.
+  // The seat's release then drops the in-memory copy.
+  for (const p of game.players) {
+    if (p.connected !== false) continue;
+    const run = gameManager.getGauntletSaveState(p.id);
+    const userId = userIdOf(p.id);
+    if (!run || !userId) continue;
+    try {
+      await database.saveGauntletState(userId, run);
+    } catch (error) {
+      console.error('Could not save the Gauntlet run of a disconnected player:', error);
     }
   }
-  // Spectators of a game that was called off go back to the lobby
+  if (result.outcome === 'forfeit') return;
+
+  // Spectators of an abandoned game go back to the lobby
   for (const spectator of game.spectators || []) {
     io.to(spectator.socketId).emit('spectated-player-disconnected', {
       playerId: spectator.spectatingPlayerId,
@@ -1597,6 +1614,8 @@ io.on('connection', (socket) => {
   // Handle user authentication for socket connection
   socket.on('authenticate', (data) => {
     const { userId, token } = data || {};
+    // Current clients say how often they ping, so a dead connection can be spotted sooner
+    if (data && data.heartbeatMs) socket.data.heartbeatMs = data.heartbeatMs;
     // The client must prove it owns this account with the token it got at login; a bare user id is not enough
     if (userId && !auth.verifyUser(token, userId)) {
       socket.emit('authentication-failed', { message: 'Please log in again' });
@@ -1634,13 +1653,14 @@ io.on('connection', (socket) => {
       gameManager.setUserSession(socket.id, userId);
       
       console.log('User authenticated:', userId, 'for socket:', socket.id);
-      // activeGame: a game this account dropped out of that is still holding its seat. New clients
-      // answer with 'reconnect-game'; old clients ignore the field (they rejoin from their saved game id).
+      // A game this account dropped out of is still holding its seat: put this connection straight back
+      // in it ('reconnect-success' arrives before 'authentication-success'). Doing it here leaves no gap
+      // for the countdown to run out between logging in and asking to rejoin, and old clients (which
+      // already listen for 'reconnect-success') rejoin too.
       const held = gameManager.findHeldSeat(userId);
-      socket.emit('authentication-success', {
-        userId,
-        activeGame: held ? { gameId: held.game.id, mode: held.game.mode, phase: held.game.phase } : null
-      });
+      const activeGame = held ? { gameId: held.game.id, mode: held.game.mode, phase: held.game.phase } : null;
+      const rejoined = held ? rejoinSeat(socket, held.game.id) : false;
+      socket.emit('authentication-success', { userId, activeGame, rejoined });
       
       // Broadcast to all other online users that a new player came online
       // This allows friends lists to update in real-time
@@ -2423,15 +2443,19 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle reconnection
   // A player who dropped out takes their seat back on this socket. The seat must belong to this
   // account; gameId is optional (old clients send it with their name, new ones may send nothing).
   socket.on('reconnect-game', (data) => {
     const { gameId, playerName } = data || {};
+    rejoinSeat(socket, gameId, playerName);
+  });
+
+  // Returns true when the socket now holds the seat
+  function rejoinSeat(socket, gameId, playerName) {
     const result = gameManager.reconnectPlayer(socket.id, gameId, playerName, userSessions.get(socket.id));
     if (!result.success) {
       socket.emit('reconnect-failed', { message: result.error });
-      return;
+      return false;
     }
 
     const game = result.game;
@@ -2463,9 +2487,15 @@ io.on('connection', (socket) => {
         gameState: gameManager.getFullGameState(game)
       });
     }
+    // The other player ran out of time while both were away: the win is this player's now
+    if (result.pendingForfeit) {
+      gameManager.resolvePendingForfeit(game).catch(err => console.error('Pending forfeit failed:', err));
+      return true;
+    }
     // The turn clock picks up where it stopped once nobody is missing; otherwise say it is still stopped
     if (!resumeTurnTimer(result.gameId)) emitTurnTimer(socket, result.gameId);
-  });
+    return true;
+  }
 
   // Handle survival state requests
   socket.on('latency-ping', (ack) => {
@@ -3049,7 +3079,9 @@ io.on('connection', (socket) => {
 
     // A player in a live game against another person keeps their seat for the grace period: the
     // countdown starts, the turn clock stops, and the game waits for them to come back.
-    const held = leavingPlayer && gameManager.isSeatHeldOnDisconnect(leftGame) ? gameManager.handleDisconnect(socket.id) : null;
+    // A dropped network is only noticed after some silence; the countdown counts from the last message
+    const since = reason === 'ping timeout' && typeof socket.lastSeen === 'number' ? socket.lastSeen : Date.now();
+    const held = leavingPlayer && gameManager.isSeatHeldOnDisconnect(leftGame) ? gameManager.handleDisconnect(socket.id, since) : null;
     if (held) {
       pauseTurnTimer(leftGameId);
       if (leftGame.phase === 'battle') {

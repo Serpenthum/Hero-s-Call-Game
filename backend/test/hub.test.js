@@ -157,3 +157,13 @@ test('sweepIdle closes silent sockets without __kick, fires disconnect once, kee
   assert.strictEqual(io.sockets.sockets.has(silent.socket.id), false);
   assert.strictEqual(active.socket.connected, true);
 });
+
+test('sweepIdle accepts a per-socket limit', () => {
+  const { io, out: [seated, lobby] } = setup(2);
+  const t0 = Date.now();
+  seated.socket.lastSeen = t0 - 21000;
+  lobby.socket.lastSeen = t0 - 21000;
+  io.sweepIdle(t0, (s) => (s === seated.socket ? 20000 : 120000));
+  assert.strictEqual(seated.socket.connected, false);
+  assert.strictEqual(lobby.socket.connected, true);
+});
