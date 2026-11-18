@@ -3,9 +3,9 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** In battle, tapping a card shows its details in a panel over the left column, and Focus on an enemy is the
-mandatory first action of every turn, enforced by the server and visible to both players and spectators (switchable
-until the first action, then locked; a fallen focus loses damaging actions but not non-damaging ones; a revived focus
-works again).
+mandatory first action of every turn, enforced by the server and visible to both players and spectators (final once
+chosen; a fallen focus loses single-target damaging actions but not non-damaging or area ones; a revived focus works
+again).
 
 **Architecture:** The server stays the source of truth: a new pure `backend/abilityTargeting.js` classifies each
 ability (kind enemy / self / all; damaging or not); `gameManager` requires a focus for every action, adds
@@ -19,6 +19,26 @@ bar and the tutorial.
 
 **Spec:** `docs/superpowers/specs/2026-11-18-battle-focus-design.md`
 
+## Owner changes after this plan was written (2026-11-18; these override the tasks below)
+
+The spec has them as binding rules; the task text below is kept as history where it differs.
+
+- **Focus is final once chosen.** The server locks it on the select itself (`focusLocked`), refuses a second select
+  that turn, and the Focus button disappears. Nothing is "switchable until you act"; there is no "Focused" or "Focus
+  locked" button.
+- **Before a focus the Actions sidebar shows only the Focus button**, or "Tap an enemy to focus" ("Taunted: tap
+  <Name> to focus" when taunted) when no enemy is shown: no hero name, Attack, abilities, special or End Turn. If no
+  enemy can be focused: "No enemy can be focused" plus End Turn. After the focus everything comes back.
+- **Buttons keep their original labels** ("Attack (1D6)", "Fireball"): no "Attack <Name>", "<Ability> on <Name>" or
+  "Focus an enemy first". An action lost with a fallen focus reads "<label> (Target Dead)" and is disabled.
+- **Area attacks survive a fallen focus** (Fireball, Bomb Toss, every activated special); single-target damaging
+  actions, splash included, are lost.
+- **The details panel is only the card**: no box, header, tags or close button. It is portalled over the left
+  column (covering the battle log) and on phones may extend over the board. A tap on the card, empty space, Escape,
+  an action or the turn change closes it.
+- **The focus marker is a thick red ring plus a pulsing red halo** on the focused card (faint and static when the
+  focus has fallen, no pulse with motion off). There is no crosshair and no `.card-focus-mark`.
+
 ## Global Constraints
 
 - Branch `redesign-card-lobby-packs` in `C:\Users\David\Documents\David's Files\Businesses\Hero's Call\Game`. Commit per task; never push; never deploy without the owner's OK.
@@ -29,7 +49,7 @@ bar and the tutorial.
 - The disconnect/reconnect behaviour that just landed must keep working: `backend/test/reconnect.test.js` passes unchanged; a reloaded tab mid-turn sees its focus and lock.
 - Focus is only ever on an enemy of the active hero. There is no ally focus anywhere (no `side` parameter).
 - Start-of-turn and passive specials keep running before focus, exactly as today.
-- Exact copy: "Focus an enemy first", "Focus <Name>", "Focused", "Focus locked", "Taunted: focus <Name>", "Can't be targeted", "Attack <Name>", "<Ability> on <Name>", "<Name> has fallen". Existing suffixes ("(Used)", "(Silenced)", "(Stunned)", "(1/2)", "(Bribed)") still append.
+- Exact copy (as changed by the owner, above): "Tap an enemy to focus", "Taunted: tap <Name> to focus", "Focus <Name>", "Taunted: focus <Name>", "Can't be targeted", "No enemy can be focused", the original action labels, and " (Target Dead)" on an action lost with a fallen focus. Existing suffixes ("(Used)", "(Silenced)", "(Stunned)", "(1/2)", "(Bribed)") still append.
 - Deploy order when the owner approves: server first, then site. The client treats a missing `abilityTargeting` entry as `{ kind: 'enemy', damaging: true }`.
 - Commands: backend `cd backend && npm test`; frontend `cd frontend && npm test && npm run build && npm run check:tokens`.
 
@@ -208,7 +228,7 @@ expect(actionGate(specialTargeting('activated_aoe'), fallen)).toEqual({ ok: true
   - Opponent's turn: the waiting prompt adds `Focus: <Name>` when the opponent has focused one of my heroes.
   - Chrono Shift and `requires_ally_target` keep their ally-pick sub-step after a live focus; during it ally cards stay `isSelectable` and a tap picks rather than inspects.
   - Enemy `isBlocked` = my turn and Focus would be disabled by taunt or untargetable.
-- `.hero-card.focused`: static outline and glow from `--focus-c` / `--focus-glow` (CSS only; the crosshair and its motion are Task 5).
+- `.hero-card.focused`: static outline and glow from `--focus-c` / `--focus-glow` (CSS only; the thicker ring, the halo and its pulse are Task 5).
 
 - [ ] **Step 1: Write the failing tests** with `renderToStaticMarkup(<BattlePhase …/>)` and a canned `GameState` (mock `../socketService`, `../config`, `../battleAnimations`; enemy team Warlock, Shroomguard, Plague Spreader):
   - No action before focus: Barbarian active, no focus: the attack and Reckless Swing buttons are `disabled` and read `Focus an enemy first`; Druid active, no focus: Wildshape `disabled`, `Focus an enemy first`; Mech active: the special button `disabled`, `Focus an enemy first`; End Turn enabled.
@@ -225,14 +245,17 @@ expect(actionGate(specialTargeting('activated_aoe'), fallen)).toEqual({ ok: true
 
 Purely visual drawing and animation: runs on Fable.
 
-**Files:** `frontend/src/components/HeroCard.tsx` (an `aria-hidden` `.card-focus-mark` element rendered when `isFocused`), `frontend/src/styles/HeroCard.css`, `frontend/src/styles/tokens.css`
+**Files:** `frontend/src/components/HeroCard.tsx` (an `aria-hidden` `.card-focus-halo` element rendered when `isFocused`), `frontend/src/styles/HeroCard.css`, `frontend/src/styles/tokens.css`
+
+(Owner change: the crosshair was drawn in 453e859 and removed in fbae1e5. The marker is a thick red ring plus a pulsing
+red halo; a fallen focus keeps a faint, static ring, on the board and in the details panel.)
 
 **Interfaces:** consumes `HeroCard.isFocused` and `.hero-card.focused` from Task 4; no new props.
 
-- [ ] **Step 1: Draw** a crosshair mark over the focused card's art (inline SVG, colours from tokens) and a slow red pulse on the glow. Readable on a 78px tiny card and a 260px card, on either side of the board (the opponent sees it on their own hero); does not cover the HP/Defense gems or the name.
+- [ ] **Step 1: Draw** a thick red ring and a pulsing red halo on the focused card (colours from tokens; first drawn as a crosshair, replaced by the owner). Readable on a 78px tiny card and a 260px card, on either side of the board (the opponent sees it on their own hero); does not cover the HP/Defense gems or the name.
 - [ ] **Step 2: Respect motion settings:** no pulse with `prefers-reduced-motion: reduce` or "Battle animations: off" (reuse `cardMotionOff`); the mark itself stays.
 - [ ] **Step 3: Verify** `npm run check:tokens`, `npm run build`; screenshots of a focused card at 78px and 234px, 844x390 and 1440x900, from the acting player's and the opponent's view.
-- [ ] **Step 4: Commit** `feat(frontend): crosshair marker on the focused card`.
+- [ ] **Step 4: Commit** `feat(frontend): crosshair marker on the focused card`, then `fix(frontend): focus marker is a red ring and halo only`.
 
 ### Task 6: Battle tutorial teaches tap → Focus → Attack
 
@@ -246,11 +269,15 @@ Purely visual drawing and animation: runs on Fable.
 - Copy (exact):
   - intro `image`: "Your hero's abilities and specials are written on the card. Tap any card to read it in the panel on the left. Each turn, your hero can use 1 attack and 1 ability."
   - `inspect` (my turn, no focus, no enemy inspected), target `.opponent-area .team-display`, interactive: "Tap an enemy hero to see its card."
-  - `focus` (my turn, no focus, enemy inspected), target `[data-tutorial="focus"]`, interactive: "Press Focus to choose who your hero attacks. Your hero can't do anything until it has a focus. You can switch until you act."
+  - `focus` (my turn, no focus, enemy inspected), target `[data-tutorial="focus"]`, interactive: "Press Focus to choose who your hero attacks. Your hero can't do anything until it has a focus." (Focus is final, so no "You can switch until you act".)
   - `attack`: "Now press Attack to strike the enemy you focused!"
   - `ability`: "Your hero can also use its ability this turn. Press it!"
   - `poison`, `crit`, `log`, `endturn`: unchanged.
 - Finished: `inspect` when an enemy is inspected; `focus` when `me.selectedTarget` is set; others as today.
+- Also: `promptAbandoned(kind, s)`: a turn prompt whose button went away first (the turn ended, or the panel closed
+  before Focus) closes and is asked again. The tutorial closes the details panel before the `poison`, `crit`, `log`
+  and `inspect` prompts and after the intro's `image` step, because the panel covers the battle log and, on phones,
+  part of the board (App passes `inspected` and a close callback; BattlePhase takes `closeDetailsSignal`).
 
 - [ ] **Step 1: Write the failing tests:** no focus + nothing inspected → kind `inspect`; enemy inspected → kind `focus` whose `step.target` is `['[data-tutorial="focus"]']`; an inspected ally (`side: 'ally'`) still gives `inspect`; focused and `attackReady` → `attack`; used attack and `abilityReady` → `ability`; not my turn → `null` once `log` has been shown; `promptFinished('inspect', {inspectedEnemy: true, ...})` and `promptFinished('focus', {focused: true, ...})` are true.
 - [ ] **Step 2: Run** `cd frontend && npx vitest run src/components/tutorial`. Expected: FAIL.
@@ -264,12 +291,12 @@ Purely visual drawing and animation: runs on Fable.
 
 - [ ] **Step 1:** `cd backend && npm test`; `cd frontend && npm test && npm run build && npm run check:tokens && npm run lint` (note pre-existing lint failures, don't fix unrelated code).
 - [ ] **Step 2: Shots from a local friendly battle** (two admin tabs and a spectator tab; draft a Druid and an Angel so a non-damaging ability and a revive are on hand):
-  - `no-focus-all-disabled`: my turn, nothing focused, every action reads "Focus an enemy first".
+  - `no-focus-only-hint`: my turn, nothing focused, the Actions sidebar shows only "Tap an enemy to focus".
   - `tap-enemy-panel-focus`: enemy tapped, panel over the left column, Focus button in Actions.
-  - `focused-attack-named`: after Focus: crosshair on the card, "Attack <Name>" and "<Ability> on <Name>".
+  - `focused-actions`: after Focus: red ring and halo on the card, the Focus button gone, "Attack (1D6)" and the abilities with their own names.
   - `opponent-sees-focus` and `spectator-sees-focus`: the same moment from the other two tabs.
-  - `focus-fallen-wildshape-enabled`: the focused enemy killed by the attack; "<Name> has fallen" (disabled), Wildshape enabled. (Let the other tab end turns until the kill lines up.)
+  - `focus-fallen-wildshape-enabled`: the focused enemy killed by the attack; "Attack (1D6) (Target Dead)" (disabled), faint static ring, Wildshape enabled. (Let the other tab end turns until the kill lines up.)
   - `opponent-turn-panel`: opponent's turn, a card tapped, panel shown, no Focus button.
   - `tutorial-inspect`, `tutorial-focus`, `tutorial-attack`, `tutorial-ability`: the four tutorial prompts.
-- [ ] **Step 3: Checks** at each size: panel text ≥12px (`getComputedStyle`), no horizontal page scroll, Focus and action buttons ≥40px tall on 844x390 and 667x375; tapping empty space, acting and turn change each close the panel; reload the acting tab mid-turn after an attack: marker and "Focus locked" still shown; a focused hero revived by Angel keeps its marker and Attack works again; Chrono Shift ally pick still works; reduced-motion pass shows the mark without the pulse.
+- [ ] **Step 3: Checks** at each size: panel text ≥12px (`getComputedStyle`), no horizontal page scroll, Focus and action buttons ≥40px tall on 844x390 and 667x375; tapping empty space, acting and turn change each close the panel; reload the acting tab mid-turn after the focus: marker still shown and no Focus button; a focused hero revived by Angel keeps its marker and Attack works again; Chrono Shift ally pick still works; reduced-motion pass shows the ring without the pulse.
 - [ ] **Step 4:** Put the screenshot set in front of the owner and wait for his OK. After the OK: deploy the server, then the site; spot-check on 844x390 emulation.

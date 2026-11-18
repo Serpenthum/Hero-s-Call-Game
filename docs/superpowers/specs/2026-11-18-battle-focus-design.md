@@ -16,11 +16,12 @@ turn, active hero, battle log; centre = cards; right = Actions).
 1. Tapping any hero card in battle shows that card, large, at the top of the left column (over the battle log); on
    phones it grows over the board to the screen height so its own face carries the ability and special text. Only
    the card is drawn: no box, header, tags or close button (owner, 2026-11-18). A fallen hero shows dead on the card;
-   the focused enemy wears the focus ring. It closes on a tap on empty space, Escape, taking an action (attack,
-   ability, special), or when the turn changes.
+   the focused enemy wears the focus ring. It closes on a tap on the card itself or on empty space, Escape, taking
+   an action (attack, ability, special), or when the turn changes.
 2. On your turn, tapping an **enemy** shows it and puts a **Focus** button in the Actions sidebar. Nothing is
    targeted yet.
-3. Focus makes that enemy this turn's target: a clear marker on its card (red glow, crosshair). The action buttons
+3. Focus makes that enemy this turn's target: a clear marker on its card (a thick red ring and a pulsing red halo, faint
+   and still once the focus has fallen; no crosshair, owner 2026-11-18). The action buttons
    keep their own labels ("Attack (1D6)", "Fireball"); the marker shows whom they hit (owner, 2026-11-18).
 4. **Focus is the first action.** Until an enemy is focused, the Actions sidebar shows only the Focus button, or
    "Tap an enemy to focus" when no enemy is shown: no hero name, attack, abilities, specials or End Turn (owner,
@@ -96,5 +97,5 @@ target a chosen ally (Healer, Pixie, Blacksmith) are out of scope and need their
 - No ally targeting of any kind; Chrono Shift keeps its existing ally-pick sub-step (which picks the commanded ally,
   not a focus) and the Timekeeper ability picker.
 - No card reader changes outside battle; draft, binder, shop and gauntlet keep tap / press reading.
-- No new hero art; the crosshair marker is the only drawing.
+- No new hero art; the red focus ring and halo are the only drawing.
 - No AI changes: the tutorial bot keeps selecting once, then acting, through the same server calls.
