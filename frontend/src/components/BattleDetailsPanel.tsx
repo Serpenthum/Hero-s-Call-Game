@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import type { Hero } from '../types';
 import type { CardSide } from '../battle/focus';
-import HeroCard, { FocusMark } from './HeroCard';
+import HeroCard from './HeroCard';
 import '../styles/BattleDetails.css';
 
 interface BattleDetailsPanelProps {
@@ -62,11 +62,8 @@ const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isF
       role="dialog"
       aria-label={hero.name}
     >
-      {/* Not isFocused on the card: only the board's card carries data-focused; the ring here is CSS,
-          and the small still crosshair is passed in as a child */}
-      <HeroCard hero={hero} isEnemy={side === 'enemy'} readable="none" disableHPAnimations>
-        {isFocused && <FocusMark variant="panel" />}
-      </HeroCard>
+      {/* Not isFocused on the card: only the board's card carries data-focused; the ring here is CSS */}
+      <HeroCard hero={hero} isEnemy={side === 'enemy'} readable="none" disableHPAnimations />
     </aside>
   );
 };

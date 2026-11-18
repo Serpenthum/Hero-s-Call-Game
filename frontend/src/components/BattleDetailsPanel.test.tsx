@@ -42,10 +42,8 @@ describe('BattleDetailsPanel', () => {
     expect(html).not.toContain('>Focused<');
     expect(html).not.toContain('data-focused');
     expect(html).not.toMatch(/hero-card[^"]*\bfocused\b/);
-    expect(html).toContain('card-focus-mark--panel');
-    expect(html).not.toContain('card-focus-mark--board');
+    expect(html).not.toContain('card-focus-halo');
     expect(render()).not.toContain('battle-details--focused');
-    expect(render()).not.toContain('card-focus-mark');
   });
 
   it('shows a fallen hero as dead on the card, with no tag', () => {

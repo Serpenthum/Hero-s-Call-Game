@@ -48,44 +48,6 @@ const cardMotionOff = () =>
   getAnimSpeed() === 'off' ||
   (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-// Battle Focus marker: a crosshair over the art, corner brackets round the card and a pulsing halo.
-// 'panel' is the small still mark on the details card. Decoration only: the card's state carries the meaning.
-export const FocusMark: React.FC<{ variant?: 'board' | 'panel' }> = ({ variant = 'board' }) => {
-  const still = variant === 'panel' || cardMotionOff();
-  return (
-    <div
-      className={`card-focus-mark card-focus-mark--${variant}${still ? ' card-focus-mark--still' : ''}`}
-      aria-hidden="true"
-    >
-      {variant === 'board' && (
-        <>
-          <div className="card-focus-halo" />
-          <svg className="card-focus-brackets" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
-            <g className="card-focus-under">
-              <path d="M0 15V0H22M78 0H100V15M100 85V100H78M22 100H0V85" />
-            </g>
-            <g className="card-focus-line">
-              <path d="M0 15V0H22M78 0H100V15M100 85V100H78M22 100H0V85" />
-            </g>
-          </svg>
-        </>
-      )}
-      <svg className="card-focus-crosshair" viewBox="0 0 100 100" fill="none">
-        <circle className="card-focus-tint" cx="50" cy="50" r="30" />
-        <g className="card-focus-under">
-          <circle cx="50" cy="50" r="30" />
-          <path d="M50 2V34M50 66V98M2 50H34M66 50H98" />
-        </g>
-        <g className="card-focus-line">
-          <circle cx="50" cy="50" r="30" />
-          <path d="M50 2V34M50 66V98M2 50H34M66 50H98" />
-        </g>
-        <circle className="card-focus-dot" cx="50" cy="50" r="5" />
-      </svg>
-    </div>
-  );
-};
-
 const STAT_ICONS = {
   hp: (
     <svg className="card-gem-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -1068,7 +1030,10 @@ const HeroCard: React.FC<HeroCardProps> = ({
           </svg>
         </div>
       )}
-      {isFocused && <FocusMark />}
+      {/* Battle Focus: the pulsing red halo round the focused card (the ring itself is CSS on .focused) */}
+      {isFocused && (
+        <div className={`card-focus-halo${cardMotionOff() ? ' card-focus-halo--still' : ''}`} aria-hidden="true" />
+      )}
       <div className="card-status">{renderStatusEffects()}</div>
       {children}
     </div>

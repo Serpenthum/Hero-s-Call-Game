@@ -73,8 +73,8 @@
 .battle-details--focused .hero-card.hero-layout-card {
   --card-frame: var(--focus-c);
   --card-glow:
-    0 0 0 max(3px, 0.25em) var(--focus-c),
-    0 0 max(10px, 1.3em) max(3px, 0.4em) var(--focus-glow);
+    0 0 0 max(4px, 0.4em) var(--focus-c),
+    0 0 clamp(8px, 1.1em, 12px) clamp(2px, 0.3em, 3px) var(--focus-glow);
 }
 
 @keyframes battle-details-in {
