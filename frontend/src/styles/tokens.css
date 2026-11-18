@@ -29,8 +29,22 @@
     var(--felt-weave),
     var(--felt);
 
+  /* Hero card: stat colours, favourite star, holo foil */
+  --stat-hp: #d2543c;
+  --stat-defense: #7fa3c9;
+  --stat-accuracy: #67b39a;
+  --stat-attack: #d7b061;
+  --fav-gold: #f6cf57;
+  --holo-pink: #ff3c8c;
+  --holo-yellow: #ffd63c;
+  --holo-mint: #3cffbe;
+  --holo-blue: #5a82ff;
+  --holo-violet: #c85aff;
+  --holo-rim: #f4e2a8;
+
   /* Type */
-  --font-display: 'IM Fell English', Georgia, 'Times New Roman', serif;
+  --font-display: 'Grenze Gotisch', Georgia, serif;
+  --font-label: 'IM Fell English', Georgia, serif;
   --font-ui: 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
   --text-xs: 0.875rem;
   --text-sm: 1rem;

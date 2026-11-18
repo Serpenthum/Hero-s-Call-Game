@@ -38,6 +38,8 @@ const MIGRATED = [
   'styles/Panels.css', 'App.css', 'styles/HeroCard.css', 'styles/Survival.css', 'styles/Gauntlet.css', 'styles/SurvivalMode.css', 'styles/SurvivalProgress.css', 'styles/SurvivalTeamBuilder.css', 'styles/SurvivalUsedHeroes.css', 'styles/SurvivalBattleTransition.css',
   'components/DraftClock.tsx',
   'components/RotatePrompt.tsx',
+  'cards/cardRules.ts',
+  'cards/cardRules.test.ts',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
