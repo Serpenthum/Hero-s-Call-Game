@@ -8,6 +8,7 @@ import BattleFX from './BattleFX';
 import TurnTimerBar from './TurnTimerBar';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
+import { isHeroAlive } from '../heroHealth';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/BattlePhone.css';
 
@@ -517,11 +518,16 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             const isSelectedTargetAlive = () => {
               if (!myPlayerData?.selectedTarget || !opponent) return false;
               const targetHero = opponent.team.find(hero => hero.name === myPlayerData.selectedTarget);
-              return targetHero && (targetHero.currentHP || targetHero.HP) > 0;
+              return isHeroAlive(targetHero);
             };
             
             if (!activeHero || !myPlayerData) {
-              return <div>No active hero</div>;
+              // No hero to act with: the battle has ended, or the state naming the active hero has not arrived yet
+              return (
+                <div className="action-prompt">
+                  {gameState.phase === 'ended' ? 'The battle is over' : 'Waiting for the battle to start...'}
+                </div>
+              );
             }
 
             // Check if active hero is dead
@@ -1005,7 +1011,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
         {showSurrenderConfirm && (
           <div className="game-over-overlay">
-            <div className="game-over-modal">
+            <div className="game-over-modal confirm-modal">
               <div className="game-over-content">
                 <h2 className="surrender-title">Surrender Game?</h2>
                 <p className="surrender-message">
