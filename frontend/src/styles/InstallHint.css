@@ -17,3 +17,15 @@
   font-size: var(--text-sm);
   color: var(--bone);
 }
+
+/* ===== Short screens (sideways phones) ===== */
+/* The lobby fits the screen with the ledger on the left; keep the hint under the placard column,
+   clear of the ledger and the friends dock. */
+@media (max-height: 500px) {
+  .install-hint {
+    left: auto;
+    right: calc(var(--space-3) + var(--safe-right));
+    transform: none;
+    max-width: calc(100vw - 15rem - 3 * var(--space-3) - var(--safe-left) - var(--safe-right));
+  }
+}

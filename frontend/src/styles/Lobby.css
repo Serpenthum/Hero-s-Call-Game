@@ -64,6 +64,20 @@
   font: 700 var(--text-xl) / 1.1 var(--font-ui);
   overflow-wrap: anywhere;
 }
+/* The name is a button (it opens the profile) but reads as the plain heading text */
+.lobby-player-name,
+.lobby-player-name:hover {
+  max-width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  transform: none;
+  box-shadow: none;
+}
 .profile-avatar-btn {
   flex-shrink: 0;
   width: 3.5rem;
@@ -339,4 +353,52 @@
   .random-hero-card,
   .placard,
   .lobby-tile { transition: none; }
+}
+
+/* ===== Short screens (sideways phones) ===== */
+/* The whole lobby fits one screen: a slim bar, a compact ledger on the left (name, quests, Shop and
+   Binder) and the mode placards in two columns on the right. */
+@media (max-height: 500px) {
+  .lobby { padding-bottom: 0; }
+  .lobby-bar { padding: var(--space-2) var(--space-4); }
+  .lobby-title { font-size: var(--text-lg); }
+
+  .lobby-main {
+    grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
+    align-content: stretch;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  /* Ledger: no portrait (the name opens the profile); the bottom stays clear of the friends dock */
+  .lobby-ledger {
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-3) calc(40px + max(6px, var(--safe-bottom)));
+  }
+  .profile-avatar-btn { display: none; }
+  .lobby-player h2 { font-size: var(--text-lg); }
+  .lobby-section-title { padding-bottom: var(--space-1); font-size: var(--text-md); }
+  .lobby-quests { gap: var(--space-1); }
+  .lobby-quest {
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    font-size: max(12px, var(--text-xs));
+    line-height: 1.2;
+  }
+  .lobby-tiles { gap: var(--space-2); }
+  .lobby-tile {
+    flex-direction: row;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-md);
+  }
+  .lobby-tile-icon { width: 2rem; height: 2rem; }
+
+  /* Placards: two columns, sized to their content */
+  .lobby-table { gap: 0; }
+  .lobby-placards { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: var(--space-3); }
+  .placard { gap: var(--space-2); padding: var(--space-3); }
+  .placard-text { min-height: 0; font-size: max(12px, var(--text-xs)); }
 }

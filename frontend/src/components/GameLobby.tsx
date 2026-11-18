@@ -442,7 +442,12 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
       <main className="lobby-main">
         <aside className="lobby-ledger ui-panel">
           <div className="lobby-player">
-            <h2>{user.username}</h2>
+            {/* The name also opens the profile, for short screens where the portrait button is hidden */}
+            <h2>
+              <button type="button" className="lobby-player-name" onClick={() => setShowProfileModal(true)}>
+                {user.username}
+              </button>
+            </h2>
             <button
               className="profile-avatar-btn"
               onClick={() => setShowProfileModal(true)}
