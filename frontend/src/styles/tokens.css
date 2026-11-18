@@ -84,6 +84,7 @@
   /* Battle Focus: the enemy the acting hero is attacking (marker on its card, Focus button) */
   --focus-c: #ff5a3c;
   --focus-glow: rgb(255 90 60 / 0.6);
+  --focus-hot: #ffe9b8;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur: 160ms;
 }

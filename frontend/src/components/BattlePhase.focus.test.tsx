@@ -169,6 +169,7 @@ describe('BattlePhase focus', () => {
     expect(html).not.toContain('data-tutorial="focus"');
     expect(focusedCount(html)).toBe(1);
     expect(html).toMatch(/data-focused="true"[^>]*>[\s\S]*?Warlock/);
+    expect(html.match(/card-focus-mark--board/g)).toHaveLength(1);
     expect(html).not.toContain('Target Dead');
   });
 
@@ -186,6 +187,7 @@ describe('BattlePhase focus', () => {
     expect(focusedCount(opponentView)).toBe(1);
     const playerArea = opponentView.slice(opponentView.indexOf('class="player-area"'));
     expect(focusedCount(playerArea)).toBe(1);
+    expect(playerArea.match(/card-focus-mark--board/g)).toHaveLength(1);
     expect(opponentView).not.toContain('data-tutorial="focus"');
     expect(opponentView).toMatch(/action-prompt[\s\S]*Focus: <strong>Warlock<\/strong>/);
 

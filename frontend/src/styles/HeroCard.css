@@ -663,13 +663,166 @@
   z-index: 15;
 }
 
-/* Battle Focus: the acting player's chosen enemy, shown to both players and spectators. A static ring and
-   red halo for now; the crosshair and its motion come later. Wins over the turn and blocked glows. */
+/* Battle Focus: the acting player's chosen enemy, shown to both players and spectators. It is the only thing
+   that says who is being attacked, so it has to stand apart from the ember edge every enemy card has:
+   a pale-hot frame inside a thick red ring, corner brackets, a crosshair on the art and a pulsing halo.
+   Wins over the turn and blocked glows. */
 .battle-layout .hero-card.focused {
-  --card-frame: var(--focus-c);
+  --card-frame: var(--focus-hot);
   --card-glow:
-    0 0 0 max(3px, 0.25em) var(--focus-c),
+    0 0 0 max(3px, 0.3em) var(--focus-c),
     0 0 max(10px, 1.3em) max(3px, 0.4em) var(--focus-glow);
+  /* Above its neighbours, so the brackets and halo are never cut off by the next card */
+  z-index: 5;
+}
+
+.hero-card .card-focus-mark {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Wide red halo outside the card: the part that pulses. */
+.hero-card .card-focus-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    0 0 max(10px, 1.5em) max(3px, 0.45em) var(--focus-glow),
+    inset 0 0 max(8px, 1.6em) var(--focus-glow);
+  animation: card-focus-pulse 2.2s ease-in-out infinite;
+}
+
+.hero-card .card-focus-mark svg {
+  position: absolute;
+  display: block;
+  overflow: visible;
+}
+
+.hero-card .card-focus-mark svg * {
+  vector-effect: non-scaling-stroke;
+}
+
+.hero-card .card-focus-under {
+  stroke: var(--card-black);
+  stroke-width: max(4px, 0.5em);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.8;
+}
+
+.hero-card .card-focus-line {
+  stroke: var(--focus-c);
+  stroke-width: max(2px, 0.24em);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Square corner brackets on the ring. They stay close to the card: on a phone the cards touch, and a
+   bracket standing further out would cover the next card's HP gem. */
+.hero-card .card-focus-brackets {
+  inset: calc(-1 * max(2px, 0.2em));
+  width: calc(100% + 2 * max(2px, 0.2em));
+  height: calc(100% + 2 * max(2px, 0.2em));
+  animation:
+    card-focus-brackets-in 0.42s var(--ease) backwards,
+    card-focus-brackets 2.2s ease-in-out 0.42s infinite;
+}
+
+.hero-card .card-focus-brackets .card-focus-line {
+  stroke: var(--focus-hot);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.hero-card .card-focus-brackets .card-focus-under {
+  stroke: var(--focus-c);
+  stroke-width: max(5px, 0.6em);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  opacity: 1;
+}
+
+/* Crosshair on the art: right of the stat rail, above the name, under the status chips. */
+.hero-card .card-focus-crosshair {
+  top: 1.4em;
+  left: 6.6em;
+  width: 10.4em;
+  height: 10.4em;
+  filter: drop-shadow(0 0 max(2px, 0.3em) var(--focus-glow));
+  animation: card-focus-lock 0.42s var(--ease) backwards;
+}
+
+.hero-card .card-focus-tint {
+  fill: color-mix(in srgb, var(--focus-c) 16%, transparent);
+}
+
+.hero-card .card-focus-dot {
+  fill: var(--focus-hot);
+  stroke: var(--focus-c);
+  stroke-width: max(1px, 0.14em);
+}
+
+/* The details card: a smaller, still crosshair so the rules stay easy to read. */
+.hero-card .card-focus-mark--panel .card-focus-crosshair {
+  top: 1em;
+  left: 8.4em;
+  width: 6.4em;
+  height: 6.4em;
+}
+
+.hero-card .card-focus-mark--panel .card-focus-under {
+  stroke-width: max(3px, 0.4em);
+}
+
+.hero-card .card-focus-mark--panel .card-focus-line {
+  stroke-width: max(2px, 0.18em);
+}
+
+@keyframes card-focus-pulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+@keyframes card-focus-brackets {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+@keyframes card-focus-brackets-in {
+  from { opacity: 0; transform: scale(1.18); }
+}
+
+@keyframes card-focus-lock {
+  from { opacity: 0; transform: scale(1.9) rotate(-60deg); }
+}
+
+/* "Battle animations: off" (card-focus-mark--still) and reduced motion: the mark stays, nothing moves. */
+.hero-card .card-focus-mark--still .card-focus-halo,
+.hero-card .card-focus-mark--still svg {
+  animation: none;
+}
+
+.hero-card .card-focus-mark--still .card-focus-halo {
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-card .card-focus-halo,
+  .hero-card .card-focus-mark svg {
+    animation: none;
+  }
+
+  .hero-card .card-focus-halo {
+    opacity: 0.7;
+  }
+}
+
+/* A fallen focus keeps its mark, dimmed with the rest of the card. */
+.hero-card.dead .card-focus-crosshair {
+  opacity: 0.55;
 }
 
 /* Fallen: grey and dark. Still readable (tap, press or right-click), never chosen. */
@@ -755,6 +908,14 @@
 
   .hero-card .companions {
     top: 0.2em;
+  }
+
+  /* The stat rail is wider here, so the crosshair moves right; it ends well above the name. */
+  .hero-card .card-focus-crosshair {
+    top: 2em;
+    left: 7em;
+    width: 11em;
+    height: 11em;
   }
 }
 
