@@ -1296,3 +1296,153 @@
   padding: 4px 12px;
   cursor: pointer;
 }
+
+/*
+ * Sideways phone (short screen): the starting roll and the game-over / surrender dialogs fit the screen
+ * without scrolling. With rewards, game over sits side by side: the result and Return on the left, the
+ * rewards on the right.
+ */
+@media (max-height: 500px) {
+  .battle-with-overlay {
+    height: 100%;
+  }
+
+  .initiative-phase,
+  .game-over-modal {
+    box-sizing: border-box;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  .initiative-phase {
+    max-width: 100%;
+    padding: var(--space-3) var(--space-5);
+    text-align: center;
+  }
+
+  .initiative-phase h2 {
+    margin: 0;
+    font-size: var(--text-xl);
+  }
+
+  .initiative-phase h3 {
+    margin: 0 0 var(--space-1);
+    font-size: 18px;
+  }
+
+  .initiative-phase p {
+    margin: var(--space-1) 0;
+    font-size: 14px;
+  }
+
+  .initiative-actions {
+    margin: var(--space-2) 0;
+  }
+
+  .turn-order-choice {
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .initiative-phase .action-button,
+  .return-to-lobby-button {
+    min-height: 40px;
+  }
+
+  .choice-buttons {
+    margin-top: var(--space-2);
+  }
+
+  .game-over-modal {
+    width: min(640px, 100%);
+    max-width: none;
+    margin: 0;
+  }
+
+  .game-over-content {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .game-over-content:has(> .rewards-display) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    column-gap: var(--space-4);
+    align-items: center;
+  }
+
+  .game-over-content:has(> .rewards-display) > * {
+    grid-column: 1;
+  }
+
+  .game-over-content > .rewards-display {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .game-over-title {
+    font-size: var(--text-xl);
+  }
+
+  .game-over-title.winner,
+  .game-over-title.loser {
+    padding-bottom: var(--space-2);
+  }
+
+  .game-over-message,
+  .surrender-message {
+    margin: var(--space-2) 0;
+    font-size: 14px;
+  }
+
+  .game-over-content > .return-to-lobby-button,
+  .game-over-content .button-group {
+    margin-top: var(--space-2);
+  }
+
+  .rewards-title {
+    margin: 0 0 var(--space-2);
+    font-size: 18px;
+  }
+
+  .rewards-content {
+    gap: var(--space-2);
+  }
+
+  .reward-section {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .reward-label {
+    margin-bottom: var(--space-1);
+  }
+
+  .label-text,
+  .level-indicator {
+    font-size: 14px;
+  }
+
+  .reward-gain {
+    font-size: 14px;
+    padding: 2px 10px;
+  }
+
+  .rewards-display .xp-text {
+    font-size: 12px;
+  }
+
+  .vp-display {
+    padding: 0;
+  }
+
+  .vp-counter {
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-4);
+    font-size: 22px;
+  }
+
+  .vp-icon {
+    font-size: 28px;
+  }
+}

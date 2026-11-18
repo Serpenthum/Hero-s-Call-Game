@@ -152,6 +152,8 @@ const FriendsOverlay: React.FC<FriendsOverlayProps> = ({
         const targetPlayerId = data.gameInfo.playerId;
         console.log('👁️ Spectating game:', gameId, 'player:', targetPlayerId);
         socketService.spectateGame(gameId, targetPlayerId);
+        // Out of the way, so the watched battle is not hidden behind the drawer
+        onClose();
       } else {
         setError('This player is not currently in a spectatable game');
         setTimeout(() => setError(null), 3000);

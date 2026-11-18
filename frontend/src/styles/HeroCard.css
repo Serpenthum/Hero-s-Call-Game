@@ -885,10 +885,12 @@
     max-height: none;
   }
 
+  /* In the page flow here, inside the app root that already pads out the safe areas, so no inset padding */
   .battle-layout .action-bar {
     position: relative;
     width: 100%;
     height: auto;
+    padding: 0;
     border-left: 0;
   }
 
