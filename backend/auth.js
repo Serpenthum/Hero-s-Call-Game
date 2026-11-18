@@ -35,6 +35,19 @@ function createAuth() {
     userToToken.delete(id);
   }
 
+  // The account's live token, or null
+  function tokenOf(userId) {
+    return userToToken.get(Number(userId)) || null;
+  }
+
+  // Revokes this exact token (not a newer one the account got since)
+  function revokeToken(token) {
+    const id = tokenToUser.get(token);
+    if (id === undefined) return;
+    tokenToUser.delete(token);
+    if (userToToken.get(id) === token) userToToken.delete(id);
+  }
+
   function tokenFromRequest(req) {
     const header = req.headers && (req.headers.authorization || req.headers.Authorization);
     if (typeof header !== 'string') return null;
@@ -59,7 +72,7 @@ function createAuth() {
     next();
   }
 
-  return { issueToken, verify, verifyUser, revokeUser, requireUser };
+  return { issueToken, verify, verifyUser, revokeUser, revokeToken, tokenOf, requireUser };
 }
 
 module.exports = { createAuth };

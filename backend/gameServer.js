@@ -34,8 +34,30 @@ const STALE_SOCKET_MS = 25000;
 const LEGACY_STALE_SOCKET_MS = 60000;
 function heartbeatOf(socket) {
   const ms = Number(socket.data && socket.data.heartbeatMs);
-  return ms >= 100 && ms <= 60000 ? ms : null;
+  // Clamped, so a client cannot stretch its own idle limit much past the default
+  return ms >= 100 ? Math.min(ms, 15000) : null;
 }
+// A saved login (the client keeps it in sessionStorage) resumes the session after a refresh. Once the
+// account has had no connection for this long its token is revoked, so a tab reopened much later on a
+// shared computer lands on the login page instead of someone else's account. A reconnect cancels it.
+const RESUME_WINDOW_MS = timing.resumeWindowMs || 5 * 60 * 1000;
+const resumeExpiry = new Map(); // userId -> timeout
+function cancelTokenExpiry(userId) {
+  const id = Number(userId);
+  clearTimeout(resumeExpiry.get(id));
+  resumeExpiry.delete(id);
+}
+function expireTokenLater(userId) {
+  const id = Number(userId);
+  cancelTokenExpiry(id);
+  const token = auth.tokenOf(id);
+  if (!token) return;
+  resumeExpiry.set(id, setTimeout(() => {
+    resumeExpiry.delete(id);
+    if (!loggedInUsers.has(id) && !loggedInUsers.has(String(id))) auth.revokeToken(token);
+  }, RESUME_WINDOW_MS));
+}
+
 function isStaleSocket(socket) {
   const hb = heartbeatOf(socket);
   const limit = hb ? Math.max(STALE_SOCKET_MS, hb * 3) : LEGACY_STALE_SOCKET_MS;
@@ -150,7 +172,10 @@ router.post('/api/login', async (req, res) => {
       }
       // The old connection has gone silent (its network dropped, then the page was reloaded): let this
       // login replace it, so the player can get back to a battle that is holding their seat
-      if (existingSocket && existingSocket.connected) existingSocket.disconnect();
+      if (existingSocket && existingSocket.connected) {
+        existingSocket.emit('force-logout', { message: 'Your account has been logged in from another session.' });
+        existingSocket.disconnect();
+      }
       loggedInUsers.delete(user.id);
     }
     
@@ -748,18 +773,28 @@ function startTurnTimer(gameId, durationMs = TURN_TIME_MS) {
       processEndTurn(info.player.id).catch(err => console.error('Auto end-turn failed:', err.message));
     }
   }, durationMs);
-  turnTimers.set(gameId, { timeout, deadline: Date.now() + durationMs });
+  turnTimers.set(gameId, { timeout, deadline: Date.now() + durationMs, startedAt: Date.now() });
   emitTurnTimer(io.to(gameId), gameId);
 }
 
-// Stops the turn clock (and the auto end-turn) where it is, e.g. when a player disconnects
-function pauseTurnTimer(gameId) {
+// Stops the turn clock (and the auto end-turn) where it is, e.g. when a player disconnects.
+// A dropped network is noticed some seconds after the player went silent (since): if it is their turn,
+// the time it ran while nobody knew they were gone is given back (never more than a full turn).
+function pauseTurnTimer(gameId, droppedPlayerId = null, since = Date.now()) {
   clearAutoEndTimer(gameId);
   const timer = turnTimers.get(gameId);
   if (!timer) return;
   clearTimeout(timer.timeout);
   turnTimers.delete(gameId);
-  pausedTurnTimers.set(gameId, Math.max(0, timer.deadline - Date.now()));
+  const now = Date.now();
+  let remaining = Math.max(0, timer.deadline - now);
+  const game = gameManager.games.get(gameId);
+  const info = game ? gameManager.getCurrentTurnInfo(game) : null;
+  if (droppedPlayerId && info && info.player.id === droppedPlayerId) {
+    const unnoticed = Math.max(0, now - Math.max(since, timer.startedAt || since));
+    remaining = Math.min(TURN_TIME_MS, remaining + unnoticed);
+  }
+  pausedTurnTimers.set(gameId, remaining);
   emitTurnTimer(io.to(gameId), gameId);
 }
 
@@ -1554,8 +1589,18 @@ async function checkGauntletGameCompletion(result) {
 
 // Inject io instance into gameManager for disconnection countdown events
 gameManager.setIo(io);
-// A seat nobody came back to drops its per-socket settings
-gameManager.onSeatReleased = (playerId) => autoEndTurnPrefs.delete(playerId);
+// A seat nobody came back to drops its per-socket settings. Its Gauntlet run is saved to the account
+// first (it may hold a loss, or a win if the game ended another way), so nothing is lost when the
+// in-memory copy goes.
+gameManager.onSeatReleased = (playerId, userId) => {
+  autoEndTurnPrefs.delete(playerId);
+  const run = gameManager.getGauntletSaveState(playerId);
+  if (run && userId) {
+    database.saveGauntletState(userId, run).catch(error => {
+      console.error('Could not save the Gauntlet run of a disconnected player:', error);
+    });
+  }
+};
 
 // Tells the room the game changed under them. Old clients have no listener for the reconnect events,
 // so in battle they also get the new state through 'battle-start' (it only replaces the game state).
@@ -1584,19 +1629,7 @@ gameManager.onDisconnectTimeout = async (result, game) => {
     }
   }
 
-  // Nobody is here to carry on a Gauntlet run: save it (with any loss) so it can be resumed later.
-  // The seat's release then drops the in-memory copy.
-  for (const p of game.players) {
-    if (p.connected !== false) continue;
-    const run = gameManager.getGauntletSaveState(p.id);
-    const userId = userIdOf(p.id);
-    if (!run || !userId) continue;
-    try {
-      await database.saveGauntletState(userId, run);
-    } catch (error) {
-      console.error('Could not save the Gauntlet run of a disconnected player:', error);
-    }
-  }
+  // (A Gauntlet run of a player who never came back is saved when their seat is released.)
   if (result.outcome === 'forfeit') return;
 
   // Spectators of an abandoned game go back to the lobby
@@ -1648,6 +1681,7 @@ io.on('connection', (socket) => {
       // Set up new session
       userSessions.set(socket.id, userId);
       loggedInUsers.set(userId, socket.id);
+      cancelTokenExpiry(userId);
       
       // Map user session for victory points in game manager
       gameManager.setUserSession(socket.id, userId);
@@ -3083,7 +3117,7 @@ io.on('connection', (socket) => {
     const since = reason === 'ping timeout' && typeof socket.lastSeen === 'number' ? socket.lastSeen : Date.now();
     const held = leavingPlayer && gameManager.isSeatHeldOnDisconnect(leftGame) ? gameManager.handleDisconnect(socket.id, since) : null;
     if (held) {
-      pauseTurnTimer(leftGameId);
+      pauseTurnTimer(leftGameId, socket.id, since);
       if (leftGame.phase === 'battle') {
         // Old clients learn about the dropped player from a fresh state (they show their own countdown)
         io.to(leftGameId).emit('battle-start', { gameState: gameManager.getFullGameState(leftGame) });
@@ -3143,6 +3177,8 @@ io.on('connection', (socket) => {
       loggedInUsers.delete(userId);
       userSessions.delete(socket.id);
       console.log('User logged out:', userId);
+      // The saved login may resume for a few minutes (a refresh, a dropped network), then it expires
+      expireTokenLater(userId);
 
       // Withdraw their outgoing challenge and decline any aimed at them
       const outgoing = clearPendingChallenge(userId);
@@ -3204,6 +3240,8 @@ function stop() {
   turnTimers.clear();
   pausedTurnTimers.clear();
   gameManager.clearAllDisconnectionTimers();
+  for (const timer of resumeExpiry.values()) clearTimeout(timer);
+  resumeExpiry.clear();
   for (const timer of autoEndTimers.values()) clearTimeout(timer);
   autoEndTimers.clear();
   for (const entry of pendingChallenges.values()) clearTimeout(entry.timeoutId);

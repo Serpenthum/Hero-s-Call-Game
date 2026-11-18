@@ -5776,11 +5776,14 @@ class GameManager {
   // Lets go of a seat nobody came back to: its old socket id no longer maps to the game or the account
   releaseSeat(game, playerId) {
     if (this.playerGameMap.get(playerId) === game.id) this.playerGameMap.delete(playerId);
+    const userId = this.userSessions.get(playerId);
     this.userSessions.delete(playerId);
-    // Survival runs are saved to the account as they change; Gauntlet runs are saved by the server first
+    // Survival runs are saved to the account as they change
     this.survivalStates.delete(playerId);
+    // The server's hook saves the in-memory Gauntlet run (with whatever happened while the player was
+    // away) before dropping it, whichever way the game ended
+    if (this.onSeatReleased) this.onSeatReleased(playerId, userId);
     this.gauntletRuns.delete(playerId);
-    if (this.onSeatReleased) this.onSeatReleased(playerId);
   }
 
   // Deletes a game and everything still pointing at it

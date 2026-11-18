@@ -496,3 +496,79 @@ test('a connection already in another live game cannot take a held seat', async 
   await a2.waitFor('reconnect-failed');
   assert.equal(ctx.gm.games.get(gameId).players.find(p => p.name === 'Admin1').id, ra.playerId);
 });
+
+test('a saved login stops working a while after the account last had a connection', async (t) => {
+  const ctx = await setup(t, { resumeWindowMs: 300 });
+  const a = await ctx.login('resume1', 'secret1');
+  a.close();
+  // A refresh soon after: the saved token still works
+  await sleep(100);
+  const back = await ctx.resume(a);
+  assert.equal(back.auth.userId, a.userId);
+  back.close();
+  // A tab reopened much later (here, after the window): refused, so it lands on the login screen
+  await sleep(450);
+  const late = ctx.connect();
+  late.send('authenticate', { userId: a.userId, token: a.token });
+  const refused = await late.waitFor('authentication-failed');
+  assert.equal(refused.message, 'Please log in again');
+});
+
+test('coming back inside the window cancels the expiry', async (t) => {
+  const ctx = await setup(t, { resumeWindowMs: 300 });
+  const a = await ctx.login('resume2', 'secret1');
+  a.close();
+  await sleep(100);
+  const back = await ctx.resume(a); // still connected when the first expiry would have fired
+  await sleep(450);
+  const other = await ctx.resume(a); // a second tab with the same saved login still works
+  assert.equal(other.auth.userId, a.userId);
+  await back.waitFor('force-logout');
+});
+
+test('a dropped player whose turn it was gets back the turn time that ran before the drop was noticed', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 10000, turnTimeMs: 3000 });
+  const { a, b, gameId } = await ctx.battle();
+  const game = ctx.gm.games.get(gameId);
+  const byId = (id) => (id === a.socketId ? a : b);
+  byId(ctx.gm.getCurrentTurnInfo(game).player.id).send('end-turn');
+  const running = await a.waitFor('turn-timer', d => d.paused === false);
+  const active = byId(running.playerId);
+  const stayer = active === a ? b : a;
+  await sleep(1000);
+  // The active player went silent ~1 s ago (at the end turn) and is only now noticed as gone
+  ctx.io.sockets.sockets.get(active.socketId).lastSeen = Date.now() - 1000;
+  ctx.io.sweepIdle(Date.now(), (s) => (s.id === active.socketId ? 500 : 1e9));
+  const paused = await stayer.waitFor('turn-timer', d => d.paused === true);
+  // About 2 s were left; the unnoticed second is given back, so close to the full 3 s
+  assert.ok(paused.remainingMs >= 2700, 'paused with ' + paused.remainingMs);
+  assert.ok(paused.remainingMs <= 3000);
+});
+
+test('a Gauntlet run is saved when the game ended another way while its player was away', async (t) => {
+  const ctx = await setup(t, { reconnectGraceMs: 300 });
+  const a = await ctx.login('Admin1');
+  const b = await ctx.login('Admin2');
+  for (const [c, name] of [[a, 'Admin1'], [b, 'Admin2']]) {
+    c.send('start-gauntlet-run', { name });
+    await c.waitFor('gauntlet-run-started', r => r.success);
+    c.send('set-gauntlet-battle-team', { teamIndices: [0, 1, 2] });
+    await c.waitFor('gauntlet-battle-team-set', r => r.success);
+  }
+  a.send('queue-for-gauntlet-trial');
+  await a.waitFor('gauntlet-queue-waiting');
+  b.send('queue-for-gauntlet-trial');
+  await b.waitFor('game-start');
+  const game = ctx.gm.games.get(ctx.gm.playerGameMap.get(b.socketId));
+
+  a.close();
+  await b.waitFor('disconnection-countdown-started');
+  // While A is away the game ends some other way, and A's run changes in memory (say, a win)
+  ctx.gm.gauntletRuns.get(a.socketId).trials_won = 4;
+  game.phase = 'ended';
+  await eventually(async () => {
+    const saved = await ctx.gm.database.loadGauntletState(a.userId);
+    return !!(saved && saved.runState && saved.runState.trials_won === 4);
+  });
+  assert.equal(ctx.gm.gauntletRuns.has(a.socketId), false);
+});
