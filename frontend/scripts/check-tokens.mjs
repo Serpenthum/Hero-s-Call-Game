@@ -62,6 +62,8 @@ const MIGRATED = [
   'install/InstallHint.tsx',
   'styles/InstallHint.css',
   'hooks/useCardGrid.test.ts',
+  'lobby/lobbyRules.ts',
+  'lobby/lobbyRules.test.ts',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
