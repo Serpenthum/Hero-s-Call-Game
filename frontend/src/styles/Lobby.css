@@ -518,19 +518,28 @@
 /* ===== Sideways phones ===== */
 /* Everything fits the screen: featured card | mode cards 2x2 | player panel. */
 @media (max-height: 500px) {
-  :root { --lobby-bar-h: 50px; --lobby-gap: 10px; }
+  /* The featured card runs from just under the top bar (its 1px bottom border included) to the bottom of the
+     lobby, which already stops above any home bar (--app-height); it may cover the felt's bottom padding.
+     --lobby-featured-top is the clear space under the bar: it covers the 9px float. Its column width follows
+     the card ratio. */
+  :root {
+    --lobby-bar-h: 50px;
+    --lobby-gap: 10px;
+    --lobby-featured-top: 10px;
+    --lobby-featured-col: calc((var(--app-height) - var(--lobby-bar-h) - 1px - var(--lobby-featured-top)) * 260 / 391);
+  }
   .lobby-bar { gap: 10px; padding: 5px 12px; }
   .lobby-title { font-size: 22px; }
   .lobby-level { min-width: 110px; }
   .lobby-bar-btn-label { display: none; }
 
-  .lobby-main { grid-template-columns: auto minmax(0, 1fr) var(--lobby-panel-col); }
+  /* The row keeps the felt's height; the featured card is allowed to run past it into the bottom padding */
+  .lobby-main { grid-template-columns: auto minmax(0, 1fr) var(--lobby-panel-col); grid-template-rows: minmax(0, 1fr); }
   .lobby-table { display: contents; }
 
-  .lobby-stage { grid-column: 1; grid-row: 1; place-items: center; padding: 0; container-type: normal; }
-  .lobby-featured .hero-card.hero-layout-card {
-    --card-w: min(var(--lobby-featured-col), calc((var(--app-height) - 72px) * 260 / 391));
-  }
+  .lobby-stage { grid-column: 1; grid-row: 1; place-items: start center; padding: 0; container-type: normal; }
+  .lobby-float { margin-top: calc(var(--lobby-featured-top) - var(--lobby-gap)); }
+  .lobby-featured .hero-card.hero-layout-card { --card-w: var(--lobby-featured-col); }
   .lobby-pedestal,
   .lobby-stage-hint { display: none; }
 
@@ -587,13 +596,9 @@
 
 /* Small sideways phones (640x360) */
 @media (max-height: 500px) and (max-width: 700px) {
-  :root { --lobby-gap: 8px; --lobby-featured-col: 146px; --lobby-panel-col: 172px; }
+  :root { --lobby-gap: 8px; --lobby-panel-col: 172px; }
   .lobby-title { font-size: 19px; }
   .lobby-level { min-width: 96px; }
-
-  .lobby-featured .hero-card.hero-layout-card {
-    --card-w: min(var(--lobby-featured-col), calc((var(--app-height) - 72px) * 260 / 391));
-  }
 
   .mode-cards,
   .mode-cards[data-count] { gap: 6px; }
