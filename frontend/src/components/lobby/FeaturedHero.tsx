@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import HeroCard from '../HeroCard';
 import { Hero } from '../../types';
 
@@ -10,6 +10,22 @@ interface FeaturedHeroProps {
   onHoverChange(hovering: boolean): void;
 }
 
+// Embers drifting up from the pedestal: placed once, each already mid-flight when the lobby opens.
+const EMBER_COUNT = 12;
+const makeEmbers = (): React.CSSProperties[] =>
+  Array.from({ length: EMBER_COUNT }, () => {
+    const seconds = 6 + Math.random() * 7;
+    const size = 2 + Math.random() * 3;
+    return {
+      left: `${20 + Math.random() * 60}%`,
+      width: `${size}px`,
+      height: `${size}px`,
+      '--dx': `${Math.random() * 100 - 50}px`,
+      animationDuration: `${seconds}s`,
+      animationDelay: `${-Math.random() * seconds}s`,
+    } as React.CSSProperties;
+  });
+
 // The featured hero on its pedestal. A tap opens the Binder on that hero's page.
 const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, swapKey, onOpen, onHoverChange }) => {
   // Pointer hover and keyboard focus are tracked apart, so a mouse passing over a focused card
@@ -17,6 +33,7 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, swapKey, on
   const hovered = useRef(false);
   const focused = useRef(false);
   const report = () => onHoverChange(hovered.current || focused.current);
+  const embers = useMemo(makeEmbers, []);
   // The Binder covers the card once it opens, so neither flag should hold the swaps afterwards.
   const open = (name: string) => {
     hovered.current = false;
@@ -26,7 +43,9 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, swapKey, on
 
   return (
     <div className="lobby-stage">
-      <div className="lobby-embers" aria-hidden="true" />
+      <div className="lobby-embers" aria-hidden="true">
+        {embers.map((style, i) => <i key={i} style={style} />)}
+      </div>
       <div className="lobby-pedestal" aria-hidden="true" />
       {hero && (
         <>

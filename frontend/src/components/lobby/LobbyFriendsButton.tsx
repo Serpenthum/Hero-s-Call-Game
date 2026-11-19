@@ -1,6 +1,5 @@
 import React from 'react';
 import { useFriendsOnline } from '../../lobby/useFriendsOnline';
-import { getAnimSpeed } from '../../battleAnimations';
 
 export interface LobbyFriendsProps {
   onToggle(): void;
@@ -15,7 +14,6 @@ const badgeText = (count: number) => (count > 9 ? '9+' : String(count));
 // Friends (with a green dot while a friend is online) and, when there are unread or minimised chats, Messages.
 const LobbyFriendsButton: React.FC<LobbyFriendsProps> = ({ onToggle, isOpen, notificationCount, messages }) => {
   const friendOnline = useFriendsOnline();
-  const still = getAnimSpeed() === 'off';
   const friendsLabel = [
     'Friends',
     notificationCount > 0 ? `${notificationCount} new` : null,
@@ -39,7 +37,7 @@ const LobbyFriendsButton: React.FC<LobbyFriendsProps> = ({ onToggle, isOpen, not
             <circle cx="17.5" cy="9" r="3" />
             <path d="M17 14.2c3.2.2 5.5 2.6 5.5 5.8h-4" />
           </svg>
-          {friendOnline && <span className={`lobby-friends-online${still ? ' is-still' : ''}`} aria-hidden="true" />}
+          {friendOnline && <span className="lobby-friends-online" aria-hidden="true" />}
         </span>
         <span className="lobby-bar-btn-label">Friends</span>
         {notificationCount > 0 && <span className="lobby-bar-badge" aria-hidden="true">{badgeText(notificationCount)}</span>}

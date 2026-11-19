@@ -58,6 +58,10 @@
   --mode-flame-core: #ffd27a;
   --mode-ink: #17110b;
 
+  /* Lobby embers rising round the featured hero */
+  --ember-spark: #ffcf7a;
+  --ember-glow: #ffaa3c;
+
   /* Type */
   --font-display: 'Grenze Gotisch', Georgia, serif;
   --font-label: 'IM Fell English', Georgia, serif;

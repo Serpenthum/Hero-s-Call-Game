@@ -1,6 +1,7 @@
 /* Lobby: the felt table. Top bar; the player's ledger beside the table; on the table the featured hero
    on its pedestal and the mode cards. Sizes follow the owner-approved step 2 mockup
-   (docs/superpowers/specs/2026-11-17-redesign-mockups/lobby-step2.html). No ambient motion here yet. */
+   (docs/superpowers/specs/2026-11-17-redesign-mockups/lobby-step2.html). All movement is in the Motion
+   section at the end. */
 
 /* Lobby geometry shared with InstallHint.css (the hint sits outside .lobby, so these live on :root):
    bar height, the gap round the table, and on sideways phones the featured-card and panel columns. */
@@ -135,12 +136,6 @@
   background: var(--verdigris);
   border-radius: 50%;
   box-shadow: 0 0 6px var(--verdigris);
-  animation: lobby-ping 2s ease-out infinite;
-}
-.lobby-friends-online.is-still { animation: none; }
-@keyframes lobby-ping {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--verdigris) 70%, transparent); }
-  100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--verdigris) 0%, transparent); }
 }
 /* A chat is minimised (and nothing unread): a still brass dot where the online dot sits on Friends */
 .lobby-messages-minimized {
@@ -356,6 +351,15 @@
   container-type: size;
 }
 .lobby-embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+/* Unseen until the Motion section sets them rising (place, size, drift and pace are set per ember) */
+.lobby-embers > i {
+  position: absolute;
+  bottom: -8px;
+  background: var(--ember-spark);
+  border-radius: 50%;
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--ember-glow) 70%, transparent);
+  opacity: 0;
+}
 .lobby-pedestal {
   position: absolute;
   left: 50%;
@@ -452,8 +456,8 @@
 .mode-cards .mode-card--searching .mode-card-text { color: var(--bone); font-weight: 700; }
 .mode-cards .mode-card--searching .mode-card-go { background: transparent; color: var(--ember-hi); border-color: var(--ember); }
 
-/* An unlocked mode rises onto the table once */
-.mode-unlock-reveal { animation: lobby-rise 700ms var(--ease) both; }
+/* An unlocked mode rises onto the table once (it ends at rest, so the hover lift works afterwards) */
+.mode-unlock-reveal { animation: lobby-rise 700ms var(--ease) backwards; }
 @keyframes lobby-rise {
   from { opacity: 0; transform: translateY(1rem); }
   to { opacity: 1; transform: none; }
@@ -595,7 +599,155 @@
   .lobby-tile-icon { width: 20px; height: 20px; }
 }
 
+/* ===== Motion ===== */
+/* Timings follow the owner-approved mockup. All of it runs only when the system allows motion and
+   "Battle animations" is not off (.lobby--still on the lobby root, set in GameLobby.tsx).
+   Loops move only transform and opacity, apart from two small box-shadow pulses (online dot, searching card). */
+@media (prefers-reduced-motion: no-preference) {
+  /* Candle flicker over the whole table */
+  .lobby:not(.lobby--still)::before { animation: lobby-flicker 7s ease-in-out infinite; }
+
+  /* Featured stage: embers rise, the card floats, each new hero flips in */
+  .lobby:not(.lobby--still) .lobby-embers > i { animation: lobby-ember linear infinite; }
+  .lobby:not(.lobby--still) .lobby-float { animation: lobby-float 5.5s ease-in-out infinite; }
+  .lobby:not(.lobby--still) .lobby-featured { animation: lobby-flip 0.7s cubic-bezier(0.3, 0.8, 0.3, 1) backwards; }
+
+  /* Top bar: a glint crosses the XP bar every 4 s; the online dot pings */
+  .lobby:not(.lobby--still) .lobby-level .xp-fill { overflow: hidden; }
+  .lobby:not(.lobby--still) .lobby-level .xp-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--card-white) 60%, transparent) 50%, transparent);
+    transform: translateX(-120%);
+    animation: lobby-xp-glint 4s ease-in-out infinite;
+  }
+  .lobby:not(.lobby--still) .lobby-friends-online { animation: lobby-ping 2s ease-out infinite; }
+
+  /* Player panel: a finished quest turns green and its bar fills */
+  .lobby:not(.lobby--still) .lobby-quest { transition: transform 0.16s, border-color 0.16s; }
+  .lobby:not(.lobby--still) .lobby-quest-progress { transition: color 0.16s; }
+  .lobby:not(.lobby--still) .lobby-quest-bar > i { transition: width 0.8s; }
+  .lobby:not(.lobby--still) .lobby-tile {
+    transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s, background var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .lobby:not(.lobby--still) .lobby-tile-icon { transition: transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
+
+  /* Mode cards */
+  .lobby:not(.lobby--still) .mode-card {
+    transition: transform 0.18s cubic-bezier(0.3, 1.5, 0.5, 1), border-color 0.18s, box-shadow 0.18s;
+  }
+  .lobby:not(.lobby--still) .mode-card--draft .swords-l,
+  .lobby:not(.lobby--still) .mode-card--draft .swords-r {
+    transform-origin: 12px 12px;
+    transition: transform 0.25s cubic-bezier(0.3, 1.8, 0.5, 1);
+  }
+  /* The Survival flame never stops */
+  .lobby:not(.lobby--still) .mode-card--survival .mode-card-icon {
+    transform-origin: 50% 90%;
+    animation: lobby-flame 1.6s ease-in-out infinite;
+  }
+
+  /* Searching: the accent border pulses and a light sweeps across the card */
+  .lobby:not(.lobby--still) .mode-card--searching { animation: lobby-seek 1.4s ease-in-out infinite; }
+  .lobby:not(.lobby--still) .mode-card--searching::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -40%;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--card-white) 9%, transparent), transparent);
+    pointer-events: none;
+    animation: lobby-scan 1.8s linear infinite;
+  }
+}
+
+/* Hover movement, for pointers that can hover (a tap on a touch screen would leave it stuck) */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .lobby:not(.lobby--still) .mode-card:hover {
+    transform: translateY(-6px);
+    box-shadow:
+      inset 0 3px 0 var(--acc),
+      0 18px 30px color-mix(in srgb, var(--card-black) 55%, transparent),
+      0 0 22px color-mix(in srgb, var(--acc) 35%, transparent);
+  }
+  .lobby:not(.lobby--still) .mode-card--random:hover .mode-card-icon { animation: lobby-tumble 0.7s cubic-bezier(0.3, 1.4, 0.5, 1); }
+  .lobby:not(.lobby--still) .mode-card--draft:hover .swords-l { transform: rotate(-16deg); }
+  .lobby:not(.lobby--still) .mode-card--draft:hover .swords-r { transform: rotate(16deg); }
+  .lobby:not(.lobby--still) .mode-card--gauntlet:hover .mode-card-icon { animation: lobby-tower 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+
+  .lobby:not(.lobby--still) .lobby-quest:hover { transform: translateX(3px); }
+  .lobby:not(.lobby--still) .lobby-tile:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 18px color-mix(in srgb, var(--card-black) 50%, transparent);
+  }
+  .lobby:not(.lobby--still) .lobby-tile:hover .lobby-tile-icon { transform: scale(1.14) rotate(-5deg); }
+}
+
+@keyframes lobby-flicker {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.86; }
+  55% { opacity: 0.95; }
+  70% { opacity: 0.82; }
+}
+@keyframes lobby-ember {
+  0% { transform: translate(0, 0); opacity: 0; }
+  12% { opacity: 0.85; }
+  100% { transform: translate(var(--dx), -520px) scale(0.2); opacity: 0; }
+}
+@keyframes lobby-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+/* The perspective is part of the transform, so it does not stack with the tilt perspective of the card */
+@keyframes lobby-flip {
+  0% { transform: perspective(900px) rotateY(-95deg) scale(0.92); opacity: 0; }
+  100% { transform: perspective(900px) rotateY(0deg) scale(1); opacity: 1; }
+}
+@keyframes lobby-xp-glint {
+  0%, 60% { transform: translateX(-120%); }
+  100% { transform: translateX(180%); }
+}
+@keyframes lobby-ping {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--verdigris) 70%, transparent); }
+  100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--verdigris) 0%, transparent); }
+}
+@keyframes lobby-tumble {
+  0% { transform: rotate(0deg) translateY(0); }
+  40% { transform: rotate(200deg) translateY(-7px); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes lobby-flame {
+  0%, 100% { transform: scale(1, 1) rotate(-2deg); }
+  35% { transform: scale(0.94, 1.1) rotate(3deg); }
+  70% { transform: scale(1.05, 0.95) rotate(-3deg); }
+}
+@keyframes lobby-tower {
+  0% { transform: translateY(6px) scaleY(0.8); }
+  100% { transform: none; }
+}
+@keyframes lobby-seek {
+  0%, 100% {
+    box-shadow: inset 0 3px 0 var(--acc), 0 0 0 0 color-mix(in srgb, var(--acc) 60%, transparent);
+  }
+  50% {
+    box-shadow:
+      inset 0 3px 0 var(--acc),
+      0 0 0 7px color-mix(in srgb, var(--acc) 0%, transparent),
+      0 0 26px color-mix(in srgb, var(--acc) 45%, transparent);
+  }
+}
+/* The sweep is 40% of the card wide and starts 40% off its left edge: four of its own widths takes it past the right */
+@keyframes lobby-scan {
+  to { transform: translateX(400%); }
+}
+
+/* Stills ("Battle animations: off" or reduced motion): the featured hero still changes, with a plain fade */
+.lobby--still .lobby-featured { animation: lobby-fade 400ms ease both; }
+
 @media (prefers-reduced-motion: reduce) {
+  .lobby-featured { animation: lobby-fade 400ms ease both; }
   .lobby-bar-btn,
   .lobby-portrait,
   .lobby-name-btn,
@@ -605,6 +757,5 @@
   .lobby-quest.just-completed,
   .mode-unlock-reveal,
   .mode-unlock-toast,
-  .lobby-friends-online,
   .placard-dots .dot { animation: none; }
 }

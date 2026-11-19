@@ -17,6 +17,7 @@ import QuestRewardModal from './QuestRewardModal';
 import SettingsModal from './SettingsModal';
 import config from '../config';
 import { timeUntilUtcMidnight, searchElapsed, formatRecord, nextFeaturedHero, collectionSummary } from '../lobby/lobbyRules';
+import { getAnimSpeed } from '../battleAnimations';
 import '../styles/Lobby.css';
 
 interface User {
@@ -369,7 +370,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   if (SHOW_GAUNTLET) modes.push({ mode: 'gauntlet', title: 'Gauntlet', text: 'Face 13 trials with a roster of six.', tag: 'Ranked', playLabel: 'Enter gauntlet', onActivate: handleGauntletClick });
 
   return (
-    <div className="game-lobby-modern lobby">
+    <div className={`game-lobby-modern lobby${getAnimSpeed() === 'off' ? ' lobby--still' : ''}`}>
       <LobbyTopBar
         coins={questReveal.display.vp}
         coinsBumping={questReveal.counting}
