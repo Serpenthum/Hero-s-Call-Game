@@ -1,0 +1,137 @@
+/* "Match found": a full-screen moment over the game screen that has already started underneath.
+   Above every game screen, modal and the card reader (30000); below the rotate screen (40000).
+   Timings follow the owner-approved mockup (docs/superpowers/specs/2026-11-17-redesign-mockups/lobby-step2.html),
+   shortened at the end so the whole thing is gone within 2 s (see MatchFoundOverlay.tsx). */
+
+.match-found {
+  position: fixed;
+  inset: 0;
+  z-index: 35000;
+  display: grid;
+  place-items: center;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  overflow: hidden;
+  background: color-mix(in srgb, color-mix(in srgb, var(--felt-deep) 30%, var(--card-black)) 80%, transparent);
+  color: var(--bone);
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  animation: match-found-in 0.25s both;
+}
+.match-found--leaving { animation: match-found-out 0.4s both; }
+
+.match-found-caption {
+  position: absolute;
+  top: 16%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 37px;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  color: var(--brass-hi);
+}
+
+.match-found-row { --slide: 182px; display: flex; align-items: center; gap: 26px; }
+
+.match-found-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 130px;
+  font-size: 30px;
+  line-height: 1.2;
+}
+/* A long name may run wider than the portrait, centred under it */
+.match-found-name {
+  flex: none;
+  max-width: min(220px, 36vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-found-portrait {
+  width: 130px;
+  height: 130px;
+  flex: none;
+  border-radius: 10px;
+  object-fit: cover;
+  object-position: 50% 15%;
+  border: 2px solid var(--brass-hi);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--brass-hi) 40%, transparent);
+}
+.match-found-player--them .match-found-portrait {
+  border-color: var(--ember);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--ember) 45%, transparent);
+}
+/* No profile hero: a brass frame with the player's initial */
+.match-found-portrait--initial {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(color-mix(in srgb, var(--leather) 70%, var(--walnut)), color-mix(in srgb, var(--walnut) 80%, var(--card-black)));
+  box-shadow: inset 0 0 0 4px var(--walnut), inset 0 0 0 5px var(--brass-dim), 0 0 30px color-mix(in srgb, var(--brass-hi) 40%, transparent);
+  color: var(--brass-hi);
+  font-size: 72px;
+  line-height: 1;
+}
+.match-found-player--them .match-found-portrait--initial {
+  box-shadow: inset 0 0 0 4px var(--walnut), inset 0 0 0 5px var(--brass-dim), 0 0 30px color-mix(in srgb, var(--ember) 45%, transparent);
+}
+
+.match-found-clash { position: relative; flex: none; }
+.match-found-vs {
+  position: relative;
+  font-size: 67px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--ember-spark) 30%, var(--card-white));
+  text-shadow: 0 0 26px var(--ember-spark), 0 4px 0 var(--card-black);
+}
+/* The burst behind VS as it lands; invisible until then (so it fills forwards only) */
+.match-found-flash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--card-white), color-mix(in srgb, var(--ember-spark) 70%, transparent) 35%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Sideways phones: smaller portraits, and the caption near the top so it never overlaps them */
+@media (max-height: 500px) {
+  .match-found-caption { top: max(6%, var(--safe-top)); font-size: 27px; }
+  .match-found-row { --slide: 134px; gap: 18px; margin-top: 34px; }
+  .match-found-player { gap: 4px; width: 96px; font-size: 22px; }
+  .match-found-name { max-width: min(170px, 30vw); }
+  .match-found-portrait { width: 96px; height: 96px; }
+  .match-found-portrait--initial { font-size: 54px; }
+  .match-found-vs { font-size: 48px; }
+}
+
+/* Slides, slam and flash: only when the system allows motion and "Battle animations" is not off.
+   Otherwise the overlay just fades in, holds and fades out. */
+@media (prefers-reduced-motion: no-preference) {
+  .match-found:not(.match-found--still) .match-found-caption { animation: match-found-caption 0.4s 0.05s both; }
+  .match-found:not(.match-found--still) .match-found-player--me { animation: match-found-from-left 0.5s cubic-bezier(0.2, 1.2, 0.3, 1) 0.15s both; }
+  .match-found:not(.match-found--still) .match-found-player--them { animation: match-found-from-right 0.5s cubic-bezier(0.2, 1.2, 0.3, 1) 0.15s both; }
+  .match-found:not(.match-found--still) .match-found-vs { animation: match-found-slam 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) 0.55s both; }
+  .match-found:not(.match-found--still) .match-found-flash { animation: match-found-burst 0.6s ease-out 0.6s forwards; }
+}
+
+@keyframes match-found-in { from { opacity: 0; } }
+@keyframes match-found-out { to { opacity: 0; } }
+@keyframes match-found-caption { from { transform: translateY(-30px); opacity: 0; } }
+@keyframes match-found-from-left { from { transform: translateX(calc(-1 * var(--slide))); } }
+@keyframes match-found-from-right { from { transform: translateX(var(--slide)); } }
+@keyframes match-found-slam { from { transform: scale(4); opacity: 0; } }
+@keyframes match-found-burst {
+  0% { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(40); }
+}

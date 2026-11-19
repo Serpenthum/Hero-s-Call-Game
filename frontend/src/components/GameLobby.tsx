@@ -16,7 +16,7 @@ import { useQuestReveal } from '../useQuestReveal';
 import QuestRewardModal from './QuestRewardModal';
 import SettingsModal from './SettingsModal';
 import config from '../config';
-import { timeUntilUtcMidnight, searchElapsed, formatRecord, nextFeaturedHero, collectionSummary } from '../lobby/lobbyRules';
+import { timeUntilUtcMidnight, searchElapsed, formatRecord, nextFeaturedHero, collectionSummary, markLobbyArrival, consumeLobbyArrival } from '../lobby/lobbyRules';
 import { getAnimSpeed } from '../battleAnimations';
 import '../styles/Lobby.css';
 
@@ -70,6 +70,9 @@ const RANKED_MODE_NAMES: Record<RankedMode, string> = { draft: 'Draft mode', sur
 // Phase 5 turns this on once the Gauntlet backend fixes land.
 const SHOW_GAUNTLET = true;
 
+// The arrival sequence ends 1.35 s after the lobby opens (Lobby.css); its class comes off shortly after.
+const ARRIVAL_MS = 1600;
+
 // The featured hero changes this often (ms), unless the player is looking at it.
 const FEATURE_SWAP_MS = 6000;
 
@@ -78,6 +81,22 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   useEffect(() => {
     socketService.getQuests();
   }, []);
+
+  // Arrival: plays once after signing in or reloading, not on coming back from a match. The flag is read
+  // here and put straight back, then cleared once the lobby has really mounted: React may run this
+  // initialiser twice (Strict Mode) or throw a render away, and that must not use the arrival up.
+  const [arrived] = useState(() => {
+    const arrival = consumeLobbyArrival();
+    if (arrival) markLobbyArrival();
+    return arrival;
+  });
+  const [arriving, setArriving] = useState(arrived);
+  useEffect(() => {
+    consumeLobbyArrival();
+    if (!arrived) return;
+    const timer = window.setTimeout(() => setArriving(false), ARRIVAL_MS);
+    return () => window.clearTimeout(timer);
+  }, [arrived]);
 
   const questReveal = useQuestReveal(
     pendingQuestReward,
@@ -370,7 +389,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   if (SHOW_GAUNTLET) modes.push({ mode: 'gauntlet', title: 'Gauntlet', text: 'Face 13 trials with a roster of six.', tag: 'Ranked', playLabel: 'Enter gauntlet', onActivate: handleGauntletClick });
 
   return (
-    <div className={`game-lobby-modern lobby${getAnimSpeed() === 'off' ? ' lobby--still' : ''}`}>
+    <div className={`game-lobby-modern lobby${getAnimSpeed() === 'off' ? ' lobby--still' : ''}${arriving ? ' lobby--arrive' : ''}`}>
       <LobbyTopBar
         coins={questReveal.display.vp}
         coinsBumping={questReveal.counting}
@@ -401,6 +420,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
             hero={featuredHero}
             favorite={!!featuredHero && (user.favorite_heroes || []).includes(featuredHero.name)}
             swapKey={swapKey}
+            arriving={arrived}
             onOpen={name => { featureHovered.current = false; handleShowCollection(name); }}
             onHoverChange={hovering => { featureHovered.current = hovering; }}
           />

@@ -72,6 +72,9 @@ const MIGRATED = [
   'components/lobby/ModeIcons.tsx',
   'lobby/useFriendsOnline.ts',
   'components/lobby/LobbyFriendsButton.tsx',
+  'components/lobby/MatchFoundOverlay.tsx',
+  'components/lobby/MatchFoundOverlay.test.tsx',
+  'styles/MatchFound.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;

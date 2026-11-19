@@ -607,10 +607,26 @@
   /* Candle flicker over the whole table */
   .lobby:not(.lobby--still)::before { animation: lobby-flicker 7s ease-in-out infinite; }
 
-  /* Featured stage: embers rise, the card floats, each new hero flips in */
+  /* Featured stage: embers rise, the card floats, each new hero flips in. The first hero simply appears,
+     unless the player has just arrived (below). */
   .lobby:not(.lobby--still) .lobby-embers > i { animation: lobby-ember linear infinite; }
   .lobby:not(.lobby--still) .lobby-float { animation: lobby-float 5.5s ease-in-out infinite; }
-  .lobby:not(.lobby--still) .lobby-featured { animation: lobby-flip 0.7s cubic-bezier(0.3, 0.8, 0.3, 1) backwards; }
+  .lobby:not(.lobby--still) .lobby-featured--swap { animation: lobby-flip 0.7s cubic-bezier(0.3, 0.8, 0.3, 1) backwards; }
+
+  /* Arrival, once after signing in or reloading (about 1.3 s): the bar drops in, the panel slides in, the
+     featured card flips in, the pedestal fades in and the mode cards are dealt one after another.
+     GameLobby.tsx takes .lobby--arrive off again when it is over, so hover lifts and the searching pulse
+     (later in this section, so it wins meanwhile) are not held by a finished animation. The featured card
+     keeps its own class, so a slow hero list cannot cut its flip short. */
+  .lobby--arrive:not(.lobby--still) .lobby-bar { animation: lobby-dropin 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
+  .lobby--arrive:not(.lobby--still) .lobby-panel { animation: lobby-slidein 0.6s cubic-bezier(0.2, 0.9, 0.3, 1) 0.15s backwards; }
+  .lobby--arrive:not(.lobby--still) .lobby-pedestal { animation: lobby-fade 0.8s 0.3s backwards; }
+  .lobby--arrive:not(.lobby--still) .mode-card { animation: lobby-deal 0.55s cubic-bezier(0.25, 1.25, 0.4, 1) backwards; }
+  .lobby--arrive:not(.lobby--still) .mode-card:nth-child(1) { animation-delay: 0.5s; }
+  .lobby--arrive:not(.lobby--still) .mode-card:nth-child(2) { animation-delay: 0.6s; }
+  .lobby--arrive:not(.lobby--still) .mode-card:nth-child(3) { animation-delay: 0.7s; }
+  .lobby--arrive:not(.lobby--still) .mode-card:nth-child(4) { animation-delay: 0.8s; }
+  .lobby:not(.lobby--still) .lobby-featured--arrive { animation: lobby-flip 0.8s cubic-bezier(0.3, 0.8, 0.3, 1) 0.35s backwards; }
 
   /* Top bar: a glint crosses the XP bar every 4 s; the online dot pings */
   .lobby:not(.lobby--still) .lobby-level .xp-fill { overflow: hidden; }
@@ -705,6 +721,9 @@
   0% { transform: perspective(900px) rotateY(-95deg) scale(0.92); opacity: 0; }
   100% { transform: perspective(900px) rotateY(0deg) scale(1); opacity: 1; }
 }
+@keyframes lobby-dropin { from { transform: translateY(-100%); } }
+@keyframes lobby-slidein { from { transform: translateX(-40px); opacity: 0; } }
+@keyframes lobby-deal { from { transform: translateY(120px) rotate(7deg); opacity: 0; } }
 @keyframes lobby-xp-glint {
   0%, 60% { transform: translateX(-120%); }
   100% { transform: translateX(180%); }

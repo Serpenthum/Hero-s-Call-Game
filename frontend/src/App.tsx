@@ -8,6 +8,8 @@ import CardLayoutTest from './components/CardLayoutTest';
 import UiKit from './components/ui/UiKit';
 import DevScreens from './components/ui/DevScreens';
 import RotatePrompt from './components/RotatePrompt';
+import MatchFoundOverlay from './components/lobby/MatchFoundOverlay';
+import { markLobbyArrival, matchFoundPlayers } from './lobby/lobbyRules';
 import InstallHint from './install/InstallHint';
 import { CardReaderProvider } from './cards/CardReader';
 import RegisterPage from './components/RegisterPage';
@@ -195,7 +197,12 @@ function App() {
   const [pendingQuestReward, setPendingQuestReward] = useState<PendingQuestReward | null>(null);
 
   // A refresh in this tab logs straight back in (the socket then rejoins any battle in progress)
-  const [restoredSession] = useState(() => restoreSession<User>());
+  const [restoredSession] = useState(() => {
+    const session = restoreSession<User>();
+    // Reloading counts as arriving at the lobby (the tutorial has its own tour of it)
+    if (session && session.user.tutorial_completed !== false) markLobbyArrival();
+    return session;
+  });
 
   const [state, setState] = useState<AppState>({
     gameState: null,
@@ -282,6 +289,16 @@ function App() {
   // The game on screen, for socket listeners (registered once) that must compare against it
   const gameStateRef = useRef<GameState | null>(null);
   gameStateRef.current = state.gameState;
+  // Our player id, for the same listeners. join-result also sets it directly, since game-start can
+  // follow before React has rendered the new state.
+  const playerIdRef = useRef<string | null>(null);
+  playerIdRef.current = state.playerId;
+  // The game about to start came from the Random or Draft queue: join-result clears the pending search
+  // once the game is ready, just before game-start, so it leaves this note for it
+  const queuedMatchRef = useRef(false);
+  // The "Match found" moment over the game screen (Random and Draft queue matches only)
+  const [matchFound, setMatchFound] = useState<NonNullable<ReturnType<typeof matchFoundPlayers>> | null>(null);
+  const closeMatchFound = useCallback(() => setMatchFound(null), []);
 
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
@@ -402,6 +419,7 @@ function App() {
         } else {
           // Regular mode - set up game state
           console.log(`🎮 Regular mode join - gameReady: ${data.gameReady}, players: ${data.players?.length || 0}`);
+          playerIdRef.current = data.playerId;
           setState(prev => ({
             ...prev,
             playerId: data.playerId,
@@ -421,6 +439,7 @@ function App() {
           // Only clear searching state if the game is ready (has 2 players)
           if (data.gameReady) {
             console.log('🎮 Game ready! Clearing search state');
+            queuedMatchRef.current = pendingSearchRef.current !== null;
             pendingSearchRef.current = null;
             setIsSearchingForMatch(false);
             setSearchMode(null);
@@ -462,6 +481,7 @@ function App() {
     socket.on('search-cancelled', (data) => {
       if (data.success) {
         pendingSearchRef.current = null;
+        queuedMatchRef.current = false;
         setIsSearchingForMatch(false);
         setSearchMode(null);
         // Reset game state when search is cancelled
@@ -500,6 +520,15 @@ function App() {
     });
 
     socket.on('game-start', (data) => {
+      // A match from the Random or Draft queue gets the "Match found" moment. It only covers the game
+      // screen: the state update below is not held back, and the draft clock is already running.
+      const fromQueue = pendingSearchRef.current !== null || queuedMatchRef.current;
+      queuedMatchRef.current = false;
+      if (fromQueue) {
+        const found = matchFoundPlayers(data.gameState?.players ?? data.players ?? [], playerIdRef.current);
+        if (found) setMatchFound(found);
+      }
+
       // Stop searching when game starts
       pendingSurvivalSearchRef.current = null;
       pendingSearchRef.current = null;
@@ -1972,6 +2001,8 @@ function App() {
 
   // Authentication handlers
   const handleLogin = (user: User) => {
+    // Signing in is an arrival at the lobby (new accounts go to the tutorial, which has its own tour of it)
+    if (user.tutorial_completed !== false) markLobbyArrival();
     setSignedOutNotice(null);
     signedOutRef.current = false;
     setState(prev => ({
@@ -2876,6 +2907,9 @@ function App() {
 
 
       <RotatePrompt />
+
+      {/* Match found: covers the game screen for under two seconds; the rotate screen stays above it */}
+      {matchFound && <MatchFoundOverlay me={matchFound.me} them={matchFound.them} onDone={closeMatchFound} />}
 
       {/* Install hint: lobby only */}
       {state.user && (!state.gameState || state.gameState.phase === 'waiting') && !state.showSurvival && !state.showGauntlet && tutorial.stage === null && <InstallHint />}

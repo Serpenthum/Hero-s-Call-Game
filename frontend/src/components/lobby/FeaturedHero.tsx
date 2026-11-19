@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import HeroCard from '../HeroCard';
 import { Hero } from '../../types';
 
@@ -6,6 +6,8 @@ interface FeaturedHeroProps {
   hero: Hero | null;
   favorite: boolean;
   swapKey: number;
+  // The player has just arrived at the lobby: the first card flips in as part of the arrival
+  arriving?: boolean;
   onOpen(heroName: string): void;
   onHoverChange(hovering: boolean): void;
 }
@@ -27,13 +29,15 @@ const makeEmbers = (): React.CSSProperties[] =>
   });
 
 // The featured hero on its pedestal. A tap opens the Binder on that hero's page.
-const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, swapKey, onOpen, onHoverChange }) => {
+const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, swapKey, arriving = false, onOpen, onHoverChange }) => {
   // Pointer hover and keyboard focus are tracked apart, so a mouse passing over a focused card
   // does not report "not hovering" and let the next swap remount it (dropping focus).
   const hovered = useRef(false);
   const focused = useRef(false);
   const report = () => onHoverChange(hovered.current || focused.current);
-  const embers = useMemo(makeEmbers, []);
+  const [embers] = useState(makeEmbers);
+  // The first card simply appears (or flips in with the arrival); every later one flips in as a swap.
+  const entrance = swapKey > 0 ? ' lobby-featured--swap' : arriving ? ' lobby-featured--arrive' : '';
   // The Binder covers the card once it opens, so neither flag should hold the swaps afterwards.
   const open = (name: string) => {
     hovered.current = false;
@@ -52,7 +56,7 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, swapKey, on
           <div className="lobby-float">
             <div
               key={swapKey}
-              className="lobby-featured"
+              className={`lobby-featured${entrance}`}
               data-swap={swapKey}
               role="button"
               tabIndex={0}
