@@ -1,9 +1,10 @@
 /* Install hint: a slim bar in the lobby, clear of the mode cards and the Shop and Binder tiles. Modals cover it.
-   Computers and tablets: just under the top bar, over the featured hero. */
+   Computers and tablets: just under the top bar, over the featured hero.
+   Its position reads the lobby geometry (--lobby-*) defined once in Lobby.css. */
 .install-hint {
   position: fixed;
   left: 50%;
-  top: calc(72px + var(--safe-top));
+  top: calc(var(--lobby-bar-h) + 11px + var(--safe-top));
   transform: translateX(-50%);
   z-index: 900;
   display: flex;
@@ -20,24 +21,18 @@
 }
 
 /* ===== Sideways phones ===== */
-/* Bottom of the felt between the featured card and the player panel (the column widths match Lobby.css);
+/* Bottom of the felt between the featured card and the player panel (columns from Lobby.css);
    the mode cards move up out of its way. */
 @media (max-height: 500px) {
   .install-hint {
     top: auto;
     bottom: calc(8px + var(--safe-bottom));
-    left: calc(10px + 176px + 10px + var(--safe-left));
-    right: calc(10px + 190px + 10px + var(--safe-right));
+    left: calc(2 * var(--lobby-gap) + var(--lobby-featured-col) + var(--safe-left));
+    right: calc(2 * var(--lobby-gap) + var(--lobby-panel-col) + var(--safe-right));
     transform: none;
     max-width: none;
     justify-content: space-between;
     padding: 4px 4px 4px 10px;
   }
   .install-hint-text { font-size: 13px; line-height: 1.25; }
-}
-@media (max-height: 500px) and (max-width: 700px) {
-  .install-hint {
-    left: calc(8px + 146px + 8px + var(--safe-left));
-    right: calc(8px + 172px + 8px + var(--safe-right));
-  }
 }

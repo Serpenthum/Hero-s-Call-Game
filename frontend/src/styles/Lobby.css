@@ -2,6 +2,15 @@
    on its pedestal and the mode cards. Sizes follow the owner-approved step 2 mockup
    (docs/superpowers/specs/2026-11-17-redesign-mockups/lobby-step2.html). No ambient motion here yet. */
 
+/* Lobby geometry shared with InstallHint.css (the hint sits outside .lobby, so these live on :root):
+   bar height, the gap round the table, and on sideways phones the featured-card and panel columns. */
+:root {
+  --lobby-bar-h: 61px;
+  --lobby-gap: 16px;
+  --lobby-featured-col: 176px;
+  --lobby-panel-col: 190px;
+}
+
 .lobby {
   position: relative;
   height: 100vh;
@@ -35,6 +44,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  min-height: var(--lobby-bar-h);
   padding: 10px 18px;
   background: linear-gradient(color-mix(in srgb, var(--leather) 45%, var(--walnut)), color-mix(in srgb, var(--walnut) 78%, var(--card-black)));
   border-bottom: 1px solid var(--brass-dim);
@@ -129,8 +139,8 @@
   min-height: 0;
   display: grid;
   grid-template-columns: clamp(18rem, 22vw, 20rem) minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px;
+  gap: var(--lobby-gap);
+  padding: var(--lobby-gap);
 }
 
 /* ===== Player panel (the ledger) ===== */
@@ -455,17 +465,18 @@
 /* ===== Sideways phones ===== */
 /* Everything fits the screen: featured card | mode cards 2x2 | player panel. */
 @media (max-height: 500px) {
+  :root { --lobby-bar-h: 50px; --lobby-gap: 10px; }
   .lobby-bar { gap: 10px; padding: 5px 12px; }
   .lobby-title { font-size: 22px; }
   .lobby-level { min-width: 110px; }
   .lobby-bar-btn-label { display: none; }
 
-  .lobby-main { grid-template-columns: auto minmax(0, 1fr) 190px; gap: 10px; padding: 10px; }
+  .lobby-main { grid-template-columns: auto minmax(0, 1fr) var(--lobby-panel-col); }
   .lobby-table { display: contents; }
 
   .lobby-stage { grid-column: 1; grid-row: 1; place-items: center; padding: 0; container-type: normal; }
   .lobby-featured .hero-card.hero-layout-card {
-    --card-w: min(176px, calc((var(--app-height) - 72px) * 260 / 391));
+    --card-w: min(var(--lobby-featured-col), calc((var(--app-height) - 72px) * 260 / 391));
   }
   .lobby-pedestal,
   .lobby-stage-hint { display: none; }
@@ -507,12 +518,12 @@
 
 /* Small sideways phones (640x360) */
 @media (max-height: 500px) and (max-width: 700px) {
+  :root { --lobby-gap: 8px; --lobby-featured-col: 146px; --lobby-panel-col: 172px; }
   .lobby-title { font-size: 19px; }
   .lobby-level { min-width: 96px; }
 
-  .lobby-main { grid-template-columns: auto minmax(0, 1fr) 172px; gap: 8px; padding: 8px; }
   .lobby-featured .hero-card.hero-layout-card {
-    --card-w: min(146px, calc((var(--app-height) - 72px) * 260 / 391));
+    --card-w: min(var(--lobby-featured-col), calc((var(--app-height) - 72px) * 260 / 391));
   }
 
   .mode-cards,
