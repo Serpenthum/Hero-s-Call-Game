@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   timeUntilUtcMidnight,
+  utcDayKey,
   searchElapsed,
   formatRecord,
   nextFeaturedHero,
@@ -10,6 +11,14 @@ import {
   matchFoundPlayers,
   heroImageUrl,
 } from './lobbyRules';
+
+describe('utcDayKey', () => {
+  it('changes at UTC midnight, not local midnight', () => {
+    expect(utcDayKey(new Date('2026-11-18T23:59:59Z'))).toBe('2026-11-18');
+    expect(utcDayKey(new Date('2026-11-19T00:00:00Z'))).toBe('2026-11-19');
+    expect(utcDayKey(new Date('2026-11-18T23:30:00-05:00'))).toBe('2026-11-19');
+  });
+});
 
 describe('timeUntilUtcMidnight', () => {
   it('shows hours and minutes', () => {
@@ -63,7 +72,7 @@ describe('nextFeaturedHero', () => {
   it('never returns a disabled hero', () => {
     let previous: string | null = null;
     for (let turn = 0; turn < 50; turn++) {
-      const hero = nextFeaturedHero([A, B, C], ['C'], turn, previous, Math.random);
+      const hero: { name: string; disabled?: boolean } | null = nextFeaturedHero([A, B, C], ['C'], turn, previous, Math.random);
       expect(hero).not.toBe(C);
       previous = hero?.name ?? null;
     }

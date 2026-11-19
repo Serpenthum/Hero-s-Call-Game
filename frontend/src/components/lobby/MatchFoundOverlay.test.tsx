@@ -5,7 +5,7 @@ vi.mock('../../config', () => ({ default: { IMAGE_BASE_URL: 'http://img.test', A
 const animSpeed = vi.hoisted(() => ({ value: 'normal' }));
 vi.mock('../../battleAnimations', () => ({ getAnimSpeed: () => animSpeed.value }));
 
-import MatchFoundOverlay, { MATCH_FOUND_DONE_AT_MS, MATCH_FOUND_FADE_AT_MS } from './MatchFoundOverlay';
+import MatchFoundOverlay, { MATCH_FOUND_DONE_AT_MS, MATCH_FOUND_FADE_AT_MS, isSkipKey } from './MatchFoundOverlay';
 
 const render = (me: { name: string; icon: string | null }, them: { name: string; icon: string | null }) =>
   renderToStaticMarkup(<MatchFoundOverlay me={me} them={them} onDone={() => {}} />);
@@ -42,5 +42,14 @@ describe('MatchFoundOverlay', () => {
   it('is over within two seconds, after a 400 ms fade', () => {
     expect(MATCH_FOUND_DONE_AT_MS).toBeLessThan(2000);
     expect(MATCH_FOUND_DONE_AT_MS - MATCH_FOUND_FADE_AT_MS).toBe(400);
+  });
+
+  it('is skipped only by Escape, Enter or Space', () => {
+    expect(isSkipKey('Escape')).toBe(true);
+    expect(isSkipKey('Enter')).toBe(true);
+    expect(isSkipKey(' ')).toBe(true);
+    for (const key of ['Shift', 'Control', 'Alt', 'Meta', 'Tab', 'a', 'F5', 'ArrowLeft']) {
+      expect(isSkipKey(key)).toBe(false);
+    }
   });
 });

@@ -16,7 +16,7 @@ import { useQuestReveal } from '../useQuestReveal';
 import QuestRewardModal from './QuestRewardModal';
 import SettingsModal from './SettingsModal';
 import config from '../config';
-import { timeUntilUtcMidnight, searchElapsed, formatRecord, nextFeaturedHero, collectionSummary, markLobbyArrival, consumeLobbyArrival } from '../lobby/lobbyRules';
+import { timeUntilUtcMidnight, utcDayKey, searchElapsed, formatRecord, nextFeaturedHero, collectionSummary, markLobbyArrival, consumeLobbyArrival } from '../lobby/lobbyRules';
 import { getAnimSpeed } from '../battleAnimations';
 import '../styles/Lobby.css';
 
@@ -141,10 +141,20 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
     return () => { cancelled = true; };
   }, [user.id]);
 
-  // Quests reset at midnight UTC; the countdown beside the heading follows it.
+  // Quests reset at midnight UTC; the countdown beside the heading follows it, and the list is asked
+  // for again once the UTC day turns over, so yesterday's quests never sit beside a fresh countdown.
   const [resetText, setResetText] = useState(() => timeUntilUtcMidnight(new Date()));
   useEffect(() => {
-    const timer = window.setInterval(() => setResetText(timeUntilUtcMidnight(new Date())), 30000);
+    let utcDay = utcDayKey(new Date());
+    const timer = window.setInterval(() => {
+      const now = new Date();
+      setResetText(timeUntilUtcMidnight(now));
+      const today = utcDayKey(now);
+      if (today !== utcDay) {
+        utcDay = today;
+        socketService.getQuests();
+      }
+    }, 30000);
     return () => window.clearInterval(timer);
   }, []);
 

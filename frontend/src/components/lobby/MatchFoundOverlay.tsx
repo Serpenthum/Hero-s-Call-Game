@@ -42,8 +42,11 @@ const Portrait: React.FC<{ player: MatchPlayer }> = ({ player }) => {
   );
 };
 
+// Keys that skip the overlay (other keys, e.g. a modifier or a shortcut, leave it playing)
+export const isSkipKey = (key: string) => key === 'Escape' || key === 'Enter' || key === ' ';
+
 // "Match found": both players slide in and VS slams between them, over the game screen that has
-// already started underneath. It leaves by itself; any tap or key skips it.
+// already started underneath. It leaves by itself; a tap, Escape, Enter or Space skips it.
 const MatchFoundOverlay: React.FC<MatchFoundOverlayProps> = ({ me, them, onDone }) => {
   const [leaving, setLeaving] = useState(false);
   const doneRef = useRef(onDone);
@@ -52,7 +55,9 @@ const MatchFoundOverlay: React.FC<MatchFoundOverlayProps> = ({ me, them, onDone 
   useEffect(() => {
     const fade = window.setTimeout(() => setLeaving(true), MATCH_FOUND_FADE_AT_MS);
     const done = window.setTimeout(() => doneRef.current(), MATCH_FOUND_DONE_AT_MS);
-    const onKey = () => doneRef.current();
+    const onKey = (e: KeyboardEvent) => {
+      if (isSkipKey(e.key)) doneRef.current();
+    };
     window.addEventListener('keydown', onKey);
     return () => {
       window.clearTimeout(fade);

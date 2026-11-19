@@ -10,6 +10,11 @@ export function timeUntilUtcMidnight(now: Date): string {
   return h > 0 ? `New in ${h}h ${m}m` : `New in ${m}m`;
 }
 
+/** The UTC calendar day ("2026-11-18"): quests turn over when it changes. */
+export function utcDayKey(now: Date): string {
+  return now.toISOString().slice(0, 10);
+}
+
 /** Time spent searching as m:ss; "0:00" before a search starts. */
 export function searchElapsed(startedAt: number | null, now: number): string {
   if (startedAt === null) return '0:00';
