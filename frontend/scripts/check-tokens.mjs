@@ -64,6 +64,12 @@ const MIGRATED = [
   'hooks/useCardGrid.test.ts',
   'lobby/lobbyRules.ts',
   'lobby/lobbyRules.test.ts',
+  'components/lobby/LobbyTopBar.tsx',
+  'components/lobby/PlayerPanel.tsx',
+  'components/lobby/FeaturedHero.tsx',
+  'components/lobby/ModeCards.tsx',
+  'components/lobby/ModeCards.test.tsx',
+  'components/lobby/ModeIcons.tsx',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;

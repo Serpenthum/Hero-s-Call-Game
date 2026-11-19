@@ -50,6 +50,14 @@
   --card-white: #fff;
   --card-text: #ece6d8;
 
+  /* Lobby mode cards: each mode's accent (top edge, icon, button) */
+  --mode-random: #cfa95f;
+  --mode-draft: #c9705a;
+  --mode-survival: #d98a3d;
+  --mode-gauntlet: #8fa5c9;
+  --mode-flame-core: #ffd27a;
+  --mode-ink: #17110b;
+
   /* Type */
   --font-display: 'Grenze Gotisch', Georgia, serif;
   --font-label: 'IM Fell English', Georgia, serif;

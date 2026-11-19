@@ -9,19 +9,19 @@ interface XPBarProps {
   leveledUp?: boolean;
 }
 
+// XP target for the current level (XP resets to 0 on level up).
+// Level 1 needs 25, Level 2 needs 50, Level 3 needs 75, etc.
+export const xpNeededForLevel = (lvl: number) => {
+  if (lvl >= 20) return 500; // Max level
+  return lvl * 25;
+};
+
 const XPBar: React.FC<XPBarProps> = ({ currentXP, level, animated = true, xpGained = 0, leveledUp = false }) => {
   const [displayXP, setDisplayXP] = useState(animated ? currentXP - xpGained : currentXP);
   const [isAnimating, setIsAnimating] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
 
-  // Calculate XP target for current level (XP resets to 0 on level up)
-  // Level 1 needs 25, Level 2 needs 50, Level 3 needs 75, etc.
-  const getXPNeededForCurrentLevel = (lvl: number) => {
-    if (lvl >= 20) return 500; // Max level
-    return lvl * 25;
-  };
-
-  const xpNeededForNext = getXPNeededForCurrentLevel(level);
+  const xpNeededForNext = xpNeededForLevel(level);
   const progressPercent = Math.min(100, (displayXP / xpNeededForNext) * 100);
 
   // Animation effect for XP gain
