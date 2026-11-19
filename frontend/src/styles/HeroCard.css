@@ -211,16 +211,18 @@
   border-radius: 0 0 0.45em;
 }
 
-/* Stat rail: four hexagon gems down the left side. */
+/* Stat rail: four hexagon gems down the left side. --gem-scale grows the gems (and the gap between them) without
+   moving the rail's top-left anchor, which is divided back out of the rail's own em. */
 .hero-card .card-stats {
+  --gem-scale: 1.15;
   position: absolute;
-  top: 0.9em;
-  left: 0.7em;
+  top: calc(0.9em / var(--gem-scale));
+  left: calc(0.7em / var(--gem-scale));
   z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 0.35em;
-  font-size: 1.15em;
+  font-size: calc(1.15em * var(--gem-scale));
 }
 
 /* A hovered stat's tooltip has to clear the foil, the star, the status chips and the other gems. */
@@ -779,7 +781,7 @@
   }
 
   .hero-card .card-stats {
-    font-size: 1.5em;
+    font-size: calc(1.5em * var(--gem-scale));
   }
 
   .hero-card .card-lower {
