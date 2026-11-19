@@ -3,6 +3,7 @@ import HeroCollection from './HeroCollection';
 import ProfileModal from './ProfileModal';
 import Icon from './ui/Icon';
 import LobbyTopBar from './lobby/LobbyTopBar';
+import LobbyFriendsButton, { LobbyFriendsProps } from './lobby/LobbyFriendsButton';
 import PlayerPanel from './lobby/PlayerPanel';
 import FeaturedHero from './lobby/FeaturedHero';
 import ModeCards, { ModeCardSpec } from './lobby/ModeCards';
@@ -52,6 +53,11 @@ interface GameLobbyProps {
   quests?: Quest[];
   pendingQuestReward?: PendingQuestReward | null;
   onClaimQuestReward?: () => void;
+  // Friends and Messages live in the top bar while the lobby shows (App hides its floating icons);
+  // left out during the tutorial, when Friends is unavailable
+  friends?: LobbyFriendsProps;
+  // The Shop covers the top bar, so App shows its floating Friends icons while it is open
+  onShopStateChange?: (isOpen: boolean) => void;
 }
 
 const RANKED_MODES = ['draft', 'survival'] as const;
@@ -66,7 +72,7 @@ const SHOW_GAUNTLET = true;
 // The featured hero changes this often (ms), unless the player is looking at it.
 const FEATURE_SWAP_MS = 6000;
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onStartGauntlet, victoryPoints, onVictoryPointsChange, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onStartGauntlet, victoryPoints, onVictoryPointsChange, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward, friends, onShopStateChange }) => {
   // Refresh on entering the lobby so a new UTC day resets the list.
   useEffect(() => {
     socketService.getQuests();
@@ -83,6 +89,13 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   // The hero the Binder opens on (the featured card was tapped)
   const [binderHero, setBinderHero] = useState<string | undefined>(undefined);
   const [showShop, setShowShop] = useState(false);
+  const shopStateRef = useRef(onShopStateChange);
+  shopStateRef.current = onShopStateChange;
+  useEffect(() => {
+    shopStateRef.current?.(showShop);
+  }, [showShop]);
+  // Leaving the lobby with the Shop open (a match found) must not leave the floating icons hidden
+  useEffect(() => () => shopStateRef.current?.(false), []);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [allHeroes, setAllHeroes] = useState<Hero[]>([]);
   const [profileIcon, setProfileIcon] = useState<string | null>(null);
@@ -364,6 +377,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
         xp={questReveal.display.xp || 0}
         levelFlash={questReveal.levelFlash}
         onLogout={onLogout}
+        friends={friends && <LobbyFriendsButton {...friends} />}
       />
 
       <main className="lobby-main">

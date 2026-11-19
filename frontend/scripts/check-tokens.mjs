@@ -70,6 +70,8 @@ const MIGRATED = [
   'components/lobby/ModeCards.tsx',
   'components/lobby/ModeCards.test.tsx',
   'components/lobby/ModeIcons.tsx',
+  'lobby/useFriendsOnline.ts',
+  'components/lobby/LobbyFriendsButton.tsx',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;

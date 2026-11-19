@@ -120,6 +120,44 @@
 }
 .lobby-bar-btn:hover { color: var(--bone); border-color: var(--brass-dim); }
 .lobby-bar-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.lobby-bar-btn.is-open { color: var(--bone); border-color: var(--brass); }
+
+/* Friends and Messages: an icon, its label (hidden on phones) and the new-items count */
+.lobby-bar-icon { position: relative; display: block; flex: none; width: 20px; height: 20px; }
+.lobby-bar-icon svg { display: block; width: 100%; height: 100%; }
+/* A friend is online: a green dot at the icon's top right */
+.lobby-friends-online {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  background: var(--verdigris);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--verdigris);
+  animation: lobby-ping 2s ease-out infinite;
+}
+.lobby-friends-online.is-still { animation: none; }
+@keyframes lobby-ping {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--verdigris) 70%, transparent); }
+  100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--verdigris) 0%, transparent); }
+}
+.lobby-bar-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 12px / 1 var(--font-ui);
+  color: var(--bone);
+  background: var(--ember);
+  border: 1px solid var(--card-black);
+  border-radius: 9px;
+}
 
 /* Buttons in the lobby change colour only (the global button rule would animate every property) */
 .lobby-bar-btn,
@@ -556,5 +594,6 @@
   .lobby-quest.just-completed,
   .mode-unlock-reveal,
   .mode-unlock-toast,
+  .lobby-friends-online,
   .placard-dots .dot { animation: none; }
 }

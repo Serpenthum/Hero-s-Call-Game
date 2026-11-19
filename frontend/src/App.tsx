@@ -258,6 +258,8 @@ function App() {
   const signedOutRef = useRef(false);
   const [draftTimer, setDraftTimer] = useState<{ round: number; durationMs: number; deadline: number } | null>(null);
   const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
+  // The Shop covers the lobby's top bar, so the floating Friends icons come back while it is open
+  const [lobbyShopOpen, setLobbyShopOpen] = useState(false);
   // How many of the six battle heroes are visible during the tutorial intro; null = all
   const [tutorialReveal, setTutorialReveal] = useState<number | null>(null);
   // The battle card shown in the details panel over the left column (null when closed); the tutorial reads it
@@ -2277,6 +2279,11 @@ function App() {
     return opponent;
   };
 
+  // Messages shows only when there are unread or minimised chats
+  const hasMessageChats = state.messageNotificationCount > 0 || state.unreadMessageChats.size > 0 || state.minimizedMessageChats.length > 0;
+  // The lobby (same test as renderGameContent below) has Friends and Messages in its top bar
+  const lobbyShowing = !!state.user && !state.showSurvival && !state.showGauntlet && (!state.gameState || state.gameState.phase === 'waiting');
+
   const renderGameContent = () => {
     if (import.meta.env.DEV && window.location.hash === '#ui-kit') {
       return <UiKit />;
@@ -2381,6 +2388,17 @@ function App() {
           quests={quests}
           pendingQuestReward={pendingQuestReward}
           onClaimQuestReward={() => setPendingQuestReward(null)}
+          onShopStateChange={setLobbyShopOpen}
+          friends={tutorial.stage === null ? {
+            onToggle: handleToggleFriendsOverlay,
+            isOpen: state.showFriendsOverlay,
+            notificationCount: state.friendsNotificationCount,
+            messages: {
+              show: hasMessageChats,
+              onClick: handleMessageIconClick,
+              count: state.messageNotificationCount
+            }
+          } : undefined}
         />
       );
     }
@@ -2877,16 +2895,18 @@ function App() {
       {/* Friends System - show everywhere except in collection and during the tutorial */}
       {state.user && !state.showCollection && tutorial.stage === null && (
         <>
-          {/* Friends Icon */}
-          <FriendsIcon
-            onClick={handleToggleFriendsOverlay}
-            hasNotifications={state.friendsNotificationCount > 0}
-            notificationCount={state.friendsNotificationCount}
-            isOpen={state.showFriendsOverlay}
-          />
-          
-          {/* Message Icon: only shown when there are unread or minimized chats */}
-          {(state.messageNotificationCount > 0 || state.unreadMessageChats.size > 0 || state.minimizedMessageChats.length > 0) && (
+          {/* Floating Friends icon: the lobby has its own in the top bar, unless the Shop covers it */}
+          {(!lobbyShowing || lobbyShopOpen) && (
+            <FriendsIcon
+              onClick={handleToggleFriendsOverlay}
+              hasNotifications={state.friendsNotificationCount > 0}
+              notificationCount={state.friendsNotificationCount}
+              isOpen={state.showFriendsOverlay}
+            />
+          )}
+
+          {/* Message Icon: only shown when there are unread or minimized chats (in the lobby, in the top bar) */}
+          {hasMessageChats && (!lobbyShowing || lobbyShopOpen) && (
             <MessageIcon 
               onClick={handleMessageIconClick}
               hasNotifications={state.messageNotificationCount > 0}
