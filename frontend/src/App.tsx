@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { socketService } from './socketService';
 import { GameState, Player, Hero, Quest, PendingQuestReward } from './types';
 import GameLobby from './components/GameLobby';
@@ -33,13 +33,17 @@ import './styles/Panels.css';
 import './styles/Reconnecting.css';
 import type { InspectedCard } from './battle/focus';
 import { SearchCancels } from './lobby/searchCancels';
+import { lazyWithReload } from './app/lazyWithReload';
+import AppErrorBoundary from './app/AppErrorBoundary';
+import { tutorialStageOnRestore, tutorialBattleFinished } from './app/tutorialResume';
 
-const DraftPhase = lazy(() => import('./components/DraftPhase'));
-const BattlePhase = lazy(() => import('./components/BattlePhase'));
-const SurvivalMode = lazy(() => import('./components/SurvivalMode'));
-const GauntletMode = lazy(() => import('./components/GauntletMode'));
-const FriendsOverlay = lazy(() => import('./components/FriendsOverlay'));
-const MessageChat = lazy(() => import('./components/MessageChat'));
+// Code-split screens reload the page once if their chunk is gone after a deploy (see lazyWithReload)
+const DraftPhase = lazyWithReload(() => import('./components/DraftPhase'));
+const BattlePhase = lazyWithReload(() => import('./components/BattlePhase'));
+const SurvivalMode = lazyWithReload(() => import('./components/SurvivalMode'));
+const GauntletMode = lazyWithReload(() => import('./components/GauntletMode'));
+const FriendsOverlay = lazyWithReload(() => import('./components/FriendsOverlay'));
+const MessageChat = lazyWithReload(() => import('./components/MessageChat'));
 
 
 
@@ -265,11 +269,13 @@ function App() {
   // This socket's session has ended (forced logout): its closing is not a lost connection
   const signedOutRef = useRef(false);
   const [draftTimer, setDraftTimer] = useState<{ round: number; durationMs: number; deadline: number } | null>(null);
-  const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
+  // A refresh of an account that has not done the tutorial starts it again, as signing in does (the server
+  // ended the old tutorial game when this page's socket closed, so a fresh join-tutorial follows)
+  const [tutorial, setTutorial] = useState<TutorialState>(() => ({ stage: tutorialStageOnRestore(restoredSession?.user ?? null) }));
   // The Shop covers the lobby's top bar, so the floating Friends icons come back while it is open
   const [lobbyShopOpen, setLobbyShopOpen] = useState(false);
   // How many of the six battle heroes are visible during the tutorial intro; null = all
-  const [tutorialReveal, setTutorialReveal] = useState<number | null>(null);
+  const [tutorialReveal, setTutorialReveal] = useState<number | null>(() => (tutorial.stage === 'battle' ? 0 : null));
   // The battle card shown in the details panel over the left column (null when closed); the tutorial reads it
   const [battleInspect, setBattleInspect] = useState<InspectedCard | null>(null);
   // Bumped to close the details panel from outside the battle screen (the tutorial clears the board for a prompt)
@@ -1869,6 +1875,13 @@ function App() {
     socketService.joinTutorial(state.user.username);
   }, [state.user?.id, tutorial.stage]);
 
+  // The tutorial battle was won: the server has marked the tutorial done, so the saved session says so too
+  // (a refresh from here on lands in the lobby, not back in the tutorial)
+  const tutorialWon = tutorialBattleFinished(tutorial.stage, state.gameState);
+  useEffect(() => {
+    if (tutorialWon) markTutorialCompleted();
+  }, [tutorialWon]);
+
 
 
   const handleJoinGame = (mode: 'draft' | 'random') => {
@@ -2084,8 +2097,16 @@ function App() {
     setTutorialReveal(null);
   };
 
+  // Keeps the account (and so this tab's saved session) in step with the server marking the tutorial done
+  const markTutorialCompleted = () => {
+    setState(prev => (prev.user && prev.user.tutorial_completed === false
+      ? { ...prev, user: { ...prev.user, tutorial_completed: true } }
+      : prev));
+  };
+
   const handleSkipTutorial = () => {
     socketService.skipTutorial();
+    markTutorialCompleted();
     setRewardsData(null);
     setState(prev => ({ ...prev, gameState: null, battleLog: [] }));
     finishTutorial();
@@ -2111,10 +2132,12 @@ function App() {
     setSignedOutNotice(notice ?? null);
     // Close our socket first, so its closing is never mistaken for a lost connection
     socketService.disconnect();
-    
+    // A tutorial in progress belongs to this account (e.g. a restored session whose login had expired)
+    finishTutorial();
+
     // Clear stored game state
     localStorage.removeItem('heroCallActiveGame');
-    
+
     // Update UI state first
     setState(prev => ({
       ...prev,
@@ -3097,10 +3120,13 @@ function App() {
 }
 
 // Any card in the app can be opened large in the card reader.
+// A crash shows a Reload panel instead of a blank screen; the card reader stays above it.
 function AppWithCardReader() {
   return (
     <CardReaderProvider>
-      <App />
+      <AppErrorBoundary>
+        <App />
+      </AppErrorBoundary>
     </CardReaderProvider>
   );
 }

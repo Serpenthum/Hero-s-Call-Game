@@ -78,6 +78,13 @@ const MIGRATED = [
   'components/lobby/MatchFoundOverlay.tsx',
   'components/lobby/MatchFoundOverlay.test.tsx',
   'styles/MatchFound.css',
+  'app/lazyWithReload.ts',
+  'app/lazyWithReload.test.ts',
+  'app/tutorialResume.ts',
+  'app/tutorialResume.test.ts',
+  'app/AppErrorBoundary.tsx',
+  'app/AppErrorBoundary.test.tsx',
+  'styles/AppError.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
