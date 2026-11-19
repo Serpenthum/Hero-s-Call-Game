@@ -17,8 +17,8 @@ interface MatchFoundOverlayProps {
 
 // The whole moment lasts under two seconds: the draft clock is already running underneath.
 // Keep these in step with MatchFound.css (the fade-out there is 400 ms).
-export const MATCH_FOUND_FADE_AT_MS = 1550;
-export const MATCH_FOUND_DONE_AT_MS = 1950;
+export const MATCH_FOUND_FADE_AT_MS = 1450;
+export const MATCH_FOUND_DONE_AT_MS = 1850;
 
 // A player's portrait: their profile hero, or a brass frame with their initial when there is none
 // (or its picture does not load).

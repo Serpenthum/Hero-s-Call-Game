@@ -32,8 +32,11 @@ describe('MatchFoundOverlay', () => {
   it('is marked still when battle animations are off', () => {
     expect(render({ name: 'A', icon: null }, { name: 'B', icon: null })).not.toContain('match-found--still');
     animSpeed.value = 'off';
-    expect(render({ name: 'A', icon: null }, { name: 'B', icon: null })).toContain('match-found--still');
-    animSpeed.value = 'normal';
+    try {
+      expect(render({ name: 'A', icon: null }, { name: 'B', icon: null })).toContain('match-found--still');
+    } finally {
+      animSpeed.value = 'normal';
+    }
   });
 
   it('is over within two seconds, after a 400 ms fade', () => {

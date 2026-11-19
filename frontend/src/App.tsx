@@ -361,6 +361,7 @@ function App() {
     socket.on('reconnect-success', (gameState) => {
       console.log('✅ Reconnected to game successfully:', gameState);
       pendingSearchRef.current = null;
+      queuedMatchRef.current = false;
       pendingSurvivalSearchRef.current = null;
       const rejoinedSameGame = gameStateRef.current?.id === gameState.id;
       setState(prev => ({
@@ -452,6 +453,7 @@ function App() {
         // Show the server's reason (e.g. Draft unlock level, not enough heroes) when it gives one
         const reason = (data as any).error || (data as any).message;
         pendingSearchRef.current = null;
+        queuedMatchRef.current = false;
         setState(prev => ({ ...prev, error: reason || 'Failed to join game' }));
         // Clear searching state on failure
         setIsSearchingForMatch(false);
@@ -522,7 +524,7 @@ function App() {
     socket.on('game-start', (data) => {
       // A match from the Random or Draft queue gets the "Match found" moment. It only covers the game
       // screen: the state update below is not held back, and the draft clock is already running.
-      const fromQueue = pendingSearchRef.current !== null || queuedMatchRef.current;
+      const fromQueue = queuedMatchRef.current;
       queuedMatchRef.current = false;
       if (fromQueue) {
         const found = matchFoundPlayers(data.gameState?.players ?? data.players ?? [], playerIdRef.current);
@@ -1987,6 +1989,7 @@ function App() {
 
   const handleCancelSearch = () => {
     pendingSearchRef.current = null;
+    queuedMatchRef.current = false;
     socketService.cancelSearch();
     setIsSearchingForMatch(false);
     setSearchMode(null);
@@ -2123,6 +2126,7 @@ function App() {
 
     pendingSurvivalSearchRef.current = null;
     pendingSearchRef.current = null;
+    queuedMatchRef.current = false;
     setIsSearchingForSurvivalMatch(false);
   };
 
