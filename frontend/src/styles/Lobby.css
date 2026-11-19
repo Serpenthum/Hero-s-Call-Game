@@ -142,6 +142,17 @@
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--verdigris) 70%, transparent); }
   100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--verdigris) 0%, transparent); }
 }
+/* A chat is minimised (and nothing unread): a still brass dot where the online dot sits on Friends */
+.lobby-messages-minimized {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  background: var(--brass-hi);
+  border: 1px solid var(--card-black);
+  border-radius: 50%;
+}
 .lobby-bar-badge {
   position: absolute;
   top: -4px;

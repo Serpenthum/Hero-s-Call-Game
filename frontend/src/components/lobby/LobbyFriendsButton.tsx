@@ -6,7 +6,8 @@ export interface LobbyFriendsProps {
   onToggle(): void;
   isOpen: boolean;
   notificationCount: number;
-  messages: { show: boolean; onClick(): void; count: number };
+  // minimized: a chat is minimised (shown as a small dot when nothing is unread)
+  messages: { show: boolean; onClick(): void; count: number; minimized: boolean };
 }
 
 const badgeText = (count: number) => (count > 9 ? '9+' : String(count));
@@ -48,13 +49,14 @@ const LobbyFriendsButton: React.FC<LobbyFriendsProps> = ({ onToggle, isOpen, not
           type="button"
           className="lobby-bar-btn lobby-messages"
           onClick={messages.onClick}
-          aria-label={messages.count > 0 ? `Messages, ${messages.count} unread` : 'Messages'}
+          aria-label={messages.count > 0 ? `Messages, ${messages.count} unread` : messages.minimized ? 'Messages, minimised chat' : 'Messages'}
           title="Messages"
         >
           <span className="lobby-bar-icon">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
             </svg>
+            {messages.minimized && messages.count === 0 && <span className="lobby-messages-minimized" aria-hidden="true" />}
           </span>
           <span className="lobby-bar-btn-label">Messages</span>
           {messages.count > 0 && <span className="lobby-bar-badge" aria-hidden="true">{badgeText(messages.count)}</span>}

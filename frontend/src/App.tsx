@@ -2281,8 +2281,13 @@ function App() {
 
   // Messages shows only when there are unread or minimised chats
   const hasMessageChats = state.messageNotificationCount > 0 || state.unreadMessageChats.size > 0 || state.minimizedMessageChats.length > 0;
-  // The lobby (same test as renderGameContent below) has Friends and Messages in its top bar
-  const lobbyShowing = !!state.user && !state.showSurvival && !state.showGauntlet && (!state.gameState || state.gameState.phase === 'waiting');
+  // Whether renderGameContent shows GameLobby: its branch and the floating-icon gate both use this.
+  // The lobby has Friends and Messages in its top bar, so the floating icons stay off while it shows.
+  const devScreenShowing = import.meta.env.DEV && (window.location.hash === '#ui-kit' || window.location.hash.startsWith('#screens'));
+  const lobbyShowing = !devScreenShowing && !showCardLayoutTest && !!state.user
+    && !(tutorial.stage === 'battle' && !state.gameState)
+    && !state.showSurvival && !state.showGauntlet
+    && (!state.gameState || state.gameState.phase === 'waiting');
 
   const renderGameContent = () => {
     if (import.meta.env.DEV && window.location.hash === '#ui-kit') {
@@ -2368,7 +2373,7 @@ function App() {
     }
 
     // Show GameLobby if we don't have a game state OR if we're in waiting phase (still matchmaking)
-    if (!state.gameState || state.gameState.phase === 'waiting') {
+    if (lobbyShowing) {
       return (
         <GameLobby
           onStartGame={handleJoinGame}
@@ -2396,12 +2401,16 @@ function App() {
             messages: {
               show: hasMessageChats,
               onClick: handleMessageIconClick,
-              count: state.messageNotificationCount
+              count: state.messageNotificationCount,
+              minimized: state.minimizedMessageChats.length > 0
             }
           } : undefined}
         />
       );
     }
+
+    // Not reached (no game state means the lobby showed above); narrows the type for the screens below
+    if (!state.gameState) return null;
 
     // Special handling for spectators
     if (state.isSpectating && state.spectatingPlayerId) {

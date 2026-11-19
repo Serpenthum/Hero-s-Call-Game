@@ -41,6 +41,7 @@ export function useFriendsOnline(): boolean {
         // Retry once per ask; the Friends overlay's own polling can also be turned away
         if (!retried) {
           retried = true;
+          window.clearTimeout(retryTimer);
           retryTimer = window.setTimeout(() => socketService.getOnlinePlayers(), RATE_LIMIT_RETRY_MS);
         }
         return;
