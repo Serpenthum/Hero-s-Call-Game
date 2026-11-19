@@ -32,6 +32,7 @@ import './styles/BattleLog.css';
 import './styles/Panels.css';
 import './styles/Reconnecting.css';
 import type { InspectedCard } from './battle/focus';
+import { SearchCancels } from './lobby/searchCancels';
 
 const DraftPhase = lazy(() => import('./components/DraftPhase'));
 const BattlePhase = lazy(() => import('./components/BattlePhase'));
@@ -296,6 +297,9 @@ function App() {
   // The game about to start came from the Random or Draft queue: join-result clears the pending search
   // once the game is ready, just before game-start, so it leaves this note for it
   const queuedMatchRef = useRef(false);
+  // Tells a late 'search-cancelled' (from the cancel sent when switching Random <-> Draft) from one
+  // that really ends the current search
+  const searchCancelsRef = useRef(new SearchCancels());
   // The "Match found" moment over the game screen (Random and Draft queue matches only)
   const [matchFound, setMatchFound] = useState<NonNullable<ReturnType<typeof matchFoundPlayers>> | null>(null);
   const closeMatchFound = useCallback(() => setMatchFound(null), []);
@@ -352,6 +356,7 @@ function App() {
 
     // Initialize socket connection and authenticate
     const socket = socketService.connect();
+    searchCancelsRef.current.reset();
     
     // Authenticate the socket connection with user ID (the tutorial test account has no server user)
     if (state.user.id > 0) socketService.authenticate(state.user.id);
@@ -481,6 +486,8 @@ function App() {
     });
 
     socket.on('search-cancelled', (data) => {
+      // The answer to a cancel sent before the current search began: that search is still queued
+      if (!searchCancelsRef.current.replyApplies()) return;
       if (data.success) {
         pendingSearchRef.current = null;
         queuedMatchRef.current = false;
@@ -1877,6 +1884,7 @@ function App() {
     setIsSearchingForMatch(true);
     setSearchMode(mode);
     pendingSearchRef.current = { name: playerName, mode };
+    searchCancelsRef.current.searchStarted();
     socketService.joinGame(playerName, mode);
   };
 
@@ -1990,6 +1998,7 @@ function App() {
   const handleCancelSearch = () => {
     pendingSearchRef.current = null;
     queuedMatchRef.current = false;
+    searchCancelsRef.current.cancelSent();
     socketService.cancelSearch();
     setIsSearchingForMatch(false);
     setSearchMode(null);
