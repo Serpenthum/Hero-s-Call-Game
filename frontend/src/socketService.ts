@@ -13,6 +13,18 @@ class SocketService {
   private socket: Socket<SocketEvents> | null = null;
   private reconnectAttempts = 0;
   private removeWindowListeners: (() => void) | null = null;
+  private socketListeners = new Set<(socket: Socket<SocketEvents> | null) => void>();
+
+  // Tells fn whenever the socket object is created, replaced or dropped (fn gets the new one, or null).
+  // Components that mount before the app connects, or outlive a replaced socket, re-attach through this.
+  onSocketChange(fn: (socket: Socket<SocketEvents> | null) => void): () => void {
+    this.socketListeners.add(fn);
+    return () => { this.socketListeners.delete(fn); };
+  }
+
+  private notifySocketChange() {
+    for (const fn of [...this.socketListeners]) fn(this.socket);
+  }
 
   connect(): Socket<SocketEvents> {
     // One socket per login: a socket that is reconnecting is reused, never replaced. A socket the
@@ -20,7 +32,7 @@ class SocketService {
     if (this.socket && !this.socket.isStopped()) {
       return this.socket;
     }
-    if (this.socket) this.disconnect();
+    if (this.socket) this.disconnect(false);
 
     // While logged in, keep trying to reconnect for as long as it takes (the backoff caps at 5 s)
     this.socket = createSocket(config.SOCKET_URL, {
@@ -51,15 +63,17 @@ class SocketService {
       this.reconnectAttempts++;
     });
 
+    this.notifySocketChange();
     return this.socket;
   }
 
-  disconnect() {
+  disconnect(notify = true) {
     this.removeWindowListeners?.();
     this.removeWindowListeners = null;
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+      if (notify) this.notifySocketChange();
     }
   }
 

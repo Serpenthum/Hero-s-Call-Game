@@ -23,9 +23,20 @@ export function useFriendsOnline(): boolean {
   const [onlineIds, setOnlineIds] = useState<number[]>([]);
   const [friendIds, setFriendIds] = useState<number[]>([]);
 
+  // The app creates the socket in its own effect, which runs after this component's effects on the
+  // first render, and may later replace a socket the server closed. Follow the current socket object.
+  const [socket, setSocket] = useState(() => socketService.getSocket());
   useEffect(() => {
-    const socket = socketService.getSocket();
-    if (!socket) return;
+    setSocket(socketService.getSocket());
+    return socketService.onSocketChange(setSocket);
+  }, []);
+
+  useEffect(() => {
+    if (!socket) {
+      setOnlineIds([]);
+      setFriendIds([]);
+      return;
+    }
 
     let retryTimer: number | undefined;
     let retried = false;
@@ -65,6 +76,8 @@ export function useFriendsOnline(): boolean {
     };
     untyped.on('online-players-response', handleResponse);
     untyped.on('player-online-status-changed', handleStatusChange);
+    // After a reconnect the server only knows who we are once we log in again: ask then
+    untyped.on('authentication-success', ask);
 
     ask();
     const interval = window.setInterval(ask, REFRESH_MS);
@@ -76,8 +89,9 @@ export function useFriendsOnline(): boolean {
       document.removeEventListener('visibilitychange', ask);
       untyped.off('online-players-response', handleResponse);
       untyped.off('player-online-status-changed', handleStatusChange);
+      untyped.off('authentication-success', ask);
     };
-  }, []);
+  }, [socket]);
 
   return friendIds.some(id => onlineIds.includes(id));
 }
