@@ -567,6 +567,22 @@
 
   /* The install hint takes the bottom of the felt: the mode cards move up out of its way */
   body:has(.install-hint) .mode-cards { align-content: start; }
+
+  /* The unlock notification sits over the featured card's column, clear of the mode cards, the tiles,
+     the top bar and the install hint (which starts right of that column) */
+  .mode-unlock-toast {
+    left: calc(var(--lobby-gap) + var(--safe-left));
+    top: calc(var(--lobby-bar-h) + var(--lobby-gap) + var(--safe-top));
+    transform: none;
+    width: var(--lobby-featured-col);
+    max-width: none;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .mode-unlock-toast-text strong { font-size: 15px; }
+  .mode-unlock-toast-text { font-size: 13px; line-height: 1.25; }
 }
 
 /* Small sideways phones (640x360) */
