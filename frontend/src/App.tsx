@@ -1488,6 +1488,9 @@ function App() {
     // Effect re-runs on user id change, so capturing it here is never stale.
     const reconnectUserId = state.user.id;
     (socket as any).on('reconnect', () => {
+      // A cancel-search sent while the connection was down is never answered: forget it, or it would
+      // swallow a later server-pushed search-cancelled
+      searchCancelsRef.current.reset();
       if (reconnectUserId > 0) socketService.authenticate(reconnectUserId);
       const pending = pendingSearchRef.current;
       if (pending) socketService.joinGame(pending.name, pending.mode);

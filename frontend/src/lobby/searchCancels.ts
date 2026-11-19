@@ -24,7 +24,7 @@ export class SearchCancels {
     return sentDuring === this.searchSeq;
   }
 
-  // A new socket (sign-in, or one replacing a closed socket) has no replies on the way
+  // A new socket (sign-in, or one replacing a closed socket) or a reconnect has no replies on the way
   reset() {
     this.pending = [];
   }

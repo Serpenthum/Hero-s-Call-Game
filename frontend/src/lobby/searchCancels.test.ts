@@ -52,4 +52,13 @@ describe('SearchCancels', () => {
     c.reset();
     expect(c.replyApplies()).toBe(true);
   });
+
+  it('after a reconnect, a server-pushed reply during a later search still applies', () => {
+    const c = new SearchCancels();
+    c.searchStarted();
+    c.cancelSent(); // sent while the connection was down: never answered
+    c.reset(); // reconnect
+    c.searchStarted(); // a later search
+    expect(c.replyApplies()).toBe(true); // e.g. accepting a friend's challenge
+  });
 });
