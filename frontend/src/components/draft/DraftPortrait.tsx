@@ -3,6 +3,7 @@ import config from '../../config';
 import { Hero } from '../../types';
 import { useCardReader } from '../../cards/CardReader';
 import { useLongPress } from '../../cards/useLongPress';
+import { getHoloEffects } from '../../holoSetting';
 
 export const heroImage = (name: string): string =>
   `${config.IMAGE_BASE_URL}/hero-images/${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`;
@@ -17,7 +18,7 @@ interface DraftPortraitProps {
 const DraftPortrait: React.FC<DraftPortraitProps> = ({ hero, enemy = false, onRead }) => {
   const reader = useCardReader();
   const press = useLongPress(() => reader.open(hero, { holo: !!hero.holo }));
-  const classes = ['draft-portrait', enemy ? 'draft-portrait--enemy' : '', hero.holo ? 'draft-portrait--holo' : '']
+  const classes = ['draft-portrait', enemy ? 'draft-portrait--enemy' : '', hero.holo && getHoloEffects() ? 'draft-portrait--holo' : '']
     .filter(Boolean)
     .join(' ');
   return (

@@ -84,6 +84,22 @@ describe('DraftBand', () => {
     expect(html).toContain('draft-portrait--holo');
   });
 
+  it('drops the rainbow rim from team and ban portraits when holo effects are off', () => {
+    const items = new Map<string, string>([['heroscall.holo', 'off']]);
+    vi.stubGlobal('localStorage', { getItem: (k: string) => items.get(k) ?? null, setItem: (k: string, v: string) => { items.set(k, v); } });
+    try {
+      const team = render({ layout: 'focus', me: { name: 'Ada', team: [hero('Bard', { holo: true })], status: 'done' } });
+      expect(team).not.toContain('draft-portrait--holo');
+      const known = render({ bans: { mine: 'Monk', theirs: null }, banHolo: { mine: true, theirs: false } });
+      expect(known).not.toContain('draft-portrait--holo');
+      const unknown = render({ bans: { mine: 'Nobody', theirs: null }, banHolo: { mine: true, theirs: false } });
+      expect(unknown).toContain('draft-portrait');
+      expect(unknown).not.toContain('draft-portrait--holo');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('fills one slot for a team of one and leaves slots 2 and 3 empty', () => {
     const html = render({ me: { name: 'Ada', team: [HEROES.Monk], status: 'done' } });
     const side = mySide(html);

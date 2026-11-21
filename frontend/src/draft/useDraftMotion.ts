@@ -8,6 +8,7 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Hero } from '../types';
 import { heroImage } from '../components/draft/DraftPortrait';
+import { getHoloEffects } from '../holoSetting';
 import { DraftStep, heldCard } from './draftRules';
 import { Anchor, Box, anchorAt, cancelFlights, flyCard } from './flyCard';
 
@@ -289,7 +290,7 @@ export function useDraftMotion(input: DraftMotionInput) {
       const from = anchorAt(ghost);
       ghost.remove();
       if (seq.current?.id !== id) return;
-      void flyCard(from, target, w => banCopy(name, !!hero.holo, w)).then(() => finish(id, 'ban', 0));
+      void flyCard(from, target, w => banCopy(name, !!hero.holo && getHoloEffects(), w)).then(() => finish(id, 'ban', 0));
     }, BAN_HOLD_MS);
   };
 

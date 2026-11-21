@@ -2,6 +2,7 @@ import React from 'react';
 import { Hero } from '../../types';
 import HeroCard from '../HeroCard';
 import DraftPortrait, { heroImage } from './DraftPortrait';
+import { getHoloEffects } from '../../holoSetting';
 
 interface BandPlayer {
   name: string;
@@ -73,7 +74,7 @@ const DraftBand: React.FC<DraftBandProps> = ({ layout, me, them, bans, banHolo, 
         <div className="draft-ban-token">
           {name && full && <DraftPortrait hero={{ ...full, holo: banHolo[who] }} onRead={onRead} />}
           {name && !full && (
-            <span className={`draft-portrait${banHolo[who] ? ' draft-portrait--holo' : ''}`}>
+            <span className={`draft-portrait${banHolo[who] && getHoloEffects() ? ' draft-portrait--holo' : ''}`}>
               <img src={heroImage(name)} alt="" draggable={false} />
             </span>
           )}
