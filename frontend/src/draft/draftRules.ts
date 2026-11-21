@@ -64,6 +64,24 @@ export function draftChoice(o: {
   return { chosen: kept ?? (o.layout === 'focus' ? o.handNames[0] ?? null : null), locked: false };
 }
 
+/**
+ * Draft motion: the card just sent keeps its place in the hand (hidden) while its copy is in the air.
+ * Returns that hold, or null once the server's hand no longer matches it (the step moved on, the hands
+ * swapped, the server played another card) or animations are off.
+ * `gap` is true when the server has already taken the card out, so its place is kept empty;
+ * false while the card is still in the server's hand (sent, not yet answered).
+ */
+export function heldCard<H extends { name: string; size: number; step: DraftStep }>(
+  hold: H | null,
+  off: boolean,
+  step: DraftStep,
+  handNames: string[],
+): (H & { gap: boolean }) | null {
+  if (!hold || off || hold.step !== step) return null;
+  if (handNames.includes(hold.name)) return handNames.length === hold.size ? { ...hold, gap: false } : null;
+  return handNames.length === hold.size - 1 ? { ...hold, gap: true } : null;
+}
+
 export const READABLE_CARD_MIN_WIDTH = 222;
 
 /** Rules text on a card read on the draft screen (big card, table-layout hand) never goes below this (px). */

@@ -10,6 +10,8 @@ import {
   bigCardWidth,
   fitCards,
   shouldPlayReveal,
+  heldCard,
+  type DraftStep,
   resolveChosen,
   draftChoice,
 } from './draftRules';
@@ -141,5 +143,33 @@ describe('draftChoice', () => {
 
   it('drops a choice that left the hand', () => {
     expect(draftChoice({ ...base, picked: 'Druid' })).toEqual({ chosen: null, locked: false });
+  });
+});
+
+describe('heldCard (the sent card keeps its place in the hand)', () => {
+  const hold = { name: 'Wizard', index: 1, size: 5, step: 1 as DraftStep };
+  const full = ['Monk', 'Wizard', 'Bard', 'Druid', 'Cleric'];
+  const without = ['Monk', 'Bard', 'Druid', 'Cleric'];
+
+  it('holds nothing when nothing was sent, or with animations off', () => {
+    expect(heldCard(null, false, 1, full)).toBeNull();
+    expect(heldCard(hold, true, 1, full)).toBeNull();
+  });
+
+  it('before the server answers: the card is still in the hand, no gap', () => {
+    expect(heldCard(hold, false, 1, full)).toMatchObject({ name: 'Wizard', gap: false });
+  });
+
+  it('after the server took the card: its place is kept as a gap', () => {
+    expect(heldCard(hold, false, 1, without)).toMatchObject({ name: 'Wizard', index: 1, gap: true });
+  });
+
+  it('drops the hold when the step moved on', () => {
+    expect(heldCard(hold, false, 2, without)).toBeNull();
+  });
+
+  it('drops the hold when the server played another card, or the hands swapped', () => {
+    expect(heldCard(hold, false, 1, ['Monk', 'Wizard', 'Bard', 'Druid'])).toBeNull();
+    expect(heldCard(hold, false, 1, ['Ninja', 'Reaper', 'Mech'])).toBeNull();
   });
 });

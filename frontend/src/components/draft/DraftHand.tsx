@@ -46,6 +46,10 @@ const DraftHand: React.FC<DraftHandProps> = ({ cards, chosen, step, locked, onCh
             className={`draft-hand-card${isChosen ? ' draft-hand-card--chosen' : ''}${banned ? ' draft-hand-card--banned' : ''}`}
             data-name={hero.name}
             style={{ '--i': i } as React.CSSProperties}
+            // The card slides into this place; a tap on the place itself (the card not there yet) chooses it too.
+            onClick={e => {
+              if (!locked && e.target === e.currentTarget) onChoose(hero.name);
+            }}
           >
             {banned && <span className="draft-stamp" aria-hidden="true">Banned</span>}
             <HeroCard

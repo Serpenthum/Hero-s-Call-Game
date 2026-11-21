@@ -209,3 +209,34 @@ describe('draft motion hooks in the markup', () => {
     expect(html.toLowerCase()).not.toContain('hands swap');
   });
 });
+
+describe('a hand card can be tapped where it will land', () => {
+  // The card's place takes the tap while the card inside is still sliding in.
+  const place = (props: Partial<DraftHandProps>, name: string) => {
+    const tree = DraftHand({ cards: HAND, chosen: null, step: 1, locked: false, onChoose: () => {}, ...props } as DraftHandProps) as any;
+    const hand = tree.props.children[1];
+    const cards = hand.props.children[1] as any[];
+    return cards.find(c => c.props['data-name'] === name);
+  };
+
+  it('a tap on the place itself chooses the card', () => {
+    const onChoose = vi.fn();
+    const el = place({ onChoose }, 'Bard');
+    const target = {};
+    el.props.onClick({ target, currentTarget: target });
+    expect(onChoose).toHaveBeenCalledWith('Bard');
+  });
+
+  it('a tap that came up from the card inside is left to the card (no double choose)', () => {
+    const onChoose = vi.fn();
+    place({ onChoose }, 'Bard').props.onClick({ target: {}, currentTarget: {} });
+    expect(onChoose).not.toHaveBeenCalled();
+  });
+
+  it('a locked hand takes no tap', () => {
+    const onChoose = vi.fn();
+    const target = {};
+    place({ onChoose, locked: true }, 'Bard').props.onClick({ target, currentTarget: target });
+    expect(onChoose).not.toHaveBeenCalled();
+  });
+});

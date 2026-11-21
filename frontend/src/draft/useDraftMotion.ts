@@ -8,7 +8,7 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Hero } from '../types';
 import { heroImage } from '../components/draft/DraftPortrait';
-import { DraftStep } from './draftRules';
+import { DraftStep, heldCard } from './draftRules';
 import { Anchor, Box, anchorAt, cancelFlights, flyCard } from './flyCard';
 
 /** The stamp is read for this long before the banned card flies off (the stamp itself lands in 0.3 s). */
@@ -240,17 +240,22 @@ export function useDraftMotion(input: DraftMotionInput) {
     const hero = hand.find(h => h.name === name);
     if (!cardEl || !hero) return;
     const id = ++seqId.current;
-    seq.current = { id, name, kind, done: false };
-    setHold({ name, hero, index: handNames.indexOf(name), size: handNames.length, step });
-    later(() => {
-      if (seq.current?.id === id) cut();
-    }, SEND_GIVE_UP_MS);
+    // Called only once a copy is really on its way: from here the card's place in the hand is held.
+    const begin = () => {
+      seq.current = { id, name, kind, done: false };
+      setHold({ name, hero, index: handNames.indexOf(name), size: handNames.length, step });
+      later(() => {
+        if (seq.current?.id === id) cut();
+      }, SEND_GIVE_UP_MS);
+    };
 
     const tiny = table.classList.contains('draft-table--tiny-hand');
     if (kind === 'pick') {
       const slot = teamNames.length;
       const target = table.querySelector(`.draft-slots--me .draft-slot:nth-child(${slot + 1})`);
+      // No slot to fly to: nothing is hidden, the card simply waits for the server.
       if (!target) return;
+      begin();
       setFlySlot(slot);
       void flyCard(cardEl, target, w => cardCopy(cardEl, w, tiny)).then(() => finish(id, 'pick', slot));
       return;
@@ -271,13 +276,14 @@ export function useDraftMotion(input: DraftMotionInput) {
       copy.appendChild(stamp);
     }
     ghost.appendChild(copy);
-    if (!layGhost(ghost, at, sizeVars(), 'draft-hand--stamped')) return;
+    // No ban spot or nowhere to lay the copy: nothing is hidden, the card in the hand wears the stamp itself.
+    if (!target || !layGhost(ghost, at, sizeVars(), 'draft-hand--stamped')) return;
+    begin();
     setFlyBan(true);
     later(() => {
       const from = anchorAt(ghost);
       ghost.remove();
       if (seq.current?.id !== id) return;
-      if (!target) return finish(id, 'ban', 0);
       void flyCard(from, target, w => banCopy(name, !!hero.holo, w)).then(() => finish(id, 'ban', 0));
     }, BAN_HOLD_MS);
   };
@@ -476,14 +482,7 @@ export function useDraftMotion(input: DraftMotionInput) {
 
   // The sent card keeps its place in the hand (hidden) while its copy is in the air, so the other cards
   // stay put. Dropped the moment the server's hand stops matching it.
-  let held: (Hold & { gap: boolean }) | null = null;
-  if (hold && !off && hold.step === step) {
-    if (handNames.includes(hold.name)) {
-      if (handNames.length === hold.size) held = { ...hold, gap: false };
-    } else if (handNames.length === hold.size - 1) {
-      held = { ...hold, gap: true };
-    }
-  }
+  const held = heldCard(hold, off, step, handNames);
 
   const attrs: Record<string, string | undefined> = {
     'data-hand': handFx ?? undefined,

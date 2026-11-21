@@ -664,9 +664,12 @@
 .draft-hand-card,
 .draft-order-card { transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
 
-/* Deal: the hand comes in from the left, one card after another (ban round and order step) */
-.draft-table[data-hand="wait"] .draft-hand:not(.draft-hand--ghost) > :is(.draft-hand-card, .draft-order-card) { opacity: 0; }
-.draft-table[data-hand="deal"] .draft-hand:not(.draft-hand--ghost) > :is(.draft-hand-card, .draft-order-card) {
+/* Deal: the hand comes in from the left, one card after another (ban round and order step).
+   A hand card's place (.draft-hand-card) never moves: only the card inside it does, and the place takes
+   the tap meanwhile, so a card can be tapped where it will land from the first frame. Order cards move
+   whole, with their number (that step has no clock). */
+.draft-table[data-hand="wait"] .draft-hand:not(.draft-hand--ghost) :is(.draft-hand-card > .hero-card, .draft-order-card) { opacity: 0; }
+.draft-table[data-hand="deal"] .draft-hand:not(.draft-hand--ghost) :is(.draft-hand-card > .hero-card, .draft-order-card) {
   animation: draft-deal 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
   animation-delay: calc(var(--i, 0) * 70ms);
 }
@@ -678,7 +681,7 @@
   animation: draft-out 0.4s ease-in forwards;
   animation-delay: calc(var(--i, 0) * 40ms);
 }
-.draft-table[data-hand="in"] .draft-hand:not(.draft-hand--ghost) > :is(.draft-hand-card, .draft-order-card) {
+.draft-table[data-hand="in"] .draft-hand:not(.draft-hand--ghost) :is(.draft-hand-card > .hero-card, .draft-order-card) {
   animation: draft-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
   animation-delay: calc(240ms + var(--i, 0) * 60ms);
 }
@@ -773,7 +776,7 @@
   animation: none;
   transition: none;
 }
-.draft--still[data-hand="wait"] .draft-hand > :is(.draft-hand-card, .draft-order-card) { opacity: 1; }
+.draft--still[data-hand="wait"] .draft-hand :is(.draft-hand-card > .hero-card, .draft-order-card) { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
   .draft-table :is(.draft-hand-card, .draft-order-card, .draft-stamp, .draft-slot, .draft-ban-token, .draft-big-card, .draft-clock-seconds),
@@ -783,6 +786,6 @@
     animation: none;
     transition: none;
   }
-  .draft-table[data-hand="wait"] .draft-hand > :is(.draft-hand-card, .draft-order-card) { opacity: 1; }
+  .draft-table[data-hand="wait"] .draft-hand :is(.draft-hand-card > .hero-card, .draft-order-card) { opacity: 1; }
   .draft-portrait--holo { animation: none; }
 }
