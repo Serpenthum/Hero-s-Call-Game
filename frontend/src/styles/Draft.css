@@ -606,16 +606,23 @@
 .draft-table--focus .draft-away .disconnect-caption__count { font-size: 12px; }
 
 /* Hand cards too narrow for readable rules text show as tiny cards (the big card is the one to read).
-   Same face as HeroCard's own tiny mode (its container query at 129px). */
-.draft-table--tiny-hand .draft-hand .hero-card .card-details,
-.draft-table--tiny-hand .draft-hand .hero-card .card-rule,
+   Same face as HeroCard's own tiny mode (its container query at 129px).
+   A copy of a hand (.draft-hand--ghost: the old hand sliding off, a stamped card) keeps the face it was
+   copied with: .draft-hand--tiny if it was tiny then, whatever the table has become since. */
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-details,
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-rule,
+.draft-hand--tiny .hero-card .card-details,
+.draft-hand--tiny .hero-card .card-rule,
 .draft-flyer-card--tiny .hero-card .card-details,
 .draft-flyer-card--tiny .hero-card .card-rule { display: none; }
-.draft-table--tiny-hand .draft-hand .hero-card .card-hero-name,
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-hero-name,
+.draft-hand--tiny .hero-card .card-hero-name,
 .draft-flyer-card--tiny .hero-card .card-hero-name { font-size: 2.625em; }
-.draft-table--tiny-hand .draft-hand .hero-card .card-stats,
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-stats,
+.draft-hand--tiny .hero-card .card-stats,
 .draft-flyer-card--tiny .hero-card .card-stats { font-size: calc(1.5em * var(--gem-scale)); }
-.draft-table--tiny-hand .draft-hand .hero-card .card-lower,
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-lower,
+.draft-hand--tiny .hero-card .card-lower,
 .draft-flyer-card--tiny .hero-card .card-lower { padding: 2em 0.7em 0.6em; }
 
 /* Narrow tables: step numbers only, then no title */

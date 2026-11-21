@@ -8,6 +8,7 @@ import {
   cardDelayMs,
   centredRowOffset,
   faceOffLineY,
+  hurryStage,
   revealStage,
   sameBoxes,
 } from '../../draft/revealRules';
@@ -22,6 +23,8 @@ interface RevealSide {
 interface DraftRevealProps {
   me: RevealSide;
   them: RevealSide;
+  /** The battle has begun under the reveal (the roll winner chose at once): end quickly, without a jump. */
+  hurry?: boolean;
   onDone(): void;
 }
 
@@ -34,8 +37,12 @@ interface Measured {
 }
 
 // While the reveal's copies are on screen the board's own cards and the Starting Roll box are hidden
-// (still laid out, so they can be measured). DraftReveal.css reads this from the page root.
+// (still laid out, so they can be measured), and the board's panels, name plates and row colours wait
+// out of sight until the glide, when they build up around the copies. DraftReveal.css reads this from
+// the page root: `on` (face-off), `board` (the glide), `hurry` (a quick end), `done` (played through).
 const ROOT_ATTR = 'data-draft-reveal';
+/** A hurried end: every card copy still dropping in has landed this long before the overlay goes. */
+const HURRY_SETTLE_MS = 40;
 /** How long the Starting Roll box takes to fade in once the reveal has played through (DraftReveal.css). */
 const ROLL_IN_MS = 350;
 /** The board must hold still for this many frames in a row before the copies are drawn on it. */
@@ -74,15 +81,21 @@ function measureBoard(me: RevealSide, them: RevealSide): Measured | null {
 
 // The reveal: the battle board is already drawn underneath. Copies of its six cards face off in the
 // middle of the screen, VS slams between them, then both rows glide onto the board's own cards while the
-// backdrop fades. It never holds the game back: the state is already `initiative`, and a tap (or Escape,
-// Enter, Space) ends it at once. With animations off it is a 0.3 s fade.
-const DraftReveal: React.FC<DraftRevealProps> = ({ me, them, onDone }) => {
+// backdrop fades and the board's panels slide in. It never holds the game back: the state is already
+// `initiative`, and a tap (or Escape, Enter, Space) ends it at once. With animations off it is a 0.3 s fade.
+// If the battle begins while it is up, it lets every tap through and hurries to its end.
+const DraftReveal: React.FC<DraftRevealProps> = ({ me, them, hurry = false, onDone }) => {
   const [still] = useState(() => getAnimSpeed() === 'off' || reducedMotion());
   const [stage, setStage] = useState<RevealStage>(still ? 'fade' : 'wait');
   const [measured, setMeasured] = useState<Measured | null>(null);
   const latest = useRef({ me, them, onDone });
   latest.current = { me, them, onDone };
   const finished = useRef(false);
+  const overlay = useRef<HTMLDivElement>(null);
+  const stageNow = useRef(stage);
+  stageNow.current = stage;
+  /** Set once the reveal is hurrying: the timeline below stops and this takes over. */
+  const hurrying = useRef<{ stage: RevealStage; ms: number } | null>(null);
 
   /** Ends the reveal. `played`: it ran to its end, so the Starting Roll box fades in instead of popping. */
   const finish = (played: boolean) => {
@@ -102,16 +115,42 @@ const DraftReveal: React.FC<DraftRevealProps> = ({ me, them, onDone }) => {
   const finishRef = useRef(finish);
   finishRef.current = finish;
 
-  // The board's cards and roll box stay hidden for as long as the copies stand in for them.
-  const covering = stage === 'wait' || stage === 'faceoff' || stage === 'board';
+  // The board's cards and roll box stay hidden for as long as the copies stand in for them; the rest of
+  // the board builds up during the glide.
+  const cover = stage === 'wait' || stage === 'faceoff' ? 'on' : stage === 'board' || stage === 'hurry' ? stage : null;
   useLayoutEffect(() => {
     const root = document.documentElement;
-    if (!covering) return;
-    root.setAttribute(ROOT_ATTR, 'on');
+    if (!cover) return;
+    root.setAttribute(ROOT_ATTR, cover);
     return () => {
-      if (root.getAttribute(ROOT_ATTR) === 'on') root.removeAttribute(ROOT_ATTR);
+      if (root.getAttribute(ROOT_ATTR) === cover) root.removeAttribute(ROOT_ATTR);
     };
-  }, [covering]);
+  }, [cover]);
+
+  // The battle began under the reveal. Mid face-off: the rows go to their battle cards in 0.3 s and any
+  // copy still dropping in is sped up to land in that time. Nothing drawn yet: a 0.3 s fade. Already
+  // gliding or fading: it carries on to its own end.
+  useLayoutEffect(() => {
+    if (!hurry) return;
+    if (!hurrying.current) {
+      const plan = hurryStage(stageNow.current);
+      if (!plan) return;
+      hurrying.current = plan;
+      setStage(plan.stage);
+      if (plan.stage === 'hurry') {
+        const landIn = plan.ms - HURRY_SETTLE_MS;
+        overlay.current?.querySelectorAll('.draft-reveal-card').forEach(card => {
+          card.getAnimations().forEach(anim => {
+            const end = Number(anim.effect?.getComputedTiming().endTime ?? 0);
+            const left = end - Number(anim.currentTime ?? 0);
+            if (left > landIn) anim.updatePlaybackRate(left / landIn);
+          });
+        });
+      }
+    }
+    const timer = window.setTimeout(() => finishRef.current(false), hurrying.current.ms);
+    return () => window.clearTimeout(timer);
+  }, [hurry]);
 
   // One clock for the whole reveal: measure the board until it holds still, then follow the timeline.
   useEffect(() => {
@@ -135,6 +174,7 @@ const DraftReveal: React.FC<DraftRevealProps> = ({ me, them, onDone }) => {
 
     const tick = () => {
       unschedule();
+      if (hurrying.current) return;
       const elapsed = performance.now() - start;
       if (!still && measuredAt === null) {
         const board = measureBoard(latest.current.me, latest.current.them);
@@ -201,11 +241,12 @@ const DraftReveal: React.FC<DraftRevealProps> = ({ me, them, onDone }) => {
     </div>
   );
 
-  const showCopies = !!measured && (stage === 'faceoff' || stage === 'board');
+  const showCopies = !!measured && (stage === 'faceoff' || stage === 'board' || stage === 'hurry');
 
   return (
     <div
-      className={`draft-reveal draft-reveal--${stage}`}
+      ref={overlay}
+      className={`draft-reveal draft-reveal--${stage}${hurry ? ' draft-reveal--passing' : ''}`}
       role="presentation"
       data-stage={stage}
       onClick={() => finish(false)}

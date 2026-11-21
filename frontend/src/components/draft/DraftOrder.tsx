@@ -8,8 +8,8 @@ export interface DraftOrderProps {
   selected: string | null;
   ready: boolean;
   onTap(name: string): void;
-  /** Table layout: these are the cards read on the table, so their rules text keeps the 12px floor. */
-  layout?: 'table' | 'focus';
+  /** The cards are drawn as tiny cards (name and stats only). Every other card keeps the 12px rules-text floor. */
+  tiny?: boolean;
   /** Laid across the hand area (the opponent-away notice). */
   banner?: React.ReactNode;
 }
@@ -25,7 +25,7 @@ export function tapOrder(
 }
 
 /** The order step: your three heroes numbered 1-3 in the hand area, "Attacks first" under number 1. */
-const DraftOrder: React.FC<DraftOrderProps> = ({ order, selected, ready, onTap, layout = 'table', banner }) => (
+const DraftOrder: React.FC<DraftOrderProps> = ({ order, selected, ready, onTap, tiny = false, banner }) => (
   <>
     <p className="draft-hint">
       <b>Set your order.</b> Tap a hero, then tap where it goes.
@@ -50,7 +50,7 @@ const DraftOrder: React.FC<DraftOrderProps> = ({ order, selected, ready, onTap, 
               isSelected={isSelected}
               onClick={() => onTap(hero.name)}
               readable="press"
-              minTextPx={layout === 'table' ? READ_TEXT_MIN_PX : undefined}
+              minTextPx={tiny ? undefined : READ_TEXT_MIN_PX}
               disableHPAnimations
             />
           </div>

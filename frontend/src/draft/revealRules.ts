@@ -21,6 +21,8 @@ export const REVEAL = {
   fadeMs: 300,
   /** The board's cards never showed up to be measured: give up and fade to the board. */
   measureGiveUpMs: 1500,
+  /** The battle began under the reveal: the rows go to their cards and the overlay goes in this long. */
+  hurryMs: 300,
 } as const;
 
 /** When card `index` of a row starts moving. */
@@ -52,7 +54,7 @@ export function sameBoxes(a: Box[] | null, b: Box[] | null): boolean {
   );
 }
 
-export type RevealStage = 'wait' | 'faceoff' | 'board' | 'fade';
+export type RevealStage = 'wait' | 'faceoff' | 'board' | 'fade' | 'hurry';
 
 /**
  * Where the reveal stands `elapsedMs` after it began.
@@ -73,6 +75,35 @@ export function revealStage(
   const t = elapsedMs - measuredAtMs;
   if (t >= REVEAL.doneAtMs) return 'done';
   return t >= REVEAL.glideAtMs ? 'board' : 'faceoff';
+}
+
+/**
+ * The battle began while the reveal was up (the roll winner chose quickly). What the reveal does in its
+ * last moments, and for how long, so the cards never jump:
+ * - face-off: the rows hurry onto their battle cards;
+ * - nothing drawn yet: a short fade;
+ * - already gliding or fading: it carries on to its own end (null).
+ */
+export function hurryStage(stage: RevealStage): { stage: RevealStage; ms: number } | null {
+  if (stage === 'faceoff') return { stage: 'hurry', ms: REVEAL.hurryMs };
+  if (stage === 'wait') return { stage: 'fade', ms: REVEAL.fadeMs };
+  return null;
+}
+
+/**
+ * Whether the reveal is up after the phase went from `prevPhase` to `phase`.
+ * `play`: this change is the live Order-to-roll change the reveal plays for.
+ * A reveal that is up stays up when the battle begins (it hurries its cards onto the board and ends itself);
+ * any other change takes it down.
+ */
+export function revealOnPhase(revealing: boolean, play: boolean, prevPhase: string | null, phase: string | null): boolean {
+  if (play) return true;
+  return revealing && prevPhase === 'initiative' && phase === 'battle';
+}
+
+/** The phases the reveal can be on screen in: the roll, and the first moments of the battle after it. */
+export function revealPhase(phase: string | null | undefined): boolean {
+  return phase === 'initiative' || phase === 'battle';
 }
 
 /**

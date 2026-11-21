@@ -24,6 +24,8 @@ interface DraftPhaseProps {
   away?: React.ReactNode;
   /** The connection to the server dropped: "Connecting…" in the top bar. */
   connecting?: boolean;
+  /** Goes up each time the server hands the game back after a reconnect (no motion for that state). */
+  rejoins?: number;
 }
 
 /** The hand you hold: from your player, or from the older per-game lists. */
@@ -46,6 +48,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   draftTimer,
   away = null,
   connecting = false,
+  rejoins = 0,
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const reader = useCardReader();
@@ -92,6 +95,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
     theirCount: opponent?.team?.length ?? 0,
     bans,
     timer: draftTimer,
+    rejoins,
   });
   // The card just sent keeps its place in the hand (hidden) while its copy flies, so the other cards stay put.
   const held = motion.held;
@@ -196,6 +200,9 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const bigBanned = step === 0 && !!bigHero && bigHero.name === (sent ?? held?.name);
   const banner = away ? <div className="draft-away">{away}</div> : null;
 
+  // Big-card layout: hand cards too narrow for readable rules text show as tiny cards (name and stats).
+  const tinyHand = layout === 'focus' && sizes.handCard < READABLE_CARD_MIN_WIDTH;
+
   const style = {
     '--draft-card-w': `${sizes.handCard}px`,
     '--draft-card-scale': sizes.handCard / 260,
@@ -209,8 +216,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const classes = [
     'draft-table',
     `draft-table--${layout}`,
-    // Big-card layout: hand cards too narrow for readable rules text show as tiny cards (name and stats).
-    layout === 'focus' && sizes.handCard < READABLE_CARD_MIN_WIDTH ? 'draft-table--tiny-hand' : '',
+    tinyHand ? 'draft-table--tiny-hand' : '',
     held ? 'draft-table--sending' : '',
     bigBanned ? 'draft-table--big-banned' : '',
     motionOff ? 'draft--still' : '',
@@ -231,7 +237,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         heroByName={heroByName}
       />
       {ordering ? (
-        <DraftOrder order={orderHeroes} selected={orderSel} ready={ready} onTap={tapHero} layout={layout} banner={banner} />
+        <DraftOrder order={orderHeroes} selected={orderSel} ready={ready} onTap={tapHero} tiny={tinyHand} banner={banner} />
       ) : (
         <DraftHand
           cards={shownHand}
@@ -240,6 +246,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
           locked={locked}
           onChoose={choose}
           layout={layout}
+          tiny={tinyHand}
           banner={banner}
         />
       )}

@@ -76,9 +76,10 @@ describe('DraftHand', () => {
     expect(render({ locked: true })).not.toContain('selectable');
   });
 
-  it('keeps the 12px rules-text floor on hand cards in the table layout only', () => {
+  it('keeps the 12px rules-text floor on hand cards in both layouts, except tiny cards', () => {
     expect(render({ layout: 'table' }).match(/data-min-text-px="12"/g)?.length).toBe(HAND.length);
-    expect(render({ layout: 'focus' })).not.toContain('data-min-text-px');
+    expect(render({ layout: 'focus' }).match(/data-min-text-px="12"/g)?.length).toBe(HAND.length);
+    expect(render({ layout: 'focus', tiny: true })).not.toContain('data-min-text-px');
   });
 
   it('keeps cards readable by press', () => {

@@ -11,6 +11,8 @@ export interface DraftHandProps {
   onChoose(name: string): void;
   /** The big-card layout: the hint tells the player a tap shows the card big. */
   layout?: 'table' | 'focus';
+  /** The cards are drawn as tiny cards (name and stats only): there is no rules text to keep readable. */
+  tiny?: boolean;
   /** Laid across the hand area (the opponent-away notice). */
   banner?: React.ReactNode;
 }
@@ -31,7 +33,7 @@ const hint = (step: DraftStep, layout: 'table' | 'focus') => {
 };
 
 /** The hint line and the hand you hold. Each card is sized by the table's --draft-card-w. */
-const DraftHand: React.FC<DraftHandProps> = ({ cards, chosen, step, locked, onChoose, layout = 'table', banner }) => (
+const DraftHand: React.FC<DraftHandProps> = ({ cards, chosen, step, locked, onChoose, layout = 'table', tiny = false, banner }) => (
   <>
     <p className={`draft-hint${step === 0 ? ' draft-hint--ban' : ''}`}>{hint(step, layout)}</p>
     <div className={`draft-hand${step === 0 ? ' draft-hand--ban' : ''}${locked ? ' draft-hand--locked' : ''}`}>
@@ -59,9 +61,9 @@ const DraftHand: React.FC<DraftHandProps> = ({ cards, chosen, step, locked, onCh
               isSelected={isChosen}
               onClick={() => onChoose(hero.name)}
               readable="press"
-              // Table layout: these are the cards read on the table, so their rules text keeps the 12px floor.
-              // In the big-card layout they are small (or tiny) and the big card is the one read.
-              minTextPx={layout === 'table' ? READ_TEXT_MIN_PX : undefined}
+              // Every card that shows its rules text keeps the 12px floor, in both layouts; only tiny cards
+              // (name and stats, no rules text) go without.
+              minTextPx={tiny ? undefined : READ_TEXT_MIN_PX}
               disableHPAnimations
             />
           </div>

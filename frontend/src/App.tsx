@@ -11,7 +11,7 @@ import RotatePrompt from './components/RotatePrompt';
 import MatchFoundOverlay from './components/lobby/MatchFoundOverlay';
 import DraftReveal from './components/draft/DraftReveal';
 import { shouldPlayReveal } from './draft/draftRules';
-import { setupSeen } from './draft/revealRules';
+import { revealOnPhase, revealPhase, setupSeen } from './draft/revealRules';
 import { markLobbyArrival, matchFoundPlayers } from './lobby/lobbyRules';
 import InstallHint from './install/InstallHint';
 import { CardReaderProvider } from './cards/CardReader';
@@ -316,6 +316,9 @@ function App() {
   // The reveal (draft into the battle board) plays only on a live Order-to-roll change seen in this tab
   const [revealing, setRevealing] = useState(false);
   const closeReveal = useCallback(() => setRevealing(false), []);
+  // Counts the times the server handed the game back after a reconnect: the draft table shows that state
+  // as it is, with no cards sliding or flying
+  const [rejoins, setRejoins] = useState(0);
   const sawSetupRef = useRef(false);
   const prevPhaseRef = useRef<string | null>(null);
 
@@ -386,6 +389,9 @@ function App() {
       const rejoinedSameGame = gameStateRef.current?.id === gameState.id;
       // A state handed back after a reconnect is not a live change: coming back past the Order step plays no reveal
       if (gameState.phase !== 'setup') sawSetupRef.current = false;
+      // ...and a reveal that was up is over: it never plays (again) after a reconnect
+      setRevealing(false);
+      setRejoins(n => n + 1);
       setState(prev => ({
         ...prev,
         gameState: gameState,
@@ -2346,7 +2352,9 @@ function App() {
     const prevPhase = prevPhaseRef.current;
     prevPhaseRef.current = gamePhase;
     sawSetupRef.current = setupSeen(sawSetupRef.current, gamePhase, state.isSpectating);
-    setRevealing(!!gamePhase && shouldPlayReveal(sawSetupRef.current, prevPhase, gamePhase));
+    const play = !!gamePhase && shouldPlayReveal(sawSetupRef.current, prevPhase, gamePhase);
+    // A reveal still up when the battle begins (the roll winner chose at once) stays to bring its cards home
+    setRevealing(was => revealOnPhase(was, play, prevPhase, gamePhase));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gamePhase]);
 
@@ -2380,10 +2388,14 @@ function App() {
   // The draft table (draft and setup) fills the screen: no sidebar and no floating Friends or Message button
   const draftShowing = !!state.gameState && (state.gameState.phase === 'draft' || state.gameState.phase === 'setup');
   // The reveal covers the first moments of the roll screen; the floating buttons wait until it ends
-  const revealPlayers = revealing && !state.isSpectating && state.gameState?.phase === 'initiative'
+  const revealPlayers = revealing && !state.isSpectating && revealPhase(state.gameState?.phase)
     ? { me: getCurrentPlayer(), them: getOpponentPlayer() }
     : null;
   const revealShowing = !!revealPlayers?.me && !!revealPlayers.them;
+  // A reveal that cannot be shown is over: it must not start again later (after a reconnect, say)
+  useEffect(() => {
+    if (revealing && !revealShowing) setRevealing(false);
+  }, [revealing, revealShowing]);
   const lobbyShowing = !devScreenShowing && !showCardLayoutTest && !!state.user
     && !(tutorial.stage === 'battle' && !state.gameState)
     && !state.showSurvival && !state.showGauntlet
@@ -2571,6 +2583,7 @@ function App() {
             draftTimer={draftTimer}
             away={draftAwayNotice(opponent)}
             connecting={!state.isConnected}
+            rejoins={rejoins}
           />
         );
 
@@ -2864,7 +2877,12 @@ function App() {
 
       {/* Reveal: the two teams face off over the battle board, then glide onto it; the rotate screen stays above it */}
       {revealPlayers?.me && revealPlayers.them && (
-        <DraftReveal me={revealPlayers.me} them={revealPlayers.them} onDone={closeReveal} />
+        <DraftReveal
+          me={revealPlayers.me}
+          them={revealPlayers.them}
+          hurry={state.gameState?.phase !== 'initiative'}
+          onDone={closeReveal}
+        />
       )}
 
       {/* Install hint: lobby only */}

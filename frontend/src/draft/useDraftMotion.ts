@@ -62,10 +62,14 @@ export interface DraftMotionInput {
   theirCount: number;
   bans: { mine: string | null; theirs: string | null };
   timer?: { deadline: number; durationMs: number } | null;
+  /** Goes up each time the server hands the game back after a reconnect: that state is shown with no motion. */
+  rejoins?: number;
 }
 
 const SIZE_VARS = ['--draft-card-w', '--draft-card-scale', '--draft-hand-pad'];
 const CARD_SELECTOR = '.draft-hand-card, .draft-order-card';
+/** A copy of a hand keeps the card face it was copied with (Draft.css), whatever the table shows by then. */
+const GHOST_TINY = 'draft-hand--tiny';
 
 const boxOf = (el: Element): Box => {
   const r = el.getBoundingClientRect();
@@ -115,7 +119,7 @@ export class BeforeUpdate extends React.Component<{ onBefore(): void }> {
 }
 
 export function useDraftMotion(input: DraftMotionInput) {
-  const { root, off, step, hand, teamNames, theirCount, bans } = input;
+  const { root, off, step, hand, teamNames, theirCount, bans, rejoins = 0 } = input;
   const handNames = hand.map(h => h.name);
   const now: Seen = { step, handNames, teamNames, theirCount, banMine: bans.mine, banTheirs: bans.theirs };
   // `own` changes when your side of the table does: only then is the old hand worth copying.
@@ -134,6 +138,7 @@ export function useDraftMotion(input: DraftMotionInput) {
   const latest = useRef({ now, own, input });
   latest.current = { now, own, input };
   const committed = useRef<(Seen & { own: string }) | null>(null);
+  const rejoinsSeen = useRef(rejoins);
   const snap = useRef<Snapshot | null>(null);
   const seq = useRef<{ id: number; name: string; kind: Kind; done: boolean } | null>(null);
   const seqId = useRef(0);
@@ -277,7 +282,7 @@ export function useDraftMotion(input: DraftMotionInput) {
     }
     ghost.appendChild(copy);
     // No ban spot or nowhere to lay the copy: nothing is hidden, the card in the hand wears the stamp itself.
-    if (!target || !layGhost(ghost, at, sizeVars(), 'draft-hand--stamped')) return;
+    if (!target || !layGhost(ghost, at, sizeVars(), `draft-hand--stamped${tiny ? ` ${GHOST_TINY}` : ''}`)) return;
     begin();
     setFlyBan(true);
     later(() => {
@@ -322,6 +327,15 @@ export function useDraftMotion(input: DraftMotionInput) {
     const old = snap.current;
     snap.current = null;
     const table = root.current;
+    // A state handed back after a reconnect is not a live change: it is shown as it is. No hand slides and
+    // no card flies for what happened while this screen was away; anything in the air is dropped.
+    const rejoined = rejoinsSeen.current !== rejoins;
+    rejoinsSeen.current = rejoins;
+    if (rejoined) {
+      if (seq.current) cut();
+      clearGhosts('.draft-hand--ghost');
+      return;
+    }
     if (!prev || off || !table) return;
 
     const played: string[] = [];
@@ -392,13 +406,13 @@ export function useDraftMotion(input: DraftMotionInput) {
         old.cards.forEach(({ el }, name) => {
           if (gone.has(name)) (el as HTMLElement).style.visibility = 'hidden';
         });
-        const ghost = layGhost(old.hand, old.box, old.vars, 'draft-hand--out');
+        const ghost = layGhost(old.hand, old.box, old.vars, `draft-hand--out${old.tiny ? ` ${GHOST_TINY}` : ''}`);
         if (ghost) later(() => ghost.remove(), OUT_MS);
       }
       showHandFx(now.step === 4 ? 'deal' : 'in');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, off]);
+  }, [signature, off, rejoins]);
 
   // First sight of the screen: deal the hand when the draft has only just begun. A refresh or a rejoin
   // part-way through shows the cards in place.

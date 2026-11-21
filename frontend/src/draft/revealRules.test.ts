@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { REVEAL, cardDelayMs, centredRowOffset, faceOffLineY, revealStage, sameBoxes, setupSeen } from './revealRules';
+import {
+  REVEAL,
+  cardDelayMs,
+  centredRowOffset,
+  faceOffLineY,
+  hurryStage,
+  revealOnPhase,
+  revealPhase,
+  revealStage,
+  sameBoxes,
+  setupSeen,
+} from './revealRules';
 
 const box = (left: number, top: number, width = 100, height = 150) => ({ left, top, width, height });
 
@@ -79,5 +90,46 @@ describe('setupSeen', () => {
     expect(setupSeen(true, null, false)).toBe(false);
     expect(setupSeen(true, 'waiting', false)).toBe(false);
     expect(setupSeen(false, 'setup', true)).toBe(false);
+  });
+});
+
+describe('hurryStage (the battle begins under the reveal)', () => {
+  it('hurries the rows onto the board from the face-off, in 0.3 s', () => {
+    expect(hurryStage('faceoff')).toEqual({ stage: 'hurry', ms: 300 });
+  });
+  it('fades when no copy was drawn yet', () => {
+    expect(hurryStage('wait')).toEqual({ stage: 'fade', ms: REVEAL.fadeMs });
+  });
+  it('leaves a glide or a fade (stills) to finish on its own, and never hurries twice', () => {
+    expect(hurryStage('board')).toBeNull();
+    expect(hurryStage('fade')).toBeNull();
+    expect(hurryStage('hurry')).toBeNull();
+  });
+});
+
+describe('revealOnPhase', () => {
+  it('goes up on the live Order-to-roll change', () => {
+    expect(revealOnPhase(false, true, 'setup', 'initiative')).toBe(true);
+  });
+  it('stays up when the battle begins under it, so its cards can be brought home', () => {
+    expect(revealOnPhase(true, false, 'initiative', 'battle')).toBe(true);
+  });
+  it('does not start at the battle when it was not up', () => {
+    expect(revealOnPhase(false, false, 'initiative', 'battle')).toBe(false);
+  });
+  it('comes down on any other change', () => {
+    expect(revealOnPhase(true, false, 'battle', 'ended')).toBe(false);
+    expect(revealOnPhase(true, false, 'initiative', null)).toBe(false);
+    expect(revealOnPhase(true, false, 'initiative', 'waiting')).toBe(false);
+    expect(revealOnPhase(true, false, 'setup', 'battle')).toBe(false);
+    expect(revealOnPhase(true, false, null, 'initiative')).toBe(false);
+  });
+});
+
+describe('revealPhase', () => {
+  it('is the roll and the battle only', () => {
+    expect(revealPhase('initiative')).toBe(true);
+    expect(revealPhase('battle')).toBe(true);
+    expect(['draft', 'setup', 'ended', 'waiting', null, undefined].some(p => revealPhase(p))).toBe(false);
   });
 });

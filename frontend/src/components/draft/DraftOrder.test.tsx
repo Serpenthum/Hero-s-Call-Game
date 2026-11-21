@@ -67,9 +67,10 @@ describe('DraftOrder', () => {
     expect(orderCard(html, 'Fighter')).not.toContain('card-holo');
   });
 
-  it('keeps the 12px rules-text floor in the table layout only', () => {
-    expect(render({ layout: 'table' }).match(/data-min-text-px="12"/g)?.length).toBe(3);
-    expect(render({ layout: 'focus' })).not.toContain('data-min-text-px');
+  it('keeps the 12px rules-text floor on every card that is not tiny', () => {
+    expect(render().match(/data-min-text-px="12"/g)?.length).toBe(3);
+    expect(render({ tiny: false }).match(/data-min-text-px="12"/g)?.length).toBe(3);
+    expect(render({ tiny: true })).not.toContain('data-min-text-px');
   });
 });
 
