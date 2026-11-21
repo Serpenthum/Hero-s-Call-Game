@@ -1,7 +1,15 @@
-/* Pack opening: plain, functional layout. Stages on the root: data-stage="pack | opening | cards";
-   each card carries data-kind and data-turned. The drawn look and motion come later on these hooks. */
+/* Pack opening. Stages on the root: data-stage="pack | opening | cards"; each card carries data-kind and
+   data-turned. data-tone is the pack's light (gold, or rainbow when a holographic card is inside);
+   data-holo-light is the holographic card's own light (gold when holographic effects are switched off).
+   Times here match the constants at the top of PackOpening.tsx. */
 
 .pack-opening {
+  --pack-aura: var(--pack-glow);
+  --pack-line: linear-gradient(90deg, transparent, var(--card-white), var(--pack-yellow), var(--card-white), transparent);
+  --pack-beam: linear-gradient(0deg, color-mix(in srgb, var(--pack-light) 95%, transparent), transparent);
+  --pack-burst: radial-gradient(circle, var(--card-white), color-mix(in srgb, var(--pack-glow) 80%, transparent) 35%, transparent 70%);
+  --holo-text: linear-gradient(90deg, var(--pack-pink), var(--pack-yellow), var(--pack-mint), var(--pack-blue), var(--pack-pink));
+  --holo-aura: var(--holo-glow);
   position: fixed;
   inset: 0;
   z-index: 10000;
@@ -9,47 +17,255 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  overflow: hidden;
   padding: max(var(--space-4), var(--safe-top)) max(var(--space-4), var(--safe-right))
     max(var(--space-4), var(--safe-bottom)) max(var(--space-4), var(--safe-left));
   color: var(--bone);
   font-family: var(--font-ui);
 }
 
+/* The table: the opening covers the shop behind it. */
+.pack-opening.pack-opening-overlay {
+  background: radial-gradient(ellipse at 50% 45%, var(--draft-felt-hi), var(--felt) 55%, var(--felt-deep));
+}
+
+.pack-opening[data-tone="rainbow"] {
+  --pack-aura: var(--holo-glow);
+  --pack-line: linear-gradient(90deg, transparent, var(--pack-pink), var(--pack-yellow), var(--pack-mint), var(--pack-blue), transparent);
+  --pack-beam: linear-gradient(0deg, var(--card-white), color-mix(in srgb, var(--pack-pink) 80%, transparent) 25%,
+    color-mix(in srgb, var(--pack-mint) 70%, transparent) 50%, color-mix(in srgb, var(--pack-blue) 60%, transparent) 75%, transparent);
+  --pack-burst: radial-gradient(circle, var(--card-white), color-mix(in srgb, var(--holo-spark-cool) 85%, transparent) 30%,
+    color-mix(in srgb, var(--pack-pink) 50%, transparent) 50%, transparent 70%);
+}
+
+.pack-opening[data-holo-light="gold"] {
+  --holo-text: linear-gradient(90deg, var(--brass-hi), var(--pack-light), var(--pack-spark), var(--brass-hi));
+  --holo-aura: var(--pack-glow);
+}
+
+/* The screen jolts when the top comes off and when a holographic card turns ("a" and "b" so it can run twice). */
+.pack-opening[data-jolt="a"] { animation: pack-jolt-a 0.4s linear; }
+.pack-opening[data-jolt="b"] { animation: pack-jolt-b 0.4s linear; }
+
+/* Darker towards the edges; darker all over while a holographic card has the screen. */
+.pack-opening__dim {
+  position: absolute;
+  inset: -2%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, transparent, color-mix(in srgb, var(--card-black) 60%, transparent));
+}
+
+.pack-opening__dim::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--card-black) 72%, transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.pack-opening[data-spot] .pack-opening__dim::after {
+  opacity: 1;
+}
+
+/* ---------- The pack ---------- */
+
 .pack-opening__start {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__start {
+  pointer-events: none;
+}
+
+.pack-opening__pack-spot {
+  --pack-h: min(66vh, 110vw, 560px);
+  position: relative;
+  flex: 0 0 auto;
+  height: var(--pack-h);
+  aspect-ratio: 2 / 3;
 }
 
 .pack-opening__pack {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   padding: 0;
   border: 0;
   background: none;
+  color: inherit;
   cursor: pointer;
+  filter: drop-shadow(0 18px 26px color-mix(in srgb, var(--card-black) 70%, transparent));
+  animation: pack-in 0.95s cubic-bezier(0.2, 1.1, 0.3, 1) both;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.pack-opening__pack-image {
+.pack-opening__pack:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 6px;
+}
+
+.pack-opening__wob,
+.pack-opening__pack-rest,
+.pack-opening__pack-top {
+  position: absolute;
+  inset: 0;
   display: block;
-  height: min(60vh, 420px);
-  width: auto;
 }
 
-.pack-opening[data-stage="opening"] .pack-opening__pack {
+.pack-opening__wob {
+  animation: pack-float 3.6s ease-in-out 0.95s infinite;
+}
+
+.pack-opening__pack-rest img,
+.pack-opening__pack-top img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: calc(var(--pack-h) * 0.03);
+}
+
+/* The strip above the cut: the same picture, drawn over the rest until it flies off. */
+.pack-opening__pack-top {
+  clip-path: inset(0 0 86.5% 0);
+}
+
+.pack-opening__pack-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 7%;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: calc(var(--pack-h) * 0.085);
+  line-height: 1;
+  color: var(--card-white);
+  text-shadow: 0 2px 6px var(--card-black), 0 0 14px var(--card-black);
+}
+
+.pack-opening__shine {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--pack-h) * 0.03);
+  background: linear-gradient(105deg, transparent 40%, color-mix(in srgb, var(--card-white) 28%, transparent) 50%, transparent 60%);
+  background-size: 300% 100%;
+  background-position: 130% 0;
+  animation: pack-glint 3.2s ease-in-out 0.95s infinite;
+  pointer-events: none;
+}
+
+/* The line of light: a straight cut across the top, drawn left to right. */
+.pack-opening__cut {
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  top: 13.5%;
+  height: max(4px, calc(var(--pack-h) * 0.013));
+  margin-top: calc(max(4px, calc(var(--pack-h) * 0.013)) / -2);
+  border-radius: 4px;
+  background: var(--pack-line);
+  box-shadow: 0 0 18px 6px color-mix(in srgb, var(--pack-aura) 80%, transparent);
+  transform: scaleX(0);
+  transform-origin: left;
   opacity: 0;
-  transition: opacity 0.9s ease;
+  pointer-events: none;
+}
+
+.pack-opening__column {
+  position: absolute;
+  left: 50%;
+  bottom: 86.5%;
+  width: calc(var(--pack-h) * 0.43);
+  height: 90vh;
+  background: var(--pack-beam);
+  -webkit-mask: linear-gradient(90deg, transparent, var(--card-black) 35%, var(--card-black) 65%, transparent);
+  mask: linear-gradient(90deg, transparent, var(--card-black) 35%, var(--card-black) 65%, transparent);
+  filter: blur(max(7px, calc(var(--pack-h) * 0.02)));
+  transform: translateX(-50%) scale(1, 0);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pack-opening__flash {
+  position: absolute;
+  left: 50%;
+  top: 13.5%;
+  width: calc(var(--pack-h) * 0.13);
+  height: calc(var(--pack-h) * 0.13);
+  margin: calc(var(--pack-h) * -0.065);
+  border-radius: 50%;
+  background: var(--pack-burst);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .pack-opening__hint {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--text-md);
+  font-weight: 700;
+  text-shadow: 0 1px 3px var(--card-black);
+  animation: pack-opening-fade 0.4s ease 0.7s backwards, pack-hint-pulse 1.4s ease-in-out 1.1s infinite;
+  transition: opacity 0.2s;
 }
 
+/* Opening: shake harder and glow brighter, the cut, the top flies off, light pours out, the rest drops away. */
+.pack-opening:not([data-stage="pack"]) .pack-opening__pack {
+  animation: none;
+  cursor: default;
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__wob {
+  animation: pack-charge 0.9s linear forwards;
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__pack-rest {
+  clip-path: inset(13.3% 0 0 0);
+  animation: pack-drop 0.7s ease-in 1.35s both;
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__pack-top {
+  animation: pack-top-off 0.6s cubic-bezier(0.3, 0.6, 0.4, 1) 0.9s both;
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__cut {
+  animation: pack-cut 0.45s ease-in 0.45s both;
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__column {
+  animation: pack-column 1.1s ease-out 0.9s both;
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__flash {
+  animation: pack-flash 0.7s ease-out 0.9s both;
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__shine {
+  display: none;
+}
+
+.pack-opening:not([data-stage="pack"]) .pack-opening__hint {
+  animation: none;
+  opacity: 0;
+}
+
+/* ---------- The cards ---------- */
+
 .pack-opening__reveal {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -59,10 +275,17 @@
   margin: 0;
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 1.8rem;
+  font-size: clamp(1.35rem, 6.5vh, 1.9rem);
+  line-height: 1;
+  color: var(--brass-hi);
+  text-shadow: 0 2px 4px var(--card-black);
+  animation: pack-opening-fade 0.4s ease backwards;
+  transition: opacity 0.3s;
 }
 
 .pack-opening__cards {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   width: 100%;
@@ -74,37 +297,143 @@
   justify-content: center;
 }
 
+/* --o: places left or right of the middle of the row; --lift: the same without its sign; --i: order out of the pack. */
 .pack-opening__card {
+  --turn: calc(var(--o) * 2.5deg);
+  --drop: calc(var(--lift) * 5px - 6px);
+  --from-pack: calc(var(--o) * -1 * (var(--grid-card-width) + var(--space-4)));
+  --card-r: calc(var(--grid-card-width) * 0.0375);
   position: relative;
   width: var(--grid-card-width);
   height: var(--grid-card-height);
   cursor: pointer;
+  transform: translateY(var(--drop)) rotate(var(--turn));
+  transition: transform 0.45s cubic-bezier(0.2, 1.1, 0.3, 1), filter 0.3s;
+  animation: pack-launch 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+  animation-delay: calc(var(--i) * 170ms);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pack-opening__card:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 4px;
+  border-radius: var(--card-r);
 }
 
 .pack-opening__card .hero-layout-card {
   --hero-card-scale: var(--grid-card-scale);
 }
 
+.pack-opening__flip {
+  position: absolute;
+  inset: 0;
+  perspective: 900px;
+  transition: transform 0.2s ease-out;
+}
+
+@media (hover: hover) {
+  .pack-opening__card:not(.is-turned):not(.is-spot):hover .pack-opening__flip {
+    transform: translateY(-8px);
+  }
+}
+
+/* Card back: dark leather crosshatch, brass inset border, the shield crest. */
 .pack-opening__back {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   box-sizing: border-box;
-  border: 2px solid var(--brass);
-  border-radius: var(--radius-panel);
-  background: var(--walnut);
+  overflow: hidden;
+  border: max(1.5px, calc(var(--grid-card-width) * 0.008)) solid var(--brass);
+  border-radius: var(--card-r);
+  background:
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--card-white) 3.5%, transparent) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--card-white) 3.5%, transparent) 0 6px, transparent 6px 12px),
+    radial-gradient(ellipse at 50% 40%, var(--pack-back-hi), var(--pack-back-lo));
+  box-shadow: 0 0.5em 1.2em var(--shade);
+}
+
+.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]) .pack-opening__back {
+  box-shadow: 0 0 16px 4px var(--holo-aura);
+}
+
+.pack-opening__back::before {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border: 1px solid var(--brass-dim);
+  border-radius: 6%;
+  box-shadow: inset 0 0 0 3px var(--pack-back-lo), inset 0 0 0 4px var(--brass-dim);
+}
+
+.pack-opening__crest {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52%;
+  transform: translate(-50%, -50%);
+  color: var(--brass-hi);
+  filter: drop-shadow(0 2px 3px var(--card-black));
+}
+
+/* A holographic card glows face down: the foil colours in turn (gold when the effects are off). */
+.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]) .pack-opening__back {
+  animation: pack-holo-back 1.6s linear infinite;
+}
+
+.pack-opening[data-holo-light="gold"] .pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]) .pack-opening__back {
+  animation: pack-gold-back 1.6s ease-in-out infinite;
+}
+
+/* Turning: the back swings away, the face swings in behind a white flash, then the label pops in. */
+.pack-opening__card.is-turned .pack-opening__back {
+  animation: pack-back-away 0.28s ease-in both;
 }
 
 .pack-opening__face {
-  animation: pack-opening-fade 0.3s ease both;
+  position: absolute;
+  inset: 0;
+  animation: pack-face-in 0.37s cubic-bezier(0.3, 1.2, 0.4, 1) 0.28s both;
+}
+
+.pack-opening__face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border-radius: var(--card-r);
+  background: var(--card-white);
+  opacity: 0;
+  pointer-events: none;
+  animation: pack-face-flash 0.55s ease-out 0.28s both;
 }
 
 .pack-opening__label {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(-1 * var(--space-6));
-  text-align: center;
-  font-size: 0.95rem;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 6px);
+  white-space: nowrap;
+  font-size: max(var(--text-xs), calc(var(--grid-card-width) * 0.06));
+  font-weight: 800;
+  line-height: 1.1;
+  text-shadow: 0 1px 3px var(--card-black);
+  transition: opacity 0.3s;
+  animation: pack-label-pop 0.45s cubic-bezier(0.2, 1.8, 0.4, 1) 0.5s both;
+}
+
+.pack-opening__card[data-kind="new"] .pack-opening__label { color: var(--verdigris); }
+.pack-opening__card[data-kind="repeat"] .pack-opening__label { color: var(--brass-hi); }
+
+.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]) .pack-opening__label {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: max(var(--text-lg), calc(var(--grid-card-width) * 0.09));
+  background: var(--holo-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 1px 2px var(--card-black));
 }
 
 .pack-opening__label .coin-icon {
@@ -114,12 +443,133 @@
   margin-right: 0.1em;
 }
 
+/* ---------- A holographic card takes over ---------- */
+
+.pack-opening[data-spot] .pack-opening__card:not(.is-spot) {
+  filter: brightness(0.3);
+}
+
+/* The banner takes the heading's place while it shows. */
+.pack-opening[data-spot] .pack-opening__heading,
+.pack-opening[data-banner] .pack-opening__heading {
+  opacity: 0;
+}
+
+.pack-opening[data-spot] .pack-opening__actions {
+  opacity: 0.25;
+}
+
+/* The banner names the card while it is in the middle; its own label shows once it is back in the row. */
+.pack-opening__card.is-spot .pack-opening__label {
+  opacity: 0;
+}
+
+.pack-opening__card.is-spot {
+  z-index: 20;
+  transform: translate(var(--spot-x), calc(var(--spot-y) + var(--drop))) scale(var(--spot-scale));
+}
+
+.pack-opening__card.is-spot:not(.is-turned) .pack-opening__flip {
+  animation: pack-tremble 0.9s linear forwards;
+}
+
+.pack-opening .pack-opening__card.is-spot:not(.is-turned) .pack-opening__back {
+  animation: pack-holo-rush 0.9s linear forwards;
+}
+
+.pack-opening[data-holo-light="gold"] .pack-opening__card.is-spot:not(.is-turned) .pack-opening__back {
+  animation: pack-gold-rush 0.9s linear forwards;
+}
+
+.pack-opening__rays {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  animation: pack-rays 1.85s ease-out 0.25s both;
+}
+
+.pack-opening__rays::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--grid-card-height) * -0.9);
+  top: calc(var(--grid-card-height) * -0.9);
+  width: calc(var(--grid-card-height) * 1.8);
+  height: calc(var(--grid-card-height) * 1.8);
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--pack-light) 55%, transparent) 0 6deg, transparent 6deg 18deg);
+  -webkit-mask: radial-gradient(circle, var(--card-black) 20%, transparent 68%);
+  mask: radial-gradient(circle, var(--card-black) 20%, transparent 68%);
+  animation: pack-spin 5s linear infinite;
+}
+
+.pack-opening__banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3%;
+  z-index: 5;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: min(3.2rem, 8vw, 15vh);
+  line-height: 1;
+  pointer-events: none;
+  background: var(--holo-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 2px var(--card-black)) drop-shadow(0 0 14px color-mix(in srgb, var(--holo-aura) 60%, transparent));
+  animation: pack-banner 1.9s ease-out both;
+}
+
+/* ---------- Sparks ---------- */
+
+.pack-opening__sparks {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pack-opening__burst i {
+  --spark: var(--card-white);
+  position: absolute;
+  width: clamp(5px, 0.9vh, 8px);
+  height: clamp(5px, 0.9vh, 8px);
+  border-radius: 50%;
+  background: var(--spark);
+  box-shadow: 0 0 8px 2px var(--spark);
+  animation: pack-spark 0.9s ease-out both;
+}
+
+.pack-opening__burst[data-tone="gold"] i:nth-child(4n + 1) { --spark: var(--brass-hi); }
+.pack-opening__burst[data-tone="gold"] i:nth-child(4n + 2) { --spark: var(--pack-spark); }
+.pack-opening__burst[data-tone="gold"] i:nth-child(4n) { --spark: var(--ember-spark); }
+.pack-opening__burst[data-tone="rainbow"] i:nth-child(5n + 1) { --spark: var(--pack-pink); }
+.pack-opening__burst[data-tone="rainbow"] i:nth-child(5n + 2) { --spark: var(--pack-yellow); }
+.pack-opening__burst[data-tone="rainbow"] i:nth-child(5n + 3) { --spark: var(--pack-mint); }
+.pack-opening__burst[data-tone="rainbow"] i:nth-child(5n + 4) { --spark: var(--pack-blue); }
+
+/* ---------- Buttons ---------- */
+
 .pack-opening__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--space-3);
-  padding-top: var(--space-6);
+  padding-top: var(--space-5);
+  animation: pack-opening-fade 0.4s ease 0.5s backwards;
+  transition: opacity 0.3s;
+}
+
+.pack-opening__turn-all {
+  background: color-mix(in srgb, var(--card-black) 40%, transparent);
+  border-color: var(--brass-dim);
+  color: var(--bone);
 }
 
 .pack-opening__again .coin-icon {
@@ -129,11 +579,246 @@
   vertical-align: -0.2em;
 }
 
+/* A sideways phone: less air round the row of cards. */
+@media (max-height: 500px) {
+  .pack-opening {
+    padding-top: max(var(--space-2), var(--safe-top));
+    padding-bottom: max(var(--space-2), var(--safe-bottom));
+  }
+
+  .pack-opening__reveal {
+    gap: var(--space-2);
+  }
+
+  .pack-opening__actions .ui-btn {
+    min-height: 0;
+    padding-top: var(--space-1);
+    padding-bottom: var(--space-1);
+  }
+}
+
+/* ---------- Keyframes ---------- */
+
 @keyframes pack-opening-fade {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-.pack-opening--still .pack-opening__pack {
-  transition: none;
+@keyframes pack-in {
+  0% { transform: perspective(900px) translateY(170%) rotateY(540deg) scale(0.4); }
+  70% { transform: perspective(900px) translateY(-5%) rotateY(0deg) scale(1.1); }
+  100% { transform: perspective(900px) translateY(0) rotateY(0deg) scale(1); }
+}
+
+@keyframes pack-float {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-8px) rotate(1.5deg); }
+}
+
+@keyframes pack-glint {
+  0%, 55% { background-position: 130% 0; }
+  100% { background-position: -70% 0; }
+}
+
+@keyframes pack-hint-pulse {
+  50% { opacity: 0.45; }
+}
+
+@keyframes pack-charge {
+  0% { transform: rotate(0deg) scale(1); filter: brightness(1) drop-shadow(0 0 0 transparent); }
+  10% { transform: rotate(-3deg); }
+  20% { transform: rotate(3deg) scale(1.03); }
+  30% { transform: rotate(-5deg); }
+  40% { transform: rotate(5deg) scale(1.06); filter: brightness(1.3) drop-shadow(0 0 10px var(--pack-aura)); }
+  50% { transform: rotate(-6deg); }
+  60% { transform: rotate(6deg) scale(1.09); }
+  70% { transform: rotate(-7deg); filter: brightness(1.7) drop-shadow(0 0 20px var(--pack-aura)); }
+  80% { transform: rotate(7deg) scale(1.12); }
+  90% { transform: rotate(-4deg); }
+  100% { transform: rotate(0deg) scale(1.14); filter: brightness(2.1) drop-shadow(0 0 30px var(--pack-aura)); }
+}
+
+@keyframes pack-cut {
+  0% { transform: scaleX(0); opacity: 1; }
+  80% { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+
+@keyframes pack-top-off {
+  to { transform: translate(60%, -130%) rotate(38deg); opacity: 0; }
+}
+
+@keyframes pack-drop {
+  to { transform: translateY(130%); opacity: 0; }
+}
+
+@keyframes pack-flash {
+  0% { opacity: 0.95; transform: scale(1); }
+  100% { opacity: 0; transform: scale(34); }
+}
+
+@keyframes pack-column {
+  0% { transform: translateX(-50%) scale(1, 0); opacity: 1; }
+  40% { transform: translateX(-50%) scale(1, 0.8); opacity: 1; }
+  100% { transform: translateX(-50%) scale(0.3, 1); opacity: 0; }
+}
+
+@keyframes pack-jolt-a {
+  0%, 100% { transform: none; }
+  15% { transform: translate(-7px, 4px); }
+  30% { transform: translate(6px, -5px); }
+  45% { transform: translate(-5px, -3px); }
+  60% { transform: translate(4px, 4px); }
+  80% { transform: translate(-2px, 1px); }
+}
+
+@keyframes pack-jolt-b {
+  0%, 100% { transform: none; }
+  15% { transform: translate(-7px, 4px); }
+  30% { transform: translate(6px, -5px); }
+  45% { transform: translate(-5px, -3px); }
+  60% { transform: translate(4px, 4px); }
+  80% { transform: translate(-2px, 1px); }
+}
+
+/* Out of the pack (the middle of the screen), up and round once, down into its place in the fan. */
+@keyframes pack-launch {
+  0% { opacity: 0; transform: translate(var(--from-pack), 45%) scale(0.3) rotate(0deg); }
+  15% { opacity: 1; }
+  55% { transform: translate(calc(var(--from-pack) * 0.4), -45%) scale(1.15) rotate(calc(var(--turn) + 360deg)); }
+  85% { transform: translate(0, calc(var(--drop) + 8px)) scale(1.05) rotate(var(--turn)); }
+  100% { opacity: 1; transform: translate(0, var(--drop)) scale(1) rotate(var(--turn)); }
+}
+
+@keyframes pack-back-away {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(90deg); visibility: hidden; }
+}
+
+@keyframes pack-face-in {
+  from { transform: rotateY(-90deg); }
+  to { transform: rotateY(0deg); }
+}
+
+@keyframes pack-face-flash {
+  from { opacity: 0.95; }
+  to { opacity: 0; }
+}
+
+@keyframes pack-label-pop {
+  from { transform: translate(-50%, 6px) scale(0); }
+  to { transform: translate(-50%, 6px) scale(1); }
+}
+
+@keyframes pack-holo-back {
+  0%, 100% { box-shadow: 0 0 14px 3px var(--pack-pink); }
+  25% { box-shadow: 0 0 18px 5px var(--pack-yellow); }
+  50% { box-shadow: 0 0 14px 3px var(--pack-mint); }
+  75% { box-shadow: 0 0 18px 5px var(--pack-blue); }
+}
+
+@keyframes pack-gold-back {
+  0%, 100% { box-shadow: 0 0 12px 2px var(--brass-hi); }
+  50% { box-shadow: 0 0 20px 6px var(--pack-glow); }
+}
+
+/* The glow speeds up as the card trembles. */
+@keyframes pack-holo-rush {
+  0% { box-shadow: 0 0 14px 3px var(--pack-pink); }
+  24% { box-shadow: 0 0 16px 4px var(--pack-yellow); }
+  43% { box-shadow: 0 0 18px 5px var(--pack-mint); }
+  58% { box-shadow: 0 0 20px 6px var(--pack-blue); }
+  70% { box-shadow: 0 0 22px 7px var(--pack-pink); }
+  79% { box-shadow: 0 0 24px 8px var(--pack-yellow); }
+  86% { box-shadow: 0 0 26px 9px var(--pack-mint); }
+  91% { box-shadow: 0 0 28px 10px var(--pack-blue); }
+  95% { box-shadow: 0 0 30px 11px var(--pack-pink); }
+  98% { box-shadow: 0 0 32px 12px var(--pack-yellow); }
+  100% { box-shadow: 0 0 36px 14px var(--card-white); }
+}
+
+@keyframes pack-gold-rush {
+  0% { box-shadow: 0 0 12px 2px var(--brass-hi); }
+  24% { box-shadow: 0 0 18px 5px var(--pack-glow); }
+  43% { box-shadow: 0 0 14px 3px var(--brass-hi); }
+  58% { box-shadow: 0 0 22px 7px var(--pack-glow); }
+  70% { box-shadow: 0 0 16px 4px var(--brass-hi); }
+  79% { box-shadow: 0 0 26px 9px var(--pack-glow); }
+  86% { box-shadow: 0 0 18px 5px var(--brass-hi); }
+  91% { box-shadow: 0 0 30px 11px var(--pack-glow); }
+  95% { box-shadow: 0 0 20px 6px var(--brass-hi); }
+  100% { box-shadow: 0 0 36px 14px var(--pack-light); }
+}
+
+@keyframes pack-tremble {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(-2deg); }
+  20% { transform: rotate(2deg); }
+  30% { transform: rotate(-3deg) scale(1.02); }
+  40% { transform: rotate(3deg); }
+  50% { transform: rotate(-4deg) scale(1.04); }
+  60% { transform: rotate(4deg); }
+  70% { transform: rotate(-5deg) scale(1.06); }
+  80% { transform: rotate(5deg); }
+  90% { transform: rotate(-5deg) scale(1.08); }
+  100% { transform: rotate(0deg) scale(1.1); }
+}
+
+@keyframes pack-rays {
+  0% { opacity: 0; transform: scale(0.3); }
+  25% { opacity: 1; transform: scale(1); }
+  70% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes pack-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pack-banner {
+  0% { transform: scale(3.5); opacity: 0; }
+  14% { transform: scale(1); opacity: 1; }
+  82% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+
+@keyframes pack-banner-fade {
+  0%, 100% { opacity: 0; }
+  15%, 80% { opacity: 1; }
+}
+
+@keyframes pack-spark {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+}
+
+/* ---------- Animations off, or the system's reduced-motion setting: simple fades ---------- */
+
+.pack-opening--still,
+.pack-opening--still *,
+.pack-opening--still *::before,
+.pack-opening--still *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+.pack-opening--still .pack-opening__pack,
+.pack-opening--still .pack-opening__hint,
+.pack-opening--still .pack-opening__card,
+.pack-opening--still .pack-opening__face,
+.pack-opening--still .pack-opening__label {
+  animation: pack-opening-fade 0.3s ease both !important;
+}
+
+.pack-opening--still .pack-opening__heading,
+.pack-opening--still .pack-opening__actions {
+  animation: pack-opening-fade 0.3s ease backwards !important;
+}
+
+.pack-opening--still .pack-opening__card.is-turned .pack-opening__back {
+  visibility: hidden;
+}
+
+.pack-opening--still .pack-opening__banner {
+  animation: pack-banner-fade 2.2s ease both !important;
 }

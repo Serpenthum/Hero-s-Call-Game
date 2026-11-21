@@ -91,6 +91,17 @@
   --ember-spark: #ffcf7a;
   --ember-glow: #ffaa3c;
 
+  /* Pack opening: warm light, the four foil colours, and the leather card back */
+  --pack-light: #fff0be;
+  --pack-glow: #ffe196;
+  --pack-spark: #f0d590;
+  --pack-pink: #ff7ab8;
+  --pack-yellow: #ffe27a;
+  --pack-mint: #7affd0;
+  --pack-blue: #8fa8ff;
+  --pack-back-hi: #3a2a1e;
+  --pack-back-lo: #17100c;
+
   /* Type */
   --font-display: 'Grenze Gotisch', Georgia, serif;
   --font-label: 'IM Fell English', Georgia, serif;
