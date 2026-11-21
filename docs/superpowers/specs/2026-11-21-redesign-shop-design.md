@@ -31,7 +31,7 @@ and every window the shop opens must keep every card and its text clearly readab
    it must keep every card at least 222px wide.
    - **Sale:** the six sale heroes fill 3 top and 3 bottom when there is room, with no paging. With less room it
      shows fewer per page and pages them. On sideways phones that is the two cards described above.
-   - **"See what's inside":** the same, two rows of as many columns as fit, paged.
+   - **"See what's inside":** the same, up to three rows of as many columns as fit, paged.
    - The showcase column, pack and dial grow modestly with the screen. Their exact sizes are left to the builder,
      following the mockup's proportions.
    - The card-turn animation runs per page, with all cards on the page together and staggered.
