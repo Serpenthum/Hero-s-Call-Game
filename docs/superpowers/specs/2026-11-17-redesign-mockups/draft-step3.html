@@ -91,7 +91,7 @@ button.chip[aria-pressed="true"]{background:var(--brass);color:#1a130c;border-co
 .hint{position:relative;z-index:3;flex:none;text-align:center;font-family:var(--kfont);font-size:1.15rem;color:#e9dcbc;height:30px;line-height:30px}
 .hint b{font-family:var(--ui);font-weight:800;color:#f6cf57}
 .hint.isban b{color:#ff9b80}
-.hand{position:relative;z-index:3;flex:1;min-height:0;display:flex;justify-content:center;align-items:center;gap:var(--gap);padding:0 22px}
+.hand{position:relative;z-index:3;flex:1;min-height:0;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;align-content:center;gap:var(--gap);padding:0 var(--hpad,22px)}
 .hand .cardwrap{position:relative;width:var(--cw);height:calc(var(--cw)*1.46);transition:transform .25s cubic-bezier(.2,.9,.3,1.2)}
 .hand .cardwrap .hc{position:absolute;inset:0}
 .hand .cardwrap:hover{transform:translateY(-6px)}
@@ -240,7 +240,7 @@ button.chip[aria-pressed="true"]{background:var(--brass);color:#1a130c;border-co
 .dt.compact .ban em{display:none}
 .dt.compact .ban .tok{width:28px;height:28px}
 .dt.compact .hint{font-size:.85rem;height:20px;line-height:20px}
-.dt.compact .hand{padding:0 10px}
+
 .dt.compact .badge{width:24px;height:24px;font-size:.8rem;top:-10px}
 .dt.compact .firstTag{font-size:.65rem;bottom:-16px}
 .dt.compact .foot{height:50px}
@@ -362,11 +362,21 @@ function sizes(){
   const sw = compact ? Math.floor(Math.min(band.clientHeight - 12, (W - bw - 20 - 20 - 120 - 5*6 - 20)/6)) : Math.floor((band.clientHeight - 48)/1.46);
   dt.style.setProperty('--sw', sw+'px');
   const hand = $('hand'), cs = getComputedStyle(dt), gap = parseFloat(cs.getPropertyValue('--gap'));
-  const n = G && G.step === 4 ? 3 : 5;
-  const cw = hand.clientWidth - parseFloat(getComputedStyle(hand).paddingLeft)*2;
+  // cards fill the space they have: sized for the cards actually in the hand, in one row or two, whichever is bigger
+  const list = !G ? [] : (G.step === 4 ? G.order : G.hand);
+  const n = Math.max(1, list.length || 5);
+  const edge = compact ? 10 : 22;
+  const cw = hand.clientWidth - edge*2;
   const ch = hand.clientHeight - (G && G.step===4 ? (compact?34:54) : (compact?14:24));
-  let w = Math.floor(Math.min((cw - gap*(n-1))/n, ch/1.46));
-  if (G && G.step === 4) w = Math.min(w, compact ? 999 : 300);
+  let w = 0, perRow = n;
+  for (const rows of [1, 2]) {
+    if (rows > n) break;
+    const pr = Math.ceil(n / rows);
+    const rw = Math.floor(Math.min((cw - gap*(pr-1))/pr, ((ch - gap*(rows-1))/rows)/1.46));
+    if (rw > w) { w = rw; perRow = pr; }
+  }
+  // side padding so exactly perRow cards fit per row (3 + 2, not 4 + 1)
+  dt.style.setProperty('--hpad', Math.max(edge, Math.floor((hand.clientWidth - (perRow*w + gap*(perRow-1)))/2) - 1) + 'px');
   dt.style.setProperty('--cw', w+'px');
   return {w, sw, compact, bw};
 }

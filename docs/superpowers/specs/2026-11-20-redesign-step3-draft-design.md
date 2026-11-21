@@ -81,7 +81,9 @@ cards are 232 px; today they are 195 px.
   Under each team, a status: "Choosing…" while that player hasn't acted this round, "Done ✓" once they have.
 - **Hint line:** "Ban one. Your opponent gets this hand next." / "Pick one for your team." / "Set your order. Tap a hero,
   then tap where it goes."
-- **Hand:** the cards, sized to the space (all five slots' worth, so cards don't grow as the hand shrinks).
+- **Hand:** the cards fill the space they have, on every layout (owner rule). They are sized for the cards actually in
+  the hand (5, 4, 3 or 2; 3 in the order step), in one row or two, whichever makes them bigger. Two rows split evenly
+  (3 + 2, not 4 + 1). Sizes change when a new hand arrives, not mid-round.
 - **Button:** "Ban" / "Pick" (disabled until a card is chosen), then "Ban Wizard" / "Pick Monk" once one is chosen.
   The ban button is red.
 
@@ -101,7 +103,8 @@ Used whenever layout A's cards would be under 222 px wide. In practice: sideways
 - **Left:** one big card, full height, with all its text. Measured in the mockup: 256 px wide at 844x390 (13.8 px rules
   text), 235 px at 640x360 (12.7 px), 409 px at 1024x640.
 - **Right:** the top bar, the band with teams as round portraits (rainbow rim if holographic; red rim for the
-  opponent), the hint, the hand as small cards, and the button.
+  opponent), the hint, the hand as small cards, and the button. The small cards follow the same fill-the-space rule as
+  the hand in layout A (measured in the mockup at 1024x640: 150 px in two rows with 5 cards, 281 px with 2).
 - **Tapping a small card shows it big and chooses it.** The button acts on the card shown big ("Ban Barbarian"). When a
   round starts, the first card is shown and chosen, so the player always sees a full card.
 - **Tapping a team portrait or a ban shows that card big** (to read the opponent's picks). It doesn't change the chosen
