@@ -96,12 +96,15 @@ describe('shop', () => {
   const enabled = heroList.filter(h => !h.disabled).map(h => h.name);
   const starters = ['Assassin', 'Barbarian', 'Cleric', 'Druid', 'Fighter', 'Monk', 'Paladin', 'Ranger', 'Sorcerer', 'Wizard'];
 
+  // Packs draw from this; 0.99 never hits the bonus holographic roll
+  let random = () => 0.99;
   let auth, app;
   before(async () => {
     auth = createAuth();
     app = createRouter();
-    app.use('/api/shop', createShopRouter({ database, getHeroes: () => heroList, auth, now: () => NOW }));
+    app.use('/api/shop', createShopRouter({ database, getHeroes: () => heroList, auth, now: () => NOW, random: () => random() }));
   });
+  beforeEach(() => { random = () => 0.99; });
 
   const call = async (path, { token, body, method = 'POST' } = {}) => {
     const res = await handleFetch(app, new Request('http://t' + path, {
@@ -142,6 +145,54 @@ describe('shop', () => {
     assert.equal(after.victory_points, 8);
     assert.equal(after.available_heroes.length, 13);
     assert.equal(new Set(after.available_heroes).size, 13, 'no duplicates');
+  });
+
+  test('a pack response lists each card with its kind and full hero data', async () => {
+    const user = await newUser(20);
+    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.coinsSpent, 12);
+    assert.equal(res.json.coinsBack, 0);
+    assert.equal(res.json.cards.length, 3);
+    for (const card of res.json.cards) {
+      assert.equal(card.kind, 'new');
+      assert.equal(card.hero.name, card.name);
+      assert.notEqual(card.hero.HP, undefined);
+    }
+  });
+
+  test('a player who owns every hero can buy a pack', async () => {
+    const id = await createUser(database, `shopper${++userCount}`, { heroes: enabled, victoryPoints: 20 });
+    const user = { id, token: auth.issueToken(id) };
+    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.json.cards.map(c => c.kind), ['repeat', 'repeat', 'repeat']);
+    assert.equal(res.json.coinsBack, 6);
+    assert.equal(res.json.newVP, 20 - 12 + 6);
+    assert.equal((await database.getUserById(user.id)).victory_points, 20 - 12 + 6);
+  });
+
+  test('a bonus holographic is saved', async () => {
+    random = () => 0;
+    const user = await newUser(20);
+    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.cards.length, 4);
+    const bonus = res.json.cards[3];
+    assert.ok(bonus.kind === 'holo' || bonus.kind === 'holo_upgrade');
+    const after = await database.getUserById(user.id);
+    assert.ok(after.holo_heroes.includes(bonus.name));
+    assert.ok(after.available_heroes.includes(bonus.name));
+    assert.deepEqual(res.json.holo_heroes, after.holo_heroes);
+  });
+
+  test('heroesReceived is still sent for old pages', async () => {
+    random = () => 0;
+    const user = await newUser(20);
+    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
+    const expected = res.json.cards.filter(c => c.kind === 'new' || c.kind === 'holo').map(c => c.name);
+    assert.ok(expected.length > 0);
+    assert.deepEqual(res.json.heroesReceived, expected);
   });
 
   test('a pack needs 12 VP', async () => {
