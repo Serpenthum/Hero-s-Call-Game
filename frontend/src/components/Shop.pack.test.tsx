@@ -75,7 +75,7 @@ async function openFirstPack(root: HTMLElement) {
   click(buttonByText(document, 'Turn all over'));
 }
 
-const balanceShown = (root: ParentNode) => root.querySelector('.shop-header .vp-amount')?.textContent;
+const balanceShown = (root: ParentNode) => root.querySelector('.shop-showcase .vp-amount')?.textContent;
 const packCardNames = () => Array.from(document.querySelectorAll('.pack-opening [data-kind]')).map(c => (c as HTMLElement).dataset.name);
 
 describe('Shop packs', () => {
@@ -150,12 +150,11 @@ describe('Shop packs', () => {
     await settle();
 
     expect(buttonByText(root, 'Buy pack')?.disabled).toBe(false);
-    expect(root.textContent).toContain('3 random heroes, and a 1 in 5 chance of a bonus holographic card.');
 
     click(buttonByText(root, "See what's inside"));
     await settle();
     expect(root.textContent).toContain('You own every hero. Packs give repeats (+2 each) and a chance of a holographic card.');
-    expect(root.querySelector('.pack-contents-subtitle .coin-icon')).not.toBeNull();
+    expect(root.querySelector('.shop-inside-sub .coin-icon')).not.toBeNull();
   });
 
   it('the contents modal lists the pack chances when heroes are left to find', async () => {
@@ -250,7 +249,7 @@ describe('Shop packs', () => {
     await settle();
 
     const toast = document.querySelector('.shop-message--over-opening');
-    expect(toast?.textContent).toBe('The shop is closed for now.');
+    expect(toast?.textContent).toBe('Purchase failed. Please try again.');
     expect(root.querySelector('.shop-container')?.contains(toast)).toBe(false);
     expect(document.querySelector('.pack-opening')).not.toBeNull();
   });

@@ -944,3 +944,100 @@
   /* The friends and messages dock would sit over the shop's corner */
   body:has(.shop-overlay) :is(.friends-icon, .message-icon) { visibility: hidden; }
 }
+
+/* ---------------------------------------------------------------------------
+   Showcase split (direction B): layout only, enough for the shop to work.
+   The look (felt, leather, brass, the dial, the card turn) is styled later.
+   --------------------------------------------------------------------------- */
+/* Full screen: the container keeps clear of the safe areas itself (beats index.css's overlay padding) */
+.shop-overlay:has(.shop--b) { padding: 0; }
+.shop-container.shop--b {
+  --shop-pack-w: 112px;
+  flex-direction: row;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+.shop--b .shop-close {
+  position: absolute;
+  top: max(var(--space-2), var(--safe-top));
+  right: max(var(--space-2), var(--safe-right));
+  z-index: 3;
+}
+
+.shop--b .shop-showcase,
+.shop--b .shop-inside-side {
+  isolation: isolate;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-2);
+  overflow: hidden;
+}
+.shop--b .shop-foot { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+
+.shop--b .shop-table,
+.shop--b .shop-inside-table {
+  isolation: isolate;
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-2);
+}
+.shop--b .shop-table .shop-message {
+  position: absolute;
+  top: var(--space-2);
+  left: 50%;
+  z-index: 2;
+  margin: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.shop--b .shop-empty { flex: 1; }
+
+/* The grid's own box is the card area useCardGrid measures, so it takes its size from the table, not its cards */
+.shop--b :is(.shop-sale-grid, .shop-inside-grid) {
+  flex: 1;
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), var(--grid-card-width));
+  grid-auto-rows: var(--grid-card-height);
+  align-content: center;
+  justify-content: center;
+  gap: 18px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.shop--b .shop-slot { position: relative; width: var(--grid-card-width); height: var(--grid-card-height); }
+.shop--b .shop-slot .hero-card.hero-layout-card { --hero-card-scale: var(--grid-card-scale); }
+.shop--b :is(.shop-price-tag, .shop-stamp, .shop-owned-chip) {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+}
+.shop--b .shop-price-tag { min-height: 40px; }
+.shop--b :is(.shop-stamp, .shop-owned-chip) { pointer-events: none; }
+.shop--b .shop-inside-arrow { flex: 0 0 40px; height: 40px; }
+
+.shop--b .shop-inside {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  box-sizing: border-box;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  background: var(--walnut);
+}
