@@ -37,6 +37,8 @@ const MIGRATED = [
   'styles/Social.css',
   'styles/Panels.css', 'App.css', 'styles/HeroCard.css', 'styles/Survival.css', 'styles/Gauntlet.css', 'styles/SurvivalMode.css', 'styles/SurvivalProgress.css', 'styles/SurvivalTeamBuilder.css', 'styles/SurvivalUsedHeroes.css', 'styles/SurvivalBattleTransition.css',
   'components/DraftClock.tsx',
+  'components/SidebarBattleInfo.tsx',
+  'components/sidebarBattleInfo.test.tsx',
   'components/DisconnectBadge.tsx',
   'components/DisconnectBadge.test.tsx',
   'styles/DisconnectBadge.css',

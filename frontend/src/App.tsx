@@ -23,6 +23,7 @@ import { countdownFrom, deadlinesFromState, staleGameAfterLogin, DisconnectCount
 import { DisconnectNotice } from './components/DisconnectBadge';
 import { endSession } from './signOut';
 import BattleTutorial from './components/tutorial/BattleTutorial';
+import SidebarBattleInfo from './components/SidebarBattleInfo';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
 import './styles/GameScreens.css';
@@ -2750,38 +2751,21 @@ function App() {
 
           
           {/* Battle Phase Information - Combined Active Hero and Battle Log */}
-          {state.gameState.phase === 'battle' && (
-            <div className="battle-combined-info">
-              <div id="battle-details-slot" />
-              <h3>Battle</h3>
-              {((currentPlayer && opponent) || state.isSpectating) ? (
-                <>
-                  <div className="turn-info">
-                    {(() => {
-                      if (state.isSpectating) {
-                        // For spectators, show which player's turn it is
-                        const activePlayerIndex = state.gameState.currentTurn;
-                        const activePlayer = state.gameState.players[activePlayerIndex];
-                        return activePlayer ? (
-                          <div className="spectator-turn">Watching: {activePlayer.name}'s turn</div>
-                        ) : null;
-                      }
-                      
-                      const playerIndex = state.gameState.players.findIndex(p => p.id === state.playerId);
-                      return state.gameState.currentTurn === playerIndex ? (
-                        <div className="current-turn">Your turn</div>
-                      ) : (
-                        <div className="opponent-turn">Opponent's turn</div>
-                      );
-                    })()}
-                  </div>
-                  
+          {/* Shown from the starting roll on, so the board keeps its battle layout */}
+          <SidebarBattleInfo
+            phase={state.gameState.phase}
+            isMyTurn={state.gameState.currentTurn === state.gameState.players.findIndex(p => p.id === state.playerId)}
+            isSpectating={state.isSpectating}
+            activePlayerName={state.gameState.players[state.gameState.currentTurn]?.name}
+            hasPlayers={!!(currentPlayer && opponent) || state.isSpectating}
+          >
 
                   
                   {/* Active Hero Information */}
                   {(() => {
                     // Use the backend's activeHero information for accurate display
-                    if (!state.gameState?.activeHero) return null;
+                    // No active hero until the turn order is chosen
+                    if (state.gameState?.phase !== 'battle' || !state.gameState?.activeHero) return null;
                     
                     const activePlayerIndex = state.gameState?.activeHero?.playerIndex;
                     const activePlayer = activePlayerIndex !== undefined ? state.gameState?.players?.[activePlayerIndex] : undefined;
@@ -2922,10 +2906,7 @@ function App() {
                       )}
                     </div>
                   </div>
-                </>
-              ) : null}
-            </div>
-          )}
+          </SidebarBattleInfo>
         </div>
       </aside>
     );
