@@ -352,13 +352,6 @@
   --hero-card-height-scale: var(--grid-card-scale);
 }
 
-.favorite-hero-section .favorite-hero-display .hero-card.hero-layout-card:hover:not(.shop-hero-card) {
-  transform: none;
-  z-index: auto;
-  border-color: var(--leather-hi);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--felt-deep) 45%, transparent);
-}
-
 .favorite-hero-stats {
   flex-shrink: 0;
   color: var(--bone-dim);
@@ -544,4 +537,18 @@
     flex-direction: column;
     text-align: center;
   }
+}
+/* Sideways phone: text at 12px or more, 40px tap targets */
+@media (max-height: 500px) {
+  .profile-header { padding: var(--space-1) var(--space-4); }
+  .profile-header-tools { left: var(--space-4); }
+  .profile-close-btn { right: var(--space-4); top: calc(50% - 20px); }
+  .profile-tool-btn { width: 40px; height: 40px; }
+  .change-icon-btn { min-height: 40px; font-size: 12px; }
+  .level-label { font-size: 12px; }
+  .profile-info .xp-bar { height: 18px; }
+  .profile-info .xp-text { font-size: 12px; }
+  .profile-stats .stat-label { font-size: 12px; letter-spacing: 0; margin-bottom: var(--space-1); }
+  .favorite-hero-stats { font-size: 12px; }
+  .icon-selector-header h3 { font-size: var(--text-lg); }
 }

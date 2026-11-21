@@ -1,0 +1,39 @@
+/* Full-screen fallback when the app fails to render (AppErrorBoundary) */
+.app-error {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(var(--space-6), var(--safe-top)) max(var(--space-6), var(--safe-right))
+    max(var(--space-6), var(--safe-bottom)) max(var(--space-6), var(--safe-left));
+  background: var(--felt-surface);
+  color: var(--bone);
+}
+
+.app-error__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 24rem;
+  padding: var(--space-7) var(--space-8);
+  text-align: center;
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.app-error__title {
+  margin: 0;
+  font: 400 var(--text-2xl) / 1.1 var(--font-display);
+  color: var(--brass-hi);
+}
+
+.app-error__text {
+  margin: 0;
+  font: 400 var(--text-sm) / 1.4 var(--font-ui);
+  color: var(--bone-dim);
+}

@@ -1,9 +1,9 @@
 .turn-timer-bar {
   position: fixed;
   /* Horizontally centered in the fixed right action bar (same width clamp as .action-bar) */
-  right: calc(clamp(200px, 18vw, 300px) / 2);
+  right: calc(clamp(200px, 18vw, 300px) / 2 + var(--safe-right));
   transform: translateX(50%);
-  bottom: 80px;
+  bottom: calc(80px + var(--safe-bottom));
   width: 180px;
   height: 14px;
   padding: 2px;
@@ -50,6 +50,10 @@
   from { transform: scale(0.8); opacity: 0.8; }
   to { transform: scale(1.4); opacity: 1; }
 }
+
+/* Stopped while a player is disconnected: the fuse holds where it was and the ember dims */
+.turn-timer-bar--paused .turn-timer-fill { animation: none; }
+.turn-timer-bar--paused .turn-timer-fill::after { animation: none; opacity: 0.4; }
 
 @media (prefers-reduced-motion: reduce) {
   .turn-timer-fill::after { animation: none; }

@@ -1,7 +1,7 @@
 // Utility functions for game mechanics
 
 // Debug mode - set to false in production for better performance
-const DEBUG = process.env.DEBUG_GAME === 'true' || false;
+const DEBUG = typeof process !== 'undefined' && process.env && process.env.DEBUG_GAME === 'true';
 const debugLog = DEBUG ? console.log.bind(console) : () => {};
 
 // Tutorial scripting: while rig.value is set, every d20 roll returns it. rig.rolls counts all d20 rolls.

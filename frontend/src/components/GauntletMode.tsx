@@ -15,6 +15,7 @@ interface User {
   username: string;
   victory_points: number;
   available_heroes: string[];
+  holo_heroes?: string[];
   best_gauntlet_trial: number;
 }
 
@@ -287,6 +288,7 @@ const GauntletMode: React.FC<GauntletModeProps> = ({ onReturnToLobby, user, batt
           />
           <RosterSheet
             roster={runState.roster}
+            user={user}
             teamIndices={team}
             pick={pick}
             locked={searching}
@@ -300,6 +302,7 @@ const GauntletMode: React.FC<GauntletModeProps> = ({ onReturnToLobby, user, batt
         <div className="ui-modal-overlay gt-offer-overlay">
           <OfferPanel
             offer={offer}
+            user={user}
             runState={runState}
             fromBattle={offerFromBattle}
             replacing={replacing}

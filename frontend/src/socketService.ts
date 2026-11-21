@@ -1,26 +1,47 @@
-import { io, Socket } from 'socket.io-client';
+import { createSocket, Socket } from './realtime/client';
 import { SocketEvents } from './types';
 import config from './config';
 import { getAutoEndTurnEnabled } from './battleAnimations';
 import { getAuthToken } from './authSession';
 
+// A short heartbeat, so a dropped network is noticed within seconds (the server is told the interval
+// when we log in, and drops a seated player after about 20 s of silence)
+export const HEARTBEAT_MS = 8000;
+const PONG_TIMEOUT_MS = 5000;
+
 class SocketService {
   private socket: Socket<SocketEvents> | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private removeWindowListeners: (() => void) | null = null;
+  private socketListeners = new Set<(socket: Socket<SocketEvents> | null) => void>();
+
+  // Tells fn whenever the socket object is created, replaced or dropped (fn gets the new one, or null).
+  // Components that mount before the app connects, or outlive a replaced socket, re-attach through this.
+  onSocketChange(fn: (socket: Socket<SocketEvents> | null) => void): () => void {
+    this.socketListeners.add(fn);
+    return () => { this.socketListeners.delete(fn); };
+  }
+
+  private notifySocketChange() {
+    for (const fn of [...this.socketListeners]) fn(this.socket);
+  }
 
   connect(): Socket<SocketEvents> {
-    if (this.socket?.connected) {
+    // One socket per login: a socket that is reconnecting is reused, never replaced. A socket the
+    // server kicked (or that was closed) never comes back, so it is replaced.
+    if (this.socket && !this.socket.isStopped()) {
       return this.socket;
     }
+    if (this.socket) this.disconnect(false);
 
-    this.socket = io(config.SOCKET_URL, {
-      transports: ['websocket'],
-      upgrade: false,
-      reconnection: true,
-      reconnectionAttempts: this.maxReconnectAttempts,
+    // While logged in, keep trying to reconnect for as long as it takes (the backoff caps at 5 s)
+    this.socket = createSocket(config.SOCKET_URL, {
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      pingIntervalMs: HEARTBEAT_MS,
+      pongTimeoutMs: PONG_TIMEOUT_MS,
     });
+    this.watchWindow();
 
     this.socket.on('connect', () => {
       console.log('Connected to server');
@@ -42,14 +63,35 @@ class SocketService {
       this.reconnectAttempts++;
     });
 
+    this.notifySocketChange();
     return this.socket;
   }
 
-  disconnect() {
+  disconnect(notify = true) {
+    this.removeWindowListeners?.();
+    this.removeWindowListeners = null;
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+      if (notify) this.notifySocketChange();
     }
+  }
+
+  // Phones freeze background pages and drop their sockets without telling us. Check the connection
+  // as soon as the page is back in view or the network returns; drop it at once when the network goes.
+  private watchWindow() {
+    if (typeof window === 'undefined') return;
+    const check = () => this.socket?.probe(3000);
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    const onOffline = () => this.socket?.dropConnection();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', check);
+    window.addEventListener('offline', onOffline);
+    this.removeWindowListeners = () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', check);
+      window.removeEventListener('offline', onOffline);
+    };
   }
 
   getSocket(): Socket<SocketEvents> | null {
@@ -62,13 +104,14 @@ class SocketService {
 
   // Authentication method
   authenticate(userId: number) {
-    this.socket?.emit('authenticate', { userId, token: getAuthToken() });
+    this.socket?.emit('authenticate', { userId, token: getAuthToken(), heartbeatMs: HEARTBEAT_MS });
   }
 
   // Reconnection method
-  reconnectToGame(gameId: string, playerName: string) {
-    console.log(`🔄 SocketService reconnecting to game: ${gameId} as ${playerName}`);
-    this.socket?.emit('reconnect-game', { gameId, playerName });
+  // Takes back our seat in a game we dropped out of. The server checks the logged-in account owns it.
+  reconnectToGame(gameId?: string) {
+    console.log(`🔄 SocketService reconnecting to game: ${gameId ?? '(any held seat)'}`);
+    this.socket?.emit('reconnect-game', { gameId });
   }
 
   // Game-specific methods

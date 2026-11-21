@@ -1,6 +1,5 @@
 # Dependencies
-frontend/node_modules/*
-backend/node_modules/*
+node_modules/
 
 # Environment variables
 .env
@@ -47,5 +46,11 @@ Thumbs.db
 *.tmp
 *.temp
 game_database.sqlite
-.vercel
 .env*
+
+# Cloudflare local dev
+.dev.vars
+.wrangler/
+
+# Public URLs only, safe to commit
+!frontend/.env.production

@@ -1,0 +1,804 @@
+/* The draft table: ban, pick and order rounds. Two layouts:
+   table (.draft-table--table): column  bar | band | hint | hand | foot  (heights from TABLE_CHROME in draftRules.ts)
+   focus (.draft-table--focus): big card down the left, the same column on the right.
+   Sizes come from useDraftLayout as inline variables: --draft-card-w/-scale, --draft-big-w/-scale,
+   --draft-slot-w/-scale, --draft-hand-pad. Spacing numbers here match useDraftLayout.
+   Text is in px: the app shrinks the root font size on small screens, and text here must stay 12px or more. */
+
+.draft-table {
+  container: draft-table / inline-size;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--app-height);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  color: var(--bone);
+  font-family: var(--font-ui);
+  text-align: left;
+  background: radial-gradient(ellipse at 50% 55%, var(--draft-felt-hi), var(--felt) 55%, var(--felt-deep));
+}
+
+/* Vignette */
+.draft-table::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 55%, transparent 45%, color-mix(in srgb, var(--card-black) 55%, transparent));
+}
+
+/* ---- Top bar: title, steps, clock, Leave ---- */
+.draft-bar {
+  container: draft-bar / inline-size;
+  position: relative;
+  z-index: 4;
+  flex: none;
+  box-sizing: border-box;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  background: linear-gradient(var(--draft-bar-top), var(--draft-bar-bottom));
+  border-bottom: 1px solid var(--brass-dim);
+}
+
+.draft-title {
+  flex: none;
+  margin: 0;
+  font: 400 27px / 1 var(--font-display);
+  color: var(--draft-title);
+  text-shadow: 0 2px 0 var(--card-black);
+}
+
+.draft-steps {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: safe center; /* too wide: overflow to the right, never back over the title */
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draft-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--draft-step-ink);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.draft-step-mark {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--draft-step-ring);
+  background: var(--draft-step-well);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.draft-step + .draft-step::before {
+  content: "";
+  width: 26px;
+  height: 2px;
+  margin-right: 4px;
+  background: var(--draft-step-line);
+}
+
+.draft-step--done { color: var(--bone-dim); }
+.draft-step--done .draft-step-mark { background: var(--brass-dim); border-color: var(--brass); color: var(--draft-ink-dark); }
+.draft-step--done + .draft-step::before { background: var(--brass-dim); }
+
+.draft-step--now { color: var(--draft-step-now); }
+.draft-step--now .draft-step-mark {
+  border-color: var(--brass-hi);
+  background: var(--brass);
+  color: var(--draft-ink-dark);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--brass-hi) 25%, transparent),
+    0 0 14px color-mix(in srgb, var(--brass-hi) 55%, transparent);
+}
+.draft-step--now.draft-step--ban .draft-step-mark {
+  border-color: var(--draft-ban-ring);
+  background: var(--ember);
+  color: var(--card-white);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--ember) 30%, transparent),
+    0 0 14px color-mix(in srgb, var(--ember) 60%, transparent);
+}
+
+.draft-connecting {
+  color: var(--brass-hi);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* The clock dial (DraftClock) sits in the bar instead of the screen corner */
+.draft-clock-slot {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 42px;
+}
+.draft-clock-slot .draft-clock {
+  position: absolute;
+  inset: 0;
+  z-index: auto;
+  width: 100%;
+  height: 100%;
+  box-shadow: none;
+}
+.draft-clock-slot .draft-clock-seconds { font: 800 16px / 1 var(--font-ui); }
+.draft-clock-slot .draft-clock-note {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.draft-leave {
+  flex: none;
+  min-height: 40px;
+  padding: 5px 12px;
+  border: 1px solid var(--draft-leave-line);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--bone-dim);
+  font: 700 16px / 1 var(--font-ui);
+  white-space: nowrap;
+}
+.draft-leave:hover { color: var(--bone); border-color: var(--ember); transform: none; box-shadow: none; }
+
+/* ---- Band: your team | VS over the bans | their team (mirrored) ---- */
+.draft-band {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  box-sizing: border-box;
+  height: 190px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 10px 22px 6px;
+}
+
+.draft-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.draft-side--them { align-items: flex-end; }
+
+.draft-side-head {
+  max-width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.draft-side--them .draft-side-head { flex-direction: row-reverse; }
+
+.draft-side-name {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font: 400 18px / 1.2 var(--font-label);
+  color: var(--bone);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.draft-side-name small {
+  margin-left: 6px;
+  font: 700 14px / 1 var(--font-ui);
+  color: var(--bone-dim);
+}
+
+.draft-status {
+  color: var(--bone-dim);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.draft-status--done { color: var(--verdigris); }
+
+.draft-slots { display: flex; gap: 10px; }
+.draft-slots--them { flex-direction: row-reverse; }
+
+.draft-slot {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--draft-slot-w);
+  height: calc(var(--draft-slot-w) * 391 / 260);
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--draft-slot-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card-black) 18%, transparent);
+  color: var(--draft-slot-ink);
+  font: 400 26px / 1 var(--font-display);
+}
+.draft-slot--filled {
+  --hero-card-scale: var(--draft-slot-scale);
+  display: block;
+  border: 0;
+  background: none;
+}
+
+.draft-band-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.draft-vs {
+  font: 400 51px / 0.8 var(--font-display);
+  color: var(--draft-title);
+  text-shadow: 0 3px 0 var(--card-black), 0 0 18px color-mix(in srgb, var(--ember) 45%, transparent);
+}
+
+.draft-bans { display: flex; gap: 14px; }
+
+.draft-ban {
+  min-width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.draft-ban-token {
+  position: relative;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 1.5px dashed var(--draft-leave-line);
+  border-radius: 50%;
+  background: var(--draft-step-well);
+}
+.draft-ban--set .draft-ban-token { border: 0; }
+.draft-ban-token .draft-portrait { position: absolute; inset: 0; border-color: var(--draft-ban-set); }
+.draft-ban-token .draft-portrait img { filter: grayscale(1) brightness(0.6); }
+/* The red slash */
+.draft-ban--set .draft-ban-token::after {
+  content: "";
+  position: absolute;
+  top: 46%;
+  left: -10%;
+  z-index: 1;
+  width: 120%;
+  height: 3px;
+  background: var(--ember);
+  transform: rotate(-40deg);
+  pointer-events: none;
+}
+
+.draft-ban-name {
+  max-width: 76px;
+  color: var(--bone-dim);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+.draft-ban--set .draft-ban-name { color: var(--draft-ban-name); }
+
+/* ---- Round portraits (team slots in the big-card layout, bans everywhere) ---- */
+.draft-portrait {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid var(--brass);
+  border-radius: 50%;
+  background: var(--draft-step-well);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--card-black) 60%, transparent);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.draft-portrait:hover { transform: none; box-shadow: 0 3px 8px color-mix(in srgb, var(--card-black) 60%, transparent); }
+.draft-portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 15%;
+  pointer-events: none;
+}
+.draft-portrait--enemy { border-color: var(--draft-enemy-rim); }
+
+/* Holographic: a rainbow rim that turns slowly */
+@property --draft-rim-a {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.draft-portrait--holo,
+.draft-ban-token .draft-portrait--holo {
+  border: 2.5px solid transparent;
+  background: conic-gradient(
+    from var(--draft-rim-a),
+    var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue), var(--holo-violet), var(--holo-pink)
+  ) border-box;
+  box-shadow:
+    0 3px 8px color-mix(in srgb, var(--card-black) 60%, transparent),
+    0 0 10px color-mix(in srgb, var(--holo-glow) 45%, transparent);
+  animation: draft-rim 4s linear infinite;
+}
+@keyframes draft-rim { to { --draft-rim-a: 360deg; } }
+.draft--still .draft-portrait--holo { animation: none; }
+
+/* ---- Hint and hand ---- */
+.draft-hint {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  height: 30px;
+  margin: 0;
+  overflow: hidden;
+  color: var(--draft-hint);
+  font: 400 18px / 30px var(--font-label);
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.draft-hint b { font-family: var(--font-ui); font-weight: 800; color: var(--fav-gold); }
+.draft-hint--ban b { color: var(--draft-ban-hint); }
+
+.draft-hand {
+  position: relative;
+  z-index: 3;
+  flex: 1 1 0;
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  gap: 18px;
+  padding: 0 var(--draft-hand-pad);
+}
+
+.draft-hand-card {
+  --hero-card-scale: var(--draft-card-scale);
+  position: relative;
+  flex: none;
+  width: var(--draft-card-w);
+  height: calc(var(--draft-card-w) * 391 / 260);
+}
+.draft-hand:not(.draft-hand--locked) .draft-hand-card:hover { transform: translateY(-6px); }
+.draft-hand-card--chosen,
+.draft-hand:not(.draft-hand--locked) .draft-hand-card--chosen:hover { transform: translateY(-12px); }
+.draft-hand .hero-card.selected { --state-c: var(--brass-hi); }
+.draft-hand--ban .hero-card.selected { --state-c: var(--ember-hi); }
+.draft-hand--locked .draft-hand-card:not(.draft-hand-card--chosen) { filter: brightness(0.6); }
+
+/* ---- Order step: the three heroes numbered 1-3, "Attacks first" under 1; tap one, then another to swap ---- */
+.draft-order-card {
+  --hero-card-scale: var(--draft-card-scale);
+  position: relative;
+  flex: none;
+  width: var(--draft-card-w);
+  height: calc(var(--draft-card-w) * 391 / 260);
+}
+.draft-hand--order:not(.draft-hand--ready) .draft-order-card:hover { transform: translateY(-6px); }
+.draft-order-card--selected,
+.draft-hand--order:not(.draft-hand--ready) .draft-order-card--selected:hover { transform: translateY(-12px); }
+
+.draft-order-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  /* Over the card even while it is hovered (a hovered card rises to 15) */
+  z-index: 16;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  transform: translateX(-50%);
+  border: 2px solid var(--draft-order-rim);
+  border-radius: 50%;
+  background: var(--brass);
+  color: var(--draft-ink-dark);
+  font: 800 18px / 1 var(--font-ui);
+  box-shadow: 0 3px 8px var(--card-black);
+  pointer-events: none;
+}
+
+.draft-order-first {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  z-index: 7;
+  transform: translateX(-50%);
+  color: var(--fav-gold);
+  font: 800 13px / 1 var(--font-ui);
+  white-space: nowrap;
+  text-shadow: 0 1px 3px var(--card-black);
+  pointer-events: none;
+}
+
+/* ---- Opponent away: a one-line strip along the top edge of the hand area. It lies over the hint line,
+   so it covers no card. Taps pass through ---- */
+.draft-away {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 17;
+  box-sizing: border-box;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  overflow: hidden;
+  background: var(--draft-bar-bottom);
+  border-block: 1px solid var(--ember);
+  pointer-events: none;
+}
+/* The notice on one line: name, "Disconnected", the countdown. Text in px: the app's root font shrinks on small screens */
+.draft-away .disconnect-notice {
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.draft-away .disconnect-notice__portrait { display: none; }
+.draft-away .disconnect-notice__text,
+.draft-away .disconnect-caption { flex-direction: row; align-items: baseline; gap: 10px; }
+.draft-away .disconnect-notice__name { font-size: 16px; }
+.draft-away .disconnect-caption__title { font-size: 12px; white-space: nowrap; }
+.draft-away .disconnect-caption__count { font-size: 14px; }
+
+/* ---- Foot: the Ban / Pick button ---- */
+.draft-foot {
+  position: relative;
+  z-index: 4;
+  flex: none;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.draft-act {
+  min-width: 200px;
+  min-height: 44px;
+  padding: 11px 26px;
+  border: 1px solid var(--brass-hi);
+  border-radius: 6px;
+  background: linear-gradient(var(--draft-act-top), var(--draft-act-bottom));
+  color: var(--draft-ink-dark);
+  font: 800 18px / 1.1 var(--font-ui);
+  box-shadow: 0 4px 0 var(--draft-act-edge), 0 6px 14px color-mix(in srgb, var(--card-black) 50%, transparent);
+  transition: none;
+}
+.draft-act:hover { transform: none; box-shadow: 0 4px 0 var(--draft-act-edge), 0 6px 14px color-mix(in srgb, var(--card-black) 50%, transparent); }
+.draft-act:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--draft-act-edge); }
+.draft-act--ban {
+  border-color: var(--draft-ban-hint);
+  background: linear-gradient(var(--draft-ban-top), var(--draft-ban-bottom));
+  color: var(--card-white);
+  box-shadow: 0 4px 0 var(--draft-ban-edge), 0 6px 14px color-mix(in srgb, var(--card-black) 50%, transparent);
+}
+.draft-act--ban:hover { box-shadow: 0 4px 0 var(--draft-ban-edge), 0 6px 14px color-mix(in srgb, var(--card-black) 50%, transparent); }
+.draft-act--ban:active:not(:disabled) { box-shadow: 0 2px 0 var(--draft-ban-edge); }
+.draft-act:disabled { opacity: 1; filter: grayscale(0.8) brightness(0.55); cursor: default; }
+
+/* ---- Focus layout: the big card down the left ---- */
+.draft-table--focus {
+  display: grid;
+  grid-template-columns: calc(var(--draft-big-w) + 20px) minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+.draft-table--focus > * { grid-column: 2; }
+.draft-table--focus > .draft-bar { grid-row: 1; }
+.draft-table--focus > .draft-band { grid-row: 2; }
+.draft-table--focus > .draft-hint { grid-row: 3; }
+.draft-table--focus > .draft-hand { grid-row: 4; }
+.draft-table--focus > .draft-foot { grid-row: 5; }
+
+.draft-big {
+  position: relative;
+  z-index: 3;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border-right: 1px solid var(--brass-dim);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--card-black) 35%, transparent),
+    color-mix(in srgb, var(--card-black) 15%, transparent)
+  );
+}
+.draft-table--focus > .draft-big { grid-column: 1; }
+.draft-big-card {
+  --hero-card-scale: var(--draft-big-scale);
+  width: var(--draft-big-w);
+  height: calc(var(--draft-big-w) * 391 / 260);
+}
+.draft-big-wait {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--bone-dim);
+  font: 400 18px / 1.3 var(--font-label);
+  text-align: center;
+}
+
+.draft-table--focus .draft-bar { height: 44px; gap: 8px; padding: 0 10px; }
+.draft-table--focus .draft-title { font-size: 19px; }
+.draft-table--focus .draft-step { gap: 4px; font-size: 12px; }
+.draft-table--focus .draft-step-mark { width: 20px; height: 20px; }
+.draft-table--focus .draft-step + .draft-step::before { width: 12px; margin-right: 2px; }
+.draft-table--focus .draft-clock-slot { width: 36px; height: 36px; }
+.draft-table--focus .draft-clock-slot .draft-clock-seconds { font-size: 12px; }
+.draft-table--focus .draft-clock-note { display: none; }
+.draft-table--focus .draft-leave { padding: 0 10px; font-size: 14px; }
+
+/* Band: six portraits with VS above the two bans; padding and gaps match FOCUS_BAND in useDraftLayout */
+.draft-table--focus .draft-band { height: auto; gap: 6px; padding: 6px 8px 0; }
+.draft-table--focus .draft-side { gap: 2px; }
+.draft-table--focus .draft-slots { gap: 6px; }
+.draft-table--focus .draft-slot {
+  height: var(--draft-slot-w);
+  border-radius: 50%;
+  font-size: 16px;
+}
+.draft-table--focus .draft-status { font-size: 12px; }
+.draft-table--focus .draft-band-centre { width: 86px; gap: 2px; }
+.draft-table--focus .draft-vs { font-size: 24px; line-height: 1; }
+.draft-table--focus .draft-bans { gap: 6px; }
+.draft-table--focus .draft-ban { min-width: 0; }
+.draft-table--focus .draft-ban-token { width: 40px; height: 40px; }
+.draft-table--focus .draft-ban-name { display: none; }
+
+.draft-table--focus .draft-hint { height: 22px; font-size: 14px; line-height: 22px; }
+.draft-table--focus .draft-hand { gap: 10px; }
+.draft-table--focus .draft-hand-card--chosen,
+.draft-table--focus .draft-hand:not(.draft-hand--locked) .draft-hand-card--chosen:hover { transform: translateY(-6px); }
+.draft-table--focus .draft-foot { height: 52px; }
+.draft-table--focus .draft-act { min-width: 150px; min-height: 40px; padding: 7px 18px; font-size: 15px; }
+
+/* Order step, big-card layout: smaller numbers */
+.draft-table--focus .draft-order-card--selected,
+.draft-table--focus .draft-hand--order:not(.draft-hand--ready) .draft-order-card--selected:hover { transform: translateY(-6px); }
+.draft-table--focus .draft-order-badge { top: -10px; width: 24px; height: 24px; font-size: 13px; }
+.draft-table--focus .draft-order-first { bottom: -16px; font-size: 12px; }
+.draft-table--focus .draft-away { height: 22px; padding: 0 8px; }
+.draft-table--focus .draft-away .disconnect-notice,
+.draft-table--focus .draft-away .disconnect-notice__text,
+.draft-table--focus .draft-away .disconnect-caption { gap: 8px; }
+.draft-table--focus .draft-away .disconnect-notice__name { font-size: 14px; }
+.draft-table--focus .draft-away .disconnect-caption__count { font-size: 12px; }
+
+/* Hand cards too narrow for readable rules text show as tiny cards (the big card is the one to read).
+   Same face as HeroCard's own tiny mode (its container query at 129px).
+   A copy of a hand (.draft-hand--ghost: the old hand sliding off, a stamped card) keeps the face it was
+   copied with: .draft-hand--tiny if it was tiny then, whatever the table has become since. */
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-details,
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-rule,
+.draft-hand--tiny .hero-card .card-details,
+.draft-hand--tiny .hero-card .card-rule,
+.draft-flyer-card--tiny .hero-card .card-details,
+.draft-flyer-card--tiny .hero-card .card-rule { display: none; }
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-hero-name,
+.draft-hand--tiny .hero-card .card-hero-name,
+.draft-flyer-card--tiny .hero-card .card-hero-name { font-size: 2.625em; }
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-stats,
+.draft-hand--tiny .hero-card .card-stats,
+.draft-flyer-card--tiny .hero-card .card-stats { font-size: calc(1.5em * var(--gem-scale)); }
+.draft-table--tiny-hand .draft-hand:not(.draft-hand--ghost) .hero-card .card-lower,
+.draft-hand--tiny .hero-card .card-lower,
+.draft-flyer-card--tiny .hero-card .card-lower { padding: 2em 0.7em 0.6em; }
+
+/* Narrow tables: step numbers only, then no title */
+@container draft-table (max-width: 699px) {
+  .draft-step-label { display: none; }
+}
+@container draft-table (max-width: 640px) {
+  .draft-title { display: none; }
+}
+/* Focus: the bar is only the right-hand column, so go by its own width (labels need about 505px there) */
+@container draft-bar (max-width: 519px) {
+  .draft-table--focus .draft-step-label { display: none; }
+}
+
+/* ---- Motion. Timings follow the approved mockup (draft-step3.html). The server's state is always drawn at
+   once: these are short animations on what is drawn, or copies laid over it (.draft-fx, .draft-flyer) that
+   ignore the pointer. All of it is off under .draft--still and reduced motion (end of this section). ---- */
+
+/* Copies laid over the table: the old hand sliding off, a stamped card waiting to fly */
+.draft-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  overflow: hidden;
+  pointer-events: none;
+}
+.draft-table--focus > .draft-fx { grid-column: 1 / -1; grid-row: 1 / -1; }
+.draft-hand--ghost {
+  position: absolute;
+  flex: none;
+  margin: 0;
+  pointer-events: none;
+}
+.draft-hand--stamped { padding: 0; }
+
+/* A copy in flight (flyCard.ts), on the page itself */
+.draft-flyer {
+  position: fixed;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.draft-flyer-card { flex: none; }
+.draft-flyer-ban img { filter: grayscale(1) brightness(0.6); }
+
+/* Lift on hover and on choosing */
+.draft-hand-card,
+.draft-order-card { transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+
+/* Deal: the hand comes in from the left, one card after another (ban round and order step).
+   A hand card's place (.draft-hand-card) never moves: only the card inside it does, and the place takes
+   the tap meanwhile, so a card can be tapped where it will land from the first frame. Order cards move
+   whole, with their number (that step has no clock). */
+.draft-table[data-hand="wait"] .draft-hand:not(.draft-hand--ghost) :is(.draft-hand-card > .hero-card, .draft-order-card) { opacity: 0; }
+.draft-table[data-hand="deal"] .draft-hand:not(.draft-hand--ghost) :is(.draft-hand-card > .hero-card, .draft-order-card) {
+  animation: draft-deal 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+@keyframes draft-deal { from { transform: translate(-60vw, -20px) rotate(-25deg); opacity: 0; } }
+
+/* Hands swap: the old hand (a copy) slides off toward the opponent's side while the new one comes in from
+   there. The new cards are the real ones: they can be tapped from the first frame. No words. */
+.draft-hand--out > :is(.draft-hand-card, .draft-order-card) {
+  animation: draft-out 0.4s ease-in forwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+.draft-table[data-hand="in"] .draft-hand:not(.draft-hand--ghost) :is(.draft-hand-card > .hero-card, .draft-order-card) {
+  animation: draft-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
+  animation-delay: calc(240ms + var(--i, 0) * 60ms);
+}
+@keyframes draft-out { to { transform: translateX(70vw) rotate(12deg); opacity: 0; } }
+@keyframes draft-in { from { transform: translateX(70vw) rotate(12deg); opacity: 0; } }
+
+/* Ban: the stamp slams on and the card greys */
+.draft-stamp,
+.draft-table--big-banned .draft-big-card::after {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  z-index: 8;
+  padding: 0 0.2em;
+  transform: translate(-50%, -50%) rotate(-14deg);
+  border: 0.08em solid var(--draft-stamp);
+  border-radius: 0.15em;
+  color: var(--draft-stamp);
+  font: 400 calc(var(--draft-card-w) * 0.22) / 1.15 var(--font-display);
+  white-space: nowrap;
+  text-shadow: 0 0 0.3em var(--card-black);
+  pointer-events: none;
+  animation: draft-stamp 0.3s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.draft-table--big-banned .draft-big-card { position: relative; }
+.draft-table--big-banned .draft-big-card::after { content: "Banned"; font-size: calc(var(--draft-big-w) * 0.2); }
+.draft-hand-card--banned .hero-card,
+.draft-table--big-banned .draft-big-card .hero-card {
+  filter: grayscale(1) brightness(0.55);
+  animation: draft-grey 0.3s ease-out;
+}
+@keyframes draft-stamp { from { transform: translate(-50%, -50%) rotate(-14deg) scale(2.4); opacity: 0; } }
+@keyframes draft-grey { from { filter: none; } }
+
+/* The card just sent is in the air (a copy): its place in the hand stays, empty, until it lands */
+.draft-table--sending .draft-hand:not(.draft-hand--ghost) > .draft-hand-card--chosen { visibility: hidden; }
+
+/* While a copy flies to your slot or your ban spot, the spot looks empty; then it pulses (slot) or pops (ban) */
+.draft-table[data-fly-slot="1"] .draft-slots--me > .draft-slot--filled:nth-child(1),
+.draft-table[data-fly-slot="2"] .draft-slots--me > .draft-slot--filled:nth-child(2),
+.draft-table[data-fly-slot="3"] .draft-slots--me > .draft-slot--filled:nth-child(3) {
+  border: 1.5px dashed var(--draft-slot-line);
+  background: color-mix(in srgb, var(--card-black) 18%, transparent);
+}
+.draft-table[data-fly-slot="1"] .draft-slots--me > .draft-slot--filled:nth-child(1) > *,
+.draft-table[data-fly-slot="2"] .draft-slots--me > .draft-slot--filled:nth-child(2) > *,
+.draft-table[data-fly-slot="3"] .draft-slots--me > .draft-slot--filled:nth-child(3) > *,
+.draft-table[data-fly-ban] .draft-ban--mine .draft-ban-token > *,
+.draft-table[data-fly-ban] .draft-ban--mine .draft-ban-token::after { visibility: hidden; }
+.draft-table[data-fly-ban] .draft-ban--mine .draft-ban-token { border: 1.5px dashed var(--draft-leave-line); }
+
+.draft-table[data-land="1"] .draft-slots--me > .draft-slot:nth-child(1),
+.draft-table[data-land="2"] .draft-slots--me > .draft-slot:nth-child(2),
+.draft-table[data-land="3"] .draft-slots--me > .draft-slot:nth-child(3) { animation: draft-land 0.4s ease-out; }
+@keyframes draft-land {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brass-hi) 90%, transparent); }
+  to { box-shadow: 0 0 0 14px transparent; }
+}
+
+.draft-table:is([data-pop="mine"], [data-pop="both"]) .draft-ban--mine .draft-ban-token,
+.draft-table:is([data-pop="theirs"], [data-pop="both"]) .draft-ban--theirs .draft-ban-token {
+  animation: draft-banpop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes draft-banpop { from { transform: scale(1.8); filter: brightness(2); } }
+
+/* The opponent's pick turns over into their slot */
+.draft-table[data-flip="1"] .draft-slots--them > .draft-slot:nth-child(1),
+.draft-table[data-flip="2"] .draft-slots--them > .draft-slot:nth-child(2),
+.draft-table[data-flip="3"] .draft-slots--them > .draft-slot:nth-child(3) {
+  animation: draft-flip 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes draft-flip { from { transform: perspective(600px) rotateY(90deg) scale(0.8); filter: brightness(2); } }
+
+/* The clock is on screen for the last 10 seconds: red, and the number ticks */
+.draft-clock-slot .draft-clock-hand { stroke: var(--ember); }
+.draft-clock-slot .draft-clock--urgent .draft-clock-hand { stroke: var(--ember-hi); }
+.draft-clock-slot .draft-clock-seconds {
+  color: var(--draft-ban-hint);
+  animation: draft-tick 1s steps(1) infinite;
+}
+@keyframes draft-tick { 50% { transform: scale(1.18); } }
+
+/* Big card (big-card layout): eases in when it changes */
+.draft-big-card { animation: draft-peek 0.22s ease-out; }
+@keyframes draft-peek { from { opacity: 0.3; transform: translateX(-10px) scale(0.97); } }
+
+/* Animations off: nothing moves, cards appear in place */
+.draft--still :is(.draft-hand-card, .draft-order-card, .draft-stamp, .draft-slot, .draft-ban-token, .draft-big-card, .draft-clock-seconds, .draft-clock-hand),
+.draft--still .draft-big-card::after,
+.draft--still .draft-hand-card--banned .hero-card,
+.draft--still .draft-big-card .hero-card {
+  animation: none;
+  transition: none;
+}
+.draft--still[data-hand="wait"] .draft-hand :is(.draft-hand-card > .hero-card, .draft-order-card) { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-table :is(.draft-hand-card, .draft-order-card, .draft-stamp, .draft-slot, .draft-ban-token, .draft-big-card, .draft-clock-seconds),
+  .draft-table .draft-big-card::after,
+  .draft-table .draft-hand-card--banned .hero-card,
+  .draft-table .draft-big-card .hero-card {
+    animation: none;
+    transition: none;
+  }
+  .draft-table[data-hand="wait"] .draft-hand :is(.draft-hand-card > .hero-card, .draft-order-card) { opacity: 1; }
+  .draft-portrait--holo { animation: none; }
+}

@@ -1,150 +1,332 @@
-/* Lobby: the felt table. Ledger on the left, the featured hero and mode placards on the table. */
+/* Lobby: the felt table. Top bar; the player's ledger beside the table; on the table the featured hero
+   on its pedestal and the mode cards. Sizes follow the owner-approved step 2 mockup
+   (docs/superpowers/specs/2026-11-17-redesign-mockups/lobby-step2.html). All movement is in the Motion
+   section at the end. */
+
+/* Lobby geometry shared with InstallHint.css (the hint sits outside .lobby, so these live on :root):
+   bar height, the gap round the table, and on sideways phones the featured-card and panel columns. */
+:root {
+  --lobby-bar-h: 61px;
+  --lobby-gap: 16px;
+  --lobby-featured-col: 176px;
+  --lobby-panel-col: 190px;
+}
+
 .lobby {
   position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: var(--app-height);
   display: flex;
   flex-direction: column;
-  background: var(--felt-surface);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 62% 40%, color-mix(in srgb, var(--verdigris) 22%, var(--felt)), var(--felt) 55%, var(--felt-deep)),
+    var(--felt-weave),
+    var(--felt);
   color: var(--bone);
   font-family: var(--font-ui);
   text-align: left;
   font-variant-numeric: lining-nums;
 }
+/* Candle-lit vignette over the felt */
+.lobby::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse at 62% 45%, transparent 40%, color-mix(in srgb, var(--card-black) 55%, transparent));
+  pointer-events: none;
+}
 
-/* Top bar */
+/* ===== Top bar ===== */
 .lobby-bar {
+  position: relative;
+  z-index: 4;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
-  background: var(--walnut);
+  gap: 14px;
+  min-height: var(--lobby-bar-h);
+  padding: 10px 18px;
+  background: linear-gradient(color-mix(in srgb, var(--leather) 45%, var(--walnut)), color-mix(in srgb, var(--walnut) 78%, var(--card-black)));
   border-bottom: 1px solid var(--brass-dim);
-  box-shadow: 0 6px 18px var(--shade);
 }
 .lobby-title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
-  font: 400 var(--text-xl) / 1 var(--font-display);
-  letter-spacing: 0.01em;
-  color: var(--bone);
+  font: 500 30px / 1 var(--font-display);
+  color: color-mix(in srgb, var(--bone) 70%, var(--brass-hi));
+  text-shadow: 0 2px 0 var(--card-black);
+  white-space: nowrap;
 }
-.lobby-status { display: flex; align-items: center; gap: var(--space-5); }
-.lobby-coins .coin-icon { width: 1.25em; height: 1.25em; align-self: center; }
+.lobby-title-gem {
+  display: inline-block;
+  margin: 0 0.35em;
+  font-size: 0.7em;
+  vertical-align: 0.1em;
+  color: var(--brass);
+  text-shadow: none;
+}
+.lobby-title-gem:first-child { margin-left: 0; }
+
+.lobby-coins {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px 4px 6px;
+  font: 700 16px / 1.2 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--walnut) 55%, var(--card-black));
+  border: 1px solid var(--brass-dim);
+  border-radius: 999px;
+}
+.lobby-coins .coin-icon { width: 20px; height: 20px; flex: none; }
 .lobby-coins-amount { display: inline-block; }
 .lobby-coins-amount.vp-bump { animation: lobby-bump 420ms var(--ease); }
 @keyframes lobby-bump {
   40% { transform: scale(1.3); color: var(--brass-hi); }
 }
-.lobby-level { display: flex; flex-direction: column; gap: var(--space-1); min-width: 11rem; }
-.lobby-level-text { font: 700 var(--text-sm) / 1 var(--font-ui); color: var(--bone-dim); }
 
-/* Layout */
+.lobby-level { min-width: 150px; }
+.lobby-level-text {
+  display: block;
+  font: 400 13px / 1 var(--font-ui);
+  color: var(--bone-dim);
+  white-space: nowrap;
+}
+/* The numbers sit above the bar, so the bar itself is a slim gauge */
+.lobby-level .xp-bar { height: 14px; margin-top: 3px; }
+.lobby-level .xp-text { display: none; }
+.lobby-level .xp-fill { background: linear-gradient(90deg, var(--brass-dim), var(--brass-hi)); box-shadow: none; }
+
+.lobby-bar-btn,
+.lobby-bar-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+.lobby-bar-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  min-width: 40px;
+  justify-content: center;
+  padding: 5px 9px;
+  font: 400 16px / 1 var(--font-ui);
+  color: var(--bone-dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+.lobby-bar-btn:hover { color: var(--bone); border-color: var(--brass-dim); }
+.lobby-bar-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.lobby-bar-btn.is-open { color: var(--bone); border-color: var(--brass); }
+
+/* Friends and Messages: an icon, its label (hidden on phones) and the new-items count */
+.lobby-bar-icon { position: relative; display: block; flex: none; width: 20px; height: 20px; }
+.lobby-bar-icon svg { display: block; width: 100%; height: 100%; }
+/* A friend is online: a green dot at the icon's top right */
+.lobby-friends-online {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  background: var(--verdigris);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--verdigris);
+}
+/* A chat is minimised (and nothing unread): a still brass dot where the online dot sits on Friends */
+.lobby-messages-minimized {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  background: var(--brass-hi);
+  border: 1px solid var(--card-black);
+  border-radius: 50%;
+}
+.lobby-bar-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 12px / 1 var(--font-ui);
+  color: var(--bone);
+  background: var(--ember);
+  border: 1px solid var(--card-black);
+  border-radius: 9px;
+}
+
+/* Buttons in the lobby change colour only (the global button rule would animate every property) */
+.lobby-bar-btn,
+.lobby-portrait,
+.lobby-name-btn,
+.lobby-tile,
+.mode-card-go {
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+/* ===== Layout ===== */
 .lobby-main {
+  position: relative;
+  line-height: 1.4;
+  z-index: 3;
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
-  gap: var(--space-6);
-  padding: var(--space-6);
+  grid-template-columns: clamp(18rem, 22vw, 20rem) minmax(0, 1fr);
+  gap: var(--lobby-gap);
+  padding: var(--lobby-gap);
 }
 
-/* Ledger */
-.lobby-ledger {
-  align-self: stretch;
+/* ===== Player panel (the ledger) ===== */
+.lobby-panel {
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-5) 5.25rem; /* clears the friends button */
+  gap: 10px;
+  padding: 16px;
+  overflow: auto;
+  background: linear-gradient(color-mix(in srgb, var(--leather) 45%, var(--walnut)), color-mix(in srgb, var(--walnut) 85%, var(--card-black)));
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--inset-frame), 0 14px 30px var(--shade);
 }
-.lobby-player { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.lobby-player h2 {
-  margin: 0;
-  min-width: 0;
-  font: 700 var(--text-xl) / 1.1 var(--font-ui);
-  overflow-wrap: anywhere;
-}
-.profile-avatar-btn {
-  flex-shrink: 0;
-  width: 3.5rem;
-  height: 3.5rem;
+
+.lobby-who { display: flex; align-items: center; gap: 10px; }
+.lobby-portrait,
+.lobby-portrait:hover { transform: none; box-shadow: none; }
+.lobby-portrait {
+  flex: none;
+  width: 52px;
+  height: 52px;
   padding: 0;
   overflow: hidden;
   background: var(--felt-deep);
   border: 1px solid var(--brass);
-  border-radius: var(--radius-control);
-  cursor: pointer;
+  border-radius: 6px;
 }
-.profile-avatar-btn:hover { transform: none; box-shadow: none; border-color: var(--brass-hi); }
-.profile-avatar-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
-.profile-avatar-btn img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.lobby-portrait:hover { border-color: var(--brass-hi); }
+.lobby-portrait img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
+.lobby-who-text { min-width: 0; display: flex; flex-direction: column; }
+.lobby-who-name { margin: 0; font: 500 25px / 1 var(--font-display); }
+/* The name is a button (it opens the profile) but reads as the heading */
+.lobby-name-btn,
+.lobby-name-btn:hover {
+  max-width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  background: none;
+  border: 0;
+  transform: none;
+  box-shadow: none;
+}
+.lobby-portrait:focus-visible,
+.lobby-name-btn:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.lobby-record { font-size: 14px; color: var(--bone-dim); }
 
-.lobby-section-title {
-  margin: 0;
-  padding-bottom: var(--space-2);
-  font: 700 var(--text-md) / 1 var(--font-ui);
-  color: var(--bone);
+.lobby-sec {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding-bottom: 3px;
   border-bottom: 1px solid var(--brass-dim);
 }
-.lobby-quests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.lobby-sec-title { margin: 0; font: 500 21px / 1.1 var(--font-display); }
+.lobby-sec-note { font-size: 13px; color: var(--bone-dim); white-space: nowrap; }
+
+.lobby-quests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .lobby-quest {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  font-size: var(--text-sm);
+  padding: 8px 10px;
+  font-size: 15px;
   line-height: 1.3;
   background: var(--leather);
   border: 1px solid var(--brass-dim);
-  border-radius: var(--radius-control);
+  border-radius: 5px;
 }
+.lobby-quest:hover { border-color: var(--brass-hi); }
+.lobby-quest-top { display: flex; justify-content: space-between; gap: 8px; font-weight: 500; }
 .lobby-quest-text { min-width: 0; overflow-wrap: anywhere; }
 .lobby-quest-progress {
-  flex-shrink: 0;
+  flex: none;
   display: inline-flex;
   align-items: center;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--brass-hi);
 }
-.lobby-quest.completed { border-color: var(--verdigris); color: var(--bone-dim); }
-.lobby-quest.completed .lobby-quest-text { text-decoration: line-through; }
+.lobby-quest-bar {
+  height: 5px;
+  margin: 6px 0 5px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--walnut) 55%, var(--card-black));
+  border-radius: 9px;
+}
+.lobby-quest-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--brass-dim), var(--brass-hi)); }
+.lobby-quest-reward { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--bone-dim); }
+.lobby-quest-reward .coin-icon { width: 14px; height: 14px; }
+.lobby-dot { margin: 0 2px; }
+.lobby-quest.completed { border-color: var(--verdigris); }
 .lobby-quest.completed .lobby-quest-progress { color: var(--verdigris); }
+.lobby-quest.completed .lobby-quest-bar > i { background: var(--verdigris); }
 .lobby-quest.just-completed { animation: lobby-quest-pop 600ms var(--ease); }
 @keyframes lobby-quest-pop {
   50% { transform: scale(1.03); }
 }
-.lobby-empty { margin: 0; font-size: var(--text-sm); color: var(--bone-dim); }
+.lobby-empty { margin: 0; font-size: 14px; color: var(--bone-dim); }
 
-/* Table */
-.lobby-table { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; min-height: 0; }
-.lobby-stage {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  align-items: center;
-  justify-content: center;
+.lobby-collection-body {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-radius: 5px;
 }
-.lobby-tiles { margin-top: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.lobby-collection-body .lobby-quest-bar { margin-top: 2px; }
+.lobby-collection-counts { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 14px; color: var(--bone-dim); }
+.lobby-fav-star { color: var(--fav-gold); fill: var(--fav-gold); }
+.lobby-holo-count {
+  font-weight: 700;
+  color: transparent;
+  background: linear-gradient(90deg, var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Shop and Binder */
+.lobby-tiles { margin-top: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lobby-tile,
+.lobby-tile:hover { transform: none; }
 .lobby-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-3);
-  font: 700 var(--text-md) / 1 var(--font-ui);
+  gap: 4px;
+  min-height: 40px;
+  padding: 12px 6px 8px;
+  font: 500 20px / 1 var(--font-display);
   color: var(--bone);
-  background: var(--walnut);
+  background: linear-gradient(var(--leather), color-mix(in srgb, var(--walnut) 85%, var(--card-black)));
   border: 1px solid var(--brass-dim);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--inset-frame);
-  cursor: pointer;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  border-radius: 6px;
+  box-shadow: none;
 }
-.lobby-tile:hover { background: var(--leather); border-color: var(--brass); transform: none; box-shadow: var(--inset-frame); }
+.lobby-tile:hover { border-color: var(--brass-hi); box-shadow: none; }
 .lobby-tile:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
-.lobby-tile-icon { width: 5.5rem; height: 5.5rem; filter: drop-shadow(0 3px 4px var(--shade)); }
+.lobby-tile-icon { width: 46px; height: 46px; flex: none; filter: drop-shadow(0 3px 4px var(--shade)); }
 .lobby-tile-icon .li-brass-fill { fill: var(--brass-hi); stroke: var(--brass-dim); }
 .lobby-tile-icon .li-brass { stroke: var(--brass-hi); }
 .lobby-tile-icon .li-ember-fill { fill: var(--ember); stroke: var(--felt-deep); }
@@ -154,114 +336,128 @@
 .lobby-tile-icon .li-leather-fill { fill: var(--ember); stroke: var(--felt-deep); }
 .lobby-tile-icon .li-spine { fill: color-mix(in srgb, var(--ember) 60%, var(--felt-deep)); stroke: var(--felt-deep); }
 .lobby-tile-icon .li-line { stroke: var(--brass-dim); }
-.lobby-tile:hover .lobby-tile-icon { transform: translateY(-2px); }
-.lobby-tile-icon { transition: transform var(--dur) var(--ease); }
 
-.lobby-hero-viewport { align-self: stretch; min-height: 20rem; display: flex; align-items: center; justify-content: center; }
-.random-hero-card { transition: opacity 300ms var(--ease), transform 300ms var(--ease); }
-.random-hero-card.transitioning { opacity: 0; transform: scale(0.97); }
-.random-hero-card .hero-card,
-.random-hero-card .hero-card:hover { transform: none !important; transition: none !important; z-index: auto !important; }
+/* ===== The table: featured hero and mode cards ===== */
+.lobby-table { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
 
-/* The featured hero sits on a lit pedestal: candle glow behind, a brass ring on the felt beneath */
-.lobby-hero-viewport { position: relative; isolation: isolate; }
-.lobby-hero-viewport::before {
-  content: '';
-  position: absolute;
-  inset: -4% -12%;
-  z-index: -2;
-  background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--brass-hi) 22%, transparent), transparent 62%);
-  pointer-events: none;
+.lobby-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: end center;
+  /* The card stands in the middle of the pedestal ring */
+  padding-bottom: 54px;
+  container-type: size;
 }
-.random-hero-card { position: relative; }
-.random-hero-card::after {
-  content: '';
+.lobby-embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+/* Unseen until the Motion section sets them rising (place, size, drift and pace are set per ember) */
+.lobby-embers > i {
+  position: absolute;
+  bottom: -8px;
+  background: var(--ember-spark);
+  border-radius: 50%;
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--ember-glow) 70%, transparent);
+  opacity: 0;
+}
+.lobby-pedestal {
   position: absolute;
   left: 50%;
-  bottom: -1.6rem;
-  width: 125%;
-  height: 4rem;
+  bottom: calc(2% + 18px);
+  width: min(420px, 70%);
+  height: 64px;
   transform: translateX(-50%);
-  z-index: -1;
-  border: 1px solid var(--brass-dim);
+  border: 2px solid var(--brass-dim);
   border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--felt-deep) 85%, transparent), transparent 72%);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--brass-dim) 25%, transparent), inset 0 0 0 5px var(--felt);
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--brass-hi) 20%, transparent), transparent 68%);
+  box-shadow: 0 0 40px 8px color-mix(in srgb, var(--brass-hi) 14%, transparent);
   pointer-events: none;
 }
-.random-hero-card { filter: drop-shadow(0 14px 18px var(--shade)); }
-
-/* Tiles read as hanging banners */
-.lobby-tile { position: relative; padding-top: var(--space-5); gap: var(--space-3); font: 400 var(--text-lg) / 1 var(--font-display); background: linear-gradient(var(--walnut), color-mix(in srgb, var(--walnut) 80%, var(--felt-deep))); }
-.lobby-tile::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 18%;
-  right: 18%;
-  height: 3px;
-  background: var(--brass);
-  border-radius: 0 0 3px 3px;
+.lobby-float { position: relative; z-index: 2; }
+.lobby-featured { display: block; border-radius: 0.75em; cursor: pointer; }
+.lobby-featured:focus-visible { outline: var(--focus-outline); outline-offset: 4px; }
+/* The card fills the stage: as tall as the stage allows, never wider than it */
+.lobby-featured .hero-card.hero-layout-card {
+  --card-w: min(312px, calc((100cqh - 12px) * 260 / 391), 90cqw);
 }
-.lobby-tile:hover::before { background: var(--brass-hi); }
-
-/* Title and ledger */
-.lobby-title::before, .lobby-title::after { content: ''; display: inline-block; width: 0.45em; height: 0.45em; margin: 0 0.45em 0.12em 0; background: var(--brass); transform: rotate(45deg); }
-.lobby-title::after { margin: 0 0 0.12em 0.45em; }
-.lobby-section-title { font: 400 var(--text-lg) / 1 var(--font-display); }
-.lobby-ledger { background: linear-gradient(var(--walnut), color-mix(in srgb, var(--walnut) 85%, var(--felt-deep))); }
-
-/* Placards catch the light along the top edge */
-.placard::before {
-  content: '';
+.lobby-stage-hint {
   position: absolute;
-  top: -1px;
-  left: var(--space-5);
-  right: var(--space-5);
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--brass-hi), transparent);
-  opacity: 0.7;
+  left: 50%;
+  bottom: 0;
+  z-index: 3;
+  margin: 0;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: var(--bone-dim);
+  white-space: nowrap;
 }
-.placard:hover::before { opacity: 1; }
 
-/* Mode placards */
-.lobby-placards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--space-4); }
-.placard {
+/* Mode cards: Random first and wider, then the unlocked ranked modes */
+.mode-cards { display: grid; grid-template-columns: 1.25fr 1fr 1fr 1fr; gap: 12px; }
+.mode-cards[data-count="3"] { grid-template-columns: 1.25fr 1fr 1fr; }
+.mode-cards[data-count="2"] { grid-template-columns: 1.25fr 1fr; }
+.mode-cards[data-count="1"] { grid-template-columns: 1fr; }
+
+.mode-card {
+  --acc: var(--brass);
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-5);
-  background: var(--walnut);
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  background: linear-gradient(color-mix(in srgb, var(--leather) 70%, var(--walnut)), color-mix(in srgb, var(--walnut) 80%, var(--card-black)));
   border: 1px solid var(--brass-dim);
   border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-panel), var(--inset-frame);
+  box-shadow: inset 0 3px 0 var(--acc), 0 12px 24px var(--shade);
   cursor: pointer;
-  transition: border-color var(--dur) var(--ease);
 }
-.placard:hover { border-color: var(--brass); }
-.placard-head { display: flex; align-items: center; gap: var(--space-3); }
-.placard-icon { flex-shrink: 0; color: var(--brass-hi); }
-.placard-title { flex: 1; margin: 0; font: 400 var(--text-lg) / 1.1 var(--font-display); }
-.placard-text { margin: 0; min-height: 1.4em; font-size: var(--text-sm); color: var(--bone-dim); }
-.placard--searching { border-color: var(--brass-hi); cursor: default; }
-.placard-dots { display: inline-flex; gap: var(--space-1); margin-left: var(--space-2); }
-.placard-dots .dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  background: var(--brass-hi);
-  border-radius: 50%;
-  animation: lobby-dot 1.2s var(--ease) infinite;
-}
-.placard-dots .dot:nth-child(2) { animation-delay: 0.2s; }
-.placard-dots .dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes lobby-dot {
-  0%, 80%, 100% { opacity: 0.25; }
-  40% { opacity: 1; }
-}
+.mode-card--random { --acc: var(--mode-random); }
+.mode-card--draft { --acc: var(--mode-draft); }
+.mode-card--survival { --acc: var(--mode-survival); }
+.mode-card--gauntlet { --acc: var(--mode-gauntlet); }
+.mode-card--main { border-color: var(--brass); }
+.mode-card:hover { border-color: var(--acc); }
 
-/* An unlocked mode rises onto the table once */
-.mode-unlock-reveal { animation: lobby-rise 700ms var(--ease) both; }
+.mode-card-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.mode-card-icon { display: block; flex: none; width: 38px; height: 38px; color: var(--acc); }
+.mode-card-icon svg { display: block; }
+.mode-card-icon .flame-core { fill: var(--mode-flame-core); }
+.mode-card-title { flex: 1; min-width: 0; margin: 0; font: 500 25px / 1 var(--font-display); }
+.mode-card-tag {
+  flex: none;
+  padding: 1px 6px;
+  font: 700 12px / 1.3 var(--font-ui);
+  color: var(--bone-dim);
+  border: 1px solid var(--brass-dim);
+  border-radius: 3px;
+}
+.mode-card-text { margin: 0; min-height: 1.3em; font-size: 14px; color: var(--bone-dim); }
+
+.mode-card-go,
+.mode-card-go:hover { transform: none; box-shadow: none; }
+.mode-card-go {
+  margin-top: auto;
+  min-height: 40px;
+  padding: 8px;
+  font: 700 15px / 1.1 var(--font-ui);
+  color: var(--bone);
+  background: transparent;
+  border: 1px solid var(--acc);
+  border-radius: var(--radius-control);
+}
+.mode-card-go:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.mode-card:hover .mode-card-go,
+.mode-card--main .mode-card-go { background: var(--acc); color: var(--mode-ink); }
+
+/* Searching: the card's own clock, and Leave queue in ember */
+.mode-card--searching { border-color: var(--acc); cursor: default; }
+.mode-cards .mode-card--searching .mode-card-text { color: var(--bone); font-weight: 700; }
+.mode-cards .mode-card--searching .mode-card-go { background: transparent; color: var(--ember-hi); border-color: var(--ember); }
+
+/* An unlocked mode rises onto the table once (it ends at rest, so the hover lift works afterwards) */
+.mode-unlock-reveal { animation: lobby-rise 700ms var(--ease) backwards; }
 @keyframes lobby-rise {
   from { opacity: 0; transform: translateY(1rem); }
   to { opacity: 1; transform: none; }
@@ -270,7 +466,7 @@
 .mode-unlock-toast {
   position: fixed;
   left: 50%;
-  top: 5rem;
+  top: calc(5rem + var(--safe-top));
   z-index: 900;
   display: flex;
   align-items: center;
@@ -287,55 +483,319 @@
   animation: lobby-fade 400ms var(--ease) both;
 }
 .mode-unlock-toast-icon { color: var(--brass-hi); }
-.mode-unlock-toast-text { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-sm); color: var(--bone-dim); }
+.mode-unlock-toast-text { display: flex; flex-direction: column; gap: var(--space-1); font-size: max(12px, var(--text-sm)); color: var(--bone-dim); }
 .mode-unlock-toast-text strong { font-size: var(--text-md); color: var(--bone); }
 @keyframes lobby-fade { from { opacity: 0; } }
 
-/* Friends and messages dock: smaller on phones so it clears the placards */
-@media (max-width: 768px), (max-width: 1000px) and (max-height: 600px) {
-  body:has(.game-lobby-modern) .friends-icon,
-  body:has(.game-lobby-modern) .message-icon {
-    width: 36px;
-    height: 36px;
-    bottom: max(6px, env(safe-area-inset-bottom));
-  }
-  body:has(.game-lobby-modern) .friends-icon { left: 8px; }
-  body:has(.game-lobby-modern) .message-icon { left: 50px; }
-  body:has(.game-lobby-modern) .friends-icon-svg,
-  body:has(.game-lobby-modern) .message-icon-svg { width: 18px; height: 18px; }
-  body:has(.game-lobby-modern) .friends-icon .notification-badge,
-  body:has(.game-lobby-modern) .message-icon .notification-badge {
-    min-width: 14px;
-    height: 14px;
-    padding: 0 2px;
-    top: -5px;
-    right: -5px;
-    font-size: 9px;
-  }
-  body:has(.game-lobby-modern) .friends-icon-tooltip,
-  body:has(.game-lobby-modern) .message-icon-tooltip { bottom: 42px; }
+/* Searching dots: used by the Gauntlet team strip */
+.placard-dots { display: inline-flex; gap: var(--space-1); margin-left: var(--space-2); }
+.placard-dots .dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  background: var(--brass-hi);
+  border-radius: 50%;
+  animation: lobby-dot 1.2s var(--ease) infinite;
+}
+.placard-dots .dot:nth-child(2) { animation-delay: 0.2s; }
+.placard-dots .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes lobby-dot {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
 }
 
-/* Narrow or short windows: one column; the featured hero is decorative, so it steps aside */
-@media (max-width: 1000px), (max-height: 700px) {
-  .lobby-main { grid-template-columns: minmax(0, 1fr); align-content: start; padding: var(--space-4); gap: var(--space-4); }
-  .lobby-ledger { align-self: stretch; padding-bottom: var(--space-5); }
-  .lobby-stage { display: none; }
-  .lobby { padding-bottom: 3.5rem; }
+/* ===== Narrow but tall windows (a small computer window): one column that scrolls ===== */
+@media (max-width: 900px) and (min-height: 501px) {
+  .lobby { height: auto; min-height: var(--app-height); overflow: visible; }
+  .lobby-main { grid-template-columns: minmax(0, 1fr); }
+  .lobby-table { order: -1; }
+  .lobby-stage { flex: none; height: 26rem; }
+  .mode-cards,
+  .mode-cards[data-count="3"],
+  .mode-cards[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lobby-panel { overflow: visible; }
 }
-@media (max-width: 600px) {
-  .lobby-placards { grid-template-columns: minmax(0, 1fr); }
-  .lobby-bar { flex-wrap: wrap; padding: var(--space-3) var(--space-4); }
-  .lobby-status { width: 100%; justify-content: space-between; gap: var(--space-3); }
-  .lobby-level { flex: 1; min-width: 0; }
+
+/* ===== Sideways phones ===== */
+/* Everything fits the screen: featured card | mode cards 2x2 | player panel. */
+@media (max-height: 500px) {
+  /* The featured card runs from just under the top bar (its 1px bottom border included) to the bottom of the
+     lobby, which already stops above any home bar (--app-height); it may cover the felt's bottom padding.
+     --lobby-featured-top is the clear space under the bar: it covers the 9px float. Its column width follows
+     the card ratio. */
+  :root {
+    --lobby-bar-h: 50px;
+    --lobby-gap: 10px;
+    --lobby-featured-top: 10px;
+    --lobby-featured-col: calc((var(--app-height) - var(--lobby-bar-h) - 1px - var(--lobby-featured-top)) * 260 / 391);
+  }
+  .lobby-bar { gap: 10px; padding: 5px 12px; }
+  .lobby-title { font-size: 22px; }
+  .lobby-level { min-width: 110px; }
+  .lobby-bar-btn-label { display: none; }
+
+  /* The row keeps the felt's height; the featured card is allowed to run past it into the bottom padding */
+  .lobby-main { grid-template-columns: auto minmax(0, 1fr) var(--lobby-panel-col); grid-template-rows: minmax(0, 1fr); }
+  .lobby-table { display: contents; }
+
+  .lobby-stage { grid-column: 1; grid-row: 1; place-items: start center; padding: 0; container-type: normal; }
+  .lobby-float { margin-top: calc(var(--lobby-featured-top) - var(--lobby-gap)); }
+  .lobby-featured .hero-card.hero-layout-card { --card-w: var(--lobby-featured-col); }
+  .lobby-pedestal,
+  .lobby-stage-hint { display: none; }
+
+  .mode-cards,
+  .mode-cards[data-count] {
+    grid-column: 2;
+    grid-row: 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: center;
+    gap: 8px;
+  }
+  .mode-cards[data-count="1"] { grid-template-columns: minmax(0, 1fr); }
+  .mode-card { gap: 4px; padding: 8px 9px; }
+  .mode-card-text { display: none; }
+  .mode-cards .mode-card--searching .mode-card-text { display: block; min-height: 0; font-size: 13px; }
+  .mode-card-icon { width: 26px; height: 26px; }
+  .mode-card-title { font-size: 19px; }
+  .mode-card-go { padding: 5px; }
+
+  .lobby-panel { grid-column: 3; grid-row: 1; gap: 6px; padding: 9px; }
+  .lobby-portrait { width: 34px; height: 34px; }
+  .lobby-who-name { font-size: 18px; }
+  .lobby-record,
+  .lobby-quest-reward,
+  .lobby-collection { display: none; }
+  .lobby-sec-title { font-size: 17px; }
+  .lobby-sec-note { font-size: 12px; }
+  .lobby-quests { gap: 6px; }
+  .lobby-quest { padding: 5px 7px; font-size: 13px; }
+  .lobby-quest-bar { margin: 4px 0 0; }
+  .lobby-tiles { gap: 8px; }
+  .lobby-tile { padding: 5px 2px; font-size: 15px; }
+  .lobby-tile-icon { width: 24px; height: 24px; }
+
+  /* The install hint takes the bottom of the felt: the mode cards move up out of its way */
+  body:has(.install-hint) .mode-cards { align-content: start; }
+
+  /* The unlock notification sits over the featured card's column, clear of the mode cards, the tiles,
+     the top bar and the install hint (which starts right of that column) */
+  .mode-unlock-toast {
+    left: calc(var(--lobby-gap) + var(--safe-left));
+    top: calc(var(--lobby-bar-h) + var(--lobby-gap) + var(--safe-top));
+    transform: none;
+    width: var(--lobby-featured-col);
+    max-width: none;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .mode-unlock-toast-text strong { font-size: 15px; }
+  .mode-unlock-toast-text { font-size: 13px; line-height: 1.25; }
 }
+
+/* Small sideways phones (640x360) */
+@media (max-height: 500px) and (max-width: 700px) {
+  :root { --lobby-gap: 8px; --lobby-panel-col: 172px; }
+  .lobby-title { font-size: 19px; }
+  .lobby-level { min-width: 96px; }
+
+  .mode-cards,
+  .mode-cards[data-count] { gap: 6px; }
+  .mode-card { gap: 5px; padding: 7px; }
+  .mode-card-tag { display: none; }
+  .mode-card-icon { width: 22px; height: 22px; }
+  .mode-card-title { font-size: 18px; }
+  .mode-card-go { padding: 5px 4px; font-size: 14px; white-space: nowrap; }
+
+  .lobby-panel { gap: 4px; padding: 7px; }
+  .lobby-portrait { width: 28px; height: 28px; }
+  .lobby-who-name { font-size: 16px; }
+  .lobby-sec-title { font-size: 15px; }
+  .lobby-quests { gap: 4px; }
+  .lobby-quest { padding: 4px 6px; font-size: 12px; line-height: 1.2; }
+  .lobby-quest-bar { height: 4px; margin-top: 3px; }
+  .lobby-tiles { gap: 6px; }
+  .lobby-tile { flex-direction: row; justify-content: center; gap: 5px; padding: 6px 2px; font-size: 14px; }
+  .lobby-tile-icon { width: 20px; height: 20px; }
+}
+
+/* ===== Motion ===== */
+/* Timings follow the owner-approved mockup. All of it runs only when the system allows motion and
+   "Battle animations" is not off (.lobby--still on the lobby root, set in GameLobby.tsx).
+   Loops move only transform and opacity, apart from two small box-shadow pulses (online dot, searching card). */
+@media (prefers-reduced-motion: no-preference) {
+  /* Candle flicker over the whole table */
+  .lobby:not(.lobby--still)::before { animation: lobby-flicker 7s ease-in-out infinite; }
+
+  /* Featured stage: embers rise, the card floats, each new hero flips in. The first hero simply appears,
+     unless the player has just arrived (below). */
+  .lobby:not(.lobby--still) .lobby-embers > i { animation: lobby-ember linear infinite; }
+  .lobby:not(.lobby--still) .lobby-float { animation: lobby-float 5.5s ease-in-out infinite; }
+  .lobby:not(.lobby--still) .lobby-featured--swap { animation: lobby-flip 0.7s cubic-bezier(0.3, 0.8, 0.3, 1) backwards; }
+
+  /* Arrival, once after signing in or reloading (about 1.3 s): the bar drops in, the panel slides in, the
+     featured card flips in, the pedestal fades in and the mode cards are dealt one after another.
+     GameLobby.tsx takes .lobby--arrive off again when it is over, so hover lifts and the searching pulse
+     (later in this section, so it wins meanwhile) are not held by a finished animation. The featured card
+     keeps its own class, so a slow hero list cannot cut its flip short. */
+  .lobby--arrive:not(.lobby--still) .lobby-bar { animation: lobby-dropin 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) backwards; }
+  .lobby--arrive:not(.lobby--still) .lobby-panel { animation: lobby-slidein 0.6s cubic-bezier(0.2, 0.9, 0.3, 1) 0.15s backwards; }
+  .lobby--arrive:not(.lobby--still) .lobby-pedestal { animation: lobby-fade 0.8s 0.3s backwards; }
+  .lobby--arrive:not(.lobby--still) .mode-card { animation: lobby-deal 0.55s cubic-bezier(0.25, 1.25, 0.4, 1) backwards; }
+  .lobby--arrive:not(.lobby--still) .mode-card:nth-child(1) { animation-delay: 0.5s; }
+  .lobby--arrive:not(.lobby--still) .mode-card:nth-child(2) { animation-delay: 0.6s; }
+  .lobby--arrive:not(.lobby--still) .mode-card:nth-child(3) { animation-delay: 0.7s; }
+  .lobby--arrive:not(.lobby--still) .mode-card:nth-child(4) { animation-delay: 0.8s; }
+  .lobby:not(.lobby--still) .lobby-featured--arrive { animation: lobby-flip 0.8s cubic-bezier(0.3, 0.8, 0.3, 1) 0.35s backwards; }
+
+  /* Top bar: a glint crosses the XP bar every 4 s; the online dot pings */
+  .lobby:not(.lobby--still) .lobby-level .xp-fill { overflow: hidden; }
+  .lobby:not(.lobby--still) .lobby-level .xp-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--card-white) 60%, transparent) 50%, transparent);
+    transform: translateX(-120%);
+    animation: lobby-xp-glint 4s ease-in-out infinite;
+  }
+  .lobby:not(.lobby--still) .lobby-friends-online { animation: lobby-ping 2s ease-out infinite; }
+
+  /* Player panel: a finished quest turns green and its bar fills */
+  .lobby:not(.lobby--still) .lobby-quest { transition: transform 0.16s, border-color 0.16s; }
+  .lobby:not(.lobby--still) .lobby-quest-progress { transition: color 0.16s; }
+  .lobby:not(.lobby--still) .lobby-quest-bar > i { transition: width 0.8s; }
+  .lobby:not(.lobby--still) .lobby-tile {
+    transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s, background var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .lobby:not(.lobby--still) .lobby-tile-icon { transition: transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
+
+  /* Mode cards */
+  .lobby:not(.lobby--still) .mode-card {
+    transition: transform 0.18s cubic-bezier(0.3, 1.5, 0.5, 1), border-color 0.18s, box-shadow 0.18s;
+  }
+  .lobby:not(.lobby--still) .mode-card--draft .swords-l,
+  .lobby:not(.lobby--still) .mode-card--draft .swords-r {
+    transform-origin: 12px 12px;
+    transition: transform 0.25s cubic-bezier(0.3, 1.8, 0.5, 1);
+  }
+  /* The Survival flame never stops */
+  .lobby:not(.lobby--still) .mode-card--survival .mode-card-icon {
+    transform-origin: 50% 90%;
+    animation: lobby-flame 1.6s ease-in-out infinite;
+  }
+
+  /* Searching: the accent border pulses and a light sweeps across the card */
+  .lobby:not(.lobby--still) .mode-card--searching { animation: lobby-seek 1.4s ease-in-out infinite; }
+  .lobby:not(.lobby--still) .mode-card--searching::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -40%;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--card-white) 9%, transparent), transparent);
+    pointer-events: none;
+    animation: lobby-scan 1.8s linear infinite;
+  }
+}
+
+/* Hover movement, for pointers that can hover (a tap on a touch screen would leave it stuck) */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .lobby:not(.lobby--still) .mode-card:hover {
+    transform: translateY(-6px);
+    box-shadow:
+      inset 0 3px 0 var(--acc),
+      0 18px 30px color-mix(in srgb, var(--card-black) 55%, transparent),
+      0 0 22px color-mix(in srgb, var(--acc) 35%, transparent);
+  }
+  .lobby:not(.lobby--still) .mode-card--random:hover .mode-card-icon { animation: lobby-tumble 0.7s cubic-bezier(0.3, 1.4, 0.5, 1); }
+  .lobby:not(.lobby--still) .mode-card--draft:hover .swords-l { transform: rotate(-16deg); }
+  .lobby:not(.lobby--still) .mode-card--draft:hover .swords-r { transform: rotate(16deg); }
+  .lobby:not(.lobby--still) .mode-card--gauntlet:hover .mode-card-icon { animation: lobby-tower 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+
+  .lobby:not(.lobby--still) .lobby-quest:hover { transform: translateX(3px); }
+  .lobby:not(.lobby--still) .lobby-tile:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 18px color-mix(in srgb, var(--card-black) 50%, transparent);
+  }
+  .lobby:not(.lobby--still) .lobby-tile:hover .lobby-tile-icon { transform: scale(1.14) rotate(-5deg); }
+}
+
+@keyframes lobby-flicker {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.86; }
+  55% { opacity: 0.95; }
+  70% { opacity: 0.82; }
+}
+@keyframes lobby-ember {
+  0% { transform: translate(0, 0); opacity: 0; }
+  12% { opacity: 0.85; }
+  100% { transform: translate(var(--dx), -520px) scale(0.2); opacity: 0; }
+}
+@keyframes lobby-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+/* The perspective is part of the transform, so it does not stack with the tilt perspective of the card */
+@keyframes lobby-flip {
+  0% { transform: perspective(900px) rotateY(-95deg) scale(0.92); opacity: 0; }
+  100% { transform: perspective(900px) rotateY(0deg) scale(1); opacity: 1; }
+}
+@keyframes lobby-dropin { from { transform: translateY(-100%); } }
+@keyframes lobby-slidein { from { transform: translateX(-40px); opacity: 0; } }
+@keyframes lobby-deal { from { transform: translateY(120px) rotate(7deg); opacity: 0; } }
+@keyframes lobby-xp-glint {
+  0%, 60% { transform: translateX(-120%); }
+  100% { transform: translateX(180%); }
+}
+@keyframes lobby-ping {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--verdigris) 70%, transparent); }
+  100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--verdigris) 0%, transparent); }
+}
+@keyframes lobby-tumble {
+  0% { transform: rotate(0deg) translateY(0); }
+  40% { transform: rotate(200deg) translateY(-7px); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes lobby-flame {
+  0%, 100% { transform: scale(1, 1) rotate(-2deg); }
+  35% { transform: scale(0.94, 1.1) rotate(3deg); }
+  70% { transform: scale(1.05, 0.95) rotate(-3deg); }
+}
+@keyframes lobby-tower {
+  0% { transform: translateY(6px) scaleY(0.8); }
+  100% { transform: none; }
+}
+@keyframes lobby-seek {
+  0%, 100% {
+    box-shadow: inset 0 3px 0 var(--acc), 0 0 0 0 color-mix(in srgb, var(--acc) 60%, transparent);
+  }
+  50% {
+    box-shadow:
+      inset 0 3px 0 var(--acc),
+      0 0 0 7px color-mix(in srgb, var(--acc) 0%, transparent),
+      0 0 26px color-mix(in srgb, var(--acc) 45%, transparent);
+  }
+}
+/* The sweep is 40% of the card wide and starts 40% off its left edge: four of its own widths takes it past the right */
+@keyframes lobby-scan {
+  to { transform: translateX(400%); }
+}
+
+/* Stills ("Battle animations: off" or reduced motion): the featured hero still changes, with a plain fade */
+.lobby--still .lobby-featured { animation: lobby-fade 400ms ease both; }
+
 @media (prefers-reduced-motion: reduce) {
+  .lobby-featured { animation: lobby-fade 400ms ease both; }
+  .lobby-bar-btn,
+  .lobby-portrait,
+  .lobby-name-btn,
+  .lobby-tile,
+  .mode-card-go { transition: none; }
   .lobby-coins-amount.vp-bump,
   .lobby-quest.just-completed,
   .mode-unlock-reveal,
   .mode-unlock-toast,
   .placard-dots .dot { animation: none; }
-  .random-hero-card,
-  .placard,
-  .lobby-tile { transition: none; }
 }

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import '../styles/SurvivalTeamBuilder.css';
 import config from '../config';
 import HeroCard from './HeroCard';
+import { isHolo } from '../holoSetting';
 import Icon from './ui/Icon';
 import useCardGrid from '../hooks/useCardGrid';
+import { TINY_CARD_MAX_WIDTH } from '../cards/cardRules';
 import '../styles/ResponsiveCardGrid.css';
 
 interface HeroAbility {
@@ -40,6 +42,7 @@ interface User {
   survival_used_heroes: string[];
   available_heroes: string[];
   favorite_heroes: string[];
+  holo_heroes?: string[];
 }
 
 interface SurvivalTeamBuilderProps {
@@ -99,7 +102,8 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
     }
   }, [selectedTeam, isSearchingForMatch, searchStartTeam]);
 
-  const cardGrid = useCardGrid();
+  // On a sideways phone the cards are height-limited: fill the width with more of them, still above tiny mode
+  const cardGrid = useCardGrid({ shortScreenMinCardWidth: TINY_CARD_MAX_WIDTH + 1 });
   const heroesPerPage = cardGrid.pageSize;
   const TEAM_SIZE = 3;
 
@@ -454,9 +458,11 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
                       <HeroCard
                         hero={hero}
                         className="survival-card"
+                        holo={!placeholder && isHolo(user, hero.name)}
                         isSelectable={!placeholder}
                         isSelected={!placeholder && isHeroSelected(hero)}
                         onClick={() => handleHeroSelect(hero)}
+                        readable="press"
                         showFullInfo={false}
                         disableHPAnimations
                       >

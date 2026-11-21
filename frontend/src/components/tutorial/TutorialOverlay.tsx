@@ -115,7 +115,9 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ step: stepProp, onNex
       let el: Element | null = null;
       for (const sel of selectors) {
         el = document.querySelector(sel);
-        if (el) break;
+        // Skip a hidden match (display:none has no boxes) so a later fallback selector is tried
+        if (el && el.getClientRects().length) break;
+        el = null;
       }
       if (el && scrolledFor.current !== step.key) {
         scrolledFor.current = step.key;
@@ -149,18 +151,20 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ step: stepProp, onNex
 
   let side: Side = 'left';
   if (spot) {
-    if (step.side && step.side !== 'auto') {
+    const space = {
+      left: spot.left,
+      right: vp.w - (spot.left + spot.width),
+      top: spot.top,
+      bottom: vp.h - (spot.top + spot.height)
+    };
+    const sideSpace = ARROW_W + GAP + SPEAKER_GAP + (step.text ? size.w : 0) + MARGIN;
+    const vertSpace = ARROW_W + GAP + SPEAKER_GAP + (step.text ? size.h : 0) + MARGIN;
+    const need = { left: sideSpace, right: sideSpace, top: vertSpace, bottom: vertSpace };
+    // A step's preferred side is used when it has room; otherwise (a small screen) pick the roomiest side
+    // so the speech bubble does not cover the thing it points at
+    if (step.side && step.side !== 'auto' && space[step.side] >= need[step.side]) {
       side = step.side;
     } else {
-      const space = {
-        left: spot.left,
-        right: vp.w - (spot.left + spot.width),
-        top: spot.top,
-        bottom: vp.h - (spot.top + spot.height)
-      };
-      const sideSpace = ARROW_W + GAP + SPEAKER_GAP + (step.text ? size.w : 0) + MARGIN;
-      const vertSpace = ARROW_W + GAP + SPEAKER_GAP + (step.text ? size.h : 0) + MARGIN;
-      const need = { left: sideSpace, right: sideSpace, top: vertSpace, bottom: vertSpace };
       const order: Side[] = ['left', 'right', 'top', 'bottom'];
       side = order.find(s => space[s] >= need[s]) || order.reduce((best, s) => (space[s] / need[s] > space[best] / need[best] ? s : best), 'left' as Side);
     }

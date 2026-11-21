@@ -132,3 +132,12 @@
 .requirement-modal-button:active {
   transform: scale(0.98);
 }
+
+/* Sideways phone: the frame fits the screen height, the message scrolls above a fixed OK, text at 12px or more */
+@media (max-height: 500px) {
+  .requirement-modal-container { display: flex; flex-direction: column; }
+  .requirement-modal-header { flex-shrink: 0; padding: var(--space-3) var(--space-5); }
+  .requirement-modal-content { min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-5); }
+  .requirement-modal-button { flex-shrink: 0; min-height: 40px; }
+  .requirement-hint { font-size: 12px; }
+}

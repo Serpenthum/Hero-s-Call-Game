@@ -5,6 +5,7 @@ import Coin from './Coin';
 import config from '../config';
 import { authHeaders } from '../authSession';
 import SharedHeroCard from './HeroCard';
+import { isHolo } from '../holoSetting';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ResponsiveCardGrid.css';
 import '../styles/Binder.css';
@@ -41,6 +42,7 @@ interface HeroCollectionProps {
   userId?: number; // Optional user ID for authenticated users
   victoryPoints?: number; // Victory points to display
   onFavoritesChange?: (favoriteHeroes: string[]) => void; // Callback when favorites change
+  initialHero?: string; // Open on this hero's page and spotlight its pocket
 }
 
 type SortOption = 'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage';
@@ -49,6 +51,19 @@ type SortOption = 'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage';
 const FLIP_MS = 480;
 type FilterOption = 'available' | 'not-owned' | 'all' | 'favorites' | 'disabled';
 
+// How long the pocket of the hero the Binder opened on stays lit
+const SPOTLIGHT_MS = 1600;
+
+const matchesFilter = (hero: Hero, filter: FilterOption, owned: string[], favorites: string[]) => {
+  switch (filter) {
+    case 'available': return owned.includes(hero.name) && !hero.disabled;
+    case 'not-owned': return !owned.includes(hero.name) && !hero.disabled;
+    case 'disabled': return !!hero.disabled;
+    case 'favorites': return favorites.includes(hero.name);
+    default: return true;
+  }
+};
+
 // Memoized HeroCard component to prevent unnecessary re-renders
 const HeroCard = React.memo<{
   hero: Hero;
@@ -56,8 +71,9 @@ const HeroCard = React.memo<{
   isSelected: boolean;
   isFavorite: boolean;
   isOwned: boolean;
+  isHolo: boolean;
   onClick: (index: number) => void;
-}>(({ hero, actualIndex, isSelected, isFavorite, isOwned, onClick }) => {
+}>(({ hero, actualIndex, isSelected, isFavorite, isOwned, isHolo: holo, onClick }) => {
   const handleClick = useCallback(() => {
     onClick(actualIndex);
   }, [actualIndex, onClick]);
@@ -70,7 +86,9 @@ const HeroCard = React.memo<{
       isSelected={isSelected}
       showFullInfo={false}
       disableHPAnimations
+      holo={holo}
       onClick={handleClick}
+      readable="none"
     >
       {isFavorite && (
         <Icon name="star" size={18} className="favorite-star" />
@@ -81,7 +99,7 @@ const HeroCard = React.memo<{
 
 HeroCard.displayName = 'HeroCard';
 
-const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victoryPoints = 0, onFavoritesChange }) => {
+const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victoryPoints = 0, onFavoritesChange, initialHero }) => {
   const [heroes, setHeroes] = useState<Hero[]>([]);
   const [sortedHeroes, setSortedHeroes] = useState<Hero[]>([]);
   const [selectedHeroIndex, setSelectedHeroIndex] = useState<number | null>(null);
@@ -91,8 +109,14 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
   const [currentPage, setCurrentPage] = useState(0);
   const [favoriteHeroes, setFavoriteHeroes] = useState<string[]>([]);
   const [availableHeroes, setAvailableHeroes] = useState<string[]>([]);
+  // The player's collection as the server last sent it, for their holographics
+  const [owner, setOwner] = useState<{ holo_heroes?: string[] } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [introDone, setIntroDone] = useState(false);
+  // The hero to open on, until the binder has found its page; then the hero whose pocket is lit
+  const [pendingHero, setPendingHero] = useState<string | null>(initialHero ?? null);
+  const [spotlight, setSpotlight] = useState<string | null>(null);
+  const [ownedLoaded, setOwnedLoaded] = useState(!userId);
   // While a page turns: which way, and the spread being left behind
   const [flip, setFlip] = useState<{ direction: 'next' | 'prev'; from: number } | null>(null);
   
@@ -115,29 +139,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
 
   useEffect(() => {
     if (heroes.length > 0) {
-      let filtered = heroes;
-      
-      // Apply filter based on selection
-      if (filterOption === 'available') {
-        // Show only owned and enabled heroes
-        filtered = heroes.filter(hero => 
-          availableHeroes.includes(hero.name) && !hero.disabled
-        );
-      } else if (filterOption === 'not-owned') {
-        // Show only enabled heroes not owned
-        filtered = heroes.filter(hero => 
-          !availableHeroes.includes(hero.name) && !hero.disabled
-        );
-      } else if (filterOption === 'disabled') {
-        // Show only disabled heroes
-        filtered = heroes.filter(hero => hero.disabled);
-      } else if (filterOption === 'all') {
-        // Show all heroes (owned and not owned, enabled and disabled)
-        filtered = heroes;
-      } else if (filterOption === 'favorites') {
-        // Show only favorite heroes
-        filtered = heroes.filter(hero => favoriteHeroes.includes(hero.name));
-      }
+      let filtered = heroes.filter(hero => matchesFilter(hero, filterOption, availableHeroes, favoriteHeroes));
       
       // Apply search filter
       if (searchQuery.trim() !== '') {
@@ -156,6 +158,33 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
     setCurrentPage(0);
     setSelectedHeroIndex(null);
   }, [sortOption, filterOption, searchQuery]);
+
+  // Opening on a hero: show every hero if the current filter hides it, then turn to its page.
+  // Declared after the page resets above so it runs after them.
+  useEffect(() => {
+    if (!pendingHero || loading || heroes.length === 0 || !ownedLoaded) return;
+    const hero = heroes.find(h => h.name === pendingHero);
+    if (!hero) { setPendingHero(null); return; }
+    if (!matchesFilter(hero, filterOption, availableHeroes, favoriteHeroes)) {
+      setFilterOption('all');
+      return;
+    }
+    setPendingHero(null);
+    setSpotlight(hero.name);
+  }, [pendingHero, loading, heroes, ownedLoaded, filterOption, availableHeroes, favoriteHeroes]);
+
+  useEffect(() => {
+    if (!spotlight) return;
+    const index = sortedHeroes.findIndex(h => h.name === spotlight);
+    if (index >= 0) setCurrentPage(Math.floor(index / heroesPerPage));
+  }, [spotlight, sortedHeroes, heroesPerPage]);
+
+  // The light goes out a moment after the binder has opened
+  useEffect(() => {
+    if (!spotlight || !introDone) return;
+    const timer = window.setTimeout(() => setSpotlight(null), SPOTLIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [spotlight, introDone]);
 
   useEffect(() => {
     if (selectedHeroIndex === null) return;
@@ -321,10 +350,13 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
         const data = await response.json();
         if (data.success && data.user) {
           setAvailableHeroes(data.user.available_heroes || []);
+          setOwner(data.user);
         }
       }
     } catch (error) {
       console.error('Error fetching available heroes:', error);
+    } finally {
+      setOwnedLoaded(true);
     }
   };
 
@@ -394,13 +426,14 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
           if (!hero) return <div key={`empty-${pageOffset}`} className="binder-pocket empty" />;
           const actualIndex = page * heroesPerPage + pageOffset;
           return (
-            <div key={hero.name} className="binder-pocket">
+            <div key={hero.name} className={`binder-pocket${spotlight === hero.name ? ' binder-pocket--spotlight' : ''}`}>
               <HeroCard
                 hero={hero}
                 actualIndex={actualIndex}
                 isSelected={selectedHeroIndex === actualIndex}
                 isFavorite={favoriteHeroes.includes(hero.name)}
                 isOwned={availableHeroes.includes(hero.name)}
+                isHolo={isHolo(owner, hero.name)}
                 onClick={handleHeroClick}
               />
             </div>
@@ -506,7 +539,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       {selectedHeroIndex !== null && sortedHeroes[selectedHeroIndex] && (
         <div className="collection-card-preview" role="dialog" aria-modal="true" aria-label={sortedHeroes[selectedHeroIndex].name}>
           <CloseButton onClick={() => setSelectedHeroIndex(null)} />
-          <SharedHeroCard hero={sortedHeroes[selectedHeroIndex]} showFullInfo={false} disableHPAnimations />
+          <SharedHeroCard hero={sortedHeroes[selectedHeroIndex]} holo={isHolo(owner, sortedHeroes[selectedHeroIndex].name)} showFullInfo={false} disableHPAnimations readable="none" />
           {userId && (
             <div className="favorite-button-container">
               <button 

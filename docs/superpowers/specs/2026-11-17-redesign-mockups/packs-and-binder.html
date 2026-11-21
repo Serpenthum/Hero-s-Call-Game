@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hero's Call: pack opening and binder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=IM+Fell+English:ital@0;1&family=Grenze+Gotisch:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--felt:#101b18;--felt-deep:#0b1311;--walnut:#241a14;--leather:#33261d;--brass:#b08a45;--brass-hi:#cfa95f;--brass-dim:#6e5629;--bone:#e6dfcf;--bone-dim:#a89f8c;--ember:#c4482f;--verdigris:#5fa08a;
+  --display:'Grenze Gotisch',Georgia,serif;--kfont:'IM Fell English',Georgia,serif;--ui:'Alegreya Sans','Segoe UI',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#070b0a;color:var(--bone);font-family:var(--ui);font-size:16px;line-height:1.4}
+.page{max-width:1240px;margin:0 auto;padding:18px 14px 60px}
+.page h1{font-family:var(--kfont);font-weight:400;font-size:1.7rem;margin:0}
+.page p.lead{color:var(--bone-dim);margin:4px 0 12px;max-width:88ch}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.ctl .lbl{color:var(--bone-dim);margin:0 2px 0 10px}.ctl .lbl:first-child{margin-left:0}
+button.chip{font:inherit;font-weight:700;color:var(--bone);background:var(--leather);border:1px solid var(--brass-dim);border-radius:4px;padding:6px 13px;cursor:pointer}
+button.chip:hover{border-color:var(--brass-hi)}
+button.chip[aria-pressed="true"]{background:var(--brass);color:#1a130c;border-color:var(--brass-hi)}
+.frame-wrap{display:flex;justify-content:center}
+.frame{--fw:844px;--fh:390px;width:var(--fw);height:var(--fh);position:relative;overflow:hidden;border:1px solid var(--brass-dim);border-radius:10px;
+  background:radial-gradient(ellipse at 50% 45%,#1d3d34,var(--felt) 55%,var(--felt-deep))}
+.frame[data-vp="desk"]{--fw:1180px;--fh:640px}
+.frame>.scene{position:absolute;inset:0;display:none}.frame>.scene.on{display:block}
+.btn{font:inherit;font-weight:800;border-radius:4px;padding:8px 18px;border:1px solid var(--brass-hi);background:var(--brass);color:#17110b;cursor:pointer}
+.btn.quiet{background:rgb(0 0 0 / .4);color:var(--bone);border-color:var(--brass-dim)}
+
+/* ============ card (same design as agreed) ============ */
+.hc{--w:150px;width:var(--w);height:calc(var(--w)*1.46);font-size:calc(var(--w)/20);position:relative;border-radius:.75em;display:flex;flex-direction:column;overflow:hidden;text-align:left;
+  color:var(--bone);background:#0d0b0a;border:.1em solid var(--brass);box-shadow:0 .6em 1.4em rgb(0 0 0 / .6)}
+.hc svg{width:1em;height:1em;display:block}
+.hc .art{position:absolute;inset:0;overflow:hidden}
+.hc .art img{width:100%;height:100%;object-fit:cover;object-position:50% 12%;display:block}
+.hc .art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgb(0 0 0 / .04) 55%,rgb(8 10 9 / .22) 100%)}
+.hc .edge{position:absolute;inset:.3em;z-index:2;border:.06em solid rgb(207 169 95 / .55);border-radius:.5em;pointer-events:none}
+.hc .rail{position:absolute;z-index:3;left:.7em;top:.9em;display:flex;flex-direction:column;gap:.35em;font-size:1.15em}
+.hc .hex{position:relative;width:2.5em;height:2.75em;display:flex;flex-direction:column;align-items:center;justify-content:center;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(160deg,var(--c),#0c0a09 85%)}
+.hc .hex::before{content:"";position:absolute;inset:.13em;clip-path:inherit;background:rgb(12 10 9 / .86)}
+.hc .hex>*{position:relative}.hc .hex svg{font-size:.72em;color:var(--c)}.hc .hex b{font-size:.86em;line-height:1;margin-top:.06em;font-weight:800}
+.s-hp{--c:#d2543c}.s-df{--c:#7fa3c9}.s-ac{--c:#67b39a}.s-at{--c:#d7b061}
+.hc .low{position:relative;z-index:3;margin-top:auto;padding:2.6em .85em .8em;background:linear-gradient(180deg,transparent,rgb(8 10 9 / .34) 2.4em,rgb(8 10 9 / .58) 100%)}
+.hc .txt,.hc .nm{text-shadow:0 0 .22em #000,0 0 .5em rgb(0 0 0 / .85),0 .07em .1em #000}
+.hc .nm{font-family:var(--display);font-weight:600;line-height:1.05;font-size:2.1em;color:#fff;text-shadow:0 .08em .3em #000}
+.hc .rule{height:.07em;background:linear-gradient(90deg,var(--brass),transparent);margin:.4em 0 .5em}
+.hc .txt{font-size:1.06em;line-height:1.22;color:#ece6d8}.hc .txt b{font-weight:800}
+.hc .txt .k{font-family:var(--kfont);font-style:italic;font-size:1.08em;color:var(--brass-hi)}
+.hc .txt p{margin:0 0 .45em}.hc .txt p:last-child{margin:0}
+.hc.tiny .txt,.hc.tiny .rule{display:none}.hc.tiny .nm{font-size:2.5em}.hc.tiny .rail{font-size:1.5em}.hc.tiny .low{padding:2em .7em .6em}
+.fav-star{position:absolute;z-index:6;top:.55em;right:.55em;width:1.9em;height:1.9em;display:none;color:#f6cf57;filter:drop-shadow(0 0 .25em rgb(0 0 0 / .9)) drop-shadow(0 0 .35em rgb(255 200 60 / .55))}
+.hc.tiny .fav-star{width:3em;height:3em}
+.fav-star svg{width:100%;height:100%}.hc.fav .fav-star{display:block}
+.hc .sheen{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:inherit;opacity:0}
+.hc.holo{border-color:#f4e2a8;box-shadow:0 .6em 1.4em rgb(0 0 0 / .55),0 0 .5em rgb(255 235 170 / .55),0 0 1.6em rgb(140 200 255 / .3)}
+.hc.holo .sheen{opacity:1;mix-blend-mode:color-dodge;background:linear-gradient(115deg,transparent 30%,rgb(255 60 140 / .15) 38%,rgb(255 214 60 / .16) 45%,rgb(60 255 190 / .15) 52%,rgb(90 130 255 / .17) 59%,rgb(200 90 255 / .14) 65%,transparent 72%);background-size:260% 260%;animation:holo 6s ease-in-out infinite}
+@keyframes holo{0%,100%{background-position:10% 20%}50%{background-position:90% 80%}}
+/* card back, drawn in code */
+.back{width:100%;height:100%;border-radius:inherit;border:.1em solid var(--brass);position:relative;overflow:hidden;
+  background:repeating-linear-gradient(45deg,rgb(255 255 255 / .035) 0 6px,transparent 6px 12px),repeating-linear-gradient(-45deg,rgb(255 255 255 / .035) 0 6px,transparent 6px 12px),radial-gradient(ellipse at 50% 40%,#3a2a1e,#17100c)}
+.back::before{content:"";position:absolute;inset:6%;border:1px solid var(--brass-dim);border-radius:6%;box-shadow:inset 0 0 0 3px #1a120d,inset 0 0 0 4px var(--brass-dim)}
+.back svg{position:absolute;left:50%;top:50%;width:52%;transform:translate(-50%,-50%);color:var(--brass-hi);filter:drop-shadow(0 2px 3px #000)}
+
+/* ============ pack opening ============ */
+.po{display:grid;place-items:center}
+.po .dim{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgb(0 0 0 / .1),rgb(0 0 0 / .72))}
+.pack{position:absolute;left:50%;top:50%;height:78%;aspect-ratio:2/3;transform:translate(-50%,-50%);cursor:pointer;z-index:4;filter:drop-shadow(0 18px 26px rgb(0 0 0 / .7))}
+.pack .wob{position:absolute;inset:0;animation:packfloat 3.6s ease-in-out infinite}
+@keyframes packfloat{0%,100%{transform:translateY(0) rotate(-1.500deg)}50%{transform:translateY(-8px) rotate(1.500deg)}}
+.pack .pt,.pack .pb{position:absolute;inset:0;background:url(https://heroscall.pages.dev/pack1.png) center/cover;border-radius:10px}
+.pack .pt{clip-path:inset(0 0 86.500% 0)}
+.pack .pb{clip-path:inset(13.500% 0 0 0)}
+.po .beams{display:none}
+.pack .shine{position:absolute;inset:0;border-radius:10px;background:linear-gradient(105deg,transparent 40%,rgb(255 255 255 / .28) 50%,transparent 60%);background-size:300% 100%;animation:pglint 3.2s ease-in-out infinite;pointer-events:none}
+@keyframes pglint{0%,55%{background-position:130% 0}100%{background-position:-70% 0}}
+.pack .label{position:absolute;left:0;right:0;bottom:7%;text-align:center;font-family:var(--display);font-size:1.5rem;color:#fff;text-shadow:0 2px 6px #000,0 0 14px #000}
+.pack .tear{position:absolute;left:-6%;right:-6%;top:13.500%;height:4px;margin-top:-2px;border-radius:4px;background:linear-gradient(90deg,transparent,#fff,#ffe9a8,#fff,transparent);box-shadow:0 0 18px 6px rgb(255 225 150 / .8);transform:scaleX(0);transform-origin:left;opacity:0}
+.po.holo-in .pack .tear{background:linear-gradient(90deg,transparent,#ff8ac4,#ffe27a,#7affd0,#8fa8ff,transparent);box-shadow:0 0 22px 8px rgb(170 200 255 / .8)}
+.tap{position:absolute;left:0;right:0;bottom:4%;text-align:center;color:var(--bone);z-index:6;font-weight:700;animation:pulse 1.4s ease-in-out infinite;pointer-events:none}
+@keyframes pulse{50%{opacity:.45}}
+/* stage 2: shake, tear, top flies off */
+.po.tearing .pack .wob{animation:shake .5s linear}
+@keyframes shake{0%,100%{transform:rotate(0)}15%{transform:rotate(-4deg) scale(1.04)}30%{transform:rotate(4deg)}45%{transform:rotate(-3deg) scale(1.05)}60%{transform:rotate(3deg)}80%{transform:rotate(-1deg)}}
+.po.tearing .pack .tear{animation:tear .45s ease-in .45s both}
+@keyframes tear{0%{transform:scaleX(0);opacity:1}80%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}
+.po.tearing .pack .pt{animation:topoff .6s cubic-bezier(.3,.6,.4,1) .9s both}
+@keyframes topoff{to{transform:translate(60%,-130%) rotate(38deg);opacity:0}}
+.po.tearing .pack .pb{animation:packdrop .7s ease-in 1.350s both}
+@keyframes packdrop{to{transform:translateY(130%);opacity:0}}
+.po.tearing .pack .label,.po.tearing .pack .shine,.po.tearing .tap,.po.fan .tap{display:none}
+.po .flash{position:absolute;left:50%;top:38%;width:40px;height:40px;margin:-20px;border-radius:50%;background:radial-gradient(circle,#fff,rgb(255 225 150 / .8) 35%,transparent 70%);opacity:0;z-index:5;pointer-events:none}
+.po.tearing .flash{animation:burst .7s ease-out .9s both}
+.po.holo-in .flash{background:radial-gradient(circle,#fff,rgb(180 220 255 / .85) 30%,rgb(255 150 220 / .5) 50%,transparent 70%)}
+@keyframes burst{0%{opacity:.95;transform:scale(1)}100%{opacity:0;transform:scale(34)}}
+/* stage 3: cards rise out and fan */
+.pc{--w:150px;position:absolute;left:50%;top:50%;width:var(--w);height:calc(var(--w)*1.46);margin:calc(var(--w)*-.73) 0 0 calc(var(--w)*-.5);z-index:3;perspective:900px;cursor:pointer;
+  opacity:0;transform:translate(0,40%) scale(.5);transition:transform .6s cubic-bezier(.2,1.1,.3,1),opacity .3s}
+.frame[data-vp="desk"] .pc{--w:215px}
+.po.fan .pc{opacity:1;transform:translate(var(--x),var(--y)) rotate(var(--r)) scale(1)}
+.pc:hover{z-index:5}
+.pc .in{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .65s cubic-bezier(.3,1.2,.4,1);border-radius:8px}
+.pc:not(.up):hover .in{transform:translateY(-8px)}
+.pc.up .in{transform:rotateY(180deg)}
+.pc .f,.pc .b{position:absolute;inset:0;backface-visibility:hidden;border-radius:8px}
+.pc .f{transform:rotateY(180deg)}
+.pc .f .hc{--w:inherit;width:100%;height:100%}
+.pc.isholo:not(.up) .b{animation:holoback 1.6s linear infinite}
+@keyframes holoback{0%{box-shadow:0 0 14px 3px #ff7ab8}25%{box-shadow:0 0 18px 5px #ffe27a}50%{box-shadow:0 0 14px 3px #7affd0}75%{box-shadow:0 0 18px 5px #8fa8ff}100%{box-shadow:0 0 14px 3px #ff7ab8}}
+.pc .tagline{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);white-space:nowrap;font-weight:800;font-size:.85rem;opacity:0;transition:opacity .3s .45s;text-shadow:0 1px 3px #000}
+.pc.up .tagline{opacity:1}
+.tagline.new{color:var(--verdigris)}.tagline.rep{color:var(--brass-hi)}
+.tagline.hol{background:linear-gradient(90deg,#ff7ab8,#ffe27a,#7affd0,#8fa8ff);-webkit-background-clip:text;background-clip:text;color:transparent;font-family:var(--display);font-size:1.25rem}
+.pc .rays{position:absolute;left:50%;top:50%;width:10px;height:10px;z-index:-1;pointer-events:none;opacity:0}
+.pc.isholo.up .rays{animation:rays 1.6s ease-out .25s both}
+.pc .rays::before{content:"";position:absolute;left:-190px;top:-190px;width:390px;height:390px;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgb(255 240 190 / .55) 0 6deg,transparent 6deg 18deg);-webkit-mask:radial-gradient(circle,#000 20%,transparent 68%);mask:radial-gradient(circle,#000 20%,transparent 68%);animation:spin 5s linear infinite}
+@keyframes rays{0%{opacity:0;transform:scale(.3)}25%{opacity:1;transform:scale(1)}100%{opacity:.35;transform:scale(1)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.po .foot{position:absolute;left:0;right:0;bottom:8px;z-index:7;display:flex;gap:10px;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+.po.fan .foot{opacity:1;pointer-events:auto}
+.po .top{position:absolute;left:0;right:0;top:8px;z-index:7;text-align:center;font-family:var(--display);font-size:1.5rem;color:var(--brass-hi);opacity:0;transition:opacity .4s}
+.po.fan .top{opacity:1}
+.sparks{position:absolute;inset:0;pointer-events:none;z-index:6;overflow:hidden}
+.sparks i{position:absolute;width:5px;height:5px;border-radius:50%;animation:spark .9s ease-out both}
+@keyframes spark{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}}
+
+/* ---- v2: more dynamic pack opening ---- */
+.po .beams{position:absolute;left:50%;top:50%;width:1400px;height:1400px;margin:-700px;border-radius:50%;z-index:1;pointer-events:none;animation:spin 40s linear infinite;
+  background:repeating-conic-gradient(from 0deg,rgb(255 225 150 / .14) 0 5deg,transparent 5deg 15deg);-webkit-mask:radial-gradient(circle,#000 8%,transparent 55%);mask:radial-gradient(circle,#000 8%,transparent 55%)}
+.po.holo-in .beams{background:repeating-conic-gradient(from 0deg,rgb(255 122 184 / .17) 0 5deg,transparent 5deg 15deg,rgb(122 255 208 / .17) 15deg 20deg,transparent 20deg 30deg,rgb(143 168 255 / .2) 30deg 35deg,transparent 35deg 45deg)}
+.po.tearing .beams{animation-duration:5s}
+.po.enter .pack{animation:packin .95s cubic-bezier(.2,1.1,.3,1) both}
+@keyframes packin{0%{transform:translate(-50%,170%) rotateY(540deg) scale(.4)}70%{transform:translate(-50%,-55%) rotateY(0) scale(1.1)}100%{transform:translate(-50%,-50%) scale(1)}}
+.po.tearing .pack .wob{animation:charge .9s linear forwards}
+@keyframes charge{0%{transform:rotate(0) scale(1);filter:brightness(1)}10%{transform:rotate(-3deg)}20%{transform:rotate(3deg) scale(1.03)}30%{transform:rotate(-5deg)}40%{transform:rotate(5deg) scale(1.06);filter:brightness(1.3)}50%{transform:rotate(-6deg)}60%{transform:rotate(6deg) scale(1.09)}70%{transform:rotate(-7deg);filter:brightness(1.7)}80%{transform:rotate(7deg) scale(1.12)}90%{transform:rotate(-4deg)}100%{transform:rotate(0) scale(1.14);filter:brightness(2.1)}}
+.po .column{position:absolute;left:50%;bottom:55%;width:130px;margin-left:-65px;height:0;background:linear-gradient(0deg,rgb(255 240 190 / .95),transparent);filter:blur(7px);opacity:0;z-index:2;pointer-events:none}
+.po.holo-in .column{background:linear-gradient(0deg,#fff,rgb(255 122 184 / .8) 25%,rgb(122 255 208 / .7) 50%,rgb(143 168 255 / .6) 75%,transparent)}
+.po.tearing .column{animation:column 1.100s ease-out .9s both}
+@keyframes column{0%{height:0;opacity:1}40%{height:75%;opacity:1}100%{height:95%;opacity:0;width:40px;margin-left:-20px}}
+.po.quake{animation:quake .4s linear}
+@keyframes quake{0%,100%{transform:none}15%{transform:translate(-7px,4px)}30%{transform:translate(6px,-5px)}45%{transform:translate(-5px,-3px)}60%{transform:translate(4px,4px)}80%{transform:translate(-2px,1px)}}
+.po.fan .pc{opacity:1;transition:none;animation:launch .9s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--i)*170ms);transform:translate(var(--x),var(--y)) rotate(var(--r))}
+@keyframes launch{0%{opacity:0;transform:translate(0,30%) scale(.3) rotate(0)}15%{opacity:1}55%{transform:translate(calc(var(--x)*.6),-95%) scale(1.15) rotate(calc(var(--r) + 360deg))}85%{transform:translate(var(--x),calc(var(--y) + 8px)) scale(1.05) rotate(var(--r))}100%{transform:translate(var(--x),var(--y)) scale(1) rotate(var(--r))}}
+.po.fan .pc.landed{animation:none;transition:transform .45s cubic-bezier(.2,1.1,.3,1)}
+.po.fan .pc.center{transform:translate(0,-2%) scale(1.38);z-index:20}
+.pc.up .f::after{content:"";position:absolute;inset:0;border-radius:8px;background:#fff;pointer-events:none;animation:fflash .55s ease-out .28s both}
+@keyframes fflash{from{opacity:.95}to{opacity:0}}
+.pc.up .tagline{animation:tagpop .45s cubic-bezier(.2,1.8,.4,1) .5s both}
+@keyframes tagpop{from{transform:translate(-50%,6px) scale(0)}to{transform:translate(-50%,6px) scale(1)}}
+.pc.sus .in{animation:sus .9s linear}
+@keyframes sus{0%{transform:rotate(0)}10%{transform:rotate(-2deg)}20%{transform:rotate(2deg)}30%{transform:rotate(-3deg) scale(1.02)}40%{transform:rotate(3deg)}50%{transform:rotate(-4deg) scale(1.04)}60%{transform:rotate(4deg)}70%{transform:rotate(-5deg) scale(1.06)}80%{transform:rotate(5deg)}90%{transform:rotate(-5deg) scale(1.08)}100%{transform:rotate(0) scale(1.1)}}
+.pc.sus .b{animation:holoback .28s linear infinite!important}
+.po .dim2{position:absolute;inset:0;background:rgb(0 0 0 / .72);opacity:0;transition:opacity .3s;z-index:15;pointer-events:none}
+.po.spot .dim2{opacity:1}
+.banner{position:absolute;left:0;right:0;top:3%;z-index:25;text-align:center;font-family:var(--display);font-size:3.200rem;line-height:1;pointer-events:none;opacity:0;
+  background:linear-gradient(90deg,#ff7ab8,#ffe27a,#7affd0,#8fa8ff,#ff7ab8);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 2px #000) drop-shadow(0 0 14px rgb(160 200 255 / .6))}
+.banner.go{animation:banner 1.900s ease-out both}
+@keyframes banner{0%{transform:scale(3.500);opacity:0}14%{transform:scale(1);opacity:1}82%{transform:scale(1.04);opacity:1}100%{transform:scale(1.1);opacity:0}}
+
+/* ============ binder ============ */
+.bn{perspective:1800px}
+.book{--ph:calc(var(--fh) - 56px);--pw:calc(var(--ph)*1.18);position:absolute;left:50%;top:50%;width:calc(var(--pw)*2);height:var(--ph);margin:calc(var(--ph)/-2) 0 0 calc(var(--pw)*-1);
+  transform-style:preserve-3d;transform:translateX(-25%) scale(.62) rotateX(14deg);transition:transform 1.100s cubic-bezier(.3,.9,.3,1)}
+.frame[data-vp="desk"] .book{--ph:calc(var(--fh) - 70px);--pw:calc(var(--ph)*.92)}
+.bn.open .book{transform:none}
+.pg{position:absolute;top:0;width:50%;height:100%;padding:3% 3.500%;
+  background:radial-gradient(ellipse at 50% 50%,#3b2d22,#241a14 85%);box-shadow:inset 0 0 0 1px #5a452c,inset 0 0 40px rgb(0 0 0 / .55)}
+.pg.l{left:0;border-radius:10px 0 0 10px;opacity:0;transition:opacity .2s .5s}
+.pg.r{left:50%;border-radius:0 10px 10px 0}
+.pg.l::after,.pg.r::after{content:"";position:absolute;top:0;bottom:0;width:9%;pointer-events:none}
+.pg.l::after{right:0;background:linear-gradient(90deg,transparent,rgb(0 0 0 / .55))}
+.pg.r::after{left:0;background:linear-gradient(270deg,transparent,rgb(0 0 0 / .55))}
+.bn.open .pg.l{opacity:1}
+.rings{position:absolute;left:50%;top:0;bottom:0;width:14px;margin-left:-7px;z-index:6;display:flex;flex-direction:column;justify-content:space-around;opacity:0;transition:opacity .3s .7s}
+.bn.open .rings{opacity:1}
+.rings i{height:11%;border-radius:8px;background:linear-gradient(90deg,#6e5629,#f0d590 45%,#8f6c2c);box-shadow:0 2px 4px #000}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:4% 4%;height:100%}
+.slot{position:relative;border-radius:7px;display:grid;place-items:center;background:rgb(0 0 0 / .28);box-shadow:inset 0 2px 6px rgb(0 0 0 / .7),inset 0 0 0 1px rgb(176 138 69 / .25);container-type:size}
+.slot .hc{--w:min(92cqw,calc(92cqh/1.46));cursor:zoom-in;transition:transform .16s}
+.slot .hc:hover{transform:translateY(-3px) scale(1.04);z-index:3}
+.slot.locked .hc{filter:grayscale(1) brightness(.34) contrast(1.1);border-color:#3a3a3a}
+.slot.locked::after{content:"";position:absolute;width:22%;aspect-ratio:1;background:rgb(230 223 207 / .55);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 10V7a6 6 0 0 1 12 0v3h1.500v11h-15V10zm3 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 10V7a6 6 0 0 1 12 0v3h1.500v11h-15V10zm3 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E") center/contain no-repeat;pointer-events:none}
+/* the cover: leather drawn in code */
+.cover{position:absolute;left:50%;top:0;width:50%;height:100%;transform-origin:left center;transform-style:preserve-3d;transition:transform 1.100s cubic-bezier(.4,.1,.3,1);z-index:8;cursor:pointer}
+.bn.open .cover{transform:rotateY(-180deg);pointer-events:none}
+.cover .cb{transition:opacity .25s}
+.bn.open .cover .cb{opacity:0;transition:opacity .3s .8s}
+.cover .cf,.cover .cb{position:absolute;inset:0;backface-visibility:hidden;border-radius:4px 12px 12px 4px}
+.cover .cf{background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"),
+  radial-gradient(ellipse at 35% 25%,#7b2f22,#4a1a14 60%,#2c0f0c);
+  box-shadow:inset 0 0 0 2px #1d0a08,inset 0 0 60px rgb(0 0 0 / .65),inset 14px 0 18px -6px rgb(0 0 0 / .7),10px 16px 30px rgb(0 0 0 / .65)}
+.cover .cf::before{content:"";position:absolute;inset:5%;border:1.500px dashed rgb(240 213 144 / .5);border-radius:8px}
+.cover .cf::after{content:"";position:absolute;inset:8.500%;border:2px solid var(--brass);border-radius:5px;box-shadow:inset 0 0 0 4px rgb(0 0 0 / .25),inset 0 0 0 5px rgb(176 138 69 / .5)}
+.cover .cb{transform:rotateY(180deg);border-radius:12px 4px 4px 12px;background:radial-gradient(ellipse at 50% 50%,#3b2d22,#241a14 85%)}
+.corner{position:absolute;width:15%;aspect-ratio:1;background:linear-gradient(135deg,#f0d590,#8f6c2c 55%,#6e5629);box-shadow:0 2px 4px rgb(0 0 0 / .6);z-index:2}
+.corner.tr{top:-1px;right:-1px;clip-path:polygon(0 0,100% 0,100% 100%);border-radius:0 12px 0 0}
+.corner.br{bottom:-1px;right:-1px;clip-path:polygon(100% 0,100% 100%,0 100%);border-radius:0 0 12px 0}
+.crest{position:absolute;left:50%;top:44%;width:46%;transform:translate(-50%,-50%);z-index:2;filter:drop-shadow(0 3px 2px rgb(0 0 0 / .7))}
+.ctitle{position:absolute;left:0;right:0;bottom:15%;text-align:center;font-family:var(--display);font-size:calc(var(--ph)*.105);z-index:2;
+  background:linear-gradient(#f6e3ac,#b08a45 60%,#7a5a22);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 1px rgb(0 0 0 / .8))}
+.clasp{position:absolute;right:-3%;top:44%;width:11%;height:13%;border-radius:4px;background:linear-gradient(90deg,#8f6c2c,#f0d590 50%,#8f6c2c);box-shadow:0 3px 5px rgb(0 0 0 / .7);z-index:3;transition:transform .3s,opacity .3s}
+.bn.open .clasp{opacity:0}
+.cover:hover .clasp{transform:translateX(5px)}
+.cover .cf .glow{position:absolute;inset:0;border-radius:inherit;background:linear-gradient(110deg,transparent 40%,rgb(255 255 255 / .13) 50%,transparent 60%);background-size:300% 100%;animation:pglint 4.500s ease-in-out infinite}
+.bn .tap{bottom:2%}.bn.open .tap{display:none}
+/* page-turn leaf */
+.leaf{position:absolute;top:0;left:50%;width:50%;height:100%;transform-origin:left center;background:radial-gradient(ellipse at 50% 50%,#3b2d22,#241a14 85%);box-shadow:inset 0 0 0 1px #5a452c;border-radius:0 10px 10px 0;z-index:7;display:none;backface-visibility:hidden}
+.leaf.next{display:block;animation:turnN .55s cubic-bezier(.4,.1,.3,1) both}
+.leaf.prev{display:block;left:0;transform-origin:right center;border-radius:10px 0 0 10px;animation:turnP .55s cubic-bezier(.4,.1,.3,1) both}
+@keyframes turnN{from{transform:rotateY(0)}to{transform:rotateY(-180deg)}}
+@keyframes turnP{from{transform:rotateY(0)}to{transform:rotateY(180deg)}}
+/* ---- v2: more dynamic binder ---- */
+.bn.enter .book{animation:bookdrop .85s cubic-bezier(.3,.7,.3,1) both}
+@keyframes bookdrop{0%{transform:translateX(-25%) translateY(-150%) scale(.62) rotateX(14deg) rotateZ(-18deg)}58%{transform:translateX(-25%) translateY(0) scale(.62) rotateX(14deg) rotateZ(2deg)}74%{transform:translateX(-25%) translateY(-5%) scale(.62) rotateX(14deg) rotateZ(-1deg)}100%{transform:translateX(-25%) scale(.62) rotateX(14deg)}}
+.bn .dust{position:absolute;left:50%;top:76%;width:460px;height:70px;margin-left:-230px;border-radius:50%;background:radial-gradient(ellipse,rgb(230 223 207 / .4),transparent 70%);opacity:0;pointer-events:none}
+.bn.enter .dust{animation:dust .9s ease-out .48s both}
+@keyframes dust{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.7)}}
+.bn:not(.open) .clasp{animation:claspw 2.200s ease-in-out infinite}
+@keyframes claspw{0%,70%,100%{transform:none}78%{transform:translateX(5px) rotate(4deg)}86%{transform:translateX(-2px)}93%{transform:translateX(3px)}}
+.book .spill{position:absolute;inset:-18%;background:radial-gradient(ellipse,rgb(255 228 160 / .7),transparent 60%);opacity:0;pointer-events:none;transform:translateZ(-1px)}
+.bn.open .spill{animation:spill 1.500s ease-out .15s both}
+@keyframes spill{0%{opacity:0}35%{opacity:1}100%{opacity:0}}
+.riff{position:absolute;top:0;left:50%;width:50%;height:100%;transform-origin:left center;border-radius:0 10px 10px 0;z-index:7;backface-visibility:hidden;transform:rotateY(-180deg);
+  background:radial-gradient(ellipse at 50% 50%,#46362a,#2a1f18 85%);box-shadow:inset 0 0 0 1px #5a452c,inset 20px 0 30px -10px rgb(0 0 0 / .6)}
+.bn.open .riff{animation:turnN .36s cubic-bezier(.4,.1,.3,1) both}
+.bn.open .riff.a{animation-delay:.7s}.bn.open .riff.b{animation-delay:.84s}.bn.open .riff.c{animation-delay:.98s}
+.slot .hc{animation:dealin .42s cubic-bezier(.2,1.3,.4,1) both;animation-delay:calc(var(--i)*38ms)}
+@keyframes dealin{from{opacity:0;transform:translateY(-46px) scale(1.5) rotate(9deg)}}
+/* binder chrome */
+.bchrome{position:absolute;inset:0;z-index:9;pointer-events:none;opacity:0;transition:opacity .4s .9s}
+.bn.open .bchrome{opacity:1}
+.bchrome>*{pointer-events:auto}
+.tabs{position:absolute;top:4px;left:50%;transform:translateX(-50%);display:flex;gap:6px}
+.tab{font:inherit;font-weight:700;font-size:.85rem;color:var(--bone-dim);background:#1c1410;border:1px solid var(--brass-dim);border-top:0;border-radius:0 0 6px 6px;padding:3px 11px 4px;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--brass);color:#17110b}
+.arrow{position:absolute;top:50%;width:34px;height:60px;margin-top:-30px;font-size:1.6rem;color:var(--bone);background:rgb(0 0 0 / .5);border:1px solid var(--brass-dim);border-radius:6px;cursor:pointer}
+.arrow.p{left:6px}.arrow.n{right:6px}.arrow:hover{border-color:var(--brass-hi)}
+.pageno{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);font-size:.8rem;color:var(--bone-dim)}
+.closeb{position:absolute;top:6px;right:8px}
+/* inspect */
+#inspect{position:absolute;inset:0;z-index:30;background:rgb(3 6 5 / .84);display:grid;place-items:center;cursor:zoom-out}
+#inspect[hidden]{display:none}
+#inspect .hc{animation:pop .28s cubic-bezier(.2,1.3,.4,1)}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Pack opening and binder, round 2: more dynamic</h1>
+  <p class="lead">More movement in both, and the card's text area now lets the art show through again. Try "Pack with a holographic" and turn the glowing card over. Nothing in the game has changed yet.</p>
+  <div class="ctl">
+    <span class="lbl">Show</span>
+    <button class="chip sc" aria-pressed="true" data-sc="po">Pack opening</button>
+    <button class="chip sc" aria-pressed="false" data-sc="bn">Binder</button>
+    <span class="lbl">Screen</span>
+    <button class="chip vp" aria-pressed="true" data-vp="land">Phone sideways</button>
+    <button class="chip vp" aria-pressed="false" data-vp="desk">Computer</button>
+    <span class="lbl" id="packlbl">Pack</span>
+    <button class="chip pk" aria-pressed="true" data-pk="plain">Ordinary pack</button>
+    <button class="chip pk" aria-pressed="false" data-pk="holo">Pack with a holographic</button>
+    <button class="chip pk" aria-pressed="false" data-pk="late">Late game: repeats</button>
+  </div>
+  <div class="frame-wrap">
+  <div class="frame" id="frame" data-vp="land">
+    <div class="scene po on" id="po">
+      <div class="dim"></div><div class="beams"></div><div class="column"></div><div class="dim2"></div><div class="banner" id="banner"></div>
+      <div class="top" id="potop">Tap each card to turn it over</div>
+      <div class="pack" id="pack"><div class="wob"><div class="pb"></div><div class="pt"></div><div class="shine"></div><div class="tear"></div><div class="label">Adventure Pack</div></div></div>
+      <div class="flash"></div>
+      <div id="cards"></div>
+      <div class="sparks" id="sparks"></div>
+      <div class="tap">Tap the pack to open it</div>
+      <div class="foot"><button class="btn quiet" id="revall">Turn all over</button><button class="btn" id="again">Open another</button></div>
+    </div>
+    <div class="scene bn" id="bn">
+      <div class="dust"></div>
+      <div class="book" id="book">
+        <div class="spill"></div>
+        <div class="pg l"><div class="grid" id="gl"></div></div>
+        <div class="pg r"><div class="grid" id="gr"></div></div>
+        <div class="rings"><i></i><i></i><i></i></div>
+        <div class="leaf" id="leaf"></div><div class="riff a"></div><div class="riff b"></div><div class="riff c"></div>
+        <div class="cover" id="cover">
+          <div class="cf"><div class="glow"></div><span class="corner tr"></span><span class="corner br"></span>
+            <svg class="crest" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e3ac"/><stop offset=".55" stop-color="#b08a45"/><stop offset="1" stop-color="#6e5629"/></linearGradient></defs>
+              <path d="M50 4l40 14v30c0 24-17 40-40 48C27 88 10 72 10 48V18z" fill="#2a0f0c" stroke="url(#g)" stroke-width="4"/>
+              <path d="M50 14l31 11v23c0 19-13 31-31 38-18-7-31-19-31-38V25z" fill="none" stroke="url(#g)" stroke-width="1.500" opacity=".7"/>
+              <path d="M50 22l3.500 34h-7zM38 56h24v5H38zM47.500 61h5v14h-5zM46 75h8v4h-8z" fill="url(#g)"/>
+              <path d="M30 40l6 3-6 3-3 6-3-6-6-3 6-3 3-6zM76 40l-6 3 6 3 3 6 3-6 6-3-6-3-3-6z" fill="url(#g)" transform="scale(.6) translate(34 20)"/></svg>
+            <div class="ctitle">Hero's Call</div><span class="clasp"></span></div>
+          <div class="cb"></div>
+        </div>
+      </div>
+      <div class="tap">Tap the binder to open it</div>
+      <div class="bchrome">
+        <div class="tabs" id="tabs"></div>
+        <button class="arrow p" id="bp">&#8249;</button><button class="arrow n" id="bnx">&#8250;</button>
+        <div class="pageno" id="pageno"></div>
+        <button class="btn quiet closeb" id="bclose">Close</button>
+      </div>
+    </div>
+    <div id="inspect" hidden></div>
+  </div>
+  </div>
+</div>
+<script>
+const ALL = [{"name":"Barbarian","hp":25,"df":8,"ac":"+1","at":"1D6","ab":[["Ability","Reckless Swing","Deal 2D6 damage; Barbarian takes 2D4 recoil damage."],["Special","Break the Line","Attacks and abilities ignore taunts and deflections."]]},{"name":"Engineer","hp":15,"df":6,"ac":"+1","at":"1D4","ab":[["Ability","Call Turret","Summon a Mechanical Turret (max 2). At the end of Engineer's turn, deal 1D4 damage to a random enemy for each active turret."],["Special","Protective Gear","When taking damage, sacrifice a Turret to negate the damage."]]},{"name":"Assassin","hp":18,"df":9,"ac":"+3","at":"—","ab":[["Ability","Poison Strike","Deal 1D6 damage and give the target 1 Poison stack."],["Special","Twin Daggers","No basic attack; may trigger ability twice per turn."]]},{"name":"Paladin","hp":19,"df":10,"ac":"+1","at":"1D4","ab":[["Ability","Divine Smite","Deal 1D4 damage and heal the lowest health ally 1D4."],["Special","Shield of Faith","When an opponent attacks an ally adjacent to the Paladin, taunt it."]]},{"name":"Sorcerer","hp":15,"df":6,"ac":"+2","at":"1D6","ab":[["Ability","Chromatic Orb","Deal 1D8 damage."],["Special","Twin Spell","When Sorcerer hits with it's ability, roll to cast it again."]]},{"name":"Druid","hp":17,"df":7,"ac":"+1","at":"1D6","ab":[["Ability","Wildshape","Heal Druid for 1D4."],["Special","Healing Word","At the end of the Druid's turn, heal the lowest health ally 1D4."]]},{"name":"Cleric","hp":20,"df":10,"ac":"+1","at":"1D4","ab":[["Ability","Guiding Bolt","Deal 1D4 damage and grant advantage on the next attack or ability roll against the target."],["Special","Bless","While Cleric is alive, all allies gain +1 to hit."]]},{"name":"Monk","hp":16,"df":9,"ac":"+2","at":"1D4","ab":[["Ability","One-Two Punch","Deal 1D6 damage and attack again."],["Special","Deflect","Once per round, when an ally would be hit by an attack or ability with a roll lower than monk's defense, negate the damage and deal 1D4 to the attacker. Resets at the start of Monk's turn."]]},{"name":"Cavalier","hp":20,"df":9,"ac":"+2","at":"1D6","ab":[["Ability","Trample","Deal 1D6 damage."],["Special","Ride Down","All attacks against enemies hit by Cavalier have advantage"]]},{"name":"Piercer","hp":19,"df":8,"ac":"+2","at":"1D6","ab":[["Ability","Piercing Strike","Deal 1D4 damage. Deal an additional 1D6 damage if the target has more than 8 defense."],["Special","Armor Breaker","Gain advantage against enemies with more than 8 defense."]]},{"name":"Silencer","hp":18,"df":7,"ac":"+2","at":"1D6","ab":[["Ability","Silence","Deal 1D6 and Silence target until next turn."],["Special","Anti-Magic Field","Enemies attacking Silencer have disadvantage on their ability rolls."]]},{"name":"Berserker","hp":18,"df":7,"ac":"+2","at":"1D8","ab":[["Ability","Bloodbath","Gain a bloodbath stack (max 2); each stack gives +1 damage to attacks."],["Special","Frenzy","Below 10 HP, Berserker can attack twice per turn."]]},{"name":"Wizard","hp":15,"df":5,"ac":"+3","at":"2D4","ab":[["Ability","Fireball","Deal 1D4 damage to all enemies."],["Special","Arcane Shield","The first time Wizard would take damage more than 5 damage, reduce it to 0"]]},{"name":"Fighter","hp":18,"df":8,"ac":"+2","at":"1D6","ab":[["Ability","Cleave","Deal 1D6 to your target and 1D6 to the enemy to the left of them."],["Special","Desperate Blows","Below 10 HP, Fighter's attacks have advantage."]]},{"name":"Warlock","hp":16,"df":6,"ac":"+2","at":"1D4","ab":[["Ability","Vitality Drain","Lifesteal 1D6."],["Special","Dark Pact","Increase the damage of all attacks and abilities of adjacent allies by +1."]]},{"name":"Warden","hp":21,"df":11,"ac":"+1","at":"1D4","ab":[["Ability","Compel Duel","Deal 1D4 damage and Taunt the target to attack Warden next turn."],["Special","Shield Bash","Whenever an attack misses Warden, the attacker takes 1D6 damage."]]},{"name":"Champion","hp":18,"df":8,"ac":"+2","at":"1D6","ab":[["Ability","Inspiring Crowd","Heal Champion for 1D4 HP (1D6 if below 11 HP)."],["Special","Last Stand","For each fallen ally, Champion gains +1 Defense and +1D6 damage."]]},{"name":"Ranger","hp":18,"df":7,"ac":"+3","at":"1D8","ab":[["Ability","Piercing Shot","Deal 1D6 damage and reduce the target's defense by 1 until Ranger's next turn."],["Special","Eagle Eye","Ranger rolls attacks and abilities with advantage."]]},{"name":"Blood Hunter","hp":18,"df":6,"ac":"+2","at":"—","ab":[["Ability","Crimson Rite","Deal 3D4 damage and take 2D4 damage."],["Ability","Sanguine Renewal","Deal 1D4 damage and heal Blood Hunter for that amount."],["Special","Blood Price","No basic attack; may trigger each ability once per turn."]]},{"name":"Shaman","hp":18,"df":6,"ac":"+2","at":"1D6","ab":[["Ability","Elemental Strike","Summon a totem (max 3), then deal 1D4 damage for each totem."],["Special","Totemic Bond","While Shaman is alive, all allies gain +1 Defense."]]},{"name":"Timekeeper","hp":16,"df":6,"ac":"+2","at":"1D6","ab":[["Ability","Chrono Shift","Trigger an ally's ability."],["Special","Haste","Adjacent allies gain advantage on their ability rolls."]]},{"name":"Ninja","hp":15,"df":7,"ac":"+2","at":"1D4","ab":[["Ability","Sharpened Shuriken","Deal 2D6 damage."],["Special","Vanish","Once per round after being hit, become untargetable by other heroes until Ninja's next turn."]]},{"name":"Dragon Rider","hp":20,"df":10,"ac":"+2","at":"1D6","ab":[["Ability","Fire Breath","Deal 3D4 damage."],["Special","Dismount","When Dragon Rider is reduced below 9 HP, it loses 3 Defense and cannot use its Ability; this cannot be restored by healing."]]},{"name":"Bomber","hp":14,"df":5,"ac":"+1","at":"1D4","ab":[["Ability","Bomb Toss","Deal 1D6 damage to all enemies."],["Special","Explosion","On death, deal 1D6 damage to Bomber's killer."]]},{"name":"Beast Tamer","hp":17,"df":6,"ac":"+2","at":"1D4","ab":[["Ability","Call Beast / Command Attack","Summon beast; if beast is already summoned, command it to deal 2D8 damage."],["Special","Pack Tactics","Beast Tamer's attacks have advantage while the beast is summoned."]]},{"name":"Brawler","hp":18,"df":8,"ac":"+2","at":"2D4","ab":[["Special","Iron Fists","Brawler makes two basic attacks per turn. Has no abilities."]]},{"name":"Reaper","hp":17,"df":6,"ac":"+1","at":"1D8","ab":[["Ability","Soul Harvest","Deal 1D8 damage. If the target dies, heal Reaper to full health."],["Special","Aura of Dread","All enemies lose 1 Defense while Reaper is alive."]]},{"name":"Plague Spreader","hp":15,"df":6,"ac":"+1","at":"1D6","ab":[["Ability","Poison Touch","Deal 1D4 damage and apply that many Poison stacks."],["Special","Aura of Death","At the start of Plague Spreader's turn, all other heroes take 1D4 damage."]]},{"name":"Dual Defender","hp":20,"df":10,"ac":"+1","at":"1D4","ab":[["Ability","Stun","Deal 1D4 damage. The target cannot make an attack on its next turn."],["Special","Defend","While Dual Defender is alive, the ally to the right uses Dual Defender's Defense."]]},{"name":"Swordsman","hp":17,"df":8,"ac":"+1","at":"1D8","ab":[["Ability","Colossal Strike","Deal 1D8 damage."],["Special","Critical Strikes","Swordsman crits on 17, 18, 19, and 20."]]},{"name":"Ace","hp":18,"df":7,"ac":"+2","at":"1D6","ab":[["Ability","Stacked Deck","Deal 2D4 damage. If you crit, deal an additional 1D4 damage."],["Special","Ace Up The Sleeve","When Ace rolls 1 on an attack or ability, it automatically hits and crits."]]},{"name":"Elementalist","hp":17,"df":6,"ac":"+2","at":"1D6","ab":[["Ability","Thunderclap","Deal 1D4 to your target and 1D4 to the enemy to the right of them."],["Special","Wind Wall","Each time Elementalist lands an attack or ability, she gains +1 Defense until the start of her next turn."]]},{"name":"Mech","hp":22,"df":5,"ac":"+2","at":"1D6","ab":[["Ability","Charged Fist","Deal 1D6 damage and taunt the target to attack Mech next turn."],["Special","Self Destruct","Mech can choose to Self Destruct and deal 2D6 damage to ALL heroes."]]},{"name":"Diplomat","hp":17,"df":7,"ac":"+1","at":"1D4","ab":[["Ability","Declare War","Make adjacent allies attack the target."],["Special","Peace Treaty","Once: The Diplomat can heal ALL heroes 2D6."]]},{"name":"Arcane Archer","hp":16,"df":6,"ac":"+2","at":"1D4","ab":[["Ability","Far Shot","Deal 1D4 damage. If Arcane Archer has full hp, deal an additional 1D8 damage."],["Special","Arcane Arrows","When attacking or using an ability against an enemy Arcane Archer already damaged, add 1D4 to the damage."]]},{"name":"Shroomguard","hp":19,"df":6,"ac":"+2","at":"1D8","ab":[["Ability","Cleansing Spores","Deal 1D4 damage and cleanse a random ally of all poison stacks."],["Special","Poison Aura","When Shroomguard takes damage, give ALL heroes 1 Poison Stack."]]},{"name":"Angel","hp":16,"df":6,"ac":"+2","at":"1D4","ab":[["Ability","Health Link","Deal 1D4 damage and link the target to the Angel. The next time Angel takes damage, it is also dealt to the target."],["Special","Resurrect","Once: When an ally dies, resurrect them at half health."]]},{"name":"Pyromancer","hp":22,"df":6,"ac":"+1","at":"1D6","ab":[["Ability","Incinerate","Deal 1d6 damage. If that kills the target, deal 1d6 to adjacent enemies."],["Special","Endless Burn","At the end of Pyromancer's turn, it and all enemies take 1D4 damage."]]},{"name":"Medic","hp":16,"df":6,"ac":"+1","at":"1D4","ab":[["Ability","Med Bots","Summon 1 Med Bot (Max 3)."],["Special","Emergency Heal","At the end of the Medic's turn, heal the lowest health ally 1D4 for each summoned Med Bot."]]},{"name":"Hoarder","hp":16,"df":6,"ac":"+1","at":"1D4","ab":[["Ability","Offer Bribe","Deal 1D4 damage. The target cannot use its ability against Hoarder until the start of his next turn."],["Special","Collect Weapons","When any hero dies, gain their basic attack dice."]]}];
+const IMG = n => 'https://heroscall.pages.dev/hero-images/' + n.toLowerCase().replace(/[^a-z0-9]/g,'') + '.webp';
+const S = (inner, sw=2.2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+const IC = {
+  hp:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
+  df:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.600-1.600-8-6-8-11V5l8-3z"/></svg>',
+  ac:S('<circle cx="12" cy="12" r="6.500"/><path d="M12 2v5.500M12 16.500V22M2 12h5.500M16.500 12H22"/><circle cx="12" cy="12" r="1.100" fill="currentColor"/>'),
+  at:S('<path d="M4 3l12 12M20 3L8 15M13.500 18.500l5-5M10.500 18.500l-5-5M17 17l3.500 3.500M7 17l-3.500 3.500"/>',2.4)
+};
+const STAR = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="#7a5a12" stroke-width="1"><path d="M12 2.500l2.900 6.100 6.600.900-4.800 4.600 1.200 6.600L12 17.500l-5.900 3.200 1.200-6.600L2.500 9.500l6.600-.900z"/></svg>';
+const CREST = '<svg viewBox="0 0 100 100" fill="currentColor"><path d="M50 4l40 14v30c0 24-17 40-40 48C27 88 10 72 10 48V18z" fill="none" stroke="currentColor" stroke-width="4"/><path d="M50 22l3.500 34h-7zM38 56h24v5H38zM47.500 61h5v14h-5zM46 75h8v4h-8z"/></svg>';
+function card(h, o={}){
+  const st = [['hp',h.hp+'/'+h.hp],['df',h.df],['ac',h.ac],['at',h.at]];
+  return `<div class="hc${o.fav?' fav':''}${o.holo?' holo':''}${o.tiny?' tiny':''}"${o.w?` style="--w:${o.w}px"`:''} data-n="${h.name}" data-holo="${o.holo?1:''}" data-fav="${o.fav?1:''}">
+    <div class="art"><img src="${IMG(h.name)}" alt="" loading="lazy"></div><div class="edge"></div>
+    <div class="rail">${st.map(s=>`<div class="hex s-${s[0]}">${IC[s[0]]}<b>${s[1]}</b></div>`).join('')}</div>
+    <div class="low"><div class="nm">${h.name}</div><div class="rule"></div>
+      <div class="txt">${h.ab.map(x=>`<p><span class="k">${x[0]}:</span> <b>${x[1]}</b><br>${x[2]}</p>`).join('')}</div></div>
+    <div class="sheen"></div><div class="fav-star">${STAR}</div></div>`;
+}
+const frame = document.getElementById('frame'), H = n => ALL.find(h => h.name === n) || ALL[0];
+const isPhone = () => frame.dataset.vp === 'land';
+
+/* ---------- pack opening ---------- */
+const po = document.getElementById('po');
+const PACKS = {
+  plain:[['Warlock','new'],['Arcane Archer','new'],['Pyromancer','new']],
+  holo:[['Shroomguard','new'],['Dual Defender','new'],['Monk','new'],['Paladin','holo']],
+  late:[['Wizard','rep'],['Ninja','rep'],['Brawler','rep'],['Cleric','holoup']]
+};
+let pk = 'plain';
+function packReset(){
+  po.classList.remove('tearing','fan','spot','enter'); po.classList.toggle('holo-in', pk !== 'plain'); void po.offsetWidth; po.classList.add('enter');
+  const list = PACKS[pk], n = list.length, w = isPhone() ? 150 : 215, gap = w * 1.12;
+  document.getElementById('cards').innerHTML = list.map(([name,kind],i) => {
+    const holo = kind.startsWith('holo'), x = (i-(n-1)/2)*gap, r = (i-(n-1)/2)*2.5, y = Math.abs(i-(n-1)/2)*5 - 6;
+    const tag = kind==='new' ? '<span class="tagline new">New hero</span>' : kind==='rep' ? '<span class="tagline rep">Already owned &middot; +2 coins</span>'
+      : kind==='holo' ? '<span class="tagline hol">Holographic!</span>' : '<span class="tagline hol">Upgraded to holographic!</span>';
+    return `<div class="pc${holo?' isholo':''}" data-kind="${kind}" style="--x:${x}px;--y:${y}px;--r:${r}deg;--i:${i}"><div class="rays"></div>
+      <div class="in"><div class="b"><div class="back">${CREST}</div></div><div class="f">${card(H(name),{holo,tiny:isPhone()})}</div></div>${tag}</div>`;
+  }).join('');
+  document.getElementById('potop').textContent = n === 4 ? 'A bonus fourth card! Tap each card to turn it over' : 'Tap each card to turn it over';
+}
+document.getElementById('pack').onclick = () => {
+  if (po.classList.contains('tearing')) return;
+  po.classList.remove('enter'); po.classList.add('tearing');
+  const p = document.getElementById('pack');
+  setTimeout(() => burst(p, pk === 'plain' ? GOLD : RAINBOW, 26, 150, .2), 450);
+  setTimeout(() => { quake(); burst(p, pk === 'plain' ? GOLD : RAINBOW, 40, 260, .25); }, 900);
+  setTimeout(() => po.classList.add('fan'), 1500);
+};
+document.getElementById('cards').addEventListener('animationend', e => { if (e.animationName === 'launch') e.target.classList.add('landed'); });
+const GOLD = ['#cfa95f','#f0d590','#fff','#ffcf7a'], RAINBOW = ['#ff7ab8','#ffe27a','#7affd0','#8fa8ff','#fff'];
+function quake(){ po.classList.remove('quake'); void po.offsetWidth; po.classList.add('quake'); }
+// sparks flying out from an element; yf picks how far down the element they start (0 top, .5 middle)
+function burst(el, cols, n, dist, yf = .5){
+  const r = el.getBoundingClientRect(), f = frame.getBoundingClientRect(), box = document.getElementById('sparks');
+  for (let i = 0; i < n; i++) {
+    const a = Math.random()*Math.PI*2, d = dist*(.35 + Math.random()*.65), s = document.createElement('i'), c = cols[i % cols.length];
+    s.style.cssText = `left:${r.left-f.left+r.width*(.2+Math.random()*.6)}px;top:${r.top-f.top+r.height*yf}px;background:${c};box-shadow:0 0 8px 2px ${c};--dx:${Math.cos(a)*d}px;--dy:${Math.sin(a)*d}px;animation-delay:${Math.random()*.12}s`;
+    box.appendChild(s); setTimeout(() => s.remove(), 1300);
+  }
+}
+function flipCard(c){
+  if (c.classList.contains('up') || c.classList.contains('sus') || !po.classList.contains('fan')) return;
+  if (!c.classList.contains('isholo')) { c.classList.add('up'); setTimeout(() => burst(c, GOLD, 14, 110), 300); return; }
+  // a holographic takes the spotlight: the screen dims, the card comes forward and trembles, then bursts
+  po.classList.add('spot'); c.classList.add('landed','center','sus');
+  setTimeout(() => {
+    c.classList.remove('sus'); c.classList.add('up');
+    setTimeout(() => { quake(); burst(c, RAINBOW, 70, 300); }, 300);
+    const b = document.getElementById('banner'); b.textContent = c.dataset.kind === 'holoup' ? 'Upgraded to holographic!' : 'Holographic!';
+    b.classList.remove('go'); void b.offsetWidth; b.classList.add('go');
+  }, 900);
+  setTimeout(() => { c.classList.remove('center'); po.classList.remove('spot'); }, 3000);
+}
+document.getElementById('cards').addEventListener('click', e => {
+  const c = e.target.closest('.pc'); if (!c) return;
+  if (c.classList.contains('up')) { inspect(c.querySelector('.hc')); return; }
+  flipCard(c);
+});
+document.getElementById('revall').onclick = () => [...document.querySelectorAll('.pc:not(.up)')].sort((a,b) => a.classList.contains('isholo') - b.classList.contains('isholo')).forEach((c,i) => setTimeout(() => flipCard(c), i*380));
+document.getElementById('again').onclick = packReset;
+document.querySelectorAll('.pk').forEach(b => b.onclick = () => { document.querySelectorAll('.pk').forEach(x => x.setAttribute('aria-pressed', x===b)); pk = b.dataset.pk; packReset(); });
+
+/* ---------- binder ---------- */
+const bn = document.getElementById('bn');
+// which heroes this pretend player owns, favourites and holographics
+const OWN = new Set(ALL.filter((h,i) => i % 3 !== 2).map(h => h.name)), FAV = new Set(ALL.filter((h,i) => i % 7 === 1).map(h => h.name)), HOLO = new Set(ALL.filter((h,i) => i % 5 === 0 && OWN.has(h.name)).map(h => h.name));
+const FILTERS = [['All',()=>true],['Owned',h=>OWN.has(h.name)],['Favourites',h=>FAV.has(h.name)&&OWN.has(h.name)],['Holographic',h=>HOLO.has(h.name)]];
+let fi = 0, pg = 0;
+const perPage = () => 6;
+function binderDraw(){
+  const list = ALL.filter(FILTERS[fi][1]), pp = perPage(), spreads = Math.max(1, Math.ceil(list.length/(pp*2)));
+  pg = Math.min(pg, spreads-1);
+  const cell = (h,i) => h ? `<div class="slot${OWN.has(h.name)?'':' locked'}" style="--i:${i}">${card(h,{tiny:true,fav:FAV.has(h.name)&&OWN.has(h.name),holo:HOLO.has(h.name)})}</div>` : '<div class="slot"></div>';
+  const page = k => Array.from({length:pp}, (_,i) => cell(list[pg*pp*2 + k*pp + i], k*pp + i)).join('');
+  document.getElementById('gl').innerHTML = page(0); document.getElementById('gr').innerHTML = page(1);
+  document.getElementById('pageno').textContent = `Pages ${pg*2+1}-${pg*2+2} of ${spreads*2}  ·  ${OWN.size} of ${ALL.length} heroes  ·  ${HOLO.size} holographic`;
+  document.getElementById('tabs').innerHTML = FILTERS.map((f,i) => `<button class="tab" aria-pressed="${i===fi}" data-f="${i}">${f[0]}</button>`).join('');
+  return spreads;
+}
+function turn(dir){
+  const spreads = binderDraw(), leaf = document.getElementById('leaf');
+  leaf.className = 'leaf ' + (dir > 0 ? 'next' : 'prev');
+  setTimeout(() => { pg = (pg + dir + spreads) % spreads; binderDraw(); }, 270);
+  setTimeout(() => leaf.className = 'leaf', 560);
+}
+document.getElementById('cover').onclick = () => {
+  bn.classList.remove('enter'); bn.classList.add('open');
+  document.getElementById('gl').innerHTML = document.getElementById('gr').innerHTML = Array(6).fill('<div class="slot"></div>').join('');
+  setTimeout(binderDraw, 1250); // the cards are dealt into their pockets once the pages settle
+};
+document.getElementById('book').addEventListener('animationend', e => { if (e.animationName === 'bookdrop') bn.classList.remove('enter'); });
+document.getElementById('bclose').onclick = () => bn.classList.remove('open');
+document.getElementById('bnx').onclick = () => turn(1); document.getElementById('bp').onclick = () => turn(-1);
+document.getElementById('tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) { fi = +t.dataset.f; pg = 0; binderDraw(); } });
+bn.addEventListener('click', e => { const c = e.target.closest('.slot .hc'); if (c) inspect(c); });
+
+/* ---------- inspect (tap to read) ---------- */
+const insp = document.getElementById('inspect');
+function inspect(c){
+  const fr = frame.getBoundingClientRect(), w = Math.min(380, (fr.height - 24)/1.46);
+  insp.innerHTML = card(H(c.dataset.n), {w, holo:!!c.dataset.holo, fav:!!c.dataset.fav}); insp.hidden = false;
+}
+insp.onclick = () => insp.hidden = true;
+
+/* ---------- controls ---------- */
+document.querySelectorAll('.sc').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.sc').forEach(x => x.setAttribute('aria-pressed', x===b));
+  document.querySelectorAll('.scene').forEach(s => s.classList.toggle('on', s.id === b.dataset.sc));
+  document.querySelectorAll('.pk,#packlbl').forEach(x => x.style.display = b.dataset.sc === 'po' ? '' : 'none');
+  bn.classList.remove('open'); insp.hidden = true;
+  if (b.dataset.sc === 'bn') { bn.classList.remove('enter'); void bn.offsetWidth; bn.classList.add('enter'); } else packReset();
+});
+document.querySelectorAll('.vp').forEach(b => b.onclick = () => { document.querySelectorAll('.vp').forEach(x => x.setAttribute('aria-pressed', x===b)); frame.dataset.vp = b.dataset.vp; packReset(); pg = 0; binderDraw(); insp.hidden = true; });
+packReset(); binderDraw();
+</script>
+</body>
+</html>

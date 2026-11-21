@@ -26,16 +26,16 @@
   font-family: var(--font-ui);
 }
 
-/* Titles in the display face */
+/* Titles in the display face. Grenze Gotisch loads at 500 and 600 only, so ask for 500 (400 rendered as 500 anyway). */
 .shop-header h2, .profile-header h2, .friends-overlay-header h3, .rules-modal-header h3, .chat-title,
 .requirement-title, .quest-reward-modal h3, .pack-contents-title, .icon-selector-header h3 {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 500;
   color: var(--bone);
   text-shadow: none;
   letter-spacing: 0;
 }
-.shop-section-header h3, .online-players-header h3, .favorite-hero-section h3 { font-family: var(--font-display); font-weight: 400; color: var(--bone); text-shadow: none; }
+.shop-section-header h3, .online-players-header h3, .favorite-hero-section h3 { font-family: var(--font-display); font-weight: 500; color: var(--bone); text-shadow: none; }
 .rules-modal-header, .friends-overlay-header, .chat-header, .profile-header, .shop-header {
   background: var(--leather);
   border-bottom: 1px solid var(--brass-dim);
@@ -121,3 +121,16 @@ button:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 
 .timer-icon { color: var(--brass-hi); }
 .pack-title-overlay { font-family: var(--font-display); font-weight: 400; color: var(--bone); border-color: var(--brass-dim); letter-spacing: 0.02em; }
+
+/* Sideways phone (short screen): every modal fits the screen height and scrolls inside its body only
+   (the overlays' margin is set with the safe areas in index.css). */
+@media (max-height: 500px) {
+  .profile-modal, .rules-modal, .requirement-modal-container, .quest-reward-modal { max-height: 100%; }
+  /* Close buttons: a 40px tap target */
+  .profile-modal .game-close-btn, .rules-modal .game-close-btn, .friends-overlay .game-close-btn,
+  .message-chat-window .game-close-btn, .icon-selector .game-close-btn { width: 40px; height: 40px; }
+  /* The friends and messages dock sits over the bottom-left corner of a modal; hide it while one is open */
+  body:has(.profile-modal-overlay, .modal-overlay, .requirement-modal-overlay, .quest-reward-overlay) :is(.friends-icon, .message-icon) {
+    visibility: hidden;
+  }
+}

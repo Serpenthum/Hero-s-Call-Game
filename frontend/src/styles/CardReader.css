@@ -1,0 +1,65 @@
+/* The card reader: any card, shown large over a dimmed table. */
+.card-reader {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  background: var(--scrim);
+  cursor: zoom-out;
+  outline: none;
+  animation: card-reader-fade 280ms var(--ease) both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card-reader-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  margin: auto;
+  padding: max(20px, var(--safe-top)) max(20px, var(--safe-right))
+    max(20px, var(--safe-bottom)) max(20px, var(--safe-left));
+  animation: card-reader-pop 280ms var(--ease) both;
+}
+
+.card-reader .card-reader-stage .hero-card.hero-layout-card {
+  --card-w: min(430px, calc(100vw - 40px), calc((100vh - 40px) * 260 / 391));
+}
+
+@supports (height: 100dvh) {
+  .card-reader .card-reader-stage .hero-card.hero-layout-card {
+    --card-w: min(430px, calc(100vw - 40px), calc((100dvh - 40px) * 260 / 391));
+  }
+}
+
+.card-reader-actions {
+  cursor: default;
+}
+
+@keyframes card-reader-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes card-reader-pop {
+  from { transform: scale(0.82); }
+  to { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-reader-stage {
+    animation: none;
+  }
+}
+
+/* Cards that open the reader on a held press: no text selection, image callout or drag ghost while holding. */
+.hero-card[data-read-mode="press"],
+.hero-card[data-read-mode="press"] .card-art {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}

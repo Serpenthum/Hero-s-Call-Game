@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, Suspense } from 'react';
 import { socketService } from './socketService';
 import { GameState, Player, Hero, Quest, PendingQuestReward } from './types';
 import GameLobby from './components/GameLobby';
@@ -8,13 +8,25 @@ import CardLayoutTest from './components/CardLayoutTest';
 import UiKit from './components/ui/UiKit';
 import DevScreens from './components/ui/DevScreens';
 import RotatePrompt from './components/RotatePrompt';
+import MatchFoundOverlay from './components/lobby/MatchFoundOverlay';
+import DraftReveal from './components/draft/DraftReveal';
+import { shouldPlayReveal } from './draft/draftRules';
+import { revealOnPhase, revealPhase, setupSeen } from './draft/revealRules';
+import { markLobbyArrival, matchFoundPlayers } from './lobby/lobbyRules';
+import InstallHint from './install/InstallHint';
+import { CardReaderProvider } from './cards/CardReader';
 import RegisterPage from './components/RegisterPage';
 import FriendsIcon from './components/FriendsIcon';
 import MessageIcon from './components/MessageIcon';
 import config from './config';
-import { authHeaders, setAuthToken } from './authSession';
+import { saveSession, restoreSession, clearSession } from './authSession';
 import { battleEventBus } from './battleAnimations';
+import { watchedPlayerLeft, spectatorReactionToLeaver } from './spectating';
+import { countdownFrom, deadlinesFromState, staleGameAfterLogin, DisconnectCountdown } from './reconnect';
+import { DisconnectNotice } from './components/DisconnectBadge';
+import { endSession } from './signOut';
 import BattleTutorial from './components/tutorial/BattleTutorial';
+import SidebarBattleInfo from './components/SidebarBattleInfo';
 import LobbyTutorial from './components/tutorial/LobbyTutorial';
 import './App.css';
 import './styles/GameScreens.css';
@@ -22,13 +34,20 @@ import './styles/Social.css';
 import './styles/GameTheme.css';
 import './styles/BattleLog.css';
 import './styles/Panels.css';
+import './styles/Reconnecting.css';
+import type { InspectedCard } from './battle/focus';
+import { SearchCancels } from './lobby/searchCancels';
+import { lazyWithReload } from './app/lazyWithReload';
+import AppErrorBoundary from './app/AppErrorBoundary';
+import { tutorialStageOnRestore, tutorialBattleFinished } from './app/tutorialResume';
 
-const DraftPhase = lazy(() => import('./components/DraftPhase'));
-const BattlePhase = lazy(() => import('./components/BattlePhase'));
-const SurvivalMode = lazy(() => import('./components/SurvivalMode'));
-const GauntletMode = lazy(() => import('./components/GauntletMode'));
-const FriendsOverlay = lazy(() => import('./components/FriendsOverlay'));
-const MessageChat = lazy(() => import('./components/MessageChat'));
+// Code-split screens reload the page once if their chunk is gone after a deploy (see lazyWithReload)
+const DraftPhase = lazyWithReload(() => import('./components/DraftPhase'));
+const BattlePhase = lazyWithReload(() => import('./components/BattlePhase'));
+const SurvivalMode = lazyWithReload(() => import('./components/SurvivalMode'));
+const GauntletMode = lazyWithReload(() => import('./components/GauntletMode'));
+const FriendsOverlay = lazyWithReload(() => import('./components/FriendsOverlay'));
+const MessageChat = lazyWithReload(() => import('./components/MessageChat'));
 
 
 
@@ -80,6 +99,26 @@ const markKills = (entries: BattleLogEntry[], event?: { targets?: Array<{ name: 
   return entries.map(e => (e.target && dead.has(e.target) && (e.damage || 0) > 0 ? { ...e, killed: true } : e));
 };
 
+// The server keeps the battle log in its own shape; a spectator or a rejoining player starts from it.
+const convertBackendLog = (backendLog: any[]): BattleLogEntry[] => backendLog.map((entry: any, index: number) => ({
+  id: entry.id || `backend-${Date.now()}-${index}`,
+  timestamp: entry.timestamp || Date.now(),
+  action: entry.message || entry.action || 'Unknown action',
+  damage: entry.damage,
+  healing: entry.healing,
+  hit: entry.hit,
+  crit: entry.isCritical || entry.crit,
+  attacker: entry.source || entry.caster || entry.attacker,
+  target: entry.target,
+  attackRoll: entry.attackRoll,
+  attackTotal: entry.attackTotal,
+  advantageInfo: entry.advantageInfo,
+  damageRoll: entry.damageRoll?.rolls || entry.damageRoll,
+  damageTotal: entry.damageTotal || entry.damage,
+  abilityName: entry.specialName || entry.abilityName,
+  isSpecial: entry.type?.includes('special')
+}));
+
 interface User {
   id: number;
   username: string;
@@ -89,6 +128,7 @@ interface User {
   survival_used_heroes: string[];
   available_heroes: string[];
   favorite_heroes: string[];
+  holo_heroes?: string[];
   xp: number;
   level: number;
   best_gauntlet_trial: number;
@@ -166,6 +206,14 @@ function App() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [pendingQuestReward, setPendingQuestReward] = useState<PendingQuestReward | null>(null);
 
+  // A refresh in this tab logs straight back in (the socket then rejoins any battle in progress)
+  const [restoredSession] = useState(() => {
+    const session = restoreSession<User>();
+    // Reloading counts as arriving at the lobby (the tutorial has its own tour of it)
+    if (session && session.user.tutorial_completed !== false) markLobbyArrival();
+    return session;
+  });
+
   const [state, setState] = useState<AppState>({
     gameState: null,
     playerId: null,
@@ -187,8 +235,8 @@ function App() {
     survivalLosses: 0,
     
     // Authentication state
-    user: null,
-    showLogin: true, // Start with login page
+    user: restoredSession ? restoredSession.user : null,
+    showLogin: !restoredSession, // Start with login page unless this tab is already logged in
     showRegister: false,
 
     // Spectator state
@@ -212,19 +260,69 @@ function App() {
   const [isSearchingForSurvivalMatch, setIsSearchingForSurvivalMatch] = useState(false);
   // Server drops queue entries on disconnect, so keep the request to re-queue after a reconnect.
   const pendingSurvivalSearchRef = useRef<{ name: string; team: Hero[] } | null>(null);
+  // Draft/random search in progress, so a reconnect can log back in and rejoin the queue
+  const pendingSearchRef = useRef<{ name: string; mode: 'draft' | 'random' } | null>(null);
   const [isSearchingForMatch, setIsSearchingForMatch] = useState(false);
   const [showCardLayoutTest, setShowCardLayoutTest] = useState(false);
-  const [turnTimer, setTurnTimer] = useState<{ playerId: string; deadline: number; durationMs: number } | null>(null);
+  const [turnTimer, setTurnTimer] = useState<{ playerId: string; deadline: number; durationMs: number; paused?: boolean; remainingMs?: number } | null>(null);
+  // Players who dropped out of the current game: player id -> when their seat is given up (local clock)
+  const [disconnectDeadlines, setDisconnectDeadlines] = useState<Record<string, DisconnectCountdown>>({});
+  // Our own connection dropped (after having been up): show "Reconnecting..." until it is back
+  const [connectionLost, setConnectionLost] = useState(false);
+  // Why we are back on the login screen (e.g. signed in on another tab), shown there
+  const [signedOutNotice, setSignedOutNotice] = useState<string | null>(null);
+  // This socket's session has ended (forced logout): its closing is not a lost connection
+  const signedOutRef = useRef(false);
   const [draftTimer, setDraftTimer] = useState<{ round: number; durationMs: number; deadline: number } | null>(null);
-  const [tutorial, setTutorial] = useState<TutorialState>({ stage: null });
+  // A refresh of an account that has not done the tutorial starts it again, as signing in does (the server
+  // ended the old tutorial game when this page's socket closed, so a fresh join-tutorial follows)
+  const [tutorial, setTutorial] = useState<TutorialState>(() => ({ stage: tutorialStageOnRestore(restoredSession?.user ?? null) }));
+  // The Shop covers the lobby's top bar, so the floating Friends icons come back while it is open
+  const [lobbyShopOpen, setLobbyShopOpen] = useState(false);
   // How many of the six battle heroes are visible during the tutorial intro; null = all
-  const [tutorialReveal, setTutorialReveal] = useState<number | null>(null);
+  const [tutorialReveal, setTutorialReveal] = useState<number | null>(() => (tutorial.stage === 'battle' ? 0 : null));
+  // The battle card shown in the details panel over the left column (null when closed); the tutorial reads it
+  const [battleInspect, setBattleInspect] = useState<InspectedCard | null>(null);
+  // Bumped to close the details panel from outside the battle screen (the tutorial clears the board for a prompt)
+  const [battleDetailsCloseSignal, setBattleDetailsCloseSignal] = useState(0);
+  const closeBattleDetails = useCallback(() => setBattleDetailsCloseSignal(n => n + 1), []);
   const tutorialStartedRef = useRef(false);
   const [searchMode, setSearchMode] = useState<'draft' | 'random' | null>(null);
   const [incomingChallenge, setIncomingChallenge] = useState<{ fromId: number; from: string } | null>(null);
   const [challengeNotice, setChallengeNotice] = useState<{ text: string; cancellable: boolean } | null>(null);
   const challengeNoticeTimeoutRef = useRef<number | null>(null);
-  
+  // Socket listeners are registered once, so they read spectating through this ref (not stale state)
+  const isSpectatingRef = useRef(false);
+  isSpectatingRef.current = state.isSpectating;
+  const spectatingPlayerIdRef = useRef<string | null>(null);
+  spectatingPlayerIdRef.current = state.spectatingPlayerId;
+  const [spectateNotice, setSpectateNotice] = useState<string | null>(null);
+  const spectateNoticeTimeoutRef = useRef<number | null>(null);
+  // The game on screen, for socket listeners (registered once) that must compare against it
+  const gameStateRef = useRef<GameState | null>(null);
+  gameStateRef.current = state.gameState;
+  // Our player id, for the same listeners. join-result also sets it directly, since game-start can
+  // follow before React has rendered the new state.
+  const playerIdRef = useRef<string | null>(null);
+  playerIdRef.current = state.playerId;
+  // The game about to start came from the Random or Draft queue: join-result clears the pending search
+  // once the game is ready, just before game-start, so it leaves this note for it
+  const queuedMatchRef = useRef(false);
+  // Tells a late 'search-cancelled' (from the cancel sent when switching Random <-> Draft) from one
+  // that really ends the current search
+  const searchCancelsRef = useRef(new SearchCancels());
+  // The "Match found" moment over the game screen (Random and Draft queue matches only)
+  const [matchFound, setMatchFound] = useState<NonNullable<ReturnType<typeof matchFoundPlayers>> | null>(null);
+  const closeMatchFound = useCallback(() => setMatchFound(null), []);
+  // The reveal (draft into the battle board) plays only on a live Order-to-roll change seen in this tab
+  const [revealing, setRevealing] = useState(false);
+  const closeReveal = useCallback(() => setRevealing(false), []);
+  // Counts the times the server handed the game back after a reconnect: the draft table shows that state
+  // as it is, with no cards sliding or flying
+  const [rejoins, setRejoins] = useState(0);
+  const sawSetupRef = useRef(false);
+  const prevPhaseRef = useRef<string | null>(null);
+
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
 
@@ -248,45 +346,15 @@ function App() {
     }
   }, [state.victoryPoints]);
 
-  // Save active game state to localStorage for reconnection
+  // Players who dropped out only matter for the game they dropped out of
   useEffect(() => {
-    if (state.gameState && state.playerId && state.user && state.gameState.mode !== 'tutorial') {
-      const gameData = {
-        gameId: state.gameState.id,
-        playerId: state.playerId,
-        playerName: state.user.username,
-        phase: state.gameState.phase,
-        timestamp: Date.now()
-      };
-      localStorage.setItem('heroCallActiveGame', JSON.stringify(gameData));
-    } else {
-      localStorage.removeItem('heroCallActiveGame');
-    }
-  }, [state.gameState, state.playerId, state.user]);
+    setDisconnectDeadlines({});
+  }, [state.gameState?.id]);
 
-  // Attempt to reconnect to active game on load
+  // Keep this tab's saved login in step with the account (it is cleared on sign out)
   useEffect(() => {
-    if (state.user && !state.gameState) {
-      const storedGame = localStorage.getItem('heroCallActiveGame');
-      if (storedGame) {
-        try {
-          const gameData = JSON.parse(storedGame);
-          // Only attempt reconnect if game is recent (within 30 minutes)
-          const timeSinceGame = Date.now() - gameData.timestamp;
-          if (timeSinceGame < 30 * 60 * 1000) {
-            console.log('🔄 Attempting to reconnect to game:', gameData.gameId);
-            socketService.reconnectToGame(gameData.gameId, gameData.playerName);
-          } else {
-            console.log('⏰ Stored game too old, not reconnecting');
-            localStorage.removeItem('heroCallActiveGame');
-          }
-        } catch (error) {
-          console.error('Failed to parse stored game data:', error);
-          localStorage.removeItem('heroCallActiveGame');
-        }
-      }
-    }
-  }, [state.user, state.gameState]);
+    if (state.user) saveSession(state.user);
+  }, [state.user]);
 
   useEffect(() => {
     // Load heroes data - only load if user is authenticated
@@ -307,27 +375,54 @@ function App() {
 
     // Initialize socket connection and authenticate
     const socket = socketService.connect();
+    searchCancelsRef.current.reset();
     
     // Authenticate the socket connection with user ID (the tutorial test account has no server user)
     if (state.user.id > 0) socketService.authenticate(state.user.id);
 
     // Socket event handlers for reconnection
+    // Back in the seat we dropped out of (after a refresh, a reopened app or a dropped network)
     socket.on('reconnect-success', (gameState) => {
       console.log('✅ Reconnected to game successfully:', gameState);
+      pendingSearchRef.current = null;
+      queuedMatchRef.current = false;
+      pendingSurvivalSearchRef.current = null;
+      const rejoinedSameGame = gameStateRef.current?.id === gameState.id;
+      // A state handed back after a reconnect is not a live change: coming back past the Order step plays no reveal
+      if (gameState.phase !== 'setup') sawSetupRef.current = false;
+      // ...and a reveal that was up is over: it never plays (again) after a reconnect
+      setRevealing(false);
+      setRejoins(n => n + 1);
       setState(prev => ({
         ...prev,
         gameState: gameState,
-        playerId: socketService.socket?.id || null,
+        playerId: socketService.getSocket()?.id || null,
         isConnected: true,
-        error: null
+        error: null,
+        isSpectating: false,
+        spectatingPlayerId: null,
+        // A reloaded page lost which mode screen the battle belongs to
+        isSurvivalMode: gameState.mode === 'survival' ? true : prev.isSurvivalMode,
+        showSurvival: false,
+        showGauntlet: gameState.mode === 'gauntlet',
+        // Keep the log we have if we never left the screen; otherwise start from the server's copy
+        battleLog: rejoinedSameGame && prev.battleLog.length > 0 ? prev.battleLog : convertBackendLog(gameState.battleLog || [])
       }));
+      setDisconnectDeadlines(deadlinesFromState(gameState, Date.now()));
       setIsSearchingForMatch(false);
+      setIsSearchingForSurvivalMatch(false);
       setSearchMode(null);
     });
 
     socket.on('reconnect-failed', (data) => {
       console.log('❌ Reconnection failed:', data.message);
-      localStorage.removeItem('heroCallActiveGame');
+      // Too late (the countdown ran out first): don't leave a battle on screen that nothing updates
+      if (staleGameAfterLogin(gameStateRef.current, null, isSpectatingRef.current)) {
+        setState(prev => ({ ...prev, gameState: null, battleLog: [] }));
+        setTurnTimer(null);
+        showSpectateNotice('Your battle ended while you were disconnected.');
+        return;
+      }
       setState(prev => ({
         ...prev,
         error: data.message
@@ -354,6 +449,7 @@ function App() {
         } else {
           // Regular mode - set up game state
           console.log(`🎮 Regular mode join - gameReady: ${data.gameReady}, players: ${data.players?.length || 0}`);
+          playerIdRef.current = data.playerId;
           setState(prev => ({
             ...prev,
             playerId: data.playerId,
@@ -373,6 +469,8 @@ function App() {
           // Only clear searching state if the game is ready (has 2 players)
           if (data.gameReady) {
             console.log('🎮 Game ready! Clearing search state');
+            queuedMatchRef.current = pendingSearchRef.current !== null;
+            pendingSearchRef.current = null;
             setIsSearchingForMatch(false);
             setSearchMode(null);
           } else {
@@ -383,6 +481,8 @@ function App() {
       } else {
         // Show the server's reason (e.g. Draft unlock level, not enough heroes) when it gives one
         const reason = (data as any).error || (data as any).message;
+        pendingSearchRef.current = null;
+        queuedMatchRef.current = false;
         setState(prev => ({ ...prev, error: reason || 'Failed to join game' }));
         // Clear searching state on failure
         setIsSearchingForMatch(false);
@@ -410,7 +510,11 @@ function App() {
     });
 
     socket.on('search-cancelled', (data) => {
+      // The answer to a cancel sent before the current search began: that search is still queued
+      if (!searchCancelsRef.current.replyApplies()) return;
       if (data.success) {
+        pendingSearchRef.current = null;
+        queuedMatchRef.current = false;
         setIsSearchingForMatch(false);
         setSearchMode(null);
         // Reset game state when search is cancelled
@@ -449,8 +553,18 @@ function App() {
     });
 
     socket.on('game-start', (data) => {
+      // A match from the Random or Draft queue gets the "Match found" moment. It only covers the game
+      // screen: the state update below is not held back, and the draft clock is already running.
+      const fromQueue = queuedMatchRef.current;
+      queuedMatchRef.current = false;
+      if (fromQueue) {
+        const found = matchFoundPlayers(data.gameState?.players ?? data.players ?? [], playerIdRef.current);
+        if (found) setMatchFound(found);
+      }
+
       // Stop searching when game starts
       pendingSurvivalSearchRef.current = null;
+      pendingSearchRef.current = null;
       setIsSearchingForSurvivalMatch(false);
       setIsSearchingForMatch(false);
       setSearchMode(null);
@@ -568,7 +682,8 @@ function App() {
               if (updatedPlayer) {
                 return {
                   ...player,
-                  isReady: updatedPlayer.isReady
+                  // The server's game state carries no isReady flag: a player whose attack order is set is ready
+                  isReady: updatedPlayer.isReady ?? (updatedPlayer.attackOrder?.length === 3)
                   // Do NOT update team or attackOrder here - only update ready status
                   // Each player maintains their own team order locally until both are ready
                 };
@@ -631,7 +746,7 @@ function App() {
 
     socket.on('turn-timer', (data) => {
       // Server sends remaining time so client clock skew doesn't matter
-      setTurnTimer({ playerId: data.playerId, durationMs: data.durationMs, deadline: Date.now() + data.remainingMs });
+      setTurnTimer({ playerId: data.playerId, durationMs: data.durationMs, deadline: Date.now() + data.remainingMs, paused: !!data.paused, remainingMs: data.remainingMs });
     });
 
     socket.on('draft-timer', (data) => {
@@ -1387,14 +1502,37 @@ function App() {
 
     socket.on('connect', () => {
       setState(prev => ({ ...prev, isConnected: true }));
+      setConnectionLost(false);
       const pending = pendingSurvivalSearchRef.current;
       if (pending) {
         socketService.joinSurvivalGame(pending.name, pending.team);
       }
     });
 
-    socket.on('disconnect', () => {
+    // A reconnect is a brand-new socket to the server: log it back in, then rejoin the queue we were in.
+    // Effect re-runs on user id change, so capturing it here is never stale.
+    const reconnectUserId = state.user.id;
+    (socket as any).on('reconnect', () => {
+      // A cancel-search sent while the connection was down is never answered: forget it, or it would
+      // swallow a later server-pushed search-cancelled
+      searchCancelsRef.current.reset();
+      if (reconnectUserId > 0) socketService.authenticate(reconnectUserId);
+      const pending = pendingSearchRef.current;
+      if (pending) socketService.joinGame(pending.name, pending.mode);
+    });
+
+    socket.on('disconnect', (reason: string) => {
       setState(prev => ({ ...prev, isConnected: false }));
+      // Our own sign-out closes the socket on purpose
+      if (reason === 'io client disconnect' || signedOutRef.current) return;
+      // The server closed this session for good (it never reconnects after that): sign out here,
+      // never sit on "Reconnecting..."
+      if (reason === 'io server disconnect') {
+        signedOutRef.current = true;
+        handleLogout({ notifyServer: false, notice: 'You were signed in somewhere else, so this tab was signed out.' });
+        return;
+      }
+      setConnectionLost(true);
     });
 
     // Spectator mode listeners
@@ -1402,25 +1540,8 @@ function App() {
       console.log('👁️ Spectate result:', data);
       if (data.success && data.gameState) {
         // Convert backend battleLog to frontend format
-        const backendLog = data.gameState.battleLog || [];
-        const convertedLog: BattleLogEntry[] = backendLog.map((entry: any, index: number) => ({
-          id: entry.id || `backend-${Date.now()}-${index}`,
-          timestamp: entry.timestamp || Date.now(),
-          action: entry.message || entry.action || 'Unknown action',
-          damage: entry.damage,
-          healing: entry.healing,
-          hit: entry.hit,
-          crit: entry.isCritical || entry.crit,
-          attacker: entry.source || entry.caster || entry.attacker,
-          target: entry.target,
-          attackRoll: entry.attackRoll,
-          attackTotal: entry.attackTotal,
-          advantageInfo: entry.advantageInfo,
-          damageRoll: entry.damageRoll?.rolls || entry.damageRoll,
-          damageTotal: entry.damageTotal || entry.damage,
-          abilityName: entry.specialName || entry.abilityName,
-          isSpecial: entry.type?.includes('special')
-        }));
+        const convertedLog = convertBackendLog(data.gameState.battleLog || []);
+        setDisconnectDeadlines(deadlinesFromState(data.gameState, Date.now()));
 
         setState(prev => ({
           ...prev,
@@ -1447,10 +1568,43 @@ function App() {
 
     socket.on('spectated-player-disconnected', (data) => {
       console.log('⚠️ Spectated player disconnected:', data.playerName);
-      // If we're spectating, show an alert and stop spectating
-      if (state.isSpectating) {
-        alert(`${data.playerName} has disconnected from the game.`);
-        handleStopSpectating();
+      // Watching the player who left: stop and say why. Watching the player who stayed: keep watching.
+      const reaction = spectatorReactionToLeaver(isSpectatingRef.current, spectatingPlayerIdRef.current, data.playerId);
+      if (reaction === 'leave') stopSpectatingWithNotice(`${data.playerName} left the game.`);
+      else if (reaction === 'notify') showSpectateNotice(`${data.playerName} left the game.`);
+    });
+
+    // A player in our game dropped out; the server holds their seat and counts down
+    socket.on('disconnection-countdown-started', (data) => {
+      const countdown = countdownFrom(data, Date.now());
+      if (!countdown) return;
+      setDisconnectDeadlines(prev => ({ ...prev, [data.playerId]: countdown }));
+    });
+
+    // They came back on a new connection (a new player id): follow them
+    socket.on('player-reconnected', (data) => {
+      setDisconnectDeadlines(prev => {
+        const next = { ...prev };
+        delete next[data.oldPlayerId];
+        return next;
+      });
+      setState(prev => {
+        if (!prev.gameState || prev.gameState.id !== data.gameId) return prev;
+        const watched = prev.isSpectating && prev.spectatingPlayerId === data.oldPlayerId;
+        return {
+          ...prev,
+          gameState: data.gameState,
+          spectatingPlayerId: watched ? data.playerId : prev.spectatingPlayerId
+        };
+      });
+    });
+
+    // The countdown ran out. A forfeit's result screen comes with 'game-surrendered' (in any phase);
+    // spectators of an abandoned game are sent home separately.
+    socket.on('game-ended-by-disconnection', (data) => {
+      setDisconnectDeadlines({});
+      if (data.outcome === 'forfeit' && data.gameState) {
+        setState(prev => (prev.gameState && prev.gameState.id === data.gameState.id ? { ...prev, gameState: data.gameState } : prev));
       }
     });
 
@@ -1638,6 +1792,19 @@ function App() {
 
     socket.on('authentication-success', (data) => {
       console.log('Socket authentication successful for user:', data.userId);
+      // Logged in again on a new connection. A spectate never survives that (the server dropped it).
+      const wasSpectating = isSpectatingRef.current;
+      if (wasSpectating) stopSpectatingWithNotice('Your connection dropped, so you stopped spectating.');
+      if (data.activeGame) {
+        // The server holds our seat in a game we dropped out of. Current servers put us back in it while
+        // logging us in ('reconnect-success' came first); otherwise ask.
+        if (!data.rejoined) socketService.reconnectToGame(data.activeGame.gameId);
+      } else if (!wasSpectating && staleGameAfterLogin(gameStateRef.current, null, false)) {
+        // The game we were showing finished (or we ran out of time) while we were away
+        setState(prev => ({ ...prev, gameState: null, battleLog: [] }));
+        setTurnTimer(null);
+        showSpectateNotice('Your battle ended while you were disconnected.');
+      }
       // Request current survival state after successful authentication
       socketService.getSurvivalState();
       socketService.getQuests();
@@ -1645,19 +1812,25 @@ function App() {
 
     socket.on('authentication-failed', (data) => {
       console.error('Socket authentication failed:', data.message);
+      // The saved login no longer works (the server restarted, or signed in elsewhere): forget it
+      clearSession();
       // If authentication fails due to duplicate login, log out the user
       if (data.message.includes('already logged in')) {
         alert('Multiple sessions detected\n\n' + data.message);
         handleLogout();
+      } else if (data.message === 'Please log in again') {
+        // The saved login expired: back to the login screen (the token is already dead on the server)
+        handleLogout({ notifyServer: false, notice: 'Please sign in again.' });
       } else {
         setState(prev => ({ ...prev, error: data.message || 'Authentication failed' }));
       }
     });
 
+    // The account was signed in on another tab or device: sign out here only, and say why
     socket.on('force-logout', (data) => {
       console.log('Force logout received:', data.message);
-      alert(data.message);
-      handleLogout();
+      signedOutRef.current = true;
+      handleLogout({ notifyServer: false, notice: 'You were signed in somewhere else, so this tab was signed out.' });
     });
 
     // Friends system socket listeners
@@ -1721,6 +1894,13 @@ function App() {
     socketService.joinTutorial(state.user.username);
   }, [state.user?.id, tutorial.stage]);
 
+  // The tutorial battle was won: the server has marked the tutorial done, so the saved session says so too
+  // (a refresh from here on lands in the lobby, not back in the tutorial)
+  const tutorialWon = tutorialBattleFinished(tutorial.stage, state.gameState);
+  useEffect(() => {
+    if (tutorialWon) markTutorialCompleted();
+  }, [tutorialWon]);
+
 
 
   const handleJoinGame = (mode: 'draft' | 'random') => {
@@ -1738,6 +1918,8 @@ function App() {
     setState(prev => ({ ...prev, playerName }));
     setIsSearchingForMatch(true);
     setSearchMode(mode);
+    pendingSearchRef.current = { name: playerName, mode };
+    searchCancelsRef.current.searchStarted();
     socketService.joinGame(playerName, mode);
   };
 
@@ -1849,6 +2031,9 @@ function App() {
   };
 
   const handleCancelSearch = () => {
+    pendingSearchRef.current = null;
+    queuedMatchRef.current = false;
+    searchCancelsRef.current.cancelSent();
     socketService.cancelSearch();
     setIsSearchingForMatch(false);
     setSearchMode(null);
@@ -1863,6 +2048,10 @@ function App() {
 
   // Authentication handlers
   const handleLogin = (user: User) => {
+    // Signing in is an arrival at the lobby (new accounts go to the tutorial, which has its own tour of it)
+    if (user.tutorial_completed !== false) markLobbyArrival();
+    setSignedOutNotice(null);
+    signedOutRef.current = false;
     setState(prev => ({
       ...prev,
       user,
@@ -1927,8 +2116,16 @@ function App() {
     setTutorialReveal(null);
   };
 
+  // Keeps the account (and so this tab's saved session) in step with the server marking the tutorial done
+  const markTutorialCompleted = () => {
+    setState(prev => (prev.user && prev.user.tutorial_completed === false
+      ? { ...prev, user: { ...prev.user, tutorial_completed: true } }
+      : prev));
+  };
+
   const handleSkipTutorial = () => {
     socketService.skipTutorial();
+    markTutorialCompleted();
     setRewardsData(null);
     setState(prev => ({ ...prev, gameState: null, battleLog: [] }));
     finishTutorial();
@@ -1942,12 +2139,24 @@ function App() {
     }));
   };
 
-  const handleLogout = async () => {
+  // notifyServer: false for a forced logout (the account moved to another tab or device). That tab may
+  // share our token (Duplicate tab copies sessionStorage), so /api/logout would sign it out too.
+  // notice: shown on the login screen to say why we are there.
+  const handleLogout = async (options: { notifyServer?: boolean; notice?: string } = {}) => {
+    const { notifyServer = true, notice } = options;
     const currentUser = state.user;
-    
+    // This tab no longer remembers the login
+    clearSession();
+    setConnectionLost(false);
+    setSignedOutNotice(notice ?? null);
+    // Close our socket first, so its closing is never mistaken for a lost connection
+    socketService.disconnect();
+    // A tutorial in progress belongs to this account (e.g. a restored session whose login had expired)
+    finishTutorial();
+
     // Clear stored game state
     localStorage.removeItem('heroCallActiveGame');
-    
+
     // Update UI state first
     setState(prev => ({
       ...prev,
@@ -1966,23 +2175,12 @@ function App() {
       openMessageChats: []
     }));
     
-    // Call logout API to clean up server-side session
-    if (currentUser) {
-      try {
-        await fetch(`${config.API_BASE_URL}/api/logout`, {
-          method: 'POST',
-          headers: authHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ userId: currentUser.id }),
-        });
-        setAuthToken(null);
-      } catch (error) {
-        console.error('Logout API call failed:', error);
-      }
-    }
-    
-    // Disconnect socket
-    socketService.disconnect();
+    // A sign-out the player chose also ends the session on the server
+    await endSession({ notifyServer: notifyServer && !!currentUser, userId: currentUser?.id, apiBase: config.API_BASE_URL });
+
     pendingSurvivalSearchRef.current = null;
+    pendingSearchRef.current = null;
+    queuedMatchRef.current = false;
     setIsSearchingForSurvivalMatch(false);
   };
 
@@ -2114,7 +2312,8 @@ function App() {
     // This function is kept for interface compatibility
   };
 
-  const handleStopSpectating = () => {
+  // Stable (setters, refs and the socket only), so socket listeners and effects can use it
+  const handleStopSpectating = useCallback(() => {
     console.log('👁️ Stopping spectation');
     socketService.leaveSpectate();
     setState(prev => ({
@@ -2125,7 +2324,48 @@ function App() {
       spectators: [],
       battleLog: []
     }));
-  };
+  }, []);
+
+  // A short spectating notice ("X left the game."). It has its own slot, so it never replaces a
+  // pending challenge notice and its Cancel button.
+  const showSpectateNotice = useCallback((text: string) => {
+    if (spectateNoticeTimeoutRef.current) window.clearTimeout(spectateNoticeTimeoutRef.current);
+    setSpectateNotice(text);
+    spectateNoticeTimeoutRef.current = window.setTimeout(() => setSpectateNotice(null), 4000);
+  }, []);
+
+  // Leaves spectating and says why (e.g. the watched player left)
+  const stopSpectatingWithNotice = useCallback((text: string) => {
+    handleStopSpectating();
+    showSpectateNotice(text);
+  }, [handleStopSpectating, showSpectateNotice]);
+
+  // The watched player can drop out of the game state (they left the game); go back to the lobby
+  const spectatedPlayerGone = watchedPlayerLeft(state.isSpectating, state.spectatingPlayerId, state.gameState);
+  useEffect(() => {
+    if (spectatedPlayerGone) stopSpectatingWithNotice('The player you were watching left the game.');
+  }, [spectatedPlayerGone, stopSpectatingWithNotice]);
+
+  // The reveal starts in the same frame the battle board first shows, so the board is never seen bare.
+  // Not on a refresh or rejoin (no Order step seen here), for spectators, or in the tutorial (starts at the roll).
+  const gamePhase = state.gameState?.phase ?? null;
+  useLayoutEffect(() => {
+    const prevPhase = prevPhaseRef.current;
+    prevPhaseRef.current = gamePhase;
+    sawSetupRef.current = setupSeen(sawSetupRef.current, gamePhase, state.isSpectating);
+    const play = !!gamePhase && shouldPlayReveal(sawSetupRef.current, prevPhase, gamePhase);
+    // A reveal still up when the battle begins (the roll winner chose at once) stays to bring its cards home
+    setRevealing(was => revealOnPhase(was, play, prevPhase, gamePhase));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gamePhase]);
+
+  // A Chrono Shift ability pick belongs to the turn it was offered in; drop it when the turn passes
+  const turnPlayerIndex = state.gameState?.currentTurn;
+  const turnHeroPlayerIndex = state.gameState?.activeHero?.playerIndex;
+  const turnHeroIndex = state.gameState?.activeHero?.heroIndex;
+  useEffect(() => {
+    setState(prev => (prev.timekeeperAbilitySelection ? { ...prev, timekeeperAbilitySelection: undefined } : prev));
+  }, [turnPlayerIndex, turnHeroPlayerIndex, turnHeroIndex]);
 
   const getCurrentPlayer = (): Player | null => {
     if (!state.gameState || !state.playerId) {
@@ -2140,6 +2380,27 @@ function App() {
     const opponent = state.gameState.players.find(p => p.id !== state.playerId) || null;
     return opponent;
   };
+
+  // Messages shows only when there are unread or minimised chats
+  const hasMessageChats = state.messageNotificationCount > 0 || state.unreadMessageChats.size > 0 || state.minimizedMessageChats.length > 0;
+  // Whether renderGameContent shows GameLobby: its branch and the floating-icon gate both use this.
+  // The lobby has Friends and Messages in its top bar, so the floating icons stay off while it shows.
+  const devScreenShowing = import.meta.env.DEV && (window.location.hash === '#ui-kit' || window.location.hash.startsWith('#screens'));
+  // The draft table (draft and setup) fills the screen: no sidebar and no floating Friends or Message button
+  const draftShowing = !!state.gameState && (state.gameState.phase === 'draft' || state.gameState.phase === 'setup');
+  // The reveal covers the first moments of the roll screen; the floating buttons wait until it ends
+  const revealPlayers = revealing && !state.isSpectating && revealPhase(state.gameState?.phase)
+    ? { me: getCurrentPlayer(), them: getOpponentPlayer() }
+    : null;
+  const revealShowing = !!revealPlayers?.me && !!revealPlayers.them;
+  // A reveal that cannot be shown is over: it must not start again later (after a reconnect, say)
+  useEffect(() => {
+    if (revealing && !revealShowing) setRevealing(false);
+  }, [revealing, revealShowing]);
+  const lobbyShowing = !devScreenShowing && !showCardLayoutTest && !!state.user
+    && !(tutorial.stage === 'battle' && !state.gameState)
+    && !state.showSurvival && !state.showGauntlet
+    && (!state.gameState || state.gameState.phase === 'waiting');
 
   const renderGameContent = () => {
     if (import.meta.env.DEV && window.location.hash === '#ui-kit') {
@@ -2166,6 +2427,7 @@ function App() {
       } else {
         return (
           <LoginPage
+            notice={signedOutNotice}
             onLogin={handleLogin}
             onShowRegister={handleShowRegister}
             onStartCardTest={() => setShowCardLayoutTest(true)}
@@ -2205,10 +2467,12 @@ function App() {
           currentPlayer={gauntletMe}
           opponent={gauntletFoe}
           playerId={gauntletId}
+          disconnectDeadlines={disconnectDeadlines}
           onReturnToLobby={handleGauntletBattleFinished}
           turnTimer={turnTimer}
           timekeeperAbilitySelection={state.timekeeperAbilitySelection}
           onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
+          onInspectChange={setBattleInspect}
         />
       ) : null;
       return (
@@ -2222,7 +2486,7 @@ function App() {
     }
 
     // Show GameLobby if we don't have a game state OR if we're in waiting phase (still matchmaking)
-    if (!state.gameState || state.gameState.phase === 'waiting') {
+    if (lobbyShowing) {
       return (
         <GameLobby
           onStartGame={handleJoinGame}
@@ -2230,8 +2494,9 @@ function App() {
           onStartGauntlet={handleStartGauntlet}
           onSpectateGame={handleSpectateGame}
           victoryPoints={state.victoryPoints}
+          onVictoryPointsChange={(vp: number) => setState(prev => ({ ...prev, victoryPoints: vp }))}
           user={state.user}
-          onLogout={handleLogout}
+          onLogout={() => handleLogout()}
           isSearching={isSearchingForMatch || (state.gameState?.phase === 'waiting')}
           searchMode={searchMode}
           onCancelSearch={handleCancelSearch}
@@ -2241,9 +2506,24 @@ function App() {
           quests={quests}
           pendingQuestReward={pendingQuestReward}
           onClaimQuestReward={() => setPendingQuestReward(null)}
+          onShopStateChange={setLobbyShopOpen}
+          friends={tutorial.stage === null ? {
+            onToggle: handleToggleFriendsOverlay,
+            isOpen: state.showFriendsOverlay,
+            notificationCount: state.friendsNotificationCount,
+            messages: {
+              show: hasMessageChats,
+              onClick: handleMessageIconClick,
+              count: state.messageNotificationCount,
+              minimized: state.minimizedMessageChats.length > 0
+            }
+          } : undefined}
         />
       );
     }
+
+    // Not reached (no game state means the lobby showed above); narrows the type for the screens below
+    if (!state.gameState) return null;
 
     // Special handling for spectators
     if (state.isSpectating && state.spectatingPlayerId) {
@@ -2251,7 +2531,8 @@ function App() {
       const otherPlayer = state.gameState.players.find(p => p.id !== state.spectatingPlayerId) || null;
       
       if (!spectatedPlayer) {
-        return <div>Error: Could not find spectated player</div>;
+        // The watched player left; the effect above takes the spectator back to the lobby
+        return null;
       }
 
       // Route spectators directly to battle phase with the spectated player's perspective
@@ -2266,6 +2547,7 @@ function App() {
             currentPlayer={spectatedPlayer}
             opponent={otherPlayer}
             playerId={state.spectatingPlayerId}
+            disconnectDeadlines={disconnectDeadlines}
             onReturnToLobby={handleReturnToLobby}
             isSurvivalMode={state.isSurvivalMode}
             isSpectating={true}
@@ -2275,6 +2557,7 @@ function App() {
             timekeeperAbilitySelection={state.timekeeperAbilitySelection}
             onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
             rewardsData={rewardsData || undefined}
+            onInspectChange={setBattleInspect}
           />
         );
       }
@@ -2299,6 +2582,10 @@ function App() {
             opponent={opponent}
             allHeroes={state.allHeroes}
             draftTimer={draftTimer}
+            away={draftAwayNotice(opponent)}
+            connecting={!state.isConnected}
+            rejoins={rejoins}
+            holoHeroes={state.user?.holo_heroes}
           />
         );
 
@@ -2311,6 +2598,7 @@ function App() {
             currentPlayer={currentPlayer}
             opponent={opponent}
             playerId={state.playerId!}
+            disconnectDeadlines={disconnectDeadlines}
             onReturnToLobby={handleReturnToLobby}
             isSurvivalMode={state.isSurvivalMode}
             isSpectating={state.isSpectating}
@@ -2319,10 +2607,12 @@ function App() {
             spectators={state.spectators}
             turnTimer={turnTimer}
             isTutorial={tutorial.stage === 'battle'}
+            closeDetailsSignal={battleDetailsCloseSignal}
             tutorialReveal={tutorial.stage === 'battle' ? tutorialReveal : null}
             timekeeperAbilitySelection={state.timekeeperAbilitySelection}
             onClearTimekeeperSelection={() => setState(prev => ({ ...prev, timekeeperAbilitySelection: undefined }))}
             rewardsData={rewardsData || undefined}
+            onInspectChange={setBattleInspect}
           />
         );
 
@@ -2365,8 +2655,24 @@ function App() {
     );
   };
 
+  // The opponent dropped out of the draft or setup: a sign with the countdown, laid across the draft table's hand
+  const draftAwayNotice = (opponent: Player | null) => {
+    const away = !!opponent && !state.isSpectating &&
+      (opponent.connected === false || disconnectDeadlines[opponent.id] !== undefined);
+    return away && opponent ? (
+      <DisconnectNotice
+        countdown={disconnectDeadlines[opponent.id] ?? null}
+        name={opponent.name}
+        profileIcon={opponent.profile_icon}
+        viewerIsOpponent={true}
+      />
+    ) : null;
+  };
+
   const renderSidebar = () => {
     if (!state.gameState || state.isTransitioningToBattle || state.gameState.phase === 'waiting') return null;
+    // Draft and setup: the draft table takes the whole game area and carries what the sidebar showed
+    if (draftShowing) return null;
     
     const currentPlayer = getCurrentPlayer();
     const opponent = getOpponentPlayer();
@@ -2390,139 +2696,22 @@ function App() {
         )}
         
         <div className="game-info">
-          {/* Draft Phase Information */}
-          {state.gameState.phase === 'draft' && (
-            <div className="draft-info">
-              {currentPlayer && opponent && (
-                <div className="matchup-display">
-                  <span className="player-name-sidebar">{currentPlayer.name}</span>
-                  <span className="vs-text-sidebar">vs</span>
-                  <span className="opponent-name-sidebar">{opponent.name}</span>
-                </div>
-              )}
-              {currentPlayer && (
-                <div className="turn-status">
-                  {(currentPlayer.team?.length || 0) < state.gameState.currentDraftPhase 
-                    ? "Your turn to pick" 
-                    : "Waiting for opponent"}
-                </div>
-              )}
-              
-              {/* Banned Cards Section */}
-              {currentPlayer?.bannedCard && opponent?.bannedCard && (
-                <div className="banned-cards-section">
-                  <h3>Banned cards</h3>
-                  <div className="banned-cards-subtitle">
-                    These cards cannot be picked
-                  </div>
-                  
-                  <div className="banned-cards-list">
-                    {[currentPlayer.bannedCard, opponent.bannedCard].filter(Boolean).map((cardName, index) => {
-                      const bannedByPlayer = cardName === currentPlayer.bannedCard;
-                      return (
-                        <div key={index} className="banned-card-item">
-                          <img 
-                            src={`${config.IMAGE_BASE_URL}/hero-images/${cardName.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
-                            alt={cardName}
-                            className="banned-card-image"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vPC90ZXh0Pjwvc3ZnPg==';
-                            }}
-                          />
-                          <span className="banned-card-name">{cardName}</span>
-                          <span className="banned-by-label">{bannedByPlayer ? '(You)' : '(Opp.)'}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  <div className="banned-cards-count">
-                    2 cards banned
-                  </div>
-                </div>
-              )}
-              
-              {/* Abandon Draft Button */}
-              <button
-                onClick={() => {
-                  socketService.abandonDraft();
-                }}
-                className="abandon-draft-button"
-                title="Return to lobby without rewards"
-              >
-                Abandon draft
-              </button>
-            </div>
-          )}
-          
-          {/* Setup Phase Information */}
-          {state.gameState.phase === 'setup' && (
-            <div className="setup-info">
-              {currentPlayer && opponent && (
-                <div className="matchup-display">
-                  <span className="player-name-sidebar">{currentPlayer.name}</span>
-                  <span className="vs-text-sidebar">vs</span>
-                  <span className="opponent-name-sidebar">{opponent.name}</span>
-                </div>
-              )}
-              
-              {currentPlayer && opponent && (
-                <div className="turn-status">
-                  {!currentPlayer.attackOrder || currentPlayer.attackOrder.length !== 3
-                    ? "Set your attack order"
-                    : opponent.attackOrder && opponent.attackOrder.length === 3
-                    ? "Both players are ready"
-                    : "Waiting for opponent"}
-                </div>
-              )}
-              
-              {/* Abandon Draft Button */}
-              <button
-                onClick={() => {
-                  socketService.abandonDraft();
-                }}
-                className="abandon-draft-button"
-                title="Return to lobby without rewards"
-              >
-                Abandon draft
-              </button>
-            </div>
-          )}
-          
-
-          
           {/* Battle Phase Information - Combined Active Hero and Battle Log */}
-          {state.gameState.phase === 'battle' && (
-            <div className="battle-combined-info">
-              <h3>Battle</h3>
-              {((currentPlayer && opponent) || state.isSpectating) ? (
-                <>
-                  <div className="turn-info">
-                    {(() => {
-                      if (state.isSpectating) {
-                        // For spectators, show which player's turn it is
-                        const activePlayerIndex = state.gameState.currentTurn;
-                        const activePlayer = state.gameState.players[activePlayerIndex];
-                        return activePlayer ? (
-                          <div className="spectator-turn">Watching: {activePlayer.name}'s turn</div>
-                        ) : null;
-                      }
-                      
-                      const playerIndex = state.gameState.players.findIndex(p => p.id === state.playerId);
-                      return state.gameState.currentTurn === playerIndex ? (
-                        <div className="current-turn">Your turn</div>
-                      ) : (
-                        <div className="opponent-turn">Opponent's turn</div>
-                      );
-                    })()}
-                  </div>
-                  
+          {/* Shown from the starting roll on, so the board keeps its battle layout */}
+          <SidebarBattleInfo
+            phase={state.gameState.phase}
+            isMyTurn={state.gameState.currentTurn === state.gameState.players.findIndex(p => p.id === state.playerId)}
+            isSpectating={state.isSpectating}
+            activePlayerName={state.gameState.players[state.gameState.currentTurn]?.name}
+            hasPlayers={!!(currentPlayer && opponent) || state.isSpectating}
+          >
 
                   
                   {/* Active Hero Information */}
                   {(() => {
                     // Use the backend's activeHero information for accurate display
-                    if (!state.gameState?.activeHero) return null;
+                    // No active hero until the turn order is chosen
+                    if (state.gameState?.phase !== 'battle' || !state.gameState?.activeHero) return null;
                     
                     const activePlayerIndex = state.gameState?.activeHero?.playerIndex;
                     const activePlayer = activePlayerIndex !== undefined ? state.gameState?.players?.[activePlayerIndex] : undefined;
@@ -2663,10 +2852,7 @@ function App() {
                       )}
                     </div>
                   </div>
-                </>
-              ) : null}
-            </div>
-          )}
+          </SidebarBattleInfo>
         </div>
       </aside>
     );
@@ -2686,7 +2872,23 @@ function App() {
       </div>
 
 
-      {state.gameState && state.gameState.phase !== 'waiting' && <RotatePrompt />}
+      <RotatePrompt />
+
+      {/* Match found: covers the game screen for under two seconds; the rotate screen stays above it */}
+      {matchFound && <MatchFoundOverlay me={matchFound.me} them={matchFound.them} onDone={closeMatchFound} />}
+
+      {/* Reveal: the two teams face off over the battle board, then glide onto it; the rotate screen stays above it */}
+      {revealPlayers?.me && revealPlayers.them && (
+        <DraftReveal
+          me={revealPlayers.me}
+          them={revealPlayers.them}
+          hurry={state.gameState?.phase !== 'initiative'}
+          onDone={closeReveal}
+        />
+      )}
+
+      {/* Install hint: lobby only */}
+      {state.user && (!state.gameState || state.gameState.phase === 'waiting') && !state.showSurvival && !state.showGauntlet && tutorial.stage === null && <InstallHint />}
 
       {/* Survival Battle Transition */}
       {state.isTransitioningToBattle && (
@@ -2712,16 +2914,18 @@ function App() {
       {/* Friends System - show everywhere except in collection and during the tutorial */}
       {state.user && !state.showCollection && tutorial.stage === null && (
         <>
-          {/* Friends Icon */}
-          <FriendsIcon
-            onClick={handleToggleFriendsOverlay}
-            hasNotifications={state.friendsNotificationCount > 0}
-            notificationCount={state.friendsNotificationCount}
-            isOpen={state.showFriendsOverlay}
-          />
-          
-          {/* Message Icon: only shown when there are unread or minimized chats */}
-          {(state.messageNotificationCount > 0 || state.unreadMessageChats.size > 0 || state.minimizedMessageChats.length > 0) && (
+          {/* Floating Friends icon: the lobby has its own in the top bar, unless the Shop covers it */}
+          {(!lobbyShowing || lobbyShopOpen) && !draftShowing && !revealShowing && (
+            <FriendsIcon
+              onClick={handleToggleFriendsOverlay}
+              hasNotifications={state.friendsNotificationCount > 0}
+              notificationCount={state.friendsNotificationCount}
+              isOpen={state.showFriendsOverlay}
+            />
+          )}
+
+          {/* Message Icon: only shown when there are unread or minimized chats (in the lobby, in the top bar) */}
+          {hasMessageChats && (!lobbyShowing || lobbyShopOpen) && !draftShowing && !revealShowing && (
             <MessageIcon 
               onClick={handleMessageIconClick}
               hasNotifications={state.messageNotificationCount > 0}
@@ -2761,6 +2965,8 @@ function App() {
           gameState={state.gameState}
           playerId={state.playerId}
           battleLog={state.battleLog}
+          inspected={battleInspect}
+          onCloseInspect={closeBattleDetails}
           onRevealChange={setTutorialReveal}
           onSkip={handleSkipTutorial}
         />
@@ -2813,6 +3019,17 @@ function App() {
           )}
         </div>
       )}
+      {state.user && spectateNotice && (
+        <div className={`challenge-notice${challengeNotice ? ' challenge-notice--stacked' : ''}`} role="status">
+          <span>{spectateNotice}</span>
+        </div>
+      )}
+      {state.user && connectionLost && (
+        <div className="reconnecting-banner" role="status">
+          <span className="reconnecting-banner__dot" aria-hidden="true" />
+          Reconnecting…
+        </div>
+      )}
 
       {/* Draft Abandoned Modal */}
       {state.showDraftAbandonedModal && (
@@ -2839,4 +3056,16 @@ function App() {
   );
 }
 
-export default App;
+// Any card in the app can be opened large in the card reader.
+// A crash shows a Reload panel instead of a blank screen; the card reader stays above it.
+function AppWithCardReader() {
+  return (
+    <CardReaderProvider>
+      <AppErrorBoundary>
+        <App />
+      </AppErrorBoundary>
+    </CardReaderProvider>
+  );
+}
+
+export default AppWithCardReader;

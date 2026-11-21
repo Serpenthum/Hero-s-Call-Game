@@ -1,0 +1,47 @@
+/* Shown while our own connection to the server is down and the client is trying to get it back
+   (App.tsx). It sits over everything at the top so the player knows the board is not live. */
+.reconnecting-banner {
+  position: fixed;
+  top: calc(var(--space-3) + var(--safe-top, 0px));
+  left: 50%;
+  z-index: 3000;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  transform: translateX(-50%);
+  padding: var(--space-2) var(--space-4);
+  color: var(--bone);
+  background: var(--walnut);
+  border: 1px solid var(--ember);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+  font: 700 var(--text-sm) / 1.2 var(--font-ui);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.reconnecting-banner__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ember-hi);
+  animation: reconnecting-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes reconnecting-pulse {
+  from { opacity: 0.3; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reconnecting-banner__dot { animation: none; }
+}
+
+/* ==================== Short screens (sideways phones) ==================== */
+@media (max-height: 500px) {
+  .reconnecting-banner {
+    top: calc(var(--space-1) + var(--safe-top, 0px));
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+  }
+}

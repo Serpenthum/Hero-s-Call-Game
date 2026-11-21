@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import HeroCollection from './HeroCollection';
-import HeroCard from './HeroCard';
 import ProfileModal from './ProfileModal';
-import { ShopIcon, BinderIcon } from './LobbyIcons';
-import Coin from './Coin';
-import XPBar from './XPBar';
 import Icon from './ui/Icon';
+import LobbyTopBar from './lobby/LobbyTopBar';
+import LobbyFriendsButton, { LobbyFriendsProps } from './lobby/LobbyFriendsButton';
+import PlayerPanel from './lobby/PlayerPanel';
+import FeaturedHero from './lobby/FeaturedHero';
+import ModeCards, { ModeCardSpec } from './lobby/ModeCards';
 import Shop from './Shop';
 import RequirementModal from './RequirementModal';
 import HowToPlayModal from './HowToPlayModal';
@@ -15,7 +16,9 @@ import { useQuestReveal } from '../useQuestReveal';
 import QuestRewardModal from './QuestRewardModal';
 import SettingsModal from './SettingsModal';
 import config from '../config';
-import useCardGrid from '../hooks/useCardGrid';
+import { timeUntilUtcMidnight, utcDayKey, searchElapsed, formatRecord, nextFeaturedHero, collectionSummary, markLobbyArrival, consumeLobbyArrival } from '../lobby/lobbyRules';
+import { getAnimSpeed } from '../battleAnimations';
+import { isHolo } from '../holoSetting';
 import '../styles/Lobby.css';
 
 interface User {
@@ -27,6 +30,7 @@ interface User {
   survival_used_heroes: string[];
   available_heroes: string[];
   favorite_heroes: string[];
+  holo_heroes?: string[];
   xp: number;
   level: number;
   best_gauntlet_trial: number;
@@ -39,6 +43,8 @@ interface GameLobbyProps {
   onStartGauntlet: () => void;
   onSpectateGame?: (gameId: string, spectatingPlayerId: string) => void;
   victoryPoints: number;
+  // Called with the new balance as soon as a shop purchase is confirmed
+  onVictoryPointsChange?: (victoryPoints: number) => void;
   user: User;
   onLogout: () => void;
   isSearching?: boolean;
@@ -50,6 +56,11 @@ interface GameLobbyProps {
   quests?: Quest[];
   pendingQuestReward?: PendingQuestReward | null;
   onClaimQuestReward?: () => void;
+  // Friends and Messages live in the top bar while the lobby shows (App hides its floating icons);
+  // left out during the tutorial, when Friends is unavailable
+  friends?: LobbyFriendsProps;
+  // The Shop covers the top bar, so App shows its floating Friends icons while it is open
+  onShopStateChange?: (isOpen: boolean) => void;
 }
 
 const RANKED_MODES = ['draft', 'survival'] as const;
@@ -61,11 +72,33 @@ const RANKED_MODE_NAMES: Record<RankedMode, string> = { draft: 'Draft mode', sur
 // Phase 5 turns this on once the Gauntlet backend fixes land.
 const SHOW_GAUNTLET = true;
 
-const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onStartGauntlet, victoryPoints, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward }) => {
+// The arrival sequence ends 1.35 s after the lobby opens (Lobby.css); its class comes off shortly after.
+const ARRIVAL_MS = 1600;
+
+// The featured hero changes this often (ms), unless the player is looking at it.
+const FEATURE_SWAP_MS = 6000;
+
+const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onStartGauntlet, victoryPoints, onVictoryPointsChange, user, onLogout, isSearching = false, searchMode = null, onCancelSearch, onCollectionStateChange, onFavoritesChange, quests = [], pendingQuestReward = null, onClaimQuestReward, friends, onShopStateChange }) => {
   // Refresh on entering the lobby so a new UTC day resets the list.
   useEffect(() => {
     socketService.getQuests();
   }, []);
+
+  // Arrival: plays once after signing in or reloading, not on coming back from a match. The flag is read
+  // here and put straight back, then cleared once the lobby has really mounted: React may run this
+  // initialiser twice (Strict Mode) or throw a render away, and that must not use the arrival up.
+  const [arrived] = useState(() => {
+    const arrival = consumeLobbyArrival();
+    if (arrival) markLobbyArrival();
+    return arrival;
+  });
+  const [arriving, setArriving] = useState(arrived);
+  useEffect(() => {
+    consumeLobbyArrival();
+    if (!arrived) return;
+    const timer = window.setTimeout(() => setArriving(false), ARRIVAL_MS);
+    return () => window.clearTimeout(timer);
+  }, [arrived]);
 
   const questReveal = useQuestReveal(
     pendingQuestReward,
@@ -75,22 +108,75 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   const pendingQuestIds = new Set((pendingQuestReward?.completed || []).map(q => q.id));
 
   const [showCollection, setShowCollection] = useState(false);
-  const previewGrid = useCardGrid({ fixedColumns: 1 });
+  // The hero the Binder opens on (the featured card was tapped)
+  const [binderHero, setBinderHero] = useState<string | undefined>(undefined);
   const [showShop, setShowShop] = useState(false);
+  const shopStateRef = useRef(onShopStateChange);
+  shopStateRef.current = onShopStateChange;
+  useEffect(() => {
+    shopStateRef.current?.(showShop);
+  }, [showShop]);
+  // Leaving the lobby with the Shop open (a match found) must not leave the floating icons hidden
+  useEffect(() => () => shopStateRef.current?.(false), []);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [allHeroes, setAllHeroes] = useState<Hero[]>([]);
   const [profileIcon, setProfileIcon] = useState<string | null>(null);
+  const [record, setRecord] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch(`${config.API_BASE_URL}/api/player-stats/${user.id}`)
       .then(res => res.json())
       .then(data => {
-        if (!cancelled && data.success) setProfileIcon(data.stats.profile_icon);
+        if (cancelled) return;
+        if (data.success) {
+          setProfileIcon(data.stats.profile_icon);
+          setRecord(formatRecord(data.stats));
+        } else {
+          setRecord(null);
+        }
       })
-      .catch(err => console.error('Failed to load profile icon:', err));
+      .catch(err => {
+        console.error('Failed to load player stats:', err);
+        if (!cancelled) setRecord(null);
+      });
     return () => { cancelled = true; };
   }, [user.id]);
+
+  // Quests reset at midnight UTC; the countdown beside the heading follows it, and the list is asked
+  // for again once the UTC day turns over, so yesterday's quests never sit beside a fresh countdown.
+  const [resetText, setResetText] = useState(() => timeUntilUtcMidnight(new Date()));
+  useEffect(() => {
+    let utcDay = utcDayKey(new Date());
+    const timer = window.setInterval(() => {
+      const now = new Date();
+      setResetText(timeUntilUtcMidnight(now));
+      const today = utcDayKey(now);
+      if (today !== utcDay) {
+        utcDay = today;
+        socketService.getQuests();
+      }
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Search clock: starts when a search starts (or switches mode), ticks each second, clears when it ends.
+  const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isSearching) {
+      setSearchStartedAt(null);
+      return;
+    }
+    const started = Date.now();
+    setSearchStartedAt(started);
+    setClockNow(started);
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isSearching, searchMode]);
+  // Survival and Gauntlet keep their own screens, so only Random and Draft search from a card.
+  const searchingMode = isSearching && (searchMode === 'random' || searchMode === 'draft') ? searchMode : null;
+  const searchClock = searchElapsed(searchStartedAt, clockNow);
   const [showRequirementModal, setShowRequirementModal] = useState(false);
   const [requirementModalData, setRequirementModalData] = useState({
     message: '',
@@ -98,8 +184,13 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
     requiredCount: 0,
     type: 'heroes' as 'heroes' | 'level'
   });
-  const [currentRandomHero, setCurrentRandomHero] = useState<Hero | null>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [featuredHero, setFeaturedHero] = useState<Hero | null>(null);
+  const [swapKey, setSwapKey] = useState(0);
+  const featuredRef = useRef<Hero | null>(null);
+  const featureTurn = useRef(0);
+  const featureHovered = useRef(false);
+  const favoritesRef = useRef<string[]>(user.favorite_heroes || []);
+  favoritesRef.current = user.favorite_heroes || [];
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [userRefreshTrigger, setUserRefreshTrigger] = useState(0);
@@ -180,17 +271,19 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
     onStartGame(mode);
   };
 
-  const handleShowCollection = () => {
+  const handleShowCollection = (heroName?: string) => {
     // Cancel any existing search first
     if (isSearching && onCancelSearch) {
       onCancelSearch();
     }
+    setBinderHero(heroName);
     setShowCollection(true);
     onCollectionStateChange?.(true);
   };
 
   const handleCloseCollection = () => {
     setShowCollection(false);
+    setBinderHero(undefined);
     onCollectionStateChange?.(false);
   };
 
@@ -216,7 +309,8 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
         // Update the user object by merging with existing data
         Object.assign(user, {
           victory_points: userData.victory_points,
-          available_heroes: userData.available_heroes
+          available_heroes: userData.available_heroes,
+          holo_heroes: userData.holo_heroes || []
         });
         setUserRefreshTrigger(prev => prev + 1);
         console.log(`✅ User data updated: ${userData.available_heroes.length} heroes`);
@@ -256,269 +350,95 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
     onStartGauntlet();
   };
 
-  // Fetch heroes and set up rotation
+  // Fetch heroes; the first featured hero uses turn 0. On failure the stage shows only the pedestal.
   useEffect(() => {
+    let cancelled = false;
     const fetchHeroes = async () => {
       try {
-        console.log('Fetching heroes from API...');
         const response = await fetch(`${config.API_BASE_URL}/api/heroes`);
-        
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
-        const heroes = await response.json();
-        console.log('Heroes loaded successfully:', heroes.length, 'heroes');
+        const heroes: Hero[] = await response.json();
+        if (cancelled) return;
         setAllHeroes(heroes);
-        
-        if (heroes.length > 0) {
-          const randomHero = heroes[Math.floor(Math.random() * heroes.length)];
-          console.log('Setting random hero:', randomHero.name);
-          setCurrentRandomHero(randomHero);
-        }
+        featureTurn.current = 0;
+        const first = nextFeaturedHero(heroes, favoritesRef.current, 0, null, Math.random);
+        featuredRef.current = first;
+        setFeaturedHero(first);
       } catch (error) {
-        console.error('Failed to fetch heroes from API, using fallback data:', error);
-        
-        // Fallback heroes data if API fails
-        const fallbackHeroes = [
-          {
-            name: "Barbarian",
-            HP: 25,
-            Defense: 8,
-            Accuracy: "+1",
-            BasicAttack: "2d6+2",
-            Ability: [{ 
-              name: "Rage", 
-              description: "Increase damage", 
-              effects: [{ type: "damage_boost", value: 5 }]
-            }],
-            Special: [{ 
-              name: "Berserker", 
-              description: "Continue fighting when low HP", 
-              effects: [{ type: "survival", trigger: "low_hp" }]
-            }]
-          },
-          {
-            name: "Wizard",
-            HP: 15,
-            Defense: 6,
-            Accuracy: "+0",
-            BasicAttack: "1d6",
-            Ability: [{ 
-              name: "Fireball", 
-              description: "Area damage spell", 
-              effects: [{ type: "area_damage", value: "2d6" }]
-            }],
-            Special: [{ 
-              name: "Arcane Power", 
-              description: "Bonus spell damage", 
-              effects: [{ type: "spell_boost", value: 3 }]
-            }]
-          },
-          {
-            name: "Rogue",
-            HP: 18,
-            Defense: 7,
-            Accuracy: "+2",
-            BasicAttack: "1d6+3",
-            Ability: [{ 
-              name: "Sneak Attack", 
-              description: "High damage from stealth", 
-              effects: [{ type: "sneak_damage", value: "3d6" }]
-            }],
-            Special: [{ 
-              name: "Evasion", 
-              description: "Avoid some attacks", 
-              effects: [{ type: "dodge_chance", value: 25 }]
-            }]
-          }
-        ];
-        
-        console.log('Using fallback heroes:', fallbackHeroes.length);
-        setAllHeroes(fallbackHeroes);
-        
-        if (fallbackHeroes.length > 0) {
-          const randomHero = fallbackHeroes[Math.floor(Math.random() * fallbackHeroes.length)];
-          console.log('Setting fallback random hero:', randomHero.name);
-          setCurrentRandomHero(randomHero);
-        }
+        console.error('Failed to fetch heroes:', error);
       }
     };
 
     fetchHeroes();
+    return () => { cancelled = true; };
   }, []);
 
-  // Set up hero rotation timer with smooth transition
+  // A new featured hero every few seconds; held while the player hovers it or the tab is hidden.
   useEffect(() => {
     if (allHeroes.length === 0) return;
-
-    const interval = setInterval(() => {
-      // Start transition
-      setIsTransitioning(true);
-      
-      // After fade out completes, change hero and fade back in
-      setTimeout(() => {
-        const randomIndex = Math.floor(Math.random() * allHeroes.length);
-        setCurrentRandomHero(allHeroes[randomIndex]);
-        setIsTransitioning(false);
-      }, 300); // Half of transition duration
-    }, 4000); // Change every 4 seconds
-
-    return () => clearInterval(interval);
+    const timer = window.setInterval(() => {
+      if (featureHovered.current || document.visibilityState !== 'visible') return;
+      featureTurn.current += 1;
+      const next = nextFeaturedHero(allHeroes, favoritesRef.current, featureTurn.current, featuredRef.current?.name ?? null, Math.random);
+      featuredRef.current = next;
+      setFeaturedHero(next);
+      setSwapKey(k => k + 1);
+    }, FEATURE_SWAP_MS);
+    return () => window.clearInterval(timer);
   }, [allHeroes]);
 
-  const renderPlacard = ({ mode, title, text, icon, tag, extraClass = '', onActivate, playLabel }: {
-    mode: 'random' | 'draft' | 'survival' | 'gauntlet';
-    title: string;
-    text: string;
-    icon: 'dice' | 'swords' | 'flame' | 'tower';
-    tag: 'Normal' | 'Ranked';
-    extraClass?: string;
-    onActivate: () => void;
-    playLabel: string;
-  }) => {
-    const searching = isSearching && searchMode === mode;
-    return (
-      <div
-        key={mode}
-        className={`placard${searching ? ' placard--searching' : ''}${extraClass}`}
-        onClick={searching ? undefined : onActivate}
-      >
-        <div className="placard-head">
-          <Icon name={icon} size={28} className="placard-icon" />
-          <h3 className="placard-title">{title}</h3>
-          <span className="ui-badge">{tag}</span>
-        </div>
-        {searching ? (
-          <p className="placard-text" role="status">
-            Finding an opponent
-            <span className="placard-dots" aria-hidden="true">
-              <span className="dot"></span>
-              <span className="dot"></span>
-              <span className="dot"></span>
-            </span>
-          </p>
-        ) : (
-          <p className="placard-text">{text}</p>
-        )}
-        {searching ? (
-          <button className="ui-btn ui-btn--danger ui-btn--block" onClick={(e) => { e.stopPropagation(); onCancelSearch?.(); }}>
-            Leave queue
-          </button>
-        ) : (
-          <button className="ui-btn ui-btn--primary ui-btn--block">{playLabel}</button>
-        )}
-      </div>
-    );
-  };
+  const collection = allHeroes.length > 0
+    ? collectionSummary(allHeroes, user.available_heroes || [], user.favorite_heroes || [], user.holo_heroes)
+    : null;
+
+  const unlockClass = (mode: RankedMode) => (modeAnimates(mode) || rankedAnimates ? 'mode-unlock-reveal' : undefined);
+  const modes: ModeCardSpec[] = [
+    { mode: 'random', title: 'Random', text: 'Quick battle with random teams.', tag: 'Normal', playLabel: 'Play random', onActivate: () => handleModeSelect('random') },
+  ];
+  if (draftVisible) modes.push({ mode: 'draft', title: 'Draft', text: 'Ban, then pick your team.', tag: 'Ranked', playLabel: 'Play draft', extraClass: unlockClass('draft'), onActivate: () => handleModeSelect('draft') });
+  if (survivalVisible) modes.push({ mode: 'survival', title: 'Survival', text: 'Win with each hero once.', tag: 'Ranked', playLabel: 'Enter survival', extraClass: unlockClass('survival'), onActivate: handleSurvivalClick });
+  if (SHOW_GAUNTLET) modes.push({ mode: 'gauntlet', title: 'Gauntlet', text: 'Face 13 trials with a roster of six.', tag: 'Ranked', playLabel: 'Enter gauntlet', onActivate: handleGauntletClick });
 
   return (
-    <div className="game-lobby-modern lobby">
-      <header className="lobby-bar">
-        <h1 className="lobby-title">Hero's Call</h1>
-        <div className="lobby-status">
-          <div className="ui-pill lobby-coins">
-            <Coin />
-            <span className={`lobby-coins-amount${questReveal.counting ? ' vp-bump' : ''}`}>{questReveal.display.vp}</span>
-          </div>
-          <div className="lobby-level">
-            <span className="lobby-level-text">Level {questReveal.display.level || 1}</span>
-            <XPBar
-              currentXP={questReveal.display.xp || 0}
-              level={questReveal.display.level || 1}
-              animated={false}
-              leveledUp={questReveal.levelFlash}
-            />
-          </div>
-          <button className="ui-btn ui-btn--quiet ui-btn--sm" onClick={onLogout}>
-            <Icon name="logout" />
-            Sign out
-          </button>
-        </div>
-      </header>
+    <div className={`game-lobby-modern lobby${getAnimSpeed() === 'off' ? ' lobby--still' : ''}${arriving ? ' lobby--arrive' : ''}`}>
+      <LobbyTopBar
+        coins={questReveal.display.vp}
+        coinsBumping={questReveal.counting}
+        level={questReveal.display.level || 1}
+        xp={questReveal.display.xp || 0}
+        levelFlash={questReveal.levelFlash}
+        onLogout={onLogout}
+        friends={friends && <LobbyFriendsButton {...friends} />}
+      />
 
       <main className="lobby-main">
-        <aside className="lobby-ledger ui-panel">
-          <div className="lobby-player">
-            <h2>{user.username}</h2>
-            <button
-              className="profile-avatar-btn"
-              onClick={() => setShowProfileModal(true)}
-              aria-label="Open profile"
-              title="Profile"
-            >
-              {profileIcon && (
-                <img
-                  src={`${config.IMAGE_BASE_URL}/hero-images/${profileIcon.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
-                  alt={profileIcon}
-                />
-              )}
-            </button>
-          </div>
-          <h3 className="lobby-section-title">Quests</h3>
-          {quests.length === 0 ? (
-            <p className="lobby-empty">No quests today. New ones arrive at midnight UTC.</p>
-          ) : (
-            <ul className="lobby-quests">
-              {quests.map(quest => {
-                // Pending quests stay unchecked until the reveal starts.
-                const revealed = !pendingQuestIds.has(quest.id) || questReveal.stage !== 'idle';
-                const isDone = quest.completed && revealed;
-                const justRevealed = pendingQuestIds.has(quest.id) && revealed;
-                const shownProgress = quest.completed && !revealed ? quest.target - 1 : quest.progress;
-                return (
-                  <li key={quest.id} className={`lobby-quest${isDone ? ' completed' : ''}${justRevealed ? ' just-completed' : ''}`}>
-                    <span className="lobby-quest-text">{quest.text}</span>
-                    <span className="lobby-quest-progress">
-                      {isDone ? <Icon name="check" title="Done" /> : `${shownProgress}/${quest.target}`}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="lobby-tiles">
-            <button className="lobby-tile shop-tile" onClick={handleShowShop}>
-              <ShopIcon className="lobby-tile-icon" />
-              <span>Shop</span>
-            </button>
-            <button className="lobby-tile binder-tile" data-tutorial="collection" onClick={handleShowCollection}>
-              <BinderIcon className="lobby-tile-icon" />
-              <span>Binder</span>
-            </button>
-          </div>
-        </aside>
+        <PlayerPanel
+          username={user.username}
+          profileIcon={profileIcon}
+          record={record}
+          quests={quests}
+          pendingQuestIds={pendingQuestIds}
+          revealStage={questReveal.stage}
+          resetText={resetText}
+          collection={collection}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onOpenShop={handleShowShop}
+          onOpenBinder={() => handleShowCollection()}
+        />
 
         <section className="lobby-table">
-          <div className="lobby-stage">
-            <div className="lobby-hero-viewport" ref={previewGrid.ref} style={previewGrid.style}>
-              {currentRandomHero && (
-                <div className={`random-hero-card ${isTransitioning ? 'transitioning' : ''}`}>
-                  <HeroCard
-                    hero={{
-                      name: currentRandomHero.name,
-                      HP: currentRandomHero.HP,
-                      Defense: currentRandomHero.Defense,
-                      Accuracy: currentRandomHero.Accuracy,
-                      BasicAttack: currentRandomHero.BasicAttack,
-                      Ability: currentRandomHero.Ability,
-                      Special: currentRandomHero.Special
-                      // Only include base hero properties, no runtime modifications
-                    }}
-                    showFullInfo={false}
-                    disableHPAnimations={true}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="lobby-placards">
-            {renderPlacard({ mode: 'random', title: 'Random', text: 'Quick battle with random teams.', icon: 'dice', tag: 'Normal', onActivate: () => handleModeSelect('random'), playLabel: 'Play random' })}
-            {draftVisible && renderPlacard({ mode: 'draft', title: 'Draft', text: 'Ban, then pick your team.', icon: 'swords', tag: 'Ranked', extraClass: modeAnimates('draft') || rankedAnimates ? ' mode-unlock-reveal' : '', onActivate: () => handleModeSelect('draft'), playLabel: 'Play draft' })}
-            {survivalVisible && renderPlacard({ mode: 'survival', title: 'Survival', text: 'Win with each hero once.', icon: 'flame', tag: 'Ranked', extraClass: modeAnimates('survival') || rankedAnimates ? ' mode-unlock-reveal' : '', onActivate: handleSurvivalClick, playLabel: 'Enter survival' })}
-            {SHOW_GAUNTLET && renderPlacard({ mode: 'gauntlet', title: 'Gauntlet', text: 'Face 13 trials with a roster of six.', icon: 'tower', tag: 'Ranked', onActivate: handleGauntletClick, playLabel: 'Enter gauntlet' })}
-          </div>
+          <FeaturedHero
+            hero={featuredHero}
+            favorite={!!featuredHero && (user.favorite_heroes || []).includes(featuredHero.name)}
+            holo={!!featuredHero && isHolo(user, featuredHero.name)}
+            swapKey={swapKey}
+            arriving={arrived}
+            onOpen={name => { featureHovered.current = false; handleShowCollection(name); }}
+            onHoverChange={hovering => { featureHovered.current = hovering; }}
+          />
+          <ModeCards modes={modes} searchingMode={searchingMode} searchClock={searchClock} onLeaveQueue={() => onCancelSearch?.()} />
         </section>
       </main>
 
@@ -530,6 +450,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
           victoryPoints={victoryPoints}
           availableHeroes={user.available_heroes}
           onPurchaseComplete={handlePurchaseComplete}
+          onVictoryPointsChange={onVictoryPointsChange}
         />
       )}
 
@@ -540,6 +461,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
           userId={user.id}
           victoryPoints={victoryPoints}
           onFavoritesChange={onFavoritesChange}
+          initialHero={binderHero}
         />
       )}
 

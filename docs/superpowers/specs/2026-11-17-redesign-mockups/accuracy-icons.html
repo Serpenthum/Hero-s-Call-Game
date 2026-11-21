@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hero's Call: full-art card, round 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--felt:#101b18;--felt-deep:#0b1311;--leather:#33261d;--brass:#b08a45;--brass-hi:#cfa95f;--brass-dim:#6e5629;--bone:#e6dfcf;--bone-dim:#a89f8c;
+  --display:'IM Fell English',Georgia,serif;--ui:'Alegreya Sans','Segoe UI',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 50% 0%,#17302a,var(--felt) 55%,var(--felt-deep));background-attachment:fixed;color:var(--bone);font-family:var(--ui);font-size:17px;line-height:1.45}
+main{max-width:1240px;margin:0 auto;padding:28px 16px 80px}
+h1{font-family:var(--display);font-weight:400;font-size:2.2rem;margin:0 0 4px}
+h2{font-family:var(--display);font-weight:400;font-size:1.6rem;margin:40px 0 6px;border-bottom:1px solid var(--brass-dim);padding-bottom:6px}
+p.lead{color:var(--bone-dim);margin:0 0 14px;max-width:75ch}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 22px}
+.bar .lbl{color:var(--bone-dim)}
+button.chip{font:inherit;font-weight:700;color:var(--bone);background:var(--leather);border:1px solid var(--brass-dim);border-radius:4px;padding:7px 14px;cursor:pointer}
+button.chip:hover{border-color:var(--brass-hi)}
+button.chip[aria-pressed="true"]{background:var(--brass);color:#1a130c;border-color:var(--brass-hi)}
+label.chk{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
+.icons{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+@media(max-width:900px){.icons{grid-template-columns:repeat(3,1fr)}}
+.icon-opt{font:inherit;color:var(--bone);background:rgb(0 0 0 / .25);border:1px solid var(--brass-dim);border-radius:8px;padding:14px 8px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px}
+.icon-opt:hover{border-color:var(--brass-hi)}
+.icon-opt[aria-pressed="true"]{border-color:var(--brass-hi);box-shadow:0 0 0 2px var(--brass);background:rgb(176 138 69 / .14)}
+.icon-opt svg{width:44px;height:44px;color:#67b39a}
+.icon-opt b{font-family:var(--display);font-weight:400;font-size:1.1rem}
+.icon-opt span{color:var(--bone-dim);font-size:.85rem;text-align:center}
+.cards{display:flex;flex-wrap:wrap;gap:26px;justify-content:center;margin-top:8px}
+.big{display:flex;flex-wrap:wrap;gap:40px;justify-content:center;align-items:center}
+.cmp{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--bone-dim);font-size:.9rem}
+
+.tilt{perspective:900px;display:inline-block}
+.hc{--w:280px;--role:#7b56c9;--rx:0deg;--ry:0deg;--mx:50%;--my:50%;--g:1;
+  width:var(--w);height:calc(var(--w)*1.46);font-size:calc(var(--w)/20);position:relative;border-radius:.75em;display:flex;flex-direction:column;overflow:hidden;
+  font-family:var(--ui);color:var(--bone);background:#0d0b0a;border:.1em solid var(--brass);box-shadow:0 1.2em 2.4em rgb(0 0 0 / .55);
+  transform:rotateX(var(--rx)) rotateY(var(--ry));transition:transform .18s ease-out}
+.hc svg{width:1em;height:1em;display:block}
+.hc .art{position:absolute;inset:0;overflow:hidden}
+.hc .art img{width:100%;height:100%;object-fit:cover;object-position:50% 12%;display:block}
+.hc .art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgb(0 0 0 / .05) 30%,rgb(8 10 9 / .55) 52%,rgb(8 10 9 / .96) 78%)}
+.hc .edge{position:absolute;inset:.3em;z-index:2;border:.06em solid rgb(207 169 95 / .55);border-radius:.5em;pointer-events:none}
+.hc .edge::before,.hc .edge::after{content:"";position:absolute;width:1.3em;height:1.3em;border:.14em solid var(--brass-hi)}
+.hc .edge::before{top:-.1em;left:-.1em;border-right:0;border-bottom:0;border-radius:.45em 0 0 0}
+.hc .edge::after{bottom:-.1em;right:-.1em;border-left:0;border-top:0;border-radius:0 0 .45em 0}
+.hc .rail{position:absolute;z-index:3;left:.7em;top:.9em;display:flex;flex-direction:column;gap:.35em;font-size:calc(1em*var(--g))}
+.hc .hex{position:relative;width:2.5em;height:2.75em;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(160deg,var(--c),#0c0a09 85%)}
+.hc .hex::before{content:"";position:absolute;inset:.13em;clip-path:inherit;background:rgb(12 10 9 / .86)}
+.hc .hex>*{position:relative}
+.hc .hex svg{font-size:.72em;color:var(--c)}.hc .hex b{font-size:.86em;line-height:1;margin-top:.06em;font-weight:800}
+.s-hp{--c:#d2543c}.s-df{--c:#7fa3c9}.s-ac{--c:#67b39a}.s-at{--c:#d7b061}
+.hc .low{position:relative;z-index:3;margin-top:auto;padding:0 .95em .95em}
+.hc .nm{font-family:var(--display);line-height:1;font-size:1.9em;color:#fff;text-shadow:0 .08em .3em #000,0 0 .7em rgb(0 0 0 / .8)}
+.hc .role{display:flex;align-items:center;gap:.45em;font-size:.72em;color:var(--brass-hi);margin:.25em 0 .5em}
+.hc .role::before{content:"";width:.6em;height:.6em;background:var(--role);transform:rotate(45deg);box-shadow:0 0 .5em var(--role)}
+.hc .role::after{content:"";flex:1;height:.07em;background:linear-gradient(90deg,var(--brass),transparent)}
+.hc .txt{font-size:.78em;line-height:1.28;color:#ece6d8}
+.hc .txt b{font-weight:800}.hc .txt .k{font-family:var(--display);font-style:italic;font-size:1.08em;color:var(--brass-hi)}
+.hc .txt p{margin:0 0 .45em}.hc .txt p:last-child{margin:0}
+.fav-star{position:absolute;z-index:6;top:.5em;right:.5em;width:1.7em;height:1.7em;border-radius:50%;display:none;place-items:center;
+  background:radial-gradient(circle at 35% 30%,#fff3b0,#e2b53a 55%,#8a6414);color:#3a2a06;box-shadow:0 0 .6em rgb(255 215 90 / .7);font-size:.8em}
+.hc.foil .fav-star{display:grid}
+.hc .sheen{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:inherit;opacity:0}
+.hc.foil .sheen{opacity:1;mix-blend-mode:color-dodge;
+  background:radial-gradient(circle at var(--mx) var(--my),rgb(255 255 255 / .14),transparent 30%),
+    linear-gradient(115deg,transparent 32%,rgb(255 60 140 / .11) 40%,rgb(255 214 60 / .12) 47%,rgb(60 255 190 / .11) 54%,rgb(90 130 255 / .13) 61%,transparent 68%);
+  background-size:100% 100%,260% 260%;background-position:0 0,var(--mx) var(--my);animation:holo 6s ease-in-out infinite}
+.hc.foil{border-color:#f0d590;box-shadow:0 1.2em 2.4em rgb(0 0 0 / .55),0 0 1.1em rgb(255 215 120 / .28)}
+@keyframes holo{0%,100%{background-position:0 0,10% 20%}50%{background-position:0 0,90% 80%}}
+.hc.hovering .sheen{animation:none}
+.hc .glint{position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(105deg,transparent 42%,rgb(255 255 255 / .22) 50%,transparent 58%);background-size:300% 100%;background-position:120% 0;animation:glint 5s ease-in-out infinite}
+@keyframes glint{0%,62%{background-position:120% 0}86%,100%{background-position:-60% 0}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Full-art card, round 2</h1>
+  <p class="lead">The full-art design with bigger stat gems, plus six choices for the accuracy icon. Motion here is the Lively level you picked. Nothing in the game has changed yet.</p>
+
+  <h2>1. Accuracy icon</h2>
+  <p class="lead">Click one to put it on every card below.</p>
+  <div class="icons" id="icons"></div>
+
+  <h2>2. Stat gem size</h2>
+  <p class="lead">Left is what you saw before. Pick how much bigger the four stats should be.</p>
+  <div class="bar">
+    <span class="lbl">Size</span>
+    <button class="chip gs" aria-pressed="false" data-g="1.15" data-choice="gems-bigger">Bigger</button>
+    <button class="chip gs" aria-pressed="true" data-g="1.3" data-choice="gems-much-bigger">Much bigger</button>
+    <button class="chip gs" aria-pressed="false" data-g="1.45" data-choice="gems-largest">Largest</button>
+    <label class="chk" style="margin-left:14px"><input type="checkbox" id="fav"> Favourite (foil)</label>
+  </div>
+  <div class="big" id="big"></div>
+
+  <h2>3. Across different heroes</h2>
+  <div class="cards" id="cards"></div>
+</main>
+<script>
+const IMG = n => 'https://heroscall.pages.dev/hero-images/' + n.toLowerCase().replace(/[^a-z0-9]/g,'') + '.webp';
+// Role names and colours are placeholders made up for this mockup: the game has no hero roles yet.
+const HEROES = [
+  {name:'Wizard',role:'Caster',col:'#7b56c9',hp:15,df:5,ac:'+3',at:'2D4',ab:[['Ability','Fireball','Deal 1D4 damage to all enemies.'],['Special','Arcane Shield','The first time Wizard would take more than 5 damage, reduce it to 0.']]},
+  {name:'Paladin',role:'Guardian',col:'#3f78b5',hp:19,df:10,ac:'+1',at:'1D4',ab:[['Ability','Divine Smite','Deal 1D4 damage and heal the lowest health ally 1D4.'],['Special','Shield of Faith','When an opponent attacks an ally adjacent to the Paladin, taunt it.']]},
+  {name:'Brawler',role:'Striker',col:'#b5442f',hp:18,df:8,ac:'+2',at:'2D4',ab:[['Special','Iron Fists','Brawler makes two basic attacks per turn. Has no abilities.']]},
+  {name:'Ninja',role:'Trickster',col:'#3d8f73',hp:15,df:7,ac:'+2',at:'1D4',ab:[['Ability','Sharpened Shuriken','Deal 2D6 damage.'],['Special','Vanish',"Once per round after being hit, become untargetable by other heroes until Ninja's next turn."]]}
+];
+const S = (inner, sw=2.2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+const ACC = [
+  ['bullseye','Arrow in target','An arrow landing in a target', S('<circle cx="10" cy="14" r="7.500"/><circle cx="10" cy="14" r="3"/><path d="M10 14L21 3M21 3h-4.500M21 3v4.500"/>')],
+  ['bow','Bow and arrow','A drawn bow', S('<path d="M6 2.500a12.500 12.500 0 0 1 0 19"/><path d="M6 2.500v19"/><path d="M2 12h19M17.500 8.500L21 12l-3.500 3.500"/>')],
+  ['scope','Crosshair','A sight lined up on a target', S('<circle cx="12" cy="12" r="6.500"/><path d="M12 2v5.500M12 16.500V22M2 12h5.500M16.500 12H22"/><circle cx="12" cy="12" r="1.100" fill="currentColor"/>')],
+  ['eye','Keen eye','A sharp eye', S('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="currentColor"/>')],
+  ['d20','Hit die','A 20-sided die, since accuracy is added to the roll to hit', S('<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 2L5.500 15h13zM3 7l2.500 8M21 7l-2.500 8M5.500 15L12 22l6.500-7"/>',1.7)],
+  ['arrow','Arrow','A single arrow in flight', S('<path d="M5 19L19 5M19 5h-6.500M19 5v6.500M5 19l.800-4.500M5 19l4.500-.800M8 16l.600-3.500M8 16l3.500-.600"/>')]
+];
+const OLD_ACC = S('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.500"/><circle cx="12" cy="12" r="1.200" fill="currentColor"/>');
+const IC = {
+  hp:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
+  df:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.600-1.600-8-6-8-11V5l8-3z"/></svg>',
+  at:S('<path d="M4 3l12 12M20 3L8 15M13.500 18.500l5-5M10.500 18.500l-5-5M17 17l3.500 3.500M7 17l-3.500 3.500"/>',2.4)
+};
+let acc = 0, g = 1.3, fav = false;
+function card(h, w, opts={}){
+  const a = opts.old ? OLD_ACC : ACC[acc][3], gg = opts.old ? 1 : g;
+  const st = [['hp',h.hp+'/'+h.hp,IC.hp],['df',h.df,IC.df],['ac',h.ac,a],['at',h.at,IC.at]];
+  return `<div class="tilt"><div class="hc${fav&&!opts.old?' foil':''}" style="--w:${w}px;--role:${h.col};--g:${gg}">
+    <div class="art"><img src="${IMG(h.name)}" alt=""></div><div class="edge"></div>
+    <div class="rail">${st.map(s=>`<div class="hex s-${s[0]}">${s[2]}<b>${s[1]}</b></div>`).join('')}</div>
+    <div class="low"><div class="nm">${h.name}</div><div class="role">${h.role}</div>
+      <div class="txt">${h.ab.map(x=>`<p><span class="k">${x[0]}:</span> <b>${x[1]}</b><br>${x[2]}</p>`).join('')}</div></div>
+    <div class="glint"></div><div class="sheen"></div><div class="fav-star">&#9733;</div></div></div>`;
+}
+function draw(){
+  document.getElementById('icons').innerHTML = ACC.map((a,i)=>`<button class="icon-opt" aria-pressed="${i===acc}" data-acc="${i}" data-choice="accuracy-${a[0]}">${a[3]}<b>${a[1]}</b><span>${a[2]}</span></button>`).join('');
+  document.getElementById('big').innerHTML =
+    `<div class="cmp">${card(HEROES[1],250,{old:true})}Before</div><div class="cmp">${card(HEROES[1],340)}Now</div><div class="cmp">${card(HEROES[1],170)}Small</div>`;
+  document.getElementById('cards').innerHTML = [0,2,3].map(i=>card(HEROES[i],270)).join('');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  if(b.dataset.acc!==undefined){ acc = +b.dataset.acc; draw(); }
+  if(b.classList.contains('gs')){ document.querySelectorAll('.gs').forEach(x=>x.setAttribute('aria-pressed',x===b)); g = +b.dataset.g; draw(); }
+});
+document.getElementById('fav').addEventListener('change', e => { fav = e.target.checked; draw(); });
+document.addEventListener('pointermove', e => {
+  const c = e.target.closest && e.target.closest('.hc');
+  document.querySelectorAll('.hc.hovering').forEach(x => { if(x!==c){ x.classList.remove('hovering'); x.style.setProperty('--rx','0deg'); x.style.setProperty('--ry','0deg'); } });
+  if(!c) return;
+  const r = c.getBoundingClientRect(), x = (e.clientX-r.left)/r.width, y = (e.clientY-r.top)/r.height;
+  c.classList.add('hovering');
+  c.style.setProperty('--ry', ((x-.5)*24)+'deg'); c.style.setProperty('--rx', ((.5-y)*24)+'deg');
+  c.style.setProperty('--mx', (x*100)+'%'); c.style.setProperty('--my', (y*100)+'%');
+});
+draw();
+</script>
+</body>
+</html>

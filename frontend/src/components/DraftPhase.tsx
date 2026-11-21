@@ -1,9 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
-import HeroCard from './HeroCard';
-import Icon from './ui/Icon';
+import { getAnimSpeed } from '../battleAnimations';
+import { useCardReader } from '../cards/CardReader';
+import { READABLE_CARD_MIN_WIDTH, draftStep, playerStatus, draftChoice, visibleBans } from '../draft/draftRules';
+import { useDraftLayout } from '../draft/useDraftLayout';
+import { BeforeUpdate, useDraftMotion } from '../draft/useDraftMotion';
 import DraftClock from './DraftClock';
+import DraftTopBar from './draft/DraftTopBar';
+import DraftBand from './draft/DraftBand';
+import DraftHand from './draft/DraftHand';
+import DraftBigCard from './draft/DraftBigCard';
+import DraftOrder, { tapOrder } from './draft/DraftOrder';
+import { isHolo } from '../holoSetting';
+import '../styles/Draft.css';
 
 interface DraftPhaseProps {
   gameState: GameState;
@@ -11,398 +21,260 @@ interface DraftPhaseProps {
   opponent: Player | null;
   allHeroes: Hero[];
   draftTimer?: { round: number; deadline: number; durationMs: number } | null;
+  /** The opponent-away notice (DisconnectNotice with its countdown), laid across the hand area. */
+  away?: React.ReactNode;
+  /** The connection to the server dropped: "Connecting…" in the top bar. */
+  connecting?: boolean;
+  /** Goes up each time the server hands the game back after a reconnect (no motion for that state). */
+  rejoins?: number;
+  /** The heroes you own holographic: the opponent bans from your collection, so their ban may be one. */
+  holoHeroes?: string[];
 }
 
-const DraftPhase: React.FC<DraftPhaseProps> = ({ 
-  gameState, 
-  currentPlayer, 
-  opponent, 
+/** The hand you hold: from your player, or from the older per-game lists. */
+function handOf(gameState: GameState, currentPlayer: Player, allHeroes: Hero[]): Hero[] {
+  if (Array.isArray(currentPlayer.draftCards)) return currentPlayer.draftCards;
+  if (!gameState.draftCards) return [];
+  const index = gameState.players.findIndex(p => p.id === currentPlayer.id);
+  if (index === -1) return [];
+  const names = index === 0 ? gameState.draftCards.player1 : gameState.draftCards.player2;
+  if (!Array.isArray(names)) return [];
+  return names.map(name => allHeroes.find(h => h.name === name)).filter(Boolean) as Hero[];
+}
+
+/** The draft table: ban, the three picks and the order step. */
+const DraftPhase: React.FC<DraftPhaseProps> = ({
+  gameState,
+  currentPlayer,
+  opponent,
   allHeroes,
-  draftTimer
+  draftTimer,
+  away = null,
+  connecting = false,
+  rejoins = 0,
+  holoHeroes,
 }) => {
-  const [selectedCard, setSelectedCard] = useState<string | null>(null);
-  const [teamOrder, setTeamOrder] = useState<string[]>([]);
-  const [draggedHero, setDraggedHero] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const reader = useCardReader();
+  const step = draftStep(gameState.phase, gameState.currentDraftPhase);
+  const ordering = step === 4;
+  const hand = handOf(gameState, currentPlayer, allHeroes);
+  const handNames = hand.map(h => h.name);
+  const handKey = handNames.join('|');
 
-  // Reset selected card when draft phase or turn changes
+  // Order step: the three heroes in the order you set (or already sent, after a refresh).
+  const team = currentPlayer.team ?? [];
+  const teamNames = team.map(h => h.name);
+  const teamKey = teamNames.join('|');
+  const [localOrder, setLocalOrder] = useState<string[] | null>(null);
+  const [orderSel, setOrderSel] = useState<string | null>(null);
+  const [lastTapped, setLastTapped] = useState<string | null>(null);
+  const [readySent, setReadySent] = useState(false);
   useEffect(() => {
-    setSelectedCard(null);
-  }, [gameState.currentDraftPhase, gameState.draftTurn]);
-
-  // Initialize team order when entering setup phase
+    setLocalOrder(null);
+    setOrderSel(null);
+  }, [step, teamKey]);
   useEffect(() => {
-    if (gameState.phase === 'setup' && currentPlayer.team && currentPlayer.team.length > 0) {
-      console.log('Setup phase - Current player team:', currentPlayer.team.map(h => h.name));
-      console.log('Current teamOrder length:', teamOrder.length);
-      // Always update teamOrder when in setup phase to ensure it reflects current team
-      const newTeamOrder = currentPlayer.team.map(h => h.name);
-      console.log('New team order would be:', newTeamOrder);
-      console.log('Current team order is:', teamOrder);
-      if (teamOrder.length !== newTeamOrder.length || JSON.stringify(newTeamOrder) !== JSON.stringify(teamOrder)) {
-        console.log('Updating teamOrder to:', newTeamOrder);
-        setTeamOrder(newTeamOrder);
-      }
-    }
-  }, [gameState.phase, currentPlayer.team]);
+    setReadySent(false);
+    setLastTapped(null);
+  }, [step]);
+  const sameHeroes = (names: string[] | null | undefined): names is string[] =>
+    !!names && names.length === teamNames.length && teamNames.every(n => names.includes(n));
+  const serverOrder = currentPlayer.attackOrder;
+  const orderNames = sameHeroes(localOrder) ? localOrder : sameHeroes(serverOrder) ? serverOrder : teamNames;
+  const orderHeroes = orderNames.map(n => team.find(h => h.name === n)).filter(Boolean) as Hero[];
 
-  // Reset ready state when opponent's ready state changes
+  const bans = visibleBans(currentPlayer.bannedCard, opponent?.bannedCard);
+  // Animations off (the setting, or the system's reduced-motion setting): nothing on this screen moves.
+  const motionOff =
+    getAnimSpeed() === 'off' ||
+    (typeof window !== 'undefined' && typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const motion = useDraftMotion({
+    root: rootRef,
+    off: motionOff,
+    step,
+    hand,
+    teamNames,
+    theirCount: opponent?.team?.length ?? 0,
+    bans,
+    timer: draftTimer,
+    rejoins,
+  });
+  // The card just sent keeps its place in the hand (hidden) while its copy flies, so the other cards stay put.
+  const held = motion.held;
+  const shownHand = held?.gap ? [...hand.slice(0, held.index), held.hero, ...hand.slice(held.index)] : hand;
+
+  const sizes = useDraftLayout(rootRef, ordering ? orderHeroes.length : shownHand.length, step);
+  const { layout } = sizes;
+  const orderKey = orderNames.join('|');
+  useLayoutEffect(() => {
+    motion.hopOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderKey]);
+
+  const serverStatus = playerStatus(currentPlayer, step);
+  const ready = ordering && (readySent || serverStatus === 'done');
+  const myStatus = ready ? 'done' : serverStatus;
+  const theirStatus = opponent ? playerStatus(opponent, step) : 'choosing';
+  // The card you tapped, and (big-card layout) a team or ban card shown big without changing that choice.
+  const [picked, setPicked] = useState<string | null>(null);
+  const [peek, setPeek] = useState<Hero | null>(null);
+  // The card this round's ban or pick was sent for: the hand stays locked on it until the server answers.
+  const [sent, setSent] = useState<string | null>(null);
   useEffect(() => {
-    if (opponent?.isReady !== undefined) {
-      // This will help update UI when opponent becomes ready
-    }
-  }, [opponent?.isReady]);
+    setPicked(null);
+    setPeek(null);
+    setSent(null);
+  }, [step, handKey]);
 
-  const getHeroByName = (name: string): Hero | undefined => {
-    // In setup phase, prioritize looking in currentPlayer.team since those are the drafted heroes
-    if (gameState.phase === 'setup' && currentPlayer.team) {
-      const teamHero = currentPlayer.team.find(h => h.name === name);
-      if (teamHero) return teamHero;
-    }
-    // Fallback to allHeroes for draft phase
-    return allHeroes.find(h => h.name === name);
+  // Locked once sent or done on the server. A choice no longer in the hand (the clock ran out) is dropped;
+  // the big-card layout shows its first card chosen when nothing else is.
+  const { chosen, locked } = draftChoice({ picked, sent, handNames, layout, serverDone: myStatus === 'done' });
+
+  // Heroes seen on this screen, so a ban keeps its card (and holo flag) after it leaves the hand.
+  const seen = useRef(new Map<string, Hero>());
+  [...hand, ...team, ...(opponent?.team ?? [])].forEach(h => seen.current.set(h.name, h));
+  const heroByName = (name: string) => seen.current.get(name) ?? allHeroes.find(h => h.name === name);
+
+  const banHolo = {
+    mine: !!(bans.mine && heroByName(bans.mine)?.holo),
+    // Their ban is one of your heroes: holo if this screen saw it holo, or you own it holographic.
+    theirs: !!(bans.theirs && (heroByName(bans.theirs)?.holo || isHolo({ holo_heroes: holoHeroes }, bans.theirs))),
   };
 
-  const getDraftCards = (): Hero[] => {
-    // Use the current player's draftCards directly from the player object
-    if (currentPlayer.draftCards && Array.isArray(currentPlayer.draftCards)) {
-      console.log('Using current player draft cards:', currentPlayer.draftCards.map(h => h.name));
-      return currentPlayer.draftCards;
+  const choose = (name: string) => {
+    if (locked) return;
+    setPeek(null);
+    setPicked(layout === 'focus' ? name : chosen === name ? null : name);
+  };
+
+  // Order step: first tap selects, the same card again cancels, another card swaps the two.
+  const tapHero = (name: string) => {
+    if (ready) return;
+    const next = tapOrder({ order: orderNames, selected: orderSel }, name);
+    if (next.order !== orderNames) motion.noteOrder();
+    setPeek(null);
+    setLastTapped(name);
+    setLocalOrder(next.order);
+    setOrderSel(next.selected);
+  };
+
+  const read = (hero: Hero) => {
+    if (layout === 'focus') setPeek(hero);
+    else reader.open(hero, { holo: !!hero.holo });
+  };
+
+  const act = () => {
+    if (ordering) {
+      if (ready || orderNames.length !== 3) return;
+      socketService.setAttackOrder(orderNames);
+      setReadySent(true);
+      setOrderSel(null);
+      return;
     }
-    
-    // Fallback to the old method if draftCards is not available on player
-    if (!gameState.draftCards) {
-      console.log('No draftCards in gameState');
-      return [];
+    if (!chosen || locked) return;
+    if (step === 0) {
+      if (gameState.phase === 'draft' && gameState.currentDraftPhase === 0) socketService.banCard(chosen);
+    } else {
+      socketService.pickCard(chosen);
     }
-    
-    const playerIndex = gameState.players.findIndex(p => p.id === currentPlayer.id);
-    console.log('Player index:', playerIndex, 'Current player ID:', currentPlayer.id);
-    
-    if (playerIndex === -1) {
-      console.error('Player not found in game state');
-      return [];
-    }
-    
-    const cardNames = playerIndex === 0 ? 
-      gameState.draftCards.player1 : 
-      gameState.draftCards.player2;
-    
-    console.log('Card names for player (fallback):', cardNames);
-    
-    if (!cardNames || !Array.isArray(cardNames)) {
-      console.error('Invalid card names:', cardNames);
-      return [];
-    }
-    
-    const heroes = cardNames.map(name => getHeroByName(name)).filter(Boolean) as Hero[];
-    console.log('Mapped heroes (fallback):', heroes.map(h => h.name));
-    return heroes;
+    // The socket call has gone; the stamp or the flight starts from here and waits for nothing.
+    motion.send(chosen, step === 0 ? 'ban' : 'pick');
+    setSent(chosen);
+    setPeek(null);
   };
 
-  const handleBanCard = () => {
-    if (selectedCard && gameState.phase === 'draft' && gameState.currentDraftPhase === 0) {
-      socketService.banCard(selectedCard);
-      setSelectedCard(null);
-    }
-  };
+  const clock =
+    !ordering && draftTimer && draftTimer.round === gameState.currentDraftPhase && myStatus !== 'done' ? (
+      <DraftClock
+        key={draftTimer.round}
+        deadline={draftTimer.deadline}
+        durationMs={draftTimer.durationMs}
+        action={step === 0 ? 'ban' : 'pick'}
+      />
+    ) : null;
 
-  const handlePickCard = () => {
-    if (selectedCard) {
-      socketService.pickCard(selectedCard);
-      setSelectedCard(null);
-    }
-  };
+  const verb = step === 0 ? 'Ban' : 'Pick';
+  const shown = sent ?? held?.name ?? chosen;
+  // Order step: the big card shows the last hero tapped (the first hero before any tap).
+  const bigHero = ordering
+    ? peek ?? orderHeroes.find(h => h.name === lastTapped) ?? orderHeroes[0] ?? null
+    : peek ?? (shown ? shownHand.find(h => h.name === shown) ?? null : null);
+  // The big card wears the stamp too while your ban is on its way.
+  const bigBanned = step === 0 && !!bigHero && bigHero.name === (sent ?? held?.name);
+  const banner = away ? <div className="draft-away">{away}</div> : null;
 
-  // TODO: Implement drag-and-drop attack order functionality
-  /*
-  const handleAttackOrderChange = (heroName: string, newPosition: number) => {
-    const newOrder = [...attackOrder];
-    const currentIndex = newOrder.indexOf(heroName);
-    
-    if (currentIndex >= 0) {
-      newOrder.splice(currentIndex, 1);
-    }
-    
-    newOrder.splice(newPosition, 0, heroName);
-    setAttackOrder(newOrder.slice(0, 3)); // Ensure max 3
-  };
-  */
+  // Big-card layout: hand cards too narrow for readable rules text show as tiny cards (name and stats).
+  const tinyHand = layout === 'focus' && sizes.handCard < READABLE_CARD_MIN_WIDTH;
 
-  const handleSetAttackOrder = () => {
-    if (teamOrder.length === 3) {
-      socketService.setAttackOrder(teamOrder);
-      setIsReady(true);
-    }
-  };
+  const style = {
+    '--draft-card-w': `${sizes.handCard}px`,
+    '--draft-card-scale': sizes.handCard / 260,
+    '--draft-big-w': `${sizes.bigCard}px`,
+    '--draft-big-scale': sizes.bigCard / 260,
+    '--draft-slot-w': `${sizes.slot}px`,
+    '--draft-slot-scale': sizes.slot / 260,
+    '--draft-hand-pad': `${sizes.handPad}px`,
+  } as React.CSSProperties;
 
-  const handleDragStart = (heroName: string, e: React.DragEvent) => {
-    setDraggedHero(heroName);
-    // Create a transparent drag image to hide the default ghost
-    const img = new Image();
-    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    e.dataTransfer.setDragImage(img, 0, 0);
-    // Set initial drag position
-    setDragPosition({ x: e.clientX, y: e.clientY });
-  };
+  const classes = [
+    'draft-table',
+    `draft-table--${layout}`,
+    tinyHand ? 'draft-table--tiny-hand' : '',
+    held ? 'draft-table--sending' : '',
+    bigBanned ? 'draft-table--big-banned' : '',
+    motionOff ? 'draft--still' : '',
+  ].filter(Boolean).join(' ');
 
-  const handleDrag = (e: React.DragEvent) => {
-    if (e.clientX !== 0 && e.clientY !== 0) {
-      setDragPosition({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDragPosition(null);
-    setDraggedHero(null);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (targetIndex: number) => {
-    if (draggedHero) {
-      const currentIndex = teamOrder.indexOf(draggedHero);
-      if (currentIndex !== targetIndex) {
-        const newOrder = [...teamOrder];
-        newOrder.splice(currentIndex, 1);
-        newOrder.splice(targetIndex, 0, draggedHero);
-        setTeamOrder(newOrder);
-      }
-      setDraggedHero(null);
-      setDragPosition(null);
-    }
-  };
-
-  const canPick = (): boolean => {
-    // Can pick if haven't picked this round yet
-    return (currentPlayer.team?.length || 0) < gameState.currentDraftPhase;
-  };
-
-  const renderBanPhase = () => {
-    const draftCards = getDraftCards();
-    
-    return (
-      <div className="draft-phase">
-        {/* Show teams display for consistency */}
-        <div className="teams-display">
-          <div className="current-team">
-            <h3>Your team (0/3)</h3>
-            <div className="team-cards">
-              {/* Empty during ban phase */}
-            </div>
-          </div>
-          
-          {opponent && (
-            <div className="opponent-team">
-              <h3>Opponent's team (0/3)</h3>
-              <div className="team-cards">
-                {/* Empty during ban phase */}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="draft-cards ban-phase">
-          {draftCards.map((hero) => (
-            <HeroCard
-              key={hero.name}
-              hero={hero}
-              isSelectable={!currentPlayer.bannedCard}
-              isSelected={selectedCard === hero.name}
-              onClick={() => setSelectedCard(hero.name)}
-            />
-          ))}
-        </div>
-
-        <div className="draft-actions">
-          <button
-            onClick={handleBanCard}
-            disabled={!selectedCard || !!currentPlayer.bannedCard || gameState.phase !== 'draft' || gameState.currentDraftPhase !== 0}
-            className="action-button"
-          >
-            Ban card
+  return (
+    <div ref={rootRef} className={classes} style={style} {...motion.attrs}>
+      <BeforeUpdate onBefore={motion.before} />
+      {layout === 'focus' ? <DraftBigCard hero={bigHero} waiting={!ordering && locked} /> : null}
+      <DraftTopBar step={step} clock={clock} connecting={connecting} onLeave={() => socketService.abandonDraft()} />
+      <DraftBand
+        layout={layout}
+        me={{ name: currentPlayer.name, team: ordering ? orderHeroes : team, status: myStatus }}
+        them={{ name: opponent?.name ?? 'Opponent', team: opponent?.team ?? [], status: theirStatus }}
+        bans={bans}
+        banHolo={banHolo}
+        onRead={read}
+        heroByName={heroByName}
+      />
+      {ordering ? (
+        <DraftOrder order={orderHeroes} selected={orderSel} ready={ready} onTap={tapHero} tiny={tinyHand} banner={banner} />
+      ) : (
+        <DraftHand
+          cards={shownHand}
+          chosen={shown}
+          step={step}
+          locked={locked}
+          onChoose={choose}
+          layout={layout}
+          tiny={tinyHand}
+          banner={banner}
+        />
+      )}
+      <footer className="draft-foot">
+        {ordering ? (
+          <button type="button" className="draft-act" disabled={ready || orderNames.length !== 3} onClick={act}>
+            {ready ? 'Ready ✓' : 'Ready'}
           </button>
-        </div>
-
-        {currentPlayer.bannedCard && (
-          <p>You banned: <strong>{currentPlayer.bannedCard}</strong></p>
-        )}
-        
-        {opponent?.bannedCard && (
-          <p>Opponent banned: <strong>{opponent.bannedCard}</strong></p>
-        )}
-
-        {draftTimer && draftTimer.round === gameState.currentDraftPhase && !currentPlayer.bannedCard && (
-          <DraftClock key={draftTimer.round} deadline={draftTimer.deadline} durationMs={draftTimer.durationMs} action="ban" />
-        )}
-      </div>
-    );
-  };
-
-  const renderPickPhase = () => {
-    const draftCards = getDraftCards();
-    
-    return (
-      <div className="draft-phase">
-        {/* Main Draft Content */}
-        <div className="draft-main-content">
-          <div className="teams-display">
-            <div className="current-team">
-              <h3>Your team ({currentPlayer.team?.length || 0}/3)</h3>
-              <div className="team-cards">
-                {(currentPlayer.team || []).map((hero) => (
-                  <HeroCard
-                    key={hero.name}
-                    hero={hero}
-                  />
-                ))}
-              </div>
-            </div>
-            
-            {opponent && (
-              <div className="opponent-team">
-                <h3>Opponent's team ({opponent.team?.length || 0}/3)</h3>
-                <div className="team-cards">
-                  {(opponent.team || []).map((hero) => (
-                    <HeroCard
-                      key={hero.name}
-                      hero={hero}
-                      isEnemy={true}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className={`draft-cards${gameState.currentDraftPhase > 1 ? ' pick-phase' : ''}`}>
-            {draftCards.map((hero) => (
-              <HeroCard
-                key={hero.name}
-                hero={hero}
-                isSelectable={canPick()}
-                isSelected={selectedCard === hero.name}
-                onClick={() => canPick() && setSelectedCard(hero.name)}
-              />
-            ))}
-          </div>
-
-          <div className="draft-actions">
-            <button
-              onClick={handlePickCard}
-              disabled={!selectedCard || !canPick()}
-              className="action-button"
-            >
-              Pick card
-            </button>
-          </div>
-        </div>
-
-        {draftTimer && draftTimer.round === gameState.currentDraftPhase && canPick() && (
-          <DraftClock key={draftTimer.round} deadline={draftTimer.deadline} durationMs={draftTimer.durationMs} action="pick" />
-        )}
-      </div>
-    );
-  };
-
-  const renderSetupPhase = () => {
-    return (
-      <div className="setup-phase">
-        <h2>Team Setup</h2>
-        <p>Drag and drop to arrange your heroes' attack order (left to right):</p>
-        
-        {opponent && opponent.isReady && (
-          <div className="opponent-ready-indicator">
-            <span><Icon name="check" /> Opponent is ready</span>
-          </div>
-        )}
-        
-        <div className="team-order-setup">
-          <div className="draggable-team">
-            {teamOrder.map((heroName, index) => {
-              const hero = getHeroByName(heroName);
-              if (!hero) {
-                console.error('Hero not found for name:', heroName);
-                console.log('All heroes names:', allHeroes.map(h => h.name));
-              }
-              const isDragging = draggedHero === heroName;
-              return hero ? (
-                <div
-                  key={heroName}
-                  className={`draggable-hero-slot ${isDragging ? 'dragging' : ''}`}
-                  draggable={!isReady}
-                  onDragStart={(e) => !isReady && handleDragStart(heroName, e)}
-                  onDrag={handleDrag}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={handleDragOver}
-                  onDrop={() => !isReady && handleDrop(index)}
-                  style={{
-                    opacity: isDragging ? 0.3 : 1,
-                    transition: 'opacity 0.15s ease, transform 0.3s ease'
-                  }}
-                >
-                  <div className="position-badge">{index + 1}</div>
-                  <HeroCard
-                    hero={hero}
-                    isSelectable={false}
-                  />
-                </div>
-              ) : null;
-            })}
-          </div>
-        </div>
-
-        {/* Floating card that follows cursor during drag */}
-        {draggedHero && dragPosition && (
-          <div
-            style={{
-              position: 'fixed',
-              left: dragPosition.x - 100,
-              top: dragPosition.y - 150,
-              pointerEvents: 'none',
-              zIndex: 9999,
-              opacity: 0.9,
-              transform: 'rotate(-5deg)',
-              transition: 'none',
-              willChange: 'transform'
-            }}
+        ) : (
+          <button
+            type="button"
+            className={`draft-act${step === 0 ? ' draft-act--ban' : ''}`}
+            disabled={!chosen || locked}
+            onClick={act}
           >
-            <HeroCard
-              hero={getHeroByName(draggedHero)!}
-              isSelectable={false}
-            />
-          </div>
+            {chosen && !locked ? `${verb} ${chosen}` : verb}
+          </button>
         )}
-
-        <div className="setup-actions">
-          {!isReady ? (
-            <button
-              onClick={handleSetAttackOrder}
-              disabled={teamOrder.length !== 3}
-              className="action-button ready-button"
-            >
-              Ready
-            </button>
-          ) : (
-            <div className="ready-status">
-              <span className="ready-indicator"><Icon name="check" /> You are ready. Waiting for opponent...</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  if (gameState.phase === 'setup') {
-    return renderSetupPhase();
-  } else if (gameState.currentDraftPhase === 0) {
-    return renderBanPhase();
-  } else {
-    return renderPickPhase();
-  }
+      </footer>
+      {/* Copies in motion (the old hand sliding off, a stamped card) are laid here; they ignore the pointer. */}
+      <div className="draft-fx" aria-hidden="true" />
+    </div>
+  );
 };
 
 export default DraftPhase;

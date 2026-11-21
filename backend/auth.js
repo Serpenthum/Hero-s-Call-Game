@@ -1,7 +1,6 @@
 // Login tokens. Logging in returns a random token; requests and socket connections that act on an
 // account must present it, so a client can't simply claim to be another user id.
 // Tokens live in memory: a server restart logs everyone out, same as the existing session maps.
-const crypto = require('crypto');
 
 function createAuth() {
   const tokenToUser = new Map(); // token -> userId
@@ -10,7 +9,7 @@ function createAuth() {
   function issueToken(userId) {
     const id = Number(userId);
     revokeUser(id); // logging in again invalidates the previous session's token
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('');
     tokenToUser.set(token, id);
     userToToken.set(id, token);
     return token;
@@ -34,6 +33,19 @@ function createAuth() {
     const token = userToToken.get(id);
     if (token) tokenToUser.delete(token);
     userToToken.delete(id);
+  }
+
+  // The account's live token, or null
+  function tokenOf(userId) {
+    return userToToken.get(Number(userId)) || null;
+  }
+
+  // Revokes this exact token (not a newer one the account got since)
+  function revokeToken(token) {
+    const id = tokenToUser.get(token);
+    if (id === undefined) return;
+    tokenToUser.delete(token);
+    if (userToToken.get(id) === token) userToToken.delete(id);
   }
 
   function tokenFromRequest(req) {
@@ -60,7 +72,7 @@ function createAuth() {
     next();
   }
 
-  return { issueToken, verify, verifyUser, revokeUser, requireUser };
+  return { issueToken, verify, verifyUser, revokeUser, revokeToken, tokenOf, requireUser };
 }
 
 module.exports = { createAuth };

@@ -30,6 +30,11 @@
   animation: gameOverPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) 0.8s both;
 }
 
+/* A dialog the player opened (surrender confirm) shares the modal look but must appear at once */
+.game-over-modal.confirm-modal {
+  animation: gameOverPop 0.2s ease-out both;
+}
+
 .game-over-title.winner {
   animation: victoryGlow 1.6s ease-in-out 1.3s infinite alternate;
 }
@@ -55,6 +60,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .game-over-modal,
+  .game-over-modal.confirm-modal,
   .game-over-title.winner,
   .game-over-title.loser {
     animation: none;

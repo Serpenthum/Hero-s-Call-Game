@@ -1,13 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import HeroCard from './HeroCard';
+import BattleDetailsPanel from './BattleDetailsPanel';
+import {
+  InspectedCard,
+  turnFocus,
+  readFocus,
+  attackGate,
+  actionGate,
+  attackLabel,
+  actionLabel,
+  specialTargeting,
+  UNKNOWN_TARGETING,
+  tauntTargetFor,
+  focusButtonState,
+} from '../battle/focus';
+import type { FocusButtonState } from '../battle/focus';
 import Icon from './ui/Icon';
 import RewardsDisplay from './RewardsDisplay';
 import BattleFX from './BattleFX';
 import TurnTimerBar from './TurnTimerBar';
+import { DisconnectCaption, DisconnectNotice, DisconnectOverlay } from './DisconnectBadge';
+import { DisconnectCountdown } from '../reconnect';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
+import { isHeroAlive } from '../heroHealth';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/BattlePhone.css';
 
@@ -22,7 +41,9 @@ interface BattlePhaseProps {
   spectatingPlayerId?: string;
   onStopSpectating?: () => void;
   spectators?: Array<{ socketId: string; username: string; spectatingPlayerId: string }>;
-  turnTimer?: { playerId: string; deadline: number; durationMs: number } | null;
+  turnTimer?: { playerId: string; deadline: number; durationMs: number; paused?: boolean; remainingMs?: number } | null;
+  // Players who dropped out: player id -> when their seat is given up (local clock)
+  disconnectDeadlines?: Record<string, DisconnectCountdown>;
   isTutorial?: boolean;
   // Tutorial: how many of the six heroes (opp0, me0, opp1, me1, ...) are shown; null/undefined = all
   tutorialReveal?: number | null;
@@ -48,6 +69,10 @@ interface BattlePhaseProps {
     victoryPointsGained: number;
     leveledUp: boolean;
   };
+  // The card shown in the details panel (null when it is closed), for the tutorial
+  onInspectChange?: (inspected: InspectedCard | null) => void;
+  // Closes the details panel whenever it changes (the tutorial clears the board for a prompt)
+  closeDetailsSignal?: number;
 }
 
 const BattlePhaseView: React.FC<BattlePhaseProps> = ({ 
@@ -61,48 +86,128 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   onStopSpectating,
   spectators = [],
   turnTimer = null,
+  disconnectDeadlines = {},
   isTutorial = false,
   tutorialReveal = null,
   timekeeperAbilitySelection,
   onClearTimekeeperSelection,
-  rewardsData
+  rewardsData,
+  onInspectChange,
+  closeDetailsSignal
 }) => {
 
   const [initiativeChoice, setInitiativeChoice] = useState<boolean | null>(null);
   const [selectingAllyForAbility, setSelectingAllyForAbility] = useState<{ abilityIndex: number; targetId: string } | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState<boolean>(false);
   const [showSpectatorList, setShowSpectatorList] = useState<boolean>(false);
-  const [opponentDisconnectTime, setOpponentDisconnectTime] = useState<number | null>(null);
+  // The card in the details panel over the left column (players and spectators)
+  const [inspected, setInspected] = useState<InspectedCard | null>(null);
+  const closeDetails = useCallback(() => setInspected(null), []);
+
+  useEffect(() => {
+    onInspectChange?.(inspected);
+  }, [inspected, onInspectChange]);
+  // Nothing is shown once the battle screen is gone
+  const inspectChangeRef = useRef(onInspectChange);
+  inspectChangeRef.current = onInspectChange;
+  useEffect(() => () => inspectChangeRef.current?.(null), []);
+
+  // The panel closes on a tap anywhere but a card or the panel, and on Escape
+  useEffect(() => {
+    if (!inspected) return;
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.('.hero-card, [data-keep-details]')) return;
+      setInspected(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setInspected(null);
+    };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [inspected]);
+
+  useEffect(() => {
+    if (closeDetailsSignal) setInspected(null);
+  }, [closeDetailsSignal]);
+
+  // ...and when the turn passes, the active hero changes, or the battle ends
+  const activeHeroPlayerIndex = gameState.activeHero?.playerIndex;
+  const activeHeroIndex = gameState.activeHero?.heroIndex;
+  useEffect(() => {
+    setInspected(null);
+    // A Chrono Shift / ally-target pick left open (e.g. the turn timer ran out) belongs to the old turn
+    setSelectingAllyForAbility(null);
+  }, [gameState.currentTurn, activeHeroPlayerIndex, activeHeroIndex]);
+  useEffect(() => {
+    if (gameState.phase === 'ended') setInspected(null);
+  }, [gameState.phase]);
+
+  const renderDetailsPanel = () => {
+    if (!inspected || gameState.phase === 'ended') return null;
+    const owner = inspected.side === 'enemy' ? opponent : currentPlayer;
+    const hero = owner?.team.find(h => h.name === inspected.name);
+    const slot = typeof document !== 'undefined' ? document.getElementById('battle-details-slot') : null;
+    if (!owner || !hero || !slot) return null;
+    const focus = turnFocus(gameState);
+    const isFocused = !!focus && focus.defenderId === owner.id && focus.focus.name === hero.name;
+    return createPortal(
+      <BattleDetailsPanel
+        hero={hero}
+        side={inspected.side}
+        isFocused={isFocused}
+        onClose={closeDetails}
+      />,
+      slot
+    );
+  };
   const playerGrid = useCardGrid({ fixedColumns: Math.max(1, currentPlayer.team.length), gap: 4, frameSpace: 2 });
   const opponentGrid = useCardGrid({ fixedColumns: Math.max(1, opponent?.team.length ?? 0), gap: 4, frameSpace: 2 });
 
-  // Poll for disconnection timer updates
-  useEffect(() => {
-    if (!opponent || opponent.connected || !gameState || gameState.phase !== 'battle') {
-      setOpponentDisconnectTime(null);
-      return;
-    }
+  // A player who dropped out (the server holds their seat and counts down) until the game ends
+  const isDisconnected = (player: Player | null | undefined): player is Player =>
+    !!player && gameState.phase !== 'ended' && (player.connected === false || disconnectDeadlines[player.id] !== undefined);
+  const deadlineFor = (player: Player) => disconnectDeadlines[player.id] ?? null;
 
-    // Check if opponent has a disconnection timer
-    if (opponent.disconnectionTimer && opponent.disconnectionTimer.remainingTime > 0) {
-      setOpponentDisconnectTime(opponent.disconnectionTimer.remainingTime);
-      
-      // Update countdown every second
-      const interval = setInterval(() => {
-        setOpponentDisconnectTime(prev => {
-          if (prev === null || prev <= 0) {
-            clearInterval(interval);
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(interval);
-    } else {
-      setOpponentDisconnectTime(null);
-    }
-  }, [opponent, gameState]);
+  // The avatar beside a team, with the disconnect countdown over it when that player dropped out
+  const renderPlayerBadge = (player: Player | null, isOpponentSide: boolean) => {
+    const off = isDisconnected(player);
+    const icon = player?.profile_icon;
+    return (
+      <>
+        <div className={`player-profile-icon${off ? ' player-profile-icon--disconnected' : ''}`}>
+          <span className="profile-icon-frame">
+            <img
+              src={`${config.IMAGE_BASE_URL}/hero-images/${(icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
+              alt={icon || 'Default'}
+              className="profile-icon-small"
+              onError={(e) => {
+                console.log('Profile icon failed to load:', icon);
+                (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
+                  <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100%" height="100%" fill="#333"/>
+                    <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="6" fill="#999" text-anchor="middle" dy=".3em">No Image</text>
+                  </svg>
+                `)}`;
+              }}
+            />
+            {off && <DisconnectOverlay countdown={deadlineFor(player)} />}
+          </span>
+        </div>
+        {off && (
+          <DisconnectCaption
+            countdown={deadlineFor(player)}
+            name={player.name}
+            viewerIsOpponent={isOpponentSide && !isSpectating}
+          />
+        )}
+      </>
+    );
+  };
 
   // Helper function to check if current ability selection is Timekeeper's Chrono Shift
   const isTimekeeperChronoShift = () => {
@@ -115,6 +220,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   // Helper function to handle ally selection for abilities
   const handleAllyClick = (targetId: string) => {
     if (selectingAllyForAbility) {
+      closeDetails();
       socketService.useAbility(selectingAllyForAbility.abilityIndex, selectingAllyForAbility.targetId, targetId);
       setSelectingAllyForAbility(null);
     }
@@ -194,57 +300,16 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
 
 
-  const getTargetableEnemies = (): Hero[] => {
-    // Spectators cannot target anyone
-    if (isSpectating) {
-      return [];
-    }
-    
-    // Only allow targeting if it's my turn AND I haven't selected a target yet
-    if (!isMyTurn()) {
-      return [];
-    }
-    
-    if (!opponent) {
-      return [];
-    }
-    
-    // Check if I already have a selected target
-    const myPlayerData = gameState.players.find(p => p.id === playerId);
-    if (myPlayerData?.selectedTarget) {
-      return [];
-    }
-
-    // Check if current hero is taunted (heroes like Barbarian ignore taunts and may pick anyone)
-    const currentHero = getCurrentHero();
-    const specials: any[] = currentHero?.Special
-      ? (Array.isArray(currentHero.Special) ? currentHero.Special : [currentHero.Special])
-      : [];
-    const ignoresTaunt = specials.some(special =>
-      special?.effects?.some((effect: any) => effect.type === 'passive_modifier' && effect.effect === 'ignore_taunt'));
-    if (!ignoresTaunt && currentHero?.statusEffects?.taunt?.target) {
-      const tauntTargetName = currentHero.statusEffects.taunt.target;
-      const tauntTarget = opponent.team.find(h => h.name === tauntTargetName);
-      if (tauntTarget) {
-        const hp = tauntTarget.currentHP !== undefined ? tauntTarget.currentHP : (typeof tauntTarget.HP === 'string' ? parseInt(tauntTarget.HP) : tauntTarget.HP);
-        // Return only the taunt target if alive, otherwise empty array
-        return hp > 0 ? [tauntTarget] : [];
-      }
-    }
-    
-    const targetable = opponent.team.filter(hero => {
-      const hp = hero.currentHP !== undefined ? hero.currentHP : (typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP);
-      const isAlive = hp > 0;
-      const isTargetable = !hero.statusEffects?.untargetable;
-      
-      return isAlive && isTargetable;
-    });
-    
-    return targetable;
-  };
-
-  const handleTargetSelection = (targetId: string) => {
-    socketService.selectTarget(targetId);
+  // My turn: an enemy the active hero could not focus right now (taunted elsewhere, or untargetable)
+  const isEnemyBlocked = (enemy: Hero): boolean => {
+    if (isSpectating || !isMyTurn() || !isHeroAlive(enemy)) return false;
+    const active = getCurrentHero();
+    if (!active) return false;
+    const tauntTarget = tauntTargetFor(active, opponent);
+    // The server forces a taunted hero's focus onto a living taunter, even an untargetable one
+    if (tauntTarget) return tauntTarget !== enemy.name;
+    const effects = enemy.statusEffects;
+    return !!effects?.untargetable && effects.untargetableAttacker !== active.name;
   };
 
   const revealFor = (isOpponentSide: boolean, heroIndex: number): 'hidden' | 'grow' | undefined => {
@@ -278,6 +343,15 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     return (
       <div className="initiative-overlay">
         <div className="initiative-phase">
+          {/* The opponent dropped out during the roll: say so above the roll itself */}
+          {isDisconnected(opponent) && (
+            <DisconnectNotice
+              countdown={deadlineFor(opponent)}
+              name={opponent.name}
+              profileIcon={opponent.profile_icon}
+              viewerIsOpponent={!isSpectating}
+            />
+          )}
           <h2>Starting Roll!</h2>
           <p>Roll a 20-sided die to determine turn order!</p>
           
@@ -350,9 +424,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
   };
 
   const renderBattlePhase = () => {
-    const targetableEnemies = getTargetableEnemies();
-    const selectedEnemyTarget = gameState.players.find(p => p.id === playerId)?.selectedTarget ?? null;
-    const choosingEnemyTarget = !isSpectating && isMyTurn() && !selectedEnemyTarget;
+    // The acting player's focus, marked for everyone on the defender's side
+    const marked = turnFocus(gameState);
+    const isMarked = (owner: Player | null, hero: Hero) =>
+      !!marked && !!owner && marked.defenderId === owner.id && marked.focus.name === hero.name;
     const isAllySelectable = (hero: Hero) => !!selectingAllyForAbility && (hero.currentHP ?? 0) > 0 && (
       !isTimekeeperChronoShift() || (hero.name !== 'Timekeeper' && !!hero.Ability && hero.Ability.length > 0)
     );
@@ -363,22 +438,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
           <div className="opponent-area">
             <div className="team-label-container">
               <h3 className="team-label opponent-label" title={opponent?.name || 'Opponent Player'}>{opponent?.name || 'Opponent Player'}</h3>
-              <div className="player-profile-icon">
-                <img 
-                  src={`${config.IMAGE_BASE_URL}/hero-images/${(opponent?.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
-                  alt={opponent?.profile_icon || 'Default'}
-                  className="profile-icon-small"
-                  onError={(e) => {
-                    console.log('Opponent profile icon failed to load:', opponent?.profile_icon);
-                    (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
-                      <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="100%" height="100%" fill="#333"/>
-                        <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="6" fill="#999" text-anchor="middle" dy=".3em">No Image</text>
-                      </svg>
-                    `)}`;
-                  }}
-                />
-              </div>
+              {renderPlayerBadge(opponent, true)}
             </div>
 
             <div className="team-display" ref={opponentGrid.ref} style={opponentGrid.style}>
@@ -388,6 +448,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   animKey={`${opponent?.id}:${heroIndex}`}
                   tutorialReveal={revealFor(true, heroIndex)}
                   hero={hero}
+                  holo={!!hero.holo}
                   isCurrentTurn={(() => {
                     if (!gameState.activeHero) return false;
                     // Find opponent's player index
@@ -398,14 +459,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                            gameState.activeHero.heroIndex === heroIndex; // Match exact hero position
                   })()}
                   isEnemy={true}
-                  isSelectable={isMyTurn() && targetableEnemies.includes(hero)}
-                  isBlocked={choosingEnemyTarget && !targetableEnemies.includes(hero)}
-                  isSelected={selectedEnemyTarget === hero.name}
-                  onClick={() => {
-                    if (isMyTurn() && targetableEnemies.includes(hero)) {
-                      handleTargetSelection(hero.name);
-                    }
-                  }}
+                  isBlocked={isEnemyBlocked(hero)}
+                  isFocused={isMarked(opponent, hero)}
+                  // A tap only shows the enemy; the Focus button in the action bar selects it
+                  onInspect={() => setInspected({ name: hero.name, side: 'enemy' })}
                 />
               ))}
             </div>
@@ -414,22 +471,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
           <div className="player-area">
             <div className="team-label-container">
               <h3 className="team-label player-label" title={currentPlayer.name || 'Your Team'}>{currentPlayer.name || 'Your Team'}</h3>
-              <div className="player-profile-icon">
-                <img 
-                  src={`${config.IMAGE_BASE_URL}/hero-images/${(currentPlayer.profile_icon || 'sorcerer').toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
-                  alt={currentPlayer.profile_icon || 'Default'}
-                  className="profile-icon-small"
-                  onError={(e) => {
-                    console.log('Current player profile icon failed to load:', currentPlayer.profile_icon);
-                    (e.target as HTMLImageElement).src = `data:image/svg+xml;base64,${btoa(`
-                      <svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-                          <rect width="100%" height="100%" fill="#333"/>
-                          <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="6" fill="#999" text-anchor="middle" dy=".3em">No Image</text>
-                        </svg>
-                      `)}`;
-                  }}
-                />
-              </div>
+              {renderPlayerBadge(currentPlayer, false)}
             </div>
             <div className="team-display" ref={playerGrid.ref} style={playerGrid.style}>
               {currentPlayer.team.map((hero, heroIndex) => (
@@ -438,6 +480,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   animKey={`${currentPlayer.id}:${heroIndex}`}
                   tutorialReveal={revealFor(false, heroIndex)}
                   hero={hero}
+                  holo={!!hero.holo}
                   isCurrentTurn={(() => {
                     if (!gameState.activeHero) return false;
                     // Find current player's index
@@ -449,8 +492,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   })()}
                   isSelectable={isAllySelectable(hero)}
                   isBlocked={!!selectingAllyForAbility && !isAllySelectable(hero)}
+                  isFocused={isMarked(currentPlayer, hero)}
                   onClick={() => {
                     if (selectingAllyForAbility && (hero.currentHP ?? 0) > 0) {
+                      closeDetails();
                       // Check if this is Timekeeper's Chrono Shift
                       if (isTimekeeperChronoShift()) {
                         // Prevent Timekeeper from targeting itself
@@ -467,6 +512,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       handleAllyClick(hero.name);
                     }
                   }}
+                  onInspect={() => setInspected({ name: hero.name, side: 'ally' })}
                 />
               ))}
             </div>
@@ -476,6 +522,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         {/* Action Bar - always show for visual consistency */}
         <div className="action-bar">
           <h3>{isSpectating ? 'Spectating' : 'Actions'}</h3>
+          {/* My turn, but the opponent dropped out: my clock is stopped until they are back */}
+          {!isSpectating && gameState.phase === 'battle' && isMyTurn() && isDisconnected(opponent) && (
+            <div className="ui-hint turn-clock-stopped">Turn clock stopped while {opponent.name} reconnects</div>
+          )}
           {isSpectating ? (
             // Spectator mode - show minimal UI with stop spectating button
             <div className="spectator-controls">
@@ -495,13 +545,26 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             (() => {
             if (!isMyTurn()) {
               const activeHero = getCurrentActiveHero();
+              if (isDisconnected(opponent) && gameState.phase === 'battle') {
+                return (
+                  <div className="action-prompt">
+                    <div>{opponent.name} disconnected</div>
+                    <div className="ui-hint">The turn clock is stopped until they are back</div>
+                  </div>
+                );
+              }
               if (activeHero) {
+                // The opponent's focus, when it is one of my heroes
+                const theirFocus = readFocus(opponent ?? undefined, currentPlayer);
                 return (
                   <div className="action-prompt">
                     <div>Waiting for {activeHero.hero.name}</div>
-                    <div style={{ fontSize: '12px', color: '#888' }}>
+                    <div className="action-prompt-sub">
                       Opponent's Turn
                     </div>
+                    {theirFocus && (
+                      <div className="focus-line">Focus: <strong>{theirFocus.name}</strong></div>
+                    )}
                   </div>
                 );
               } else {
@@ -513,15 +576,13 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             const myPlayerData = gameState.players.find(p => p.id === playerId);
             const activeHero = getCurrentActiveHero();
             
-            // Helper function to check if the selected target is still alive
-            const isSelectedTargetAlive = () => {
-              if (!myPlayerData?.selectedTarget || !opponent) return false;
-              const targetHero = opponent.team.find(hero => hero.name === myPlayerData.selectedTarget);
-              return targetHero && (targetHero.currentHP || targetHero.HP) > 0;
-            };
-            
             if (!activeHero || !myPlayerData) {
-              return <div>No active hero</div>;
+              // No hero to act with: the battle has ended, or the state naming the active hero has not arrived yet
+              return (
+                <div className="action-prompt">
+                  {gameState.phase === 'ended' ? 'The battle is over' : 'Waiting for the battle to start...'}
+                </div>
+              );
             }
 
             // Check if active hero is dead
@@ -531,22 +592,28 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
               return (
                 <div className="action-prompt">
                   <div>Your hero {activeHero.hero.name} has fallen! Turn will advance automatically...</div>
-                  <div style={{ fontSize: '12px', color: '#888' }}>
+                  <div className="action-prompt-sub">
                     (Backend is handling turn advancement)
                   </div>
                 </div>
               );
             }
 
-            if (!myPlayerData.selectedTarget) {
-              return (
-                <div className="action-prompt">
-                  Select an enemy to target first!
-                </div>
-              );
-            }
-
-
+            // My focus (null until an enemy is focused) and the Focus button for the enemy in the details panel
+            const focus = readFocus(myPlayerData, opponent);
+            const tauntTarget = tauntTargetFor(activeHero.hero, opponent);
+            const inspectedEnemy = inspected?.side === 'enemy' ? opponent?.team.find(h => h.name === inspected.name) : undefined;
+            const focusButton = inspectedEnemy
+              ? focusButtonState({
+                  isMyTurn: true,
+                  isSpectating,
+                  inspected: { hero: inspectedEnemy, side: 'enemy' },
+                  focus,
+                  focusLocked: !!myPlayerData.focusLocked,
+                  tauntTarget,
+                  activeHeroName: activeHero.hero.name,
+                })
+              : { show: false as const };
 
             // Check if selecting ally for ability
             if (selectingAllyForAbility) {
@@ -567,6 +634,41 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
               );
             }
 
+            // Before a focus the sidebar holds only the Focus button (or how to get it): nothing else can be done yet
+            if (!focus) {
+              // Safety net: with no enemy that can be focused the server normally ends the turn itself, but it
+              // doesn't in gauntlet or with auto end-turn switched off, so End Turn is offered then
+              const canFocusAny = !!opponent?.team.some(h => isHeroAlive(h) && !isEnemyBlocked(h));
+              if (!canFocusAny) {
+                return (
+                  <div className="action-buttons focus-step">
+                    <div className="action-prompt focus-hint" data-tutorial="no-focus">No enemy can be focused</div>
+                    <button
+                      className="action-button end-turn-button"
+                      data-tutorial="end-turn"
+                      onClick={() => {
+                        closeDetails();
+                        socketService.endTurn();
+                      }}
+                    >
+                      End Turn
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <div className="action-buttons focus-step">
+                  {focusButton.show && inspectedEnemy ? (
+                    <FocusButton state={focusButton} onFocus={() => socketService.selectTarget(inspectedEnemy.name)} />
+                  ) : (
+                    <div className="action-prompt focus-hint">
+                      {tauntTarget ? `Taunted: tap ${tauntTarget} to focus` : 'Tap an enemy to focus'}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <div className="action-buttons">
                 <div className="hero-info">
@@ -578,37 +680,35 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   </div>
                 </div>
                 
-                <div className="selected-target">
-                  Target: <strong>{myPlayerData.selectedTarget}</strong>
-                </div>
-                
+
                 {/* Show basic attack button only if hero has basic attack */}
                 {activeHero.hero.BasicAttack !== "—" && (
                   (() => {
                     const canMultipleAttacks = canUseMultipleAttacks(activeHero.hero);
                     const usedAttacks = myPlayerData.usedAttacks || 0;
-                    const oneTwoPunchRemaining = myPlayerData.oneTwoPunchAttacksRemaining || 0;
-                    let attackButtonText = `Attack (${formatDamageWithStacks(activeHero.hero)})`;
-                    // Check if hero is stunned (has disableAttack status)
-                    const isStunned = activeHero.hero.statusEffects?.disableAttack === true || 
-                                     (typeof activeHero.hero.statusEffects?.disableAttack === 'object' && 
-                                      activeHero.hero.statusEffects.disableAttack?.active);
-                    
-                    let isAttackDisabled = !isSelectedTargetAlive() || isStunned;
-                    
+                    const gate = attackGate(focus);
+                    let attackButtonText = attackLabel(`Attack (${formatDamageWithStacks(activeHero.hero)})`, gate);
+                    // Check if hero is stunned (Dual Defender's disableAttack, or a stun): the server refuses both
+                    const isStunned = activeHero.hero.statusEffects?.disableAttack === true ||
+                                     (typeof activeHero.hero.statusEffects?.disableAttack === 'object' &&
+                                      activeHero.hero.statusEffects.disableAttack?.active) ||
+                                     !!(activeHero.hero.statusEffects as any)?.stun?.active;
+
+                    let isAttackDisabled = !gate.ok || isStunned;
+
                     // For heroes that can attack multiple times, check attack count instead of hasUsedAttack
                     if (canMultipleAttacks) {
                       isAttackDisabled = isAttackDisabled || usedAttacks >= 2;
                     } else {
                       isAttackDisabled = isAttackDisabled || myPlayerData.hasUsedAttack;
                     }
-                    
+
                     // Handle Monk's attack tracking
                     if (activeHero.hero.name === 'Monk') {
                       const monkAttacksRemaining = (myPlayerData as any).monkAttacksRemaining || 0;
                       if (monkAttacksRemaining > 0) {
                         attackButtonText += ` (${monkAttacksRemaining} left)`;
-                        isAttackDisabled = !isSelectedTargetAlive();
+                        isAttackDisabled = !gate.ok || isStunned;
                       } else {
                         attackButtonText += ' (Used)';
                         isAttackDisabled = true;
@@ -628,10 +728,6 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       }
                     }
                     
-                    if (!isSelectedTargetAlive() && !myPlayerData.hasUsedAttack && oneTwoPunchRemaining === 0) {
-                      attackButtonText += ' (Target Dead)';
-                    }
-                    
                     // Add stunned indicator
                     if (isStunned) {
                       attackButtonText += ' (Stunned)';
@@ -643,7 +739,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                         disabled={isAttackDisabled}
                         data-tutorial="attack"
                         onClick={() => {
-                          socketService.basicAttack(myPlayerData.selectedTarget!);
+                          closeDetails();
+                          socketService.basicAttack(focus.name);
                         }}
                       >
                         {attackButtonText}
@@ -665,9 +762,13 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   // Check if abilities are permanently disabled (Dragon Rider's Dismount)
                   const isPermanentlyDisabled = (activeHero.hero as any).permanentDisables?.abilities;
                   
+                  // Where the ability lands decides whether it needs a living focus (focus.ts actionGate)
+                  const targeting = gameState.activeHero?.abilityTargeting?.[index] ?? UNKNOWN_TARGETING;
+                  const gate = actionGate(targeting, focus);
+
                   // For heroes with multiple abilities (like Blood Hunter), check individual ability usage
                   let isDisabled;
-                  let buttonText = ability.name;
+                  let buttonText = actionLabel(ability.name, gate);
                   
                   if (isPermanentlyDisabled) {
                     isDisabled = true;
@@ -700,26 +801,16 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                     buttonText += ' (Silenced)';
                   }
                   
-                  // Disable if bribed and trying to target the briber
+                  // Disable if bribed and the living focus is the briber (self abilities never touch it)
                   const cannotTargetWith = activeHero.hero.statusEffects?.cannotTargetWithAbility;
-                  if (cannotTargetWith && myPlayerData.selectedTarget) {
-                    // Find the selected target to check if it's the owner
-                    const selectedTargetHero = gameState.players
-                      .flatMap(p => p.team)
-                      .find(h => h.name === myPlayerData.selectedTarget);
-                    
-                    if (selectedTargetHero && selectedTargetHero.name === cannotTargetWith.owner) {
-                      isDisabled = true;
-                      buttonText += ' (Bribed)';
-                    }
-                  }
-                  
-                  // Disable if selected target is dead (but not if already disabled)
-                  if (!isSelectedTargetAlive() && !isSilenced && !isDisabled) {
+                  if (cannotTargetWith && focus?.alive && focus.name === cannotTargetWith.owner && targeting.kind !== 'self') {
                     isDisabled = true;
-                    buttonText += ' (Target Dead)';
+                    buttonText += ' (Bribed)';
                   }
-                  
+
+                  // No focus yet, or a single-target damaging ability whose focus has fallen
+                  if (!gate.ok) isDisabled = true;
+
                   return (
                     <button 
                       key={index}
@@ -727,17 +818,18 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                       disabled={isDisabled}
                       data-tutorial="ability"
                       onClick={() => {
+                        closeDetails();
                         // Special case for Timekeeper's Chrono Shift - needs to select ally to command
                         if (activeHero.hero.name === 'Timekeeper' && ability.name === 'Chrono Shift') {
-                          setSelectingAllyForAbility({ abilityIndex: index, targetId: myPlayerData.selectedTarget! });
+                          setSelectingAllyForAbility({ abilityIndex: index, targetId: focus.name });
                         }
                         // Check if this ability requires ally targeting (like Paladin's Divine Smite)
-                        else if (ability.requires_ally_target || 
-                                 (ability.secondary_effects && 
+                        else if (ability.requires_ally_target ||
+                                 (ability.secondary_effects &&
                                   ability.secondary_effects.some((effect: any) => effect.target === 'selected_ally'))) {
-                          setSelectingAllyForAbility({ abilityIndex: index, targetId: myPlayerData.selectedTarget! });
+                          setSelectingAllyForAbility({ abilityIndex: index, targetId: focus.name });
                         } else {
-                          socketService.useAbility(index, myPlayerData.selectedTarget!);
+                          socketService.useAbility(index, focus.name);
                         }
                       }}
                     >
@@ -756,6 +848,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                           key={index}
                           className="ability-option-button"
                           onClick={() => {
+                            closeDetails();
                             socketService.useTimekeeperSelectedAbility(
                               timekeeperAbilitySelection.target,
                               timekeeperAbilitySelection.ally,
@@ -794,21 +887,22 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   
                   // Check if permanently disabled (persists through resurrection)
                   const isPermanentlyDisabled = (activeHero.hero as any).permanentDisables?.special || false;
-                  const isDisabled = isPermanentlyDisabled || myPlayerData.hasUsedSpecial || false;
+                  const isUsed = isPermanentlyDisabled || myPlayerData.hasUsedSpecial || false;
                   const specialName = activeHero.hero.name === 'Bomber' ? 'Explosion' : (special as any).name;
-                  const buttonText = isDisabled ? `${specialName} (Used)` : specialName;
+                  // Activated specials are area effects: they need a focus first, but survive its fall
+                  const targeting = specialTargeting((special as any)?.category);
+                  const gate = actionGate(targeting, focus);
+                  const isDisabled = isUsed || !gate.ok;
+                  const label = actionLabel(specialName, gate);
+                  const buttonText = isUsed ? `${label} (Used)` : label;
                   
                   return (
                     <button 
                       className="action-button special-button"
                       disabled={isDisabled}
                       onClick={() => {
+                        closeDetails();
                         socketService.activateSpecial();
-                      }}
-                      style={{
-                        backgroundColor: isDisabled ? '#666' : '#ff4444',
-                        color: 'white',
-                        fontWeight: 'bold'
                       }}
                     >
                       {buttonText}
@@ -820,6 +914,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   className="action-button end-turn-button"
                   data-tutorial="end-turn"
                   onClick={() => {
+                    closeDetails();
                     socketService.endTurn();
                   }}
                 >
@@ -850,6 +945,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
       // Spectator view - just show who won
       const winnerPlayer = gameState.players.find(p => p.id === gameState.winner);
       const winnerName = winnerPlayer?.name || 'Unknown';
+      const leaver = gameState.endReason === 'disconnect' ? gameState.players.find(p => p.id !== gameState.winner) : null;
       
       return (
         <div className="game-over-overlay">
@@ -857,7 +953,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             <div className="game-over-content">
               <h2 className="game-over-title">{winnerName} Wins!</h2>
               <p className="game-over-message">
-                The battle has ended.
+                {leaver ? `${leaver.name} disconnected and did not come back in time.` : 'The battle has ended.'}
               </p>
               <button 
                 className="return-to-lobby-button"
@@ -884,6 +980,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
             <p className="game-over-message">
               {isTutorial
                 ? (isWinner ? 'You defeated the skeleton scout and completed the tutorial!' : 'You were defeated, but you completed the tutorial!')
+                : isWinner && gameState.endReason === 'disconnect'
+                ? 'Your opponent disconnected and did not come back in time.'
                 : isWinner 
                 ? 'Congratulations! You have defeated your opponent!' 
                 : 'Better luck next time! Your opponent was victorious.'}
@@ -925,7 +1023,12 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     );
   };
 
-  const battleContent = renderBattlePhase();
+  const battleContent = (
+    <>
+      {renderBattlePhase()}
+      {renderDetailsPanel()}
+    </>
+  );
   
   // If game is ended, show battle scene with overlay
   if (gameState.phase === 'ended') {
@@ -978,18 +1081,9 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
         </div>
       )}
 
-      {/* Opponent Disconnection Countdown - Bottom Right above Surrender */}
-      {!isSpectating && opponent && !opponent.connected && opponentDisconnectTime !== null && opponentDisconnectTime > 0 && gameState.phase === 'battle' && (
-        <div className="opponent-disconnect-notice" role="status">
-          <div className="notice-title"><Icon name="warning" /> {opponent.name} disconnected</div>
-          <div className="notice-count">{opponentDisconnectTime}s</div>
-          <div className="notice-hint">Auto-forfeit in progress</div>
-        </div>
-      )}
-
       {/* Turn timer - bottom right above Surrender, active player only */}
       {!isSpectating && turnTimer && turnTimer.playerId === playerId && gameState.phase === 'battle' && !gameState.winner && (
-        <TurnTimerBar key={turnTimer.deadline} deadline={turnTimer.deadline} durationMs={turnTimer.durationMs} />
+        <TurnTimerBar key={turnTimer.deadline} deadline={turnTimer.deadline} durationMs={turnTimer.durationMs} paused={turnTimer.paused} remainingMs={turnTimer.remainingMs} />
       )}
 
       {/* Floating Surrender Button - Bottom Right (only for players, not spectators) */}
@@ -1005,7 +1099,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
 
         {showSurrenderConfirm && (
           <div className="game-over-overlay">
-            <div className="game-over-modal">
+            <div className="game-over-modal confirm-modal">
               <div className="game-over-content">
                 <h2 className="surrender-title">Surrender Game?</h2>
                 <p className="surrender-message">
@@ -1032,6 +1126,22 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
       </>
     );
 };
+
+// The Focus button for the enemy shown in the details panel (state from focus.ts focusButtonState)
+export const FocusButton: React.FC<{
+  state: Extract<FocusButtonState, { show: true }>;
+  onFocus: () => void;
+}> = ({ state, onFocus }) => (
+  <button
+    className="action-button focus-button"
+    data-tutorial="focus"
+    data-keep-details
+    disabled={!state.enabled}
+    onClick={onFocus}
+  >
+    {state.label}
+  </button>
+);
 
 // Wrapper keeps the animation layer mounted across phase changes (e.g. the killing blow ending the game)
 const BattlePhase: React.FC<BattlePhaseProps> = (props) => {

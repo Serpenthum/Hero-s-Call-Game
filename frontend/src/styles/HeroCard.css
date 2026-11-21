@@ -72,295 +72,845 @@
   width: 100%;
 }
 
-/* Keep one baseline above legacy screen-specific card sizing. */
-.hero-card.hero-layout-card.hero-layout-card {
-  --card-steel-texture: repeating-linear-gradient(125deg, var(--walnut) 0 3px, var(--leather-hi) 4px, var(--leather) 6px, var(--bone-dim) 7px, var(--leather) 10px);
-  width: 260px;
-  height: 391px;
-  min-height: 391px;
-  max-height: none;
-  flex: 0 0 260px;
-  margin: 0;
-  overflow: visible;
-  cursor: default;
-  border: 2px solid var(--leather-hi);
-  /* Matches the inner corner radius of the steel frame so no gap shows at the corners. */
-  border-radius: 5px;
-  background: linear-gradient(180deg, var(--walnut), var(--walnut));
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--felt-deep) 45%, transparent);
-  zoom: min(var(--hero-card-scale, 1), var(--hero-card-height-scale, var(--hero-card-scale, 1)));
+.card-face-states {
+  padding: 24px 16px 64px;
 }
 
-.hero-card.hero-layout-card::after {
-  content: "";
-  position: absolute;
-  inset: -5px;
-  z-index: 3;
-  border: 5px solid transparent;
-  border-radius: 10px;
-  background:
-    linear-gradient(var(--walnut), var(--walnut)) padding-box,
-    var(--card-steel-texture) border-box;
-  background-clip: border-box;
-  mask: linear-gradient(var(--bone) 0 0) padding-box, linear-gradient(var(--bone) 0 0);
-  mask-composite: exclude;
-  box-shadow: inset 0 0 2px var(--felt-deep);
-  pointer-events: none;
+.card-face-states h2,
+.card-face-states h3 {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-weight: 500;
 }
 
-.hero-card.hero-layout-card.enemy,
-.hero-card.hero-layout-card.ally {
-  border-color: var(--leather-hi);
+.card-face-states-row {
+  margin-bottom: 32px;
 }
 
-.hero-card.hero-layout-card:hover,
-.hero-card.hero-layout-card.selectable:hover:not(.shop-hero-card) {
-  transform: none;
-  z-index: auto;
-  border-color: var(--leather-hi);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--felt-deep) 45%, transparent);
-}
-
-/* Legacy hover rules outrank the ones above and tint the card border blue. */
-.hero-card.hero-layout-card.hero-layout-card:hover:not(.shop-hero-card) {
-  border-color: var(--leather-hi);
-}
-
-/* The chosen enemy target stays enlarged until the attacker's turn ends. */
-.battle-layout .hero-card.hero-layout-card.hero-layout-card.selected:not(.dead) {
-  transform: scale(1.1);
-  z-index: 15;
-}
-
-.hero-card.hero-layout-card.hero-layout-card .hero-image {
-  height: 241px;
-  flex: 0 0 241px;
-  object-fit: cover;
-  object-position: center top;
-  border-radius: 0;
-}
-
-.hero-card.hero-layout-card .card-stats {
-  position: absolute;
-  top: 0;
-  left: 0;
-  box-sizing: border-box;
-  display: grid;
-  align-content: end;
-  gap: 7px;
-  width: 100%;
-  height: 241px;
-  padding: 28px 12px 10px;
-  color: var(--bone);
-  background: linear-gradient(180deg, transparent 28%, color-mix(in srgb, var(--felt-deep) 84%, transparent) 100%);
-  pointer-events: none;
-}
-
-.hero-card.hero-layout-card .hero-stats-row {
+.card-face-states-cards {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 28px 24px;
+}
+
+.card-face-states-cards figure {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   margin: 0;
-  font-size: 15px;
-  line-height: 1;
-  pointer-events: auto;
+  color: var(--bone-dim);
+  font-size: var(--text-xs);
 }
 
-.hero-card.hero-layout-card .card-stat-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  margin-right: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-  font-size: 19px;
-  line-height: 1;
-  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--felt-deep) 90%, transparent));
-}
-
-.hero-card.hero-layout-card.hero-layout-card .hero-card-content {
-  height: 146px;
+/* ---- The card face ----
+   One size system: everything on the face is in em, and 1em is a twentieth of the card's width.
+   Screens size a card by setting --hero-card-scale (and optionally --hero-card-height-scale). */
+.hero-card.hero-layout-card {
+  --card-w: calc(260px * min(var(--hero-card-scale, 1), var(--hero-card-height-scale, var(--hero-card-scale, 1))));
+  --card-frame: var(--brass);
+  --card-glow: 0 0 0 0 transparent;
+  --card-rx: 0deg;
+  --card-ry: 0deg;
+  --card-mx: 50%;
+  --card-my: 50%;
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: var(--card-w);
+  height: calc(var(--card-w) * 391 / 260);
   min-height: 0;
+  max-height: none;
+  margin: 0;
   padding: 0;
   overflow: visible;
-  flex: 0 0 146px;
-}
-
-.card-details {
-  position: relative;
-  box-sizing: border-box;
-  height: 100%;
-  padding: 10px 12px 12px;
-  overflow-y: auto;
-  color: var(--bone);
+  container-type: inline-size;
+  border: 0;
+  border-radius: 0.75em;
+  color: var(--card-text);
+  background: var(--card-ink);
+  box-shadow: var(--card-glow), 0 0.6em 1.4em var(--shade);
+  font-family: var(--font-ui);
+  font-size: calc(var(--card-w) / 20);
   font-weight: 400;
+  line-height: 1.2;
   text-align: left;
 }
 
-.card-details-compact {
-  padding: 8px 10px;
+/* The card is its own stacking context, so a hovered card has to rise for its tooltips to clear its neighbours. */
+.hero-card.hero-layout-card:hover {
+  z-index: 15;
 }
 
-.card-details-compact .card-text-section {
-  margin-bottom: 5px;
-}
-
-.card-details-compact .card-text-section h4 {
-  font-size: 11.5px;
-}
-
-.card-details-compact .card-text-section p {
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.card-details-dense {
-  padding: 5px 9px;
-}
-
-.card-details-dense .card-text-section {
-  margin-bottom: 2px;
-}
-
-.card-details-dense .card-special {
-  padding-top: 4px;
-}
-
-.card-details-dense .card-text-section h4 {
-  margin-bottom: 1px;
-  font-size: 11px;
-}
-
-.card-details-dense .card-text-section p {
-  font-size: 10.5px;
-  line-height: 1.2;
-}
-
-.card-hero-name {
+/* Brass border. Drawn over the art instead of as a real border so the card's inner width is its full width. */
+.hero-card.hero-layout-card::after {
+  content: "";
   position: absolute;
-  top: -2px;
-  left: 12px;
-  right: 12px;
-  z-index: 2;
-  margin: 0;
-  padding: 2px 8px;
-  border: 2px solid transparent;
-  border-radius: 3px;
-  background:
-    linear-gradient(var(--felt-deep), var(--felt-deep)) padding-box,
-    linear-gradient(color-mix(in srgb, var(--leather) 75%, transparent), color-mix(in srgb, var(--leather) 75%, transparent)) border-box,
-    var(--card-steel-texture) border-box;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--felt-deep) 30%, transparent);
-  color: var(--bone);
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 400;
-  letter-spacing: 0.5px;
-  line-height: 1.1;
-  text-align: center;
-  text-shadow: 0 1px 3px var(--felt-deep);
+  inset: 0;
+  z-index: 4;
+  border: 0.1em solid var(--card-frame);
+  border-radius: inherit;
   pointer-events: none;
 }
 
-.card-text-section {
-  margin: 0 0 8px;
+.hero-card .card-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  object-position: 50% 12%;
 }
 
-.card-text-section h4 {
-  margin: 0 0 2px;
-  color: var(--bone);
-  font-size: 12px;
+/* Dragon Rider's Dismount: the art turns over to the dismounted picture. */
+.hero-card .card-art.card-flip {
+  animation: card-art-flip 0.6s ease-in-out;
 }
 
-.card-type-label {
-  color: var(--brass-hi);
+@keyframes card-art-flip {
+  0%, 100% { transform: rotateY(0deg); }
+  50% { transform: rotateY(90deg); }
+}
+
+/* Inner hairline with brass corner brackets top-left and bottom-right. */
+.hero-card .card-edge {
+  position: absolute;
+  inset: 0.3em;
+  z-index: 2;
+  border: 0.06em solid color-mix(in srgb, var(--brass-hi) 55%, transparent);
+  border-radius: 0.5em;
+  pointer-events: none;
+}
+
+.hero-card .card-edge::before,
+.hero-card .card-edge::after {
+  content: "";
+  position: absolute;
+  width: 1.3em;
+  height: 1.3em;
+  border: 0.14em solid var(--brass-hi);
+}
+
+.hero-card .card-edge::before {
+  top: -0.1em;
+  left: -0.1em;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 0.45em 0 0;
+}
+
+.hero-card .card-edge::after {
+  right: -0.1em;
+  bottom: -0.1em;
+  border-top: 0;
+  border-left: 0;
+  border-radius: 0 0 0.45em;
+}
+
+/* Stat rail: four hexagon gems down the left side. --gem-scale grows the gems (and the gap between them) without
+   moving the rail's top-left anchor, which is divided back out of the rail's own em. */
+.hero-card .card-stats {
+  --gem-scale: 1.15;
+  position: absolute;
+  top: calc(0.9em / var(--gem-scale));
+  left: calc(0.7em / var(--gem-scale));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  font-size: calc(1.15em * var(--gem-scale));
+}
+
+/* A hovered stat's tooltip has to clear the foil, the star, the status chips and the other gems. */
+.hero-card .card-stats:hover {
+  z-index: 8;
+}
+
+.hero-card .card-gem:hover {
+  z-index: 2;
+}
+
+.hero-card .card-gem {
+  --gem-c: var(--stat-hp);
+  --gem-hex: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  width: 2.5em;
+  height: 2.75em;
+}
+
+.hero-card .card-gem-defense { --gem-c: var(--stat-defense); }
+.hero-card .card-gem-accuracy { --gem-c: var(--stat-accuracy); }
+.hero-card .card-gem-attack { --gem-c: var(--stat-attack); }
+
+/* The hexagon is drawn behind the value, so a long value or a tooltip is never clipped by it. */
+.hero-card .card-gem::before,
+.hero-card .card-gem::after {
+  content: "";
+  position: absolute;
+  clip-path: var(--gem-hex);
+}
+
+.hero-card .card-gem::before {
+  inset: 0;
+  background: linear-gradient(160deg, var(--gem-c), var(--card-ink) 85%);
+}
+
+.hero-card .card-gem::after {
+  inset: 0.13em;
+  background: color-mix(in srgb, var(--card-ink) 86%, transparent);
+}
+
+.hero-card .card-gem-icon {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  width: 1em;
+  height: 1em;
+  color: var(--gem-c);
+  font-size: 0.72em;
+}
+
+/* Wider values than the gem (a buffed attack such as 2D4+1D6) run out to the right over the art. */
+.hero-card .card-gem-value {
+  position: relative;
+  z-index: 1;
+  min-width: 100%;
+  margin-top: 0.06em;
+  color: var(--card-text);
+  font-size: 1.01em;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-align: center;
+  text-shadow: 0 0 0.2em var(--card-black), 0 0.06em 0.12em var(--card-black);
+  white-space: nowrap;
+}
+
+/* A buffed or weakened stat: its number turns green or red and the gem gets a ring of the same colour. */
+.hero-card .card-gem:has(.stat-buffed),
+.hero-card .card-gem:has(.buffed-text) {
+  --gem-ring: var(--verdigris);
+}
+
+.hero-card .card-gem:has(.stat-debuffed) {
+  --gem-ring: var(--ember-hi);
+}
+
+.hero-card .card-gem:has(.stat-buffed)::before,
+.hero-card .card-gem:has(.buffed-text)::before,
+.hero-card .card-gem:has(.stat-debuffed)::before {
+  background: var(--gem-ring);
+}
+
+.hero-card .card-gem:has(.stat-buffed),
+.hero-card .card-gem:has(.buffed-text),
+.hero-card .card-gem:has(.stat-debuffed) {
+  filter: drop-shadow(0 0 0.22em var(--gem-ring)) drop-shadow(0 0 0.5em var(--gem-ring));
+}
+
+.hero-card .card-gem .stat-buffed,
+.hero-card .card-gem .buffed-text {
+  color: color-mix(in srgb, var(--verdigris) 55%, var(--card-white));
+  text-shadow: inherit;
+}
+
+.hero-card .card-gem .stat-debuffed {
+  color: color-mix(in srgb, var(--ember-hi) 70%, var(--card-white));
+  text-shadow: inherit;
+}
+
+.hero-card .card-gem .buff-tooltiptext {
+  letter-spacing: 0;
+  white-space: normal;
+}
+
+/* Name and rules text over a light tint, so the art (and the holo foil) shows through. */
+.hero-card .card-lower {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  padding: 2.6em 0.85em 0.8em;
+  border-radius: 0 0 0.75em 0.75em;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--card-ink) 34%, transparent) 2.4em,
+    color-mix(in srgb, var(--card-ink) 58%, transparent) 100%
+  );
+}
+
+.hero-card .card-hero-name {
+  position: static;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--card-white);
+  font-family: var(--font-display);
+  font-size: 2.1em;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.05;
+  text-align: left;
+  text-shadow: 0 0.08em 0.3em var(--card-black), 0 0 0.22em var(--card-black);
+  text-transform: none;
+}
+
+.hero-card .card-rule {
+  height: 0.07em;
+  margin: 0.4em 0 0.5em;
+  background: linear-gradient(90deg, var(--brass), transparent);
+}
+
+.hero-card .card-details {
+  color: var(--card-text);
+  font-size: var(--card-text-size, 1.08em);
+  font-weight: 400;
+  line-height: 1.22;
+  text-align: left;
+  text-shadow:
+    0 0 0.22em var(--card-black),
+    0 0 0.5em color-mix(in srgb, var(--card-black) 85%, transparent),
+    0 0.07em 0.1em var(--card-black);
+}
+
+.hero-card .card-text-section {
+  margin: 0 0 0.45em;
+}
+
+.hero-card .card-text-section:last-child {
+  margin: 0;
+}
+
+.hero-card .card-text-section h4,
+.hero-card .card-text-section p {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.hero-card .card-text-section h4 {
   font-weight: 800;
 }
 
-.card-text-section p {
-  margin: 0;
+.hero-card .card-type-label {
+  color: var(--brass-hi);
+  font-family: var(--font-label);
+  font-size: 1.08em;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Companions (Beast Tamer's pet): above the name, on the right. */
+.hero-card .companions {
+  position: absolute;
+  top: 1.1em;
+  right: 0.85em;
+  z-index: 1;
+  display: flex;
+  gap: 0.25em;
+}
+
+.hero-card .companion {
+  padding: 0.1em 0.4em;
+  border: max(1px, 0.06em) solid var(--leather);
+  border-radius: 0.35em;
   color: var(--bone);
-  font-size: 11.5px;
-  line-height: 1.3;
+  background: color-mix(in srgb, var(--verdigris) 90%, transparent);
+  box-shadow: 0 0.1em 0.25em color-mix(in srgb, var(--card-black) 40%, transparent);
+  font-size: 0.95em;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
-.card-special {
-  padding-top: 6px;
-  border-top: 1px solid color-mix(in srgb, var(--bone) 14%, transparent);
+/* Status buffs then debuffs: one column of chips down the right edge, under the favourite star. */
+.hero-card .card-status {
+  position: absolute;
+  top: 0.6em;
+  right: 0.55em;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25em;
 }
 
-.card-details .card-text-section h4 {
-  font-size: calc(var(--card-text-size, 11.5px) + 0.5px);
+.hero-card .card-fav-star + .card-status {
+  top: 2.7em;
 }
 
-.card-details .card-text-section p {
-  font-size: var(--card-text-size, 11.5px);
+.hero-card .status-effects-buffs,
+.hero-card .status-effects-debuffs {
+  display: contents;
 }
 
-/* The frame is masked to a ring, so outlines on it are clipped; recolor the ring itself. */
-.hero-card.hero-layout-card.hero-layout-card.current-turn,
-.battle-layout .hero-card.hero-layout-card.hero-layout-card.current-turn.current-turn {
-  border-color: var(--brass-hi) !important;
-  box-shadow: 0 0 0 7px color-mix(in srgb, var(--felt-deep) 35%, transparent), 0 0 22px 8px color-mix(in srgb, var(--felt-deep) 75%, transparent);
+.hero-card .status-effect-tooltip {
+  display: block;
 }
 
-.hero-card.hero-layout-card.current-turn::after,
-.battle-layout .hero-card.hero-layout-card.current-turn.current-turn::after {
+.hero-card .status-effect {
+  display: block;
+  padding: 0.12em 0.45em;
+  border-width: max(1px, 0.06em);
+  border-radius: 1em;
+  box-shadow: 0 0.1em 0.25em color-mix(in srgb, var(--card-black) 45%, transparent);
+  font-size: 0.95em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+/* The stat-change chip is red on red in the base styles; keep its text readable. */
+.hero-card .status-effect.stat-modifier.debuff {
+  color: var(--bone);
+}
+
+/* Favourite: a gold star, top right. */
+.hero-card .card-fav-star {
+  position: absolute;
+  top: 0.55em;
+  right: 0.55em;
+  z-index: 6;
+  width: 1.9em;
+  height: 1.9em;
+  color: var(--fav-gold);
+  filter:
+    drop-shadow(0 0 0.25em color-mix(in srgb, var(--card-black) 90%, transparent))
+    drop-shadow(0 0 0.35em color-mix(in srgb, var(--fav-gold) 55%, transparent));
+  pointer-events: none;
+}
+
+.hero-card .card-fav-star svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke: var(--fav-gold-edge);
+}
+
+/* Markers that screens still pass in as children (binder star, team-builder tick) sit clear of the stat rail. */
+.hero-card .favorite-star,
+.hero-card .selection-indicator {
+  top: 0.55em;
+  right: 0.55em;
+  left: auto;
+  z-index: 6;
+}
+
+.hero-card .favorite-star ~ .selection-indicator {
+  top: calc(0.55em + 26px);
+}
+
+/* Holographic: rainbow foil, sparkle points and a bright rim. The foil drifts; with tilt on it follows the pointer. */
+.hero-card.card-holo {
+  --holo-small: 0px;
+  --card-frame: var(--holo-rim);
+  --card-glow:
+    0 0 0.5em color-mix(in srgb, var(--holo-rim) 55%, transparent),
+    0 0 1.6em color-mix(in srgb, var(--holo-glow) 30%, transparent),
+    calc(var(--holo-small) * -0.3) calc(var(--holo-small) * -0.3) calc(var(--holo-small) * 1.6) calc(var(--holo-small) * 0.3) color-mix(in srgb, var(--holo-violet) 70%, transparent),
+    calc(var(--holo-small) * 0.3) calc(var(--holo-small) * 0.3) calc(var(--holo-small) * 1.6) calc(var(--holo-small) * 0.3) color-mix(in srgb, var(--holo-blue) 70%, transparent);
+}
+
+/* Small cards (battle board, draft, phones): the foil is too fine to see there, so it gets louder as the card
+   shrinks. --holo-small is 0 from 240px wide up, so a big card keeps exactly the glow above. The lobby's featured
+   card, the large view and the pack opening keep the plain foil at every size. */
+.hero-card.card-holo:not(.dead, .banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) {
+  --holo-small: max(0px, 12px - 1em);
+}
+
+.hero-card .card-sheen,
+.hero-card .card-spark,
+.hero-card .card-glint {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.hero-card .card-sheen {
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    color-mix(in srgb, var(--holo-pink) 15%, transparent) 38%,
+    color-mix(in srgb, var(--holo-yellow) 16%, transparent) 45%,
+    color-mix(in srgb, var(--holo-mint) 15%, transparent) 52%,
+    color-mix(in srgb, var(--holo-blue) 17%, transparent) 59%,
+    color-mix(in srgb, var(--holo-violet) 14%, transparent) 65%,
+    transparent 72%
+  );
+  background-position: var(--card-mx) var(--card-my);
+  background-size: 260% 260%;
+  mix-blend-mode: color-dodge;
+  animation: card-holo-drift 6s ease-in-out infinite;
+}
+
+.hero-card .card-spark {
   background:
-    linear-gradient(var(--walnut), var(--walnut)) padding-box,
-    linear-gradient(135deg, var(--bone), var(--brass-hi) 45%, var(--brass-hi) 100%) border-box;
-  box-shadow: inset 0 0 0 1px var(--felt-deep);
+    radial-gradient(circle at var(--card-mx) var(--card-my), color-mix(in srgb, var(--card-white) 20%, transparent), transparent 28%),
+    radial-gradient(circle, color-mix(in srgb, var(--card-white) 40%, transparent) 0 0.04em, transparent 0.08em) 0 0 / 1.64em 2.21em,
+    radial-gradient(circle, color-mix(in srgb, var(--holo-spark-cool) 35%, transparent) 0 0.04em, transparent 0.08em) 0.79em 0.93em / 2.64em 2.07em,
+    radial-gradient(circle, color-mix(in srgb, var(--holo-spark-warm) 35%, transparent) 0 0.045em, transparent 0.09em) 0.36em 1.5em / 2.93em 3.36em;
+  mask: linear-gradient(115deg, transparent 25%, var(--card-black) 45%, var(--card-black) 58%, transparent 76%);
+  mask-position: var(--card-mx) var(--card-my);
+  mask-size: 260% 260%;
+  mix-blend-mode: screen;
+  animation: card-holo-mask 6s ease-in-out infinite;
 }
 
-.hero-card.hero-layout-card.selected::after {
-  outline: 2px solid var(--verdigris);
+@keyframes card-holo-drift {
+  0%, 100% { background-position: 10% 20%; }
+  50% { background-position: 90% 80%; }
 }
 
-/* Battle targeting: recolor the masked frame itself (outlines on it get clipped). */
-.battle-layout .hero-card.hero-layout-card.hero-layout-card.selectable {
-  border-color: var(--verdigris) !important;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--felt-deep) 30%, transparent), 0 0 20px 6px color-mix(in srgb, var(--felt-deep) 70%, transparent);
+@keyframes card-holo-mask {
+  0%, 100% { mask-position: 10% 20%; }
+  50% { mask-position: 90% 80%; }
+}
+
+.hero-card.card-hovering .card-sheen,
+.hero-card.card-hovering .card-spark {
+  animation: none;
+}
+
+/* Small holographic cards: a rainbow ring inside the frame, plus a stronger sheen and bigger sparkles.
+   The frame itself keeps its colour (team, turn, selected, blocked). */
+.hero-card .card-foil {
+  display: none;
+  animation: card-foil-shimmer 3s ease-in-out infinite;
+}
+
+@container (max-width: 215px) {
+  .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-foil {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: block;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  @supports (mask-composite: exclude) {
+    .hero-card .card-foil::before {
+      content: "";
+      position: absolute;
+      inset: max(2px, 0.1em);
+      padding: max(2px, 0.26em);
+      border-radius: inherit;
+      background: conic-gradient(
+        from 200deg,
+        var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue), var(--holo-violet),
+        var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue), var(--holo-violet), var(--holo-pink)
+      );
+      mask: linear-gradient(var(--card-black) 0 0) content-box exclude, linear-gradient(var(--card-black) 0 0);
+    }
+  }
+
+  .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-sheen {
+    --foil-sheen: 23%;
+    background-image: linear-gradient(
+      115deg,
+      transparent 24%,
+      color-mix(in srgb, var(--holo-pink) var(--foil-sheen), transparent) 33%,
+      color-mix(in srgb, var(--holo-yellow) var(--foil-sheen), transparent) 42%,
+      color-mix(in srgb, var(--holo-mint) var(--foil-sheen), transparent) 51%,
+      color-mix(in srgb, var(--holo-blue) var(--foil-sheen), transparent) 60%,
+      color-mix(in srgb, var(--holo-violet) var(--foil-sheen), transparent) 69%,
+      transparent 78%
+    );
+  }
+
+  .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-spark {
+    background-image:
+      radial-gradient(circle at var(--card-mx) var(--card-my), color-mix(in srgb, var(--card-white) 24%, transparent), transparent 30%),
+      radial-gradient(circle, color-mix(in srgb, var(--card-white) 80%, transparent) 0 max(0.5px, 0.055em), transparent max(1.1px, 0.13em)),
+      radial-gradient(circle, color-mix(in srgb, var(--holo-spark-cool) 75%, transparent) 0 max(0.5px, 0.055em), transparent max(1.1px, 0.13em)),
+      radial-gradient(circle, color-mix(in srgb, var(--holo-spark-warm) 75%, transparent) 0 max(0.6px, 0.065em), transparent max(1.2px, 0.15em));
+    background-size: auto, 4.7em 6.3em, 7.3em 5.9em, 8.9em 9.7em;
+  }
+
+  /* The frame keeps its team or state colour, as thick as the ring beside it. */
+  .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *)::after {
+    border-width: max(2px, 0.1em);
+  }
+
+  /* The stat gems sit above the foil, so their colours stay true. A hovered rail keeps its own, higher place. */
+  .hero-card.card-holo:not(.banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-stats:not(:hover) {
+    z-index: 6;
+  }
+
+  /* Fallen or banned: the foil goes dull with the rest of the card. */
+  .hero-card.card-holo:is(.dead, .banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-foil {
+    opacity: 0.4;
+    filter: grayscale(0.85);
+    animation: none;
+  }
+
+  .hero-card.card-holo:is(.dead, .banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) :is(.card-sheen, .card-spark) {
+    opacity: 0.35;
+  }
+}
+
+/* Tiny cards have no rules text under the foil, so the sheen can be stronger still. */
+@container (max-width: 129px) {
+  .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-sheen {
+    --foil-sheen: 31%;
+  }
+}
+
+@keyframes card-foil-shimmer {
+  0%, 100% { opacity: 0.78; }
+  50% { opacity: 1; }
+}
+
+/* Glint: a light sweep every few seconds. Only where a screen asks for it. */
+.hero-card .card-glint {
+  background: linear-gradient(105deg, transparent 42%, color-mix(in srgb, var(--card-white) 20%, transparent) 50%, transparent 58%);
+  background-position: 120% 0;
+  background-size: 300% 100%;
+  animation: card-glint 5s ease-in-out infinite;
+}
+
+@keyframes card-glint {
+  0%, 62% { background-position: 120% 0; }
+  86%, 100% { background-position: -60% 0; }
+}
+
+/* Tilt toward the pointer. Only where a screen asks for it. */
+.hero-card.hero-layout-card.card-tilt {
+  transform: perspective(900px) rotateX(var(--card-rx)) rotateY(var(--card-ry));
+  transition: transform 0.18s ease-out;
+}
+
+/* "Battle animations: off" (card-still) and reduced motion: no glint, no tilt, no holo drift or shimmer. */
+.hero-card.card-still .card-sheen,
+.hero-card.card-still .card-spark,
+.hero-card.card-still .card-foil {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-card .card-sheen,
+  .hero-card .card-spark,
+  .hero-card .card-foil {
+    animation: none;
+  }
+
+  .hero-card .card-glint {
+    display: none;
+  }
+
+  .hero-card.hero-layout-card.card-tilt {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ---- Battle and draft states ---- */
+.hero-card.enemy {
+  --card-frame: color-mix(in srgb, var(--ember-hi) 70%, var(--brass));
+}
+
+.hero-card.enemy .card-edge {
+  border-color: color-mix(in srgb, var(--ember-hi) 55%, transparent);
+}
+
+.hero-card.enemy .card-edge::before,
+.hero-card.enemy .card-edge::after {
+  border-color: var(--ember-hi);
+}
+
+/* Frame glows: a solid ring plus a soft halo, never thinner than 2px so they read on the smallest battle cards. */
+.hero-card.current-turn,
+.hero-card.selected,
+:is(.battle-layout, .card-face-states) .hero-card.selectable,
+:is(.battle-layout, .card-face-states) .hero-card.target-blocked {
+  --card-frame: var(--state-c);
+  --card-glow:
+    0 0 0 max(2px, 0.2em) var(--state-c),
+    0 0 max(8px, 1.1em) max(2px, 0.3em) color-mix(in srgb, var(--state-c) 65%, transparent);
+}
+
+.hero-card.current-turn { --state-c: var(--brass-hi); }
+.hero-card.selected { --state-c: var(--verdigris); }
+
+/* A card that can be chosen glows softly; the chosen one (selected) gets the solid ring. */
+:is(.battle-layout, .card-face-states) .hero-card.selectable {
+  --state-c: var(--verdigris);
   cursor: pointer;
 }
 
-.battle-layout .hero-card.hero-layout-card.selectable::after {
-  background:
-    linear-gradient(var(--walnut), var(--walnut)) padding-box,
-    linear-gradient(135deg, var(--bone), var(--verdigris) 45%, var(--verdigris) 100%) border-box;
-  box-shadow: inset 0 0 0 1px var(--felt-deep);
+:is(.battle-layout, .card-face-states) .hero-card.selectable:not(.selected) {
+  --card-glow: 0 0 max(8px, 1em) max(1px, 0.14em) color-mix(in srgb, var(--state-c) 85%, transparent);
 }
 
-.battle-layout .hero-card.hero-layout-card.hero-layout-card.target-blocked {
-  border-color: var(--ember-hi) !important;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--felt-deep) 30%, transparent), 0 0 20px 6px color-mix(in srgb, var(--felt-deep) 70%, transparent);
+:is(.battle-layout, .card-face-states) .hero-card.target-blocked {
+  --state-c: var(--ember-hi);
   cursor: not-allowed;
 }
 
-.battle-layout .hero-card.hero-layout-card.target-blocked::after {
+/* Battle Focus: the acting player's chosen enemy, shown to both players and spectators. It is the only thing
+   that says who is being attacked, so it has to stand apart from the thin ember edge every enemy card has:
+   a thick bright red ring round the card and a red halo that pulses slowly.
+   Wins over the turn and blocked glows. */
+.battle-layout .hero-card.focused {
+  --card-frame: var(--focus-c);
+  --card-glow:
+    0 0 0 max(4px, 0.4em) var(--focus-c),
+    0 0 clamp(8px, 1.1em, 12px) clamp(2px, 0.3em, 3px) var(--focus-glow);
+  /* Above its neighbours, so the ring and halo are never cut off by the next card */
+  z-index: 5;
+}
+
+/* A hovered card still rises for its tooltips (the rule above would otherwise hold it at 5). */
+.battle-layout .hero-card.focused:hover {
+  z-index: 15;
+}
+
+/* The halo: the part that pulses. It sits over the art but under the stat rail and the name panel (both
+   z-index 3, later in the card), so its red never lies on a gem or the name. The blur is capped in px so it
+   does not wash over the next card when the cards are large. */
+.hero-card .card-focus-halo {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  box-shadow:
+    0 0 clamp(8px, 1.5em, 14px) clamp(3px, 0.6em, 6px) var(--focus-c),
+    inset 0 0 clamp(8px, 1.6em, 24px) var(--focus-glow);
+  pointer-events: none;
+  animation: card-focus-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes card-focus-pulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+
+/* "Battle animations: off" (card-focus-halo--still) and reduced motion: the ring and halo stay, nothing moves. */
+.hero-card .card-focus-halo--still {
+  opacity: 0.6;
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-card .card-focus-halo {
+    opacity: 0.6;
+    animation: none;
+  }
+}
+
+/* A fallen focus: the ring stays but goes faint and still, so a bright, moving ring always means a live target. */
+.battle-layout .hero-card.focused.dead {
+  --card-frame: color-mix(in srgb, var(--focus-c) 35%, var(--leather-hi));
+  --card-glow: 0 0 0 max(4px, 0.4em) color-mix(in srgb, var(--focus-c) 35%, transparent);
+}
+
+.hero-card.dead .card-focus-halo {
+  opacity: 0.35;
+  animation: none;
+}
+
+/* Fallen: grey and dark. Still readable (tap, press or right-click), never chosen. */
+.hero-card.dead {
+  --card-frame: var(--leather-hi);
+}
+
+.hero-card.dead .card-art {
+  filter: grayscale(1) brightness(0.4);
+}
+
+.hero-card.dead .card-stats,
+.hero-card.dead .card-lower,
+.hero-card.dead .card-status {
+  filter: grayscale(1) brightness(0.62);
+}
+
+/* Banned: grey with a red cross through it. */
+.hero-card.banned {
+  --card-frame: var(--ember);
+}
+
+.hero-card.banned .card-art,
+.hero-card.banned .card-stats,
+.hero-card.banned .card-lower {
+  filter: grayscale(1) brightness(0.6);
+}
+
+.hero-card.hero-layout-card.banned::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border-radius: inherit;
   background:
-    linear-gradient(var(--walnut), var(--walnut)) padding-box,
-    linear-gradient(135deg, var(--bone), var(--ember-hi) 45%, var(--ember) 100%) border-box;
-  box-shadow: inset 0 0 0 1px var(--felt-deep);
+    linear-gradient(to top right, transparent calc(50% - 0.14em), var(--ember-hi) calc(50% - 0.14em) calc(50% + 0.14em), transparent calc(50% + 0.14em)),
+    linear-gradient(to top left, transparent calc(50% - 0.14em), var(--ember-hi) calc(50% - 0.14em) calc(50% + 0.14em), transparent calc(50% + 0.14em));
+  pointer-events: none;
 }
 
-.hero-card.hero-layout-card .status-effects-buffs,
-.hero-card.hero-layout-card .status-effects-debuffs {
-  top: 32px;
+.hero-card.hero-layout-card.disabled-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  background: repeating-linear-gradient(45deg, transparent 0 10px, color-mix(in srgb, var(--ember) 10%, transparent) 10px 20px);
+  pointer-events: none;
 }
 
-.hero-card.hero-layout-card .favorite-star,
-.hero-card.hero-layout-card .selection-indicator {
-  top: 32px;
+/* ---- Tiny mode: no rules text, bigger name and stats. Tap (or press) opens the large view. ---- */
+@container (max-width: 129px) {
+  .hero-card .card-details,
+  .hero-card .card-rule {
+    display: none;
+  }
+
+  .hero-card .card-hero-name {
+    font-size: 2.625em;
+  }
+
+  .hero-card .card-stats {
+    font-size: calc(1.5em * var(--gem-scale));
+  }
+
+  .hero-card .card-lower {
+    padding: 2em 0.7em 0.6em;
+  }
+
+  .hero-card .card-fav-star {
+    width: 3em;
+    height: 3em;
+  }
+
+  .hero-card .card-fav-star + .card-status {
+    top: 3.8em;
+  }
+
+  .hero-card .status-effect,
+  .hero-card .companion {
+    font-size: 1.45em;
+  }
+
+  .hero-card .companions {
+    top: 0.2em;
+  }
 }
 
-.draft-phase .hero-layout-card,
+/* ---- Card sizes per screen ---- */
 .shop-hero-card .hero-layout-card,
-.hero-card-back .hero-layout-card,
 .gauntlet-hero-wrapper .hero-layout-card,
 .team-slot .hero-layout-card {
   --hero-card-scale: 0.75;
@@ -370,35 +920,9 @@
   --hero-card-scale: 0.75;
 }
 
-.pack-opening-container {
-  --pack-card-scale: 0.75;
-}
-
-.pack-opening-container .pack-card-slot {
-  width: calc(260px * var(--pack-card-scale));
-  height: calc(391px * var(--pack-card-scale));
-}
-
-.hero-card-back .hero-layout-card {
-  --hero-card-scale: var(--pack-card-scale, 0.75);
-}
-
-.draft-phase .teams-display .hero-layout-card {
-  --hero-card-scale: 0.55;
-}
-
 .shop-hero-card:has(.hero-layout-card) {
   width: 195px;
   min-height: 293.25px;
-}
-
-.hero-card.hero-layout-card.disabled-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  background: repeating-linear-gradient(45deg, transparent 0 10px, color-mix(in srgb, var(--ember) 10%, transparent) 10px 20px);
-  pointer-events: none;
 }
 
 .collection-card-preview {
@@ -425,8 +949,8 @@
 
 .collection-card-preview > .game-close-btn {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: calc(16px + var(--safe-top));
+  right: calc(16px + var(--safe-right));
 }
 
 .survival-card-slot.survival-card-placeholder {
@@ -478,10 +1002,6 @@
   .shop-hero-card:has(.hero-layout-card) { width: 156px; min-height: 234.6px; }
 }
 
-@media (max-width: 768px) {
-  .pack-opening-container { --pack-card-scale: 0.45; }
-}
-
 @media (max-width: 500px) {
   .collection-card-preview .hero-layout-card { --hero-card-scale: 1.1; }
 }
@@ -502,10 +1022,12 @@
     max-height: none;
   }
 
+  /* In the page flow here, inside the app root that already pads out the safe areas, so no inset padding */
   .battle-layout .action-bar {
     position: relative;
     width: 100%;
     height: auto;
+    padding: 0;
     border-left: 0;
   }
 
@@ -612,4 +1134,42 @@
   .card-layout-test-team-cards {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ---- Text floor (minTextPx, the draft screen's readable cards) ----
+   When the rules text may not shrink and the name would run into the stat rail, HeroCard tries these in turn:
+   "tight" closes up the text panel's spacing and narrows its margins; "rail" also makes the stat gems smaller.
+   Cards without a floor never get data-fit. */
+.hero-card[data-fit="tight"] .card-lower,
+.hero-card[data-fit="rail"] .card-lower {
+  padding: 2.6em 0.6em 0.55em;
+}
+
+.hero-card[data-fit="tight"] .card-hero-name,
+.hero-card[data-fit="rail"] .card-hero-name {
+  font-size: 1.85em;
+}
+
+.hero-card[data-fit="tight"] .card-rule,
+.hero-card[data-fit="rail"] .card-rule {
+  margin: 0.3em 0 0.35em;
+}
+
+.hero-card[data-fit="tight"] .card-details,
+.hero-card[data-fit="rail"] .card-details {
+  line-height: 1.15;
+}
+
+.hero-card[data-fit="tight"] .card-text-section,
+.hero-card[data-fit="rail"] .card-text-section {
+  margin: 0 0 0.25em;
+}
+
+.hero-card[data-fit="tight"] .card-text-section:last-child,
+.hero-card[data-fit="rail"] .card-text-section:last-child {
+  margin: 0;
+}
+
+.hero-card[data-fit="rail"] .card-stats {
+  --gem-scale: 0.95;
 }

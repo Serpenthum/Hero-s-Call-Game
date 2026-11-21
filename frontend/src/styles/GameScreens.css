@@ -8,7 +8,7 @@
 
 .app-layout {
   display: flex;
-  min-height: 100vh; /* Minimum height */
+  min-height: var(--app-height); /* Inside the .App safe-area padding, so 100vh would scroll by the insets */
   overflow: auto; /* Allow scrolling */
 }
 
@@ -227,340 +227,10 @@
   overflow: hidden; /* Prevent scrollbars */
 }
 
-/* Draft Phase Styles */
-.draft-phase {
-  padding: clamp(5px, 0.8vw, 10px);
-  max-height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  position: relative;
-}
-
-/* Abandon Draft Button in Sidebar */
-.abandon-draft-button {
-  width: 100%;
-  padding: clamp(10px, 1.2vw, 12px);
-  background: color-mix(in srgb, var(--ember) 12%, transparent);
-  border: 1.5px solid color-mix(in srgb, var(--ember-hi) 30%, transparent);
-  border-radius: 8px;
-  color: var(--ember-hi);
-  font-size: clamp(0.75rem, 0.9vw, 0.9rem);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: clamp(12px, 1.4vw, 16px);
-  text-transform: none;
-  letter-spacing: 0.3px;
-}
-
-.abandon-draft-button:hover {
-  background: color-mix(in srgb, var(--ember) 20%, transparent);
-  border-color: color-mix(in srgb, var(--ember-hi) 50%, transparent);
-  color: var(--ember-hi);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--felt-deep) 30%, transparent);
-}
-
-.abandon-draft-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 20%, transparent);
-}
-
-/* Adjust setup-phase to also be relative for button positioning */
-.setup-phase {
-  position: relative;
-}
-
-.draft-cards {
-  display: flex;
-  justify-content: center;
-  gap: clamp(6px, 0.8vw, 12px);
-  flex-wrap: wrap;
-  margin: 0 0 clamp(0.5rem, 0.8vw, 1rem) 0;
-  padding-top: 0;
-}
-
-/* Special layout for ban phase with 5 cards - single row */
-.draft-phase .draft-cards.ban-phase {
-  display: flex;
-  flex-direction: row;
-  gap: clamp(8px, 1vw, 12px);
-  justify-content: center;
-  align-items: center;
-  max-width: 100%;
-  margin: clamp(0.2rem, 0.3vw, 0.4rem) auto clamp(0.5rem, 0.8vw, 1rem) auto;
-  padding: 0.5rem 20px 0 20px;
-  flex-wrap: nowrap;
-}
-
-/* Move draft cards up slightly after first pick */
-.draft-phase .draft-cards.pick-phase {
-  margin-top: 0;
-  padding-top: 0;
-}
-
-/* Remove the separate row styling since we're using a single row now */
-.draft-phase .draft-cards.ban-phase .ban-row-1,
-.draft-phase .draft-cards.ban-phase .ban-row-2 {
-  display: contents;
-}
-
-.draft-actions {
-  display: flex;
-  justify-content: center;
-  gap: clamp(6px, 0.8vw, 10px);
-  margin: clamp(0.4rem, 0.8vw, 0.8rem) 0;
-}
-
-.teams-display {
-  display: flex;
-  justify-content: space-around;
-  margin: clamp(0.2rem, 0.4vw, 0.4rem) 0 clamp(0.3rem, 0.5vw, 0.6rem) 0;
-  gap: clamp(0.5rem, 0.8vw, 0.8rem);
-  padding-top: clamp(0.2rem, 0.4vw, 0.4rem);
-  padding-bottom: clamp(0.2rem, 0.4vw, 0.4rem);
-  min-height: clamp(280px, 36vh, 420px);
-}
-
-.current-team,
-.opponent-team {
-  flex: 1;
-  background: color-mix(in srgb, var(--bone) 10%, transparent);
-  padding: clamp(0.4rem, 0.8vw, 0.8rem);
-  border-radius: 6px;
-  min-height: clamp(260px, 35vh, 400px);
-  display: flex;
-  flex-direction: column;
-}
-
-.current-team h3,
-.opponent-team h3 {
-  margin-top: 0;
-  margin-bottom: clamp(0.3rem, 0.5vw, 0.5rem);
-  font-size: clamp(0.85rem, 1vw, 1rem);
-  text-align: center;
-}
-
-.team-cards {
-  display: flex;
-  gap: clamp(4px, 0.6vw, 6px);
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
 .turn-indicator.opponent-turn {
   background-color: color-mix(in srgb, var(--ember) 20%, transparent);
   border: 2px solid var(--ember);
   color: var(--ember);
-}
-
-/* Setup Phase Styles */
-.setup-phase {
-  padding: 20px;
-  text-align: center;
-  max-height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.setup-phase h2 {
-  margin-bottom: 0.5rem;
-}
-
-.setup-phase > p {
-  margin-bottom: 2rem;
-  color: var(--bone-dim);
-}
-
-.opponent-ready-indicator {
-  background: color-mix(in srgb, var(--verdigris) 20%, transparent);
-  border: 2px solid var(--verdigris);
-  color: var(--verdigris);
-  padding: 0.75rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  font-weight: bold;
-}
-
-.team-order-setup {
-  display: flex;
-  justify-content: center;
-  margin: 2rem 0;
-}
-
-.draggable-team {
-  display: flex;
-  gap: 1.5rem;
-  justify-content: center;
-  flex-wrap: wrap;
-  max-width: 900px;
-}
-
-.draggable-hero-slot {
-  position: relative;
-  cursor: grab;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
-  will-change: transform;
-}
-
-.draggable-hero-slot:active {
-  cursor: grabbing;
-}
-
-.draggable-hero-slot.dragging {
-  transform: scale(0.95);
-}
-
-/* Banned Cards Section within Sidebar */
-.banned-cards-section {
-  margin-top: clamp(12px, 1.4vw, 16px);
-  padding-top: clamp(12px, 1.4vw, 16px);
-  border-top: 1px solid color-mix(in srgb, var(--ember-hi) 25%, transparent);
-}
-
-.banned-cards-section h3 {
-  color: var(--ember-hi);
-  font-size: clamp(0.9rem, 1.05vw, 1.05rem);
-  margin: 0 0 clamp(8px, 1vw, 10px) 0;
-  text-align: center;
-  text-shadow: 0 0 12px color-mix(in srgb, var(--felt-deep) 60%, transparent);
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-.banned-cards-subtitle {
-  font-size: clamp(0.6rem, 0.7vw, 0.7rem);
-  color: color-mix(in srgb, var(--bone) 40%, transparent);
-  text-align: center;
-  margin-bottom: clamp(10px, 1.2vw, 14px);
-  font-style: italic;
-}
-
-.banned-cards-list {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(6px, 0.8vw, 8px);
-}
-
-.banned-card-item {
-  display: flex;
-  align-items: center;
-  gap: clamp(6px, 0.8vw, 8px);
-  background: color-mix(in srgb, var(--ember-hi) 8%, transparent);
-  padding: clamp(6px, 0.8vw, 8px);
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  border: 1px solid color-mix(in srgb, var(--ember-hi) 15%, transparent);
-}
-
-.banned-card-item:hover {
-  background: color-mix(in srgb, var(--ember-hi) 15%, transparent);
-  border-color: color-mix(in srgb, var(--ember-hi) 30%, transparent);
-  transform: translateX(2px);
-}
-
-.banned-card-image {
-  width: clamp(28px, 3.5vw, 35px);
-  height: clamp(28px, 3.5vw, 35px);
-  border-radius: 3px;
-  object-fit: cover;
-  border: 1px solid color-mix(in srgb, var(--ember-hi) 30%, transparent);
-  flex-shrink: 0;
-}
-
-.banned-card-name {
-  flex: 1;
-  font-size: clamp(0.65rem, 0.75vw, 0.75rem);
-  font-weight: 600;
-  color: var(--bone);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.banned-by-label {
-  font-size: clamp(0.55rem, 0.65vw, 0.65rem);
-  color: var(--bone-dim);
-  font-style: italic;
-  flex-shrink: 0;
-}
-
-.banned-cards-count {
-  margin-top: clamp(10px, 1.2vw, 12px);
-  padding-top: clamp(10px, 1.2vw, 12px);
-  border-top: 1px solid color-mix(in srgb, var(--ember-hi) 15%, transparent);
-  text-align: center;
-  font-size: clamp(0.65rem, 0.75vw, 0.75rem);
-  color: color-mix(in srgb, var(--bone) 50%, transparent);
-  font-weight: 600;
-}
-
-.draft-main-content {
-  transition: margin-left 0.3s ease;
-}
-
-.draft-main-content.with-sidebar {
-  margin-left: 0;
-}
-
-.draggable-hero-slot:hover {
-  transform: translateY(-5px);
-  z-index: 10000; /* Ensure hovered slot is above all adjacent slots */
-}
-
-.position-badge {
-  position: absolute;
-  top: -10px;
-  left: -10px;
-  background: var(--brass);
-  color: var(--bone);
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 1.1rem;
-  z-index: 10;
-  border: 3px solid var(--bone);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--felt-deep) 30%, transparent);
-}
-
-.setup-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 2rem;
-}
-
-.ready-button {
-  background: var(--verdigris);
-  font-size: 1.2rem;
-  padding: 1rem 3rem;
-  font-weight: bold;
-}
-
-.ready-button:hover:not(:disabled) {
-  background: var(--verdigris);
-}
-
-.ready-status {
-  background: color-mix(in srgb, var(--verdigris) 20%, transparent);
-  border: 2px solid var(--verdigris);
-  color: var(--verdigris);
-  padding: 1rem 2rem;
-  border-radius: 8px;
-  font-weight: bold;
-}
-
-.ready-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .initiative-phase {
@@ -933,39 +603,6 @@
   background: color-mix(in srgb, var(--felt-deep) 30%, transparent);
 }
 
-.matchup-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px;
-  margin: 8px 0;
-  background: color-mix(in srgb, var(--felt-deep) 30%, transparent);
-  border-radius: 6px;
-  font-size: 0.95rem;
-}
-
-.player-name-sidebar {
-  color: var(--brass);
-  font-weight: bold;
-  text-shadow: 0 0 8px color-mix(in srgb, var(--felt-deep) 50%, transparent);
-  font-size: 1.5em;
-}
-
-.opponent-name-sidebar {
-  color: var(--ember-hi);
-  font-weight: bold;
-  text-shadow: 0 0 8px color-mix(in srgb, var(--felt-deep) 50%, transparent);
-  font-size: 1.5em;
-}
-
-.vs-text-sidebar {
-  color: var(--brass-hi);
-  font-weight: 900;
-  font-size: 1.1em;
-  text-shadow: 0 0 10px color-mix(in srgb, var(--felt-deep) 60%, transparent);
-}
-
 /* Setup and Battle Phase Styles: one shared gold-trim frame, no coloured side edge */
 .setup-info, .battle-info, .battle-combined-info {
   background: color-mix(in srgb, var(--bone) 10%, transparent);
@@ -1042,10 +679,10 @@
 }
 
 .action-bar {
-  width: clamp(200px, 18vw, 300px); /* Responsive width */
+  width: calc(clamp(200px, 18vw, 300px) + var(--safe-right)); /* Responsive width, plus the right inset it pads out */
   background: color-mix(in srgb, var(--felt-deep) 80%, transparent);
   border-left: 2px solid var(--brass);
-  padding: 0; /* Remove padding to reach edge */
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) 0; /* Background to the edge, content clear of the notch */
   margin: 0; /* Ensure no margin */
   overflow-y: auto; /* Enable vertical scrolling */
   overflow-x: hidden; /* Prevent horizontal scroll */
@@ -1273,7 +910,7 @@
 
 .challenge-notice {
   position: fixed;
-  top: 20px;
+  top: calc(20px + var(--safe-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 3000;
@@ -1288,6 +925,9 @@
   font-size: 0.95rem;
 }
 
+/* A second notice (e.g. "X left the game.") while a challenge notice shows: sit just below it */
+.challenge-notice--stacked { top: calc(80px + var(--safe-top)); }
+
 .challenge-notice button {
   background: var(--ember-hi);
   border: none;
@@ -1295,4 +935,154 @@
   color: var(--bone);
   padding: 4px 12px;
   cursor: pointer;
+}
+
+/*
+ * Sideways phone (short screen): the starting roll and the game-over / surrender dialogs fit the screen
+ * without scrolling. With rewards, game over sits side by side: the result and Return on the left, the
+ * rewards on the right.
+ */
+@media (max-height: 500px) {
+  .battle-with-overlay {
+    height: 100%;
+  }
+
+  .initiative-phase,
+  .game-over-modal {
+    box-sizing: border-box;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  .initiative-phase {
+    max-width: 100%;
+    padding: var(--space-3) var(--space-5);
+    text-align: center;
+  }
+
+  .initiative-phase h2 {
+    margin: 0;
+    font-size: var(--text-xl);
+  }
+
+  .initiative-phase h3 {
+    margin: 0 0 var(--space-1);
+    font-size: 18px;
+  }
+
+  .initiative-phase p {
+    margin: var(--space-1) 0;
+    font-size: 14px;
+  }
+
+  .initiative-actions {
+    margin: var(--space-2) 0;
+  }
+
+  .turn-order-choice {
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .initiative-phase .action-button,
+  .return-to-lobby-button {
+    min-height: 40px;
+  }
+
+  .choice-buttons {
+    margin-top: var(--space-2);
+  }
+
+  .game-over-modal {
+    width: min(640px, 100%);
+    max-width: none;
+    margin: 0;
+  }
+
+  .game-over-content {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .game-over-content:has(> .rewards-display) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    column-gap: var(--space-4);
+    align-items: center;
+  }
+
+  .game-over-content:has(> .rewards-display) > * {
+    grid-column: 1;
+  }
+
+  .game-over-content > .rewards-display {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .game-over-title {
+    font-size: var(--text-xl);
+  }
+
+  .game-over-title.winner,
+  .game-over-title.loser {
+    padding-bottom: var(--space-2);
+  }
+
+  .game-over-message,
+  .surrender-message {
+    margin: var(--space-2) 0;
+    font-size: 14px;
+  }
+
+  .game-over-content > .return-to-lobby-button,
+  .game-over-content .button-group {
+    margin-top: var(--space-2);
+  }
+
+  .rewards-title {
+    margin: 0 0 var(--space-2);
+    font-size: 18px;
+  }
+
+  .rewards-content {
+    gap: var(--space-2);
+  }
+
+  .reward-section {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .reward-label {
+    margin-bottom: var(--space-1);
+  }
+
+  .label-text,
+  .level-indicator {
+    font-size: 14px;
+  }
+
+  .reward-gain {
+    font-size: 14px;
+    padding: 2px 10px;
+  }
+
+  .rewards-display .xp-text {
+    font-size: 12px;
+  }
+
+  .vp-display {
+    padding: 0;
+  }
+
+  .vp-counter {
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-4);
+    font-size: 22px;
+  }
+
+  .vp-icon {
+    font-size: 28px;
+  }
 }

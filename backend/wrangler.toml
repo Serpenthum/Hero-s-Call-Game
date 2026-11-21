@@ -1,0 +1,15 @@
+name = "heroscall-server"
+main = "worker/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "GAME"
+class_name = "GameServer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameServer"]
+
+[vars]
+ALLOWED_ORIGINS = "https://heroscall.pages.dev,http://localhost:5173,http://127.0.0.1:5173"

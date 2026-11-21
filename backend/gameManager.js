@@ -1,6 +1,15 @@
 const { v4: uuidv4 } = require('uuid');
 
 const DRAFT_TIME_MS = 30000; // one ban or pick round
+const RECONNECT_GRACE_MS = 30000; // how long a disconnected player has to come back before they forfeit
+const RECONNECT_BUDGET_MS = 60000; // a player's total time away in one game; after that they forfeit at once
+const RECONNECT_MIN_MS = 3000; // a countdown never shows less than this, so the other player sees why they won
+// Games in these phases keep a disconnected player's seat for the grace period
+const RECONNECTABLE_PHASES = new Set(['draft', 'setup', 'initiative', 'battle']);
+// Modes where both seats are people (the tutorial is played against a bot)
+const PVP_MODES = new Set(['draft', 'random', 'survival', 'gauntlet']);
+// Account ids arrive as numbers from the database and sometimes as strings from clients
+const sameAccount = (a, b) => a !== null && a !== undefined && b !== null && b !== undefined && String(a) === String(b);
 const { 
   rollDice, 
   shuffleArray, 
@@ -13,9 +22,16 @@ const {
   processEndOfTurn,
   calculateEffectiveDefense
 } = require('./utils');
+const { classifyAbility, lostWithFallenFocus } = require('./abilityTargeting');
+
+// Battle Focus refusals (exact copy shown to players)
+const FOCUS_FIRST = 'Focus an enemy first';
+const FOCUS_LOCKED = 'Focus is locked for this turn';
+const FOCUS_UNTARGETABLE = "Can't be targeted";
+const FOCUS_FALLEN = 'Your focused target has fallen';
 
 // Debug mode - set to false in production for better performance
-const DEBUG = process.env.DEBUG_GAME === 'true' || false;
+const DEBUG = typeof process !== 'undefined' && process.env && process.env.DEBUG_GAME === 'true';
 const debugLog = DEBUG ? console.log.bind(console) : () => {};
 
 // Survival is offered once a player owns this many heroes (a full run uses 7 wins x 3 heroes)
@@ -24,6 +40,18 @@ const SURVIVAL_UNLOCK_HEROES = 21;
 // Draft Mode unlocks at this player level, and each ban-phase hand has this many heroes
 const DRAFT_UNLOCK_LEVEL = 3;
 const DRAFT_HAND_SIZE = 5;
+
+// Copies of the heroes, each marked holo: true if its name is one of the owner's holographics, else
+// with no holo key at all (whatever the input said). Never touches the objects passed in.
+function stampHolo(heroes, holoNames) {
+  const holo = new Set(holoNames || []);
+  return heroes.map(hero => {
+    const copy = { ...hero };
+    if (holo.has(hero.name)) copy.holo = true;
+    else delete copy.holo;
+    return copy;
+  });
+}
 
 class GameManager {
   constructor(heroes, database = null) {
@@ -38,7 +66,14 @@ class GameManager {
     this.survivalQueue = []; // Array of players waiting for survival mode
     this.database = database; // Database instance for victory points
     this.userSessions = new Map(); // playerId -> userId mapping for database operations
-    
+    this.reconnectGraceMs = RECONNECT_GRACE_MS; // longest single countdown
+    this.reconnectBudgetMs = RECONNECT_BUDGET_MS; // all of a player's time away in one game
+    this.reconnectMinMs = RECONNECT_MIN_MS; // shortest countdown, even with the budget used up
+    // Set by the server: called with a socket id whose seat was given up (drops per-socket settings)
+    this.onSeatReleased = null;
+    // Set by the server: called with the outcome when a disconnected player's grace period runs out
+    this.onDisconnectTimeout = null;
+
     console.log(`Loaded ${this.allHeroes.length} total heroes, ${this.heroes.length} enabled for gameplay`);
   }
 
@@ -656,14 +691,8 @@ class GameManager {
       return { success: false, message: 'Game not found' };
     }
 
-    // Remove player from game
-    game.players = game.players.filter(p => p.id !== playerId);
-    this.playerGameMap.delete(playerId);
-
-    // If no players left, delete the game
-    if (game.players.length === 0) {
-      this.games.delete(gameId);
-    }
+    // Remove player from game (a game left with nobody connected is deleted)
+    this.removePlayerFromGame(game, playerId);
 
     console.log(`❌ Player ${playerId} cancelled survival search`);
     return { success: true };
@@ -713,13 +742,15 @@ class GameManager {
     return shuffled.slice(0, size);
   }
 
-  // Enabled heroes a user owns (hero objects), or null if the account can't be loaded
+  // Enabled heroes a user owns (copies marked with the user's holographics), or null if the account
+  // can't be loaded
   async getOwnedHeroes(userId) {
     const user = userId && this.database ? await this.database.getUserById(userId) : null;
     if (!user) return null;
-    return (user.available_heroes || [])
+    const owned = (user.available_heroes || [])
       .map(name => this.heroes.find(h => h.name === name))
       .filter(hero => hero && !hero.disabled);
+    return stampHolo(owned, user.holo_heroes);
   }
 
   /**
@@ -828,22 +859,16 @@ class GameManager {
       return { success: false, error: 'Game not found' };
     }
 
-    // Get both players' owned heroes from database
-    const user1 = await this.database.getUserById(game.players[0].userId);
-    const user2 = await this.database.getUserById(game.players[1].userId);
+    // Get both players' owned heroes (marked with their own holographics) from the database
+    const [player1OwnedHeroes, player2OwnedHeroes] = await Promise.all([
+      this.getOwnedHeroes(game.players[0].userId),
+      this.getOwnedHeroes(game.players[1].userId)
+    ]);
     
-    if (!user1 || !user2) {
+    if (!player1OwnedHeroes || !player2OwnedHeroes) {
       console.error('Could not load user data for random mode');
       return { success: false, error: 'Could not load user data' };
     }
-    
-    // Get hero objects for each player's owned heroes
-    const player1OwnedHeroes = user1.available_heroes
-      .map(name => this.heroes.find(h => h.name === name))
-      .filter(h => h && !h.disabled);
-    const player2OwnedHeroes = user2.available_heroes
-      .map(name => this.heroes.find(h => h.name === name))
-      .filter(h => h && !h.disabled);
     
     console.log('Random mode - Player 1 owns', player1OwnedHeroes.length, 'heroes');
     console.log('Random mode - Player 2 owns', player2OwnedHeroes.length, 'heroes');
@@ -918,7 +943,8 @@ class GameManager {
 
     return {
       success: true,
-      gameState: game,
+      // The client view (with activeHero), not the raw game object
+      gameState: this.getFullGameState(game),
       players: game.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -2425,7 +2451,11 @@ class GameManager {
 
     const player = currentTurnInfo.player;
     const currentHero = currentTurnInfo.hero;
-    
+
+    // Focus is the first action of every turn, and a basic attack is lost with a fallen focus
+    const focusError = this.focusError(game, player, true);
+    if (focusError) return { success: false, error: focusError };
+
     // For Monks, use their specific attack tracking system
     if (currentHero.name === 'Monk') {
       if (player.monkAttacksRemaining <= 0) {
@@ -2460,11 +2490,6 @@ class GameManager {
       return { success: false, error: 'This hero cannot attack this turn' };
     }
 
-    // Check if target is selected
-    if (!player.selectedTarget) {
-      return { success: false, error: 'Must select a target first' };
-    }
-
     // Validate target against taunt restrictions
     const tauntValidation = this.validateTargetAgainstTaunt(currentHero, player.selectedTarget);
     if (!tauntValidation.valid) {
@@ -2473,7 +2498,7 @@ class GameManager {
 
     // Find target
     const opponent = game.players[1 - currentTurnInfo.playerIndex];
-    const target = opponent.team.find(h => h.name === player.selectedTarget);
+    const target = this.focusedHero(game, player);
     
     if (!target || target.currentHP <= 0) {
       return { success: false, error: 'Invalid target' };
@@ -2667,10 +2692,17 @@ class GameManager {
 
     const player = currentTurnInfo.player;
     const currentHero = currentTurnInfo.hero;
-    
+
+    // Focus is the first action of every turn, whatever the ability's kind
+    if (!player.selectedTarget) {
+      return { success: false, error: FOCUS_FIRST };
+    }
+
     if (!currentHero || !currentHero.Ability[abilityIndex]) {
       return { success: false, error: 'Invalid ability' };
     }
+
+    const targeting = classifyAbility(currentHero.Ability[abilityIndex], currentHero);
 
     // Check if hero can use abilities (not silenced or permanently disabled)
     if (currentHero.statusEffects?.silenced) {
@@ -2693,17 +2725,22 @@ class GameManager {
       return { success: false, error: 'This hero\'s abilities are permanently disabled' };
     }
 
+    // A single-target damaging ability is lost with its focus; area and self abilities still work
+    if (lostWithFallenFocus(targeting) && this.isFocusFallen(game, player)) {
+      return { success: false, error: FOCUS_FALLEN };
+    }
+
     // Get the ability first
     const ability = currentHero.Ability[abilityIndex];
     
-    // Check Hoarder's custom silence - prevent using abilities against Hoarder if debuffed
-    if (currentHero.statusEffects?.cannotTargetWithAbility) {
+    // Check Hoarder's custom silence - prevent using abilities against Hoarder if debuffed.
+    // A self ability is not used against anyone, so only enemy and all-enemy abilities are checked.
+    // A fallen focus is no longer a target, so an area ability goes ahead even if that was the Hoarder.
+    if (currentHero.statusEffects?.cannotTargetWithAbility && targeting.kind !== 'self' && !this.isFocusFallen(game, player)) {
       const debuff = currentHero.statusEffects.cannotTargetWithAbility;
-      // Check if trying to target the Hoarder who applied the debuff
-      const opponent = game.players[1 - currentTurnInfo.playerIndex];
-      const targetHero = opponent.team.find(h => h.name === targetId) || 
-                        player.team.find(h => h.name === targetId);
-      
+      // Check if the focus is the Hoarder who applied the debuff
+      const targetHero = this.focusedHero(game, player);
+
       // Compare by identity when possible: the target must be the bribing Hoarder, not a same-named hero
       const isBriber = debuff.ownerId ? targetHero && targetHero.id === debuff.ownerId : targetHero && targetHero.name === debuff.owner;
       if (isBriber) {
@@ -2740,44 +2777,44 @@ class GameManager {
       return { success: false, error: 'Already used ability this turn' };
     }
 
-    // Check if target is selected
-    if (!player.selectedTarget) {
-      return { success: false, error: 'Must select a target first' };
-    }
-
-    // Validate target against taunt restrictions  
-    const tauntValidation = this.validateTargetAgainstTaunt(currentHero, player.selectedTarget);
-    if (!tauntValidation.valid) {
-      return { success: false, error: tauntValidation.error };
-    }
     const opponent = game.players[1 - currentTurnInfo.playerIndex];
+    // The focus is always an enemy; self abilities land on the caster and skip the target checks
+    const selectedTargetHero = this.focusedHero(game, player);
+    const isSelfAbility = targeting.kind === 'self';
+    const isAOEAbility = targeting.kind === 'all';
 
-    // Check if the selected target is still alive (for abilities that target enemies)
-    const selectedTargetHero = opponent.team.find(h => h.name === player.selectedTarget) || 
-                               player.team.find(h => h.name === player.selectedTarget);
-    
-    if (selectedTargetHero && selectedTargetHero.currentHP <= 0) {
-      return { success: false, error: 'Cannot target dead heroes' };
-    }
+    if (!isSelfAbility) {
+      // Validate target against taunt restrictions
+      const tauntValidation = this.validateTargetAgainstTaunt(currentHero, player.selectedTarget);
+      if (!tauntValidation.valid) {
+        return { success: false, error: tauntValidation.error };
+      }
 
-    // Check if the selected target is untargetable (but allow AOE abilities and the original attacker)
-    const isAOEAbility = ability.target_type === 'all_enemies' || 
-                        (ability.primary_effects && ability.primary_effects.some(effect => effect.target === 'all_enemies'));
-    
-    if (selectedTargetHero && selectedTargetHero.statusEffects?.untargetable && !isAOEAbility) {
-      // Allow the original attacker who triggered Vanish to still target
-      if (selectedTargetHero.statusEffects.untargetableAttacker !== currentHero.name) {
-        return { success: false, error: 'Cannot target this hero - they are untargetable' };
+      // Check if the focus is still alive (an area ability goes ahead without it)
+      if (!isAOEAbility && selectedTargetHero && selectedTargetHero.currentHP <= 0) {
+        return { success: false, error: 'Cannot target dead heroes' };
+      }
+
+      // Check if the focus is untargetable (but allow AOE abilities and the original attacker)
+      if (selectedTargetHero && selectedTargetHero.statusEffects?.untargetable && !isAOEAbility) {
+        // Allow the original attacker who triggered Vanish to still target
+        if (selectedTargetHero.statusEffects.untargetableAttacker !== currentHero.name) {
+          return { success: false, error: 'Cannot target this hero - they are untargetable' };
+        }
       }
     }
-    
+
     // Check if this is a multi-target ability (like cleave)
     const isMultiTargetAbility = ability.target_type === 'multi_target' || ability.category === 'multi_target_damage';
-    
+
     let results = [];
     let targetName;
-    
-    if (isAOEAbility) {
+
+    if (isSelfAbility) {
+      // Self abilities (Wildshape, Bloodbath, summons) are cast on the caster, focus or no living focus
+      targetName = currentHero.name;
+      results = this.processAbilityEffects(ability, currentHero, currentHero, player, opponent, game, null, allyTargetId, null, null);
+    } else if (isAOEAbility) {
       // For AOE abilities, process all enemy targets
       const allEnemyTargets = opponent.team.filter(h => h.currentHP > 0);
       
@@ -2794,13 +2831,8 @@ class GameManager {
       }
     } else if (isMultiTargetAbility) {
       // For multi-target abilities like cleave, process each target individually with separate rolls
-      let primaryTarget = opponent.team.find(h => h.name === player.selectedTarget);
-      
-      // If not found in opponent team, look in player's team (for healing abilities)
-      if (!primaryTarget) {
-        primaryTarget = player.team.find(h => h.name === player.selectedTarget);
-      }
-      
+      const primaryTarget = selectedTargetHero;
+
       if (!primaryTarget) {
         return { success: false, error: 'Selected target not found' };
       }
@@ -2833,14 +2865,9 @@ class GameManager {
         results.push(...targetResults);
       }
     } else {
-      // Single target ability - use existing logic
-      let target = opponent.team.find(h => h.name === player.selectedTarget);
-      
-      // If not found in opponent team, look in player's team (for healing abilities)
-      if (!target) {
-        target = player.team.find(h => h.name === player.selectedTarget);
-      }
-      
+      // Single target ability: the focused enemy
+      const target = selectedTargetHero;
+
       if (!target) {
         return { success: false, error: 'Selected target not found' };
       }
@@ -2851,7 +2878,7 @@ class GameManager {
     
     // Track ability usage
     player.hasUsedAbility = true;
-    
+
     // For heroes that can use abilities multiple times, track specific ability usage
     const hasMultipleAbilityUse = hasSpecialEffect(currentHero, 'use_ability_twice') || 
                                  hasSpecialEffect(currentHero, 'use_twice_per_turn') ||
@@ -2943,9 +2970,20 @@ class GameManager {
       return { success: false, error: 'Only Timekeeper can use this method' };
     }
 
-    // Find the ally and enemy targets
+    // Chrono Shift is damaging: it needs a focus, and is lost once the focus has fallen
+    const focusError = this.focusError(game, player, true);
+    if (focusError) return { success: false, error: focusError };
+
+    // The pick only follows a Chrono Shift that hit this turn and commanded an ally with several
+    // abilities; it can be made once, for that ally
+    const pending = player.pendingChronoPick;
+    if (!pending || pending.ally !== allyTargetId) {
+      return { success: false, error: 'No Chrono Shift pick is pending' };
+    }
+
+    // Find the ally to command; the enemy is always the focus (timekeeperTargetId is ignored)
     const allyToCommand = this.findAllyHeroByName(game, timekeeper, allyTargetId);
-    const primaryTarget = this.findEnemyHeroByName(game, timekeeper, timekeeperTargetId);
+    const primaryTarget = this.focusedHero(game, player);
     
     if (!allyToCommand || !primaryTarget) {
       return { success: false, error: 'Invalid target selection' };
@@ -2965,7 +3003,8 @@ class GameManager {
 
     // Process the Timekeeper ability with the selected ability index
     const results = this.processTimekeeperSelectedAbility(chronoShiftAbility, timekeeper, primaryTarget, player, opponent, game, allyToCommand, selectedAbilityIndex);
-    
+
+    player.pendingChronoPick = null;
     player.hasUsedAbility = true;
 
     // Check win condition after any hero deaths from ability effects
@@ -4589,8 +4628,9 @@ class GameManager {
     });
     
     if (!hasAliveHeroes) {
-      // Current player has no alive heroes, check win condition
-      const winner = this.checkWinCondition(game);
+      // Current player has no alive heroes, check win condition. Only a battle in progress can be decided
+      // here: an ended game keeps its result (a forfeit in the draft has empty teams) and a draft has none yet.
+      const winner = game.phase === 'battle' ? this.checkWinCondition(game) : null;
       if (winner) {
         game.phase = 'ended';
         game.winner = winner;
@@ -4696,7 +4736,9 @@ class GameManager {
       }
       
       nextTurnInfo.player.selectedTarget = null;
-      
+      nextTurnInfo.player.focusLocked = false;
+      nextTurnInfo.player.pendingChronoPick = null;
+
       debugLog(` Reset action flags for player ${game.currentPlayerTurn}`);
     }
     
@@ -4753,6 +4795,11 @@ class GameManager {
       return { success: false, error: 'Not your turn' };
     }
 
+    // The focus is chosen once per turn and is final as soon as it is chosen
+    if (currentTurnInfo.player.focusLocked) {
+      return { success: false, error: FOCUS_LOCKED };
+    }
+
     // Check if hero is taunted - if so, must target the taunting hero (unless it ignores taunts, like Barbarian)
     const currentHero = currentTurnInfo.hero;
     const canIgnoreTaunt = this.hasPassiveModifier(currentHero, 'ignore_taunt');
@@ -4760,6 +4807,7 @@ class GameManager {
       const tauntTarget = this.findEnemyHeroByName(game, currentHero, currentHero.statusEffects.taunt.target);
       if (tauntTarget && tauntTarget.currentHP > 0) {
         currentTurnInfo.player.selectedTarget = tauntTarget.name;
+        currentTurnInfo.player.focusLocked = true;
         return {
           success: true,
           gameId,
@@ -4779,8 +4827,14 @@ class GameManager {
       return { success: false, error: 'Invalid target - hero not found or dead' };
     }
 
-    // Set the selected target first
+    // Vanished heroes can't be focused, except by the attacker that triggered the Vanish
+    if (target.statusEffects?.untargetable && target.statusEffects.untargetableAttacker !== currentHero.name) {
+      return { success: false, error: FOCUS_UNTARGETABLE };
+    }
+
+    // Set the focus; it is locked for the rest of the turn
     currentTurnInfo.player.selectedTarget = target.name;
+    currentTurnInfo.player.focusLocked = true;
     
     // Check for Paladin's Shield of Faith special - triggers when opponent targets adjacent ally
     // (Removed from here - now handled at end of turn)
@@ -4924,6 +4978,10 @@ class GameManager {
     if (!special) {
       return { success: false, error: 'Special ability is not manually activatable' };
     }
+
+    // Needs a focus like every action; activated specials hit everyone, so a fallen focus doesn't stop them
+    const focusError = this.focusError(game, player, false);
+    if (focusError) return { success: false, error: focusError };
 
     // Check if already used (at hero level, persists through resurrection)
     if (!currentHero.permanentDisables) {
@@ -5117,6 +5175,11 @@ class GameManager {
         };
       }
       
+      // The Mech's turn is over: drop its focus so nobody sees a stale marker during the next turn
+      player.selectedTarget = null;
+      player.focusLocked = false;
+      player.pendingChronoPick = null;
+
       // Advance to next player's turn since current hero died
       const nextTurnInfo = this.advanceToNextValidTurn(game);
       if (nextTurnInfo) {
@@ -5146,9 +5209,54 @@ class GameManager {
     const info = this.getCurrentTurnInfo(game);
     if (!info || !info.hero || game.phase !== 'battle') return false;
     const { player, hero } = info;
+    // A Chrono Shift ability pick is still open, so the turn is not over
+    if (player.pendingChronoPick) return false;
+    // Nothing can happen before a focus, and there may be no enemy left that can be focused
+    if (!player.selectedTarget && !this.canFocusAnyEnemy(game, player, hero)) return true;
+    // A fallen focus leaves only the self and area abilities and the activated specials
+    if (player.selectedTarget && this.isFocusFallen(game, player)) {
+      const usableAbility = this.canHeroUseAbility(player, hero) &&
+        hero.Ability.some(a => !lostWithFallenFocus(classifyAbility(a, hero)) && !(player.usedAbilities || []).includes(a.name));
+      return !usableAbility && !this.canHeroActivateSpecial(hero);
+    }
     return !this.canHeroAttack(player, hero) &&
       !this.canHeroUseAbility(player, hero) &&
       !this.canHeroActivateSpecial(hero);
+  }
+
+  // The enemy hero `player` has focused (looked up only on the opposing team), or null
+  focusedHero(game, player) {
+    if (!player || !player.selectedTarget) return null;
+    const index = game.players.indexOf(player);
+    if (index === -1) return null;
+    const opponent = game.players[1 - index];
+    return (opponent && opponent.team.find(h => h.name === player.selectedTarget)) || null;
+  }
+
+  // True when a focus is set and that enemy is down (an Angel revive brings it back above 0 HP)
+  isFocusFallen(game, player) {
+    const focus = this.focusedHero(game, player);
+    return !!focus && focus.currentHP <= 0;
+  }
+
+  // The refusal for an action, or null: no focus at all, or a damaging action with a fallen focus
+  focusError(game, player, damaging) {
+    if (!player.selectedTarget) return FOCUS_FIRST;
+    if (damaging && this.isFocusFallen(game, player)) return FOCUS_FALLEN;
+    return null;
+  }
+
+  // Whether selectTarget could succeed for this hero (a living taunter, or a living enemy it may target)
+  canFocusAnyEnemy(game, player, hero) {
+    const index = game.players.indexOf(player);
+    const opponent = game.players[1 - index];
+    if (!opponent) return false;
+    if (!this.hasPassiveModifier(hero, 'ignore_taunt') && hero.statusEffects?.taunt?.target) {
+      const taunter = this.findEnemyHeroByName(game, hero, hero.statusEffects.taunt.target);
+      if (taunter && taunter.currentHP > 0) return true;
+    }
+    return opponent.team.some(h => h.currentHP > 0 &&
+      (!h.statusEffects?.untargetable || h.statusEffects.untargetableAttacker === hero.name));
   }
 
   canHeroAttack(player, hero) {
@@ -5427,6 +5535,8 @@ class GameManager {
       currentTurnInfo.player.usedAbilities = [];
     }
     currentTurnInfo.player.selectedTarget = null; // Clear target selection
+    currentTurnInfo.player.focusLocked = false;
+    currentTurnInfo.player.pendingChronoPick = null;
 
     // Remove first pick silence debuff at end of turn (first player disadvantage cleanup)
     if (currentTurnInfo.hero.statusEffects?.silenced && 
@@ -5627,70 +5737,180 @@ class GameManager {
     };
   }
 
-  reconnectPlayer(socketId, gameId, playerName) {
-    const game = this.games.get(gameId);
-    if (!game) {
-      return { success: false, error: 'Game not found' };
+  // The account a seat belongs to. Seats are keyed by socket id, which changes on every reconnect.
+  userIdForPlayer(player) {
+    if (!player) return null;
+    return player.userId ?? this.userSessions.get(player.id) ?? null;
+  }
+
+  // A disconnect here keeps the seat open for the grace period instead of dropping the player
+  isSeatHeldOnDisconnect(game) {
+    return !!game && PVP_MODES.has(game.mode) && RECONNECTABLE_PHASES.has(game.phase) && game.players.length === 2;
+  }
+
+  // The live game this account dropped out of, if its seat is still being held
+  findHeldSeat(userId) {
+    if (userId === null || userId === undefined) return null;
+    for (const game of this.games.values()) {
+      if (!this.isSeatHeldOnDisconnect(game)) continue;
+      const player = game.players.find(p => p.connected === false && sameAccount(this.userIdForPlayer(p), userId));
+      if (!player) continue;
+      const timer = game.disconnectionTimers && game.disconnectionTimers.get(player.id);
+      if (timer && timer.surrendered) continue;
+      return { game, player };
+    }
+    return null;
+  }
+
+  // Puts a returning player back in their seat on a new socket. The account (userId) must own the seat;
+  // gameId is a hint (old clients send it), playerName is kept only for the old call signature.
+  reconnectPlayer(socketId, gameId, playerName, userId) {
+    if (userId === null || userId === undefined) {
+      return { success: false, error: 'Please log in again to rejoin your game' };
     }
 
-    const player = game.players.find(p => p.name === playerName);
-    if (!player) {
-      return { success: false, error: 'Player not found in game' };
-    }
-
-    // Check if player already surrendered from disconnection timeout
-    const oldPlayerId = game.players.find(p => p.name === playerName)?.id;
-    if (oldPlayerId && game.disconnectionTimers && game.disconnectionTimers.has(oldPlayerId)) {
-      const timerData = game.disconnectionTimers.get(oldPlayerId);
-      if (timerData.surrendered) {
-        return { success: false, error: 'You have already been surrendered due to disconnection' };
+    let seat = null;
+    const hinted = gameId ? this.games.get(gameId) : null;
+    if (hinted && this.isSeatHeldOnDisconnect(hinted)) {
+      const player = hinted.players.find(p => sameAccount(this.userIdForPlayer(p), userId));
+      if (player && player.connected === false) seat = { game: hinted, player };
+      else if (player && player.id === socketId) {
+        return { success: true, gameId: hinted.id, game: hinted, oldPlayerId: socketId, gameState: this.getFullGameState(hinted), reconnected: true };
       }
     }
+    if (!seat) seat = this.findHeldSeat(userId);
+    if (!seat) {
+      return { success: false, error: 'That game is no longer running' };
+    }
 
-    // Update player connection
+    const { game, player } = seat;
+    const timerData = game.disconnectionTimers && game.disconnectionTimers.get(player.id);
+    if (timerData && timerData.surrendered) {
+      return { success: false, error: 'You have already been surrendered due to disconnection' };
+    }
+    // This connection is already playing another live game; taking the seat would orphan that one
+    const current = this.games.get(this.playerGameMap.get(socketId));
+    if (current && current !== game && this.isSeatHeldOnDisconnect(current)) {
+      return { success: false, error: 'You are already in another game' };
+    }
+    // The time spent away comes out of this player's budget for the game
+    if (timerData) player.graceUsedMs = (player.graceUsedMs || 0) + Math.max(0, Date.now() - timerData.since);
+
     const oldId = player.id;
-    player.id = socketId;
+    if (timerData && timerData.timeoutId) clearTimeout(timerData.timeoutId);
+    if (game.disconnectionTimers) game.disconnectionTimers.delete(oldId);
+    this.rekeyPlayer(game, oldId, socketId);
     player.connected = true;
-    this.playerGameMap.set(socketId, gameId);
-    
-    // Cancel disconnection countdown if it exists
-    if (game.disconnectionTimers && game.disconnectionTimers.has(oldId)) {
-      const timerData = game.disconnectionTimers.get(oldId);
-      if (timerData.timeoutId) {
-        clearTimeout(timerData.timeoutId);
-      }
-      game.disconnectionTimers.delete(oldId);
-      console.log(`✅ Player ${playerName} reconnected - cancelled disconnection countdown`);
-    }
-    
-    // Update the playerGameMap entry
-    this.playerGameMap.delete(oldId);
+    player.userId = userId;
+    console.log(`✅ Player ${player.name} reconnected to game ${game.id}`);
 
     return {
       success: true,
-      gameId,
+      gameId: game.id,
+      game,
+      oldPlayerId: oldId,
+      // The other player ran out of time while we were both away: we win as soon as we are back
+      pendingForfeit: !!game.pendingForfeitBy,
       gameState: this.getFullGameState(game),
       reconnected: true
     };
   }
 
-  handleDisconnect(playerId) {
-    const gameId = this.playerGameMap.get(playerId);
-    if (gameId) {
-      const game = this.games.get(gameId);
-      if (game) {
-        const player = game.players.find(p => p.id === playerId);
-        if (player) {
-          player.connected = false;
-          
-          // Start disconnection countdown only if game is in battle phase
-          if (game.phase === 'battle') {
-            this.startDisconnectionCountdown(game, playerId);
-          }
-        }
+  // Moves everything keyed by a player's old socket id over to their new one
+  rekeyPlayer(game, oldId, newId) {
+    if (oldId === newId) return;
+    const player = game.players.find(p => p.id === oldId);
+    if (player) player.id = newId;
+    if (game.winner === oldId) game.winner = newId;
+    this.playerGameMap.delete(oldId);
+    this.playerGameMap.set(newId, game.id);
+    for (const map of [this.survivalStates, this.gauntletRuns]) {
+      if (map.has(oldId)) {
+        map.set(newId, map.get(oldId));
+        map.delete(oldId);
       }
-      this.playerGameMap.delete(playerId);
     }
+    const userId = this.userSessions.get(oldId);
+    if (userId !== undefined && !this.userSessions.has(newId)) this.userSessions.set(newId, userId);
+    this.userSessions.delete(oldId);
+    for (const spectator of game.spectators || []) {
+      if (spectator.spectatingPlayerId === oldId) spectator.spectatingPlayerId = newId;
+    }
+  }
+
+  // Called for every player socket that closes. Returns { game, player } when the seat is held for a
+  // reconnect (the countdown has started), or null when the caller should clean up as before.
+  // since: when the player was last heard from (a dropped network is noticed some seconds late)
+  handleDisconnect(playerId, since = Date.now()) {
+    const gameId = this.playerGameMap.get(playerId);
+    if (!gameId) return null;
+    const game = this.games.get(gameId);
+    const player = game ? game.players.find(p => p.id === playerId) : null;
+    if (!game || !player) {
+      this.playerGameMap.delete(playerId);
+      return null;
+    }
+
+    if (this.isSeatHeldOnDisconnect(game)) {
+      player.connected = false;
+      if (player.userId === undefined || player.userId === null) player.userId = this.userSessions.get(playerId) ?? null;
+      // The seat stays mapped so server-driven moves (the draft clock) still find the game
+      this.startDisconnectionCountdown(game, playerId, since);
+      return { game, player };
+    }
+
+    player.connected = false;
+    this.playerGameMap.delete(playerId);
+    return null;
+  }
+
+  // Takes a player out of a game. A game with nobody connected left in it is closed.
+  removePlayerFromGame(game, playerId) {
+    game.players = game.players.filter(p => p.id !== playerId);
+    this.playerGameMap.delete(playerId);
+    if (game.players.every(p => p.connected === false)) this.closeGame(game);
+  }
+
+  // Lets go of a seat nobody came back to: its old socket id no longer maps to the game or the account
+  releaseSeat(game, playerId) {
+    if (this.playerGameMap.get(playerId) === game.id) this.playerGameMap.delete(playerId);
+    const userId = this.userSessions.get(playerId);
+    this.userSessions.delete(playerId);
+    // Survival runs are saved to the account as they change
+    this.survivalStates.delete(playerId);
+    // The server's hook saves the in-memory Gauntlet run (with whatever happened while the player was
+    // away) before dropping it, whichever way the game ended
+    // (It returns the save's promise, or null; callers that can wait for it do.)
+    const saved = this.onSeatReleased ? this.onSeatReleased(playerId, userId) : null;
+    this.gauntletRuns.delete(playerId);
+    return saved || Promise.resolve();
+  }
+
+  // Deletes a game and everything still pointing at it
+  closeGame(game) {
+    this.clearDisconnectionTimers(game);
+    for (const p of game.players) {
+      if (p.connected === false) this.releaseSeat(game, p.id);
+      else if (this.playerGameMap.get(p.id) === game.id) this.playerGameMap.delete(p.id);
+    }
+    if (game.tutorial) this.playerGameMap.delete(game.tutorial.botId);
+    this.games.delete(game.id);
+  }
+
+  clearDisconnectionTimers(game) {
+    if (!game.disconnectionTimers) return;
+    for (const timer of game.disconnectionTimers.values()) {
+      if (timer.timeoutId) clearTimeout(timer.timeoutId);
+    }
+    game.disconnectionTimers.clear();
+  }
+
+  clearAllDisconnectionTimers() {
+    for (const game of this.games.values()) this.clearDisconnectionTimers(game);
+  }
+
+  hasDisconnectedPlayer(game) {
+    return !!game && game.players.some(p => p.connected === false);
   }
 
   // Draft clock: each ban or pick round lasts DRAFT_TIME_MS. The server calls this about once a second.
@@ -5733,7 +5953,7 @@ class GameManager {
     const availableHeroes = this.heroes.filter(hero => !bannedCards.includes(hero.name));
     
     // Use regular shuffle for equal probability
-    const shuffled = shuffle(availableHeroes);
+    const shuffled = shuffleArray(availableHeroes);
     
     // Assign 3 random heroes to each player - properly reset each hero
     game.players[0].team = shuffled.slice(0, 3).map(hero => this.resetHeroToOriginalState(hero));
@@ -5760,12 +5980,21 @@ class GameManager {
     };
   }
 
-  startDisconnectionCountdown(game, playerId) {
+  // How long this player may stay away now: each disconnect gets at most reconnectGraceMs, and the game
+  // gives each player reconnectBudgetMs in total. Time already spent silent (since) counts against both.
+  // Once the budget is gone a further disconnect still gets reconnectMinMs, so the badge is seen briefly.
+  disconnectAllowanceMs(player, since, now = Date.now()) {
+    const budgetLeft = this.reconnectBudgetMs - (player.graceUsedMs || 0);
+    const allowed = Math.min(this.reconnectGraceMs, budgetLeft) - Math.max(0, now - since);
+    return Math.max(Math.min(this.reconnectMinMs, this.reconnectGraceMs), allowed);
+  }
+
+  startDisconnectionCountdown(game, playerId, since = Date.now()) {
     if (!game.disconnectionTimers) {
       game.disconnectionTimers = new Map();
     }
 
-    // Don't start a new countdown if one already exists
+    // No second countdown for the same seat
     if (game.disconnectionTimers.has(playerId)) {
       console.log(`⏱️ Disconnection countdown already active for player ${playerId}`);
       return;
@@ -5774,93 +6003,142 @@ class GameManager {
     const player = game.players.find(p => p.id === playerId);
     if (!player) return;
 
-    console.log(`⏱️ Starting 30-second disconnection countdown for ${player.name}`);
-
     const startTime = Date.now();
+    const durationMs = this.disconnectAllowanceMs(player, since, startTime);
+    console.log(`⏱️ Starting ${Math.round(durationMs / 1000)}-second disconnection countdown for ${player.name}`);
+
     const timeoutId = setTimeout(() => {
-      this.handleDisconnectionTimeout(game, playerId);
-    }, 30000); // 30 seconds
+      this.handleDisconnectionTimeout(game.id, playerId).catch(err => console.error('Disconnection timeout failed:', err));
+    }, durationMs);
 
     game.disconnectionTimers.set(playerId, {
+      since: Math.min(since, startTime),
       startTime,
+      durationMs,
       timeoutId,
       surrendered: false,
       playerName: player.name
     });
 
-    // Notify the socket service that countdown has started (will be handled in server.js)
     if (this.io) {
       this.io.to(game.id).emit('disconnection-countdown-started', {
+        gameId: game.id,
         playerId,
         playerName: player.name,
-        remainingTime: 30
+        remainingTime: Math.ceil(durationMs / 1000),
+        remainingMs: durationMs,
+        durationMs
       });
     }
   }
 
-  async handleDisconnectionTimeout(game, playerId) {
+  // A player's countdown ran out. The player who stayed wins in any phase (draft, setup, initiative or
+  // battle), exactly as if the other had surrendered. If the other player is away too but still inside
+  // their own countdown, the win waits for them: it is theirs if they come back, and the game is
+  // abandoned (no winner, nothing recorded) if they don't.
+  async handleDisconnectionTimeout(gameId, playerId) {
+    const game = this.games.get(gameId);
+    if (!game || !game.disconnectionTimers) return null;
     const timerData = game.disconnectionTimers.get(playerId);
-    if (!timerData) return;
+    if (!timerData || timerData.surrendered) return null;
 
     const player = game.players.find(p => p.id === playerId);
-    if (!player) return;
-
-    // Check if player reconnected (connected flag is true)
-    if (player.connected) {
-      console.log(`✅ Player ${player.name} reconnected before timeout - clearing countdown`);
+    if (!player || player.connected) {
       game.disconnectionTimers.delete(playerId);
-      return;
+      return null;
     }
 
-    debugLog(` Disconnection timeout reached for ${player.name} - forcing surrender`);
+    // The game already finished some other way (a win on the board, a surrender): just let the seat go
+    if (!RECONNECTABLE_PHASES.has(game.phase)) {
+      game.disconnectionTimers.delete(playerId);
+      await this.releaseSeat(game, playerId);
+      if (game.players.every(p => p.connected === false)) this.closeGame(game);
+      return null;
+    }
 
-    // Mark as surrendered to prevent reconnection
-    timerData.surrendered = true;
+    timerData.surrendered = true; // from here on this seat cannot be taken back
+    player.graceUsedMs = this.reconnectBudgetMs;
+    const opponent = game.players.find(p => p.id !== playerId);
+    const opponentTimer = opponent && game.disconnectionTimers.get(opponent.id);
+    if (opponent && opponent.connected === false && opponentTimer && !opponentTimer.surrendered) {
+      game.pendingForfeitBy = playerId;
+      console.log(`⏳ ${player.name} ran out of time; ${opponent.name} wins if they come back in time`);
+      return { success: true, gameId: game.id, outcome: 'pending' };
+    }
+    return this.finishDisconnectedGame(game, playerId);
+  }
 
-    // Force surrender the disconnected player
-    const opponentPlayer = game.players.find(p => p.id !== playerId);
-    if (opponentPlayer) {
-      game.phase = 'ended';
-      game.winner = opponentPlayer.id;
+  // The player who was waiting for a win came back: the win is theirs now
+  async resolvePendingForfeit(game) {
+    const loserId = game.pendingForfeitBy;
+    if (!loserId || !RECONNECTABLE_PHASES.has(game.phase)) return null;
+    return this.finishDisconnectedGame(game, loserId);
+  }
 
-      console.log(`🏆 ${opponentPlayer.name} wins by disconnection forfeit`);
+  // Ends a game whose player (loserId) never came back: a forfeit win for the opponent if they are
+  // connected, otherwise abandoned with no winner.
+  async finishDisconnectedGame(game, loserId) {
+    const player = game.players.find(p => p.id === loserId);
+    const opponent = game.players.find(p => p.id !== loserId);
+    const opponentHere = !!opponent && opponent.connected !== false;
+    delete game.pendingForfeitBy;
 
-      // Update database stats for disconnected player (loss)
-      const disconnectedUserId = this.userSessions.get(playerId);
-      if (disconnectedUserId && this.database) {
-        try {
-          await this.database.updatePlayerStats(disconnectedUserId, false, game.mode);
-          debugLog(` Updated loss for disconnected player ${player.name} (userId: ${disconnectedUserId})`);
-        } catch (error) {
-          console.error(`❌ Error updating stats for disconnected player:`, error);
-        }
-      }
+    let outcome;
+    game.phase = 'ended';
+    if (opponentHere) {
+      outcome = 'forfeit';
+      game.winner = opponent.id;
+      game.endReason = 'disconnect';
+      console.log(`🏆 ${opponent.name} wins: ${player.name} did not come back in time`);
+      // Victory points are paid like any other win (surrender uses the same path)
+      this.handleGameCompletion(game.id, opponent.id, 'disconnect').catch(error => {
+        console.error('Error awarding victory points for disconnection forfeit:', error);
+      });
+    } else {
+      outcome = 'abandoned';
+      game.winner = null;
+      game.endReason = 'abandoned';
+      console.log(`🚫 Game ${game.id} abandoned: nobody came back`);
+    }
 
-      // Update database stats for winner
-      const winnerUserId = this.userSessions.get(opponentPlayer.id);
-      if (winnerUserId && this.database) {
-        try {
-          await this.database.updatePlayerStats(winnerUserId, true, game.mode);
-          debugLog(` Updated win for ${opponentPlayer.name} (userId: ${winnerUserId})`);
-        } catch (error) {
-          console.error(`❌ Error updating stats for winner:`, error);
-        }
-      }
+    const result = {
+      success: true,
+      gameId: game.id,
+      outcome,
+      winner: game.winner,
+      surrenderedBy: loserId,
+      byDisconnect: true,
+      disconnectedPlayer: loserId,
+      disconnectedPlayerName: player.name,
+      gameState: this.getFullGameState(game)
+    };
 
-      // Notify both players via socket service (will be handled in server.js)
-      if (this.io) {
-        this.io.to(game.id).emit('game-ended-by-disconnection', {
-          winner: opponentPlayer.id,
-          winnerName: opponentPlayer.name,
-          disconnectedPlayer: playerId,
-          disconnectedPlayerName: player.name,
-          gameState: this.getFullGameState(game)
-        });
+    if (this.io) {
+      this.io.to(game.id).emit('game-ended-by-disconnection', {
+        gameId: game.id,
+        outcome,
+        winner: game.winner,
+        winnerName: outcome === 'forfeit' ? opponent.name : null,
+        disconnectedPlayer: loserId,
+        disconnectedPlayerName: player.name,
+        gameState: result.gameState
+      });
+    }
+
+    this.clearDisconnectionTimers(game);
+    if (this.onDisconnectTimeout) {
+      try {
+        await this.onDisconnectTimeout(result, game);
+      } catch (error) {
+        console.error('Disconnection timeout handler failed:', error);
       }
     }
 
-    // Clean up the timer
-    game.disconnectionTimers.delete(playerId);
+    // A seat nobody came back to is released. A game with nobody connected is closed.
+    // A released seat's Gauntlet run is saved before we carry on
+    await Promise.all(game.players.filter(p => p.connected === false).map(p => this.releaseSeat(game, p.id)));
+    if (outcome !== 'forfeit' || game.players.every(p => p.connected === false)) this.closeGame(game);
+    return result;
   }
 
   getDisconnectionTimer(gameId, playerId) {
@@ -5870,13 +6148,15 @@ class GameManager {
     const timerData = game.disconnectionTimers.get(playerId);
     if (!timerData) return null;
 
-    const elapsed = Date.now() - timerData.startTime;
-    const remaining = Math.max(0, 30 - Math.floor(elapsed / 1000));
+    const durationMs = timerData.durationMs || RECONNECT_GRACE_MS;
+    const remainingMs = Math.max(0, durationMs - (Date.now() - timerData.startTime));
 
     return {
       playerId,
       playerName: timerData.playerName,
-      remainingTime: remaining,
+      remainingTime: Math.ceil(remainingMs / 1000),
+      remainingMs,
+      durationMs,
       surrendered: timerData.surrendered
     };
   }
@@ -5961,6 +6241,7 @@ class GameManager {
         usedAbilities: p.usedAbilities || [],
         usedAttacks: p.usedAttacks || 0,
         selectedTarget: p.selectedTarget || null,
+        focusLocked: !!p.focusLocked,
         bannedCard: p.bannedCard,
         attackOrder: p.attackOrder || [],
         initiativeRoll: p.initiativeRoll,
@@ -5974,11 +6255,14 @@ class GameManager {
       activeHero: currentTurnInfo ? {
         name: currentTurnInfo.hero.name,
         playerIndex: currentTurnInfo.playerIndex,
-        heroIndex: currentTurnInfo.heroIndex
+        heroIndex: currentTurnInfo.heroIndex,
+        // One { kind, damaging } per ability of the active hero, in order (Beast Tamer's depends on its beast)
+        abilityTargeting: (currentTurnInfo.hero.Ability || []).map(a => classifyAbility(a, currentTurnInfo.hero))
       } : null,
       currentDraftPhase: game.currentDraftPhase || 0,
       draftTurn: game.draftTurn || 0,
       winner: game.winner,
+      endReason: game.endReason || null, // 'disconnect' when the loser never came back
       draftCards: game.draftCards,
       battleLog: game.battleLog || [] // Include battle log for spectators and reconnection
     };
@@ -6737,6 +7021,8 @@ class GameManager {
         message: `${caster.name} commands ${allyToCommand.name}! Select which ability to use.`,
         timekeeperTarget: primaryTarget.name
       });
+      // useTimekeeperSelectedAbility accepts exactly one pick for this ally this turn
+      casterPlayer.pendingChronoPick = { ally: allyToCommand.name };
       return results;
     }
 
@@ -7897,15 +8183,8 @@ class GameManager {
       }
     }
 
-    // Remove player from game
-    game.players = game.players.filter(p => p.id !== playerId);
-    this.playerGameMap.delete(playerId);
-
-    // If no players left, delete the game
-    if (game.players.length === 0) {
-      this.games.delete(gameId);
-      console.log(`🗑️ Deleted empty game ${gameId}`);
-    }
+    // Remove player from game (a game left with nobody connected is deleted)
+    this.removePlayerFromGame(game, playerId);
 
     const preservedState = isSurvivalMode ? await this.getSurvivalState(playerId) : null;
     
@@ -8225,7 +8504,8 @@ class GameManager {
       templates.push(template);
     }
     
-    return { success: true, team: templates.map(template => this.resetHeroToOriginalState(template)) };
+    const team = templates.map(template => this.resetHeroToOriginalState(template));
+    return { success: true, team: stampHolo(team, user.holo_heroes) };
   }
 
   /**
@@ -8609,7 +8889,7 @@ class GameManager {
   /**
    * Queue for Gauntlet trial matchmaking
    */
-  queueForGauntletTrial(playerId) {
+  queueForGauntletTrial(playerId, holoHeroes = []) {
     const runState = this.gauntletRuns.get(playerId);
     if (!runState) {
       return { success: false, error: 'No active Gauntlet run' };
@@ -8643,6 +8923,7 @@ class GameManager {
       playerName: runState.playerName,
       currentTrial: runState.current_trial,
       bracket,
+      holoHeroes,
       timestamp: Date.now()
     });
 
@@ -8696,9 +8977,9 @@ class GameManager {
     const gameId = uuidv4();
     const game = this.createNewGame(gameId, 'gauntlet');
 
-    // Prepare teams from battle_team_indices
-    const player1Team = this.buildGauntletTeam(player1Run);
-    const player2Team = this.buildGauntletTeam(player2Run);
+    // Prepare teams from battle_team_indices (only these battle copies are marked holo, never the run)
+    const player1Team = stampHolo(this.buildGauntletTeam(player1Run), player1Data.holoHeroes);
+    const player2Team = stampHolo(this.buildGauntletTeam(player2Run), player2Data.holoHeroes);
 
     // Create players
     const player1 = {
@@ -9011,3 +9292,5 @@ class GameManager {
 }
 
 module.exports = GameManager;
+
+GameManager.DRAFT_TIME_MS = DRAFT_TIME_MS;

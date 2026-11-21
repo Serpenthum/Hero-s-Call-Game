@@ -1,3 +1,40 @@
+/* Battle Focus, at every size: the Focus button in the action bar and the focus line above it */
+.battle-layout .action-button.focus-button:not(:disabled) {
+  background: var(--ember);
+  border-color: var(--focus-c);
+  color: var(--bone);
+  text-shadow: 0 1px 2px var(--shade);
+}
+
+.battle-layout .action-button.focus-button:hover:not(:disabled) {
+  background: var(--ember-hi);
+}
+
+.battle-layout .focus-line strong {
+  color: var(--focus-c);
+}
+
+.battle-layout .action-button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Activated specials (Self Destruct, Peace Treaty, Explosion): ember when ready, the usual disabled look otherwise */
+.battle-layout .action-button.special-button:not(:disabled) {
+  background: var(--ember);
+  border-color: var(--ember-hi);
+  color: var(--bone);
+}
+
+.battle-layout .action-button.special-button:hover:not(:disabled) {
+  background: var(--ember-hi);
+}
+
+.battle-layout .action-prompt-sub {
+  font-size: 12px;
+  color: var(--bone-dim);
+}
+
 /* Phones, plus short desktop windows where the labels and avatars would crowd out the log and heroes */
 @media (max-width: 600px), (max-width: 1000px) and (max-height: 600px), (max-width: 1400px) and (max-height: 720px) {
   /*
@@ -7,17 +44,17 @@
   .App:has(.battle-layout) {
     /* Cards are kept a little under full row height so the sidebar and actions can be wider */
     --phone-card-shrink: 0.85;
-    --phone-card-h: min(calc((50dvh - 8px) * var(--phone-card-shrink)), 469px);
+    --phone-card-h: min(calc((var(--app-height) / 2 - 8px) * var(--phone-card-shrink)), 469px);
     /* 3 cards at 260/391 aspect plus gaps and frame */
     --phone-cards-w: calc(3 * 0.665 * var(--phone-card-h) + 10px);
     /* Minimum sidebar + actions + label widths (136 + 100 + 52) and breathing room */
-    --phone-spare: calc(100vw - var(--phone-cards-w) - 288px - 32px);
+    --phone-spare: calc(100vw - var(--safe-left) - var(--safe-right) - var(--phone-cards-w) - 288px - 32px);
     --phone-sidebar-width: clamp(136px, calc(136px + var(--phone-spare) * 0.4), 320px);
     --phone-actions-width: clamp(100px, calc(100px + var(--phone-spare) * 0.3), 220px);
     --phone-label-width: clamp(52px, calc(52px + var(--phone-spare) * 0.3), 220px);
     --phone-sidebar-font: clamp(11px, calc(var(--phone-sidebar-width) / 18), 14px);
     --phone-actions-font: clamp(11px, calc(var(--phone-actions-width) / 12), 14px);
-    --phone-avatar: clamp(32px, calc(var(--phone-label-width) - 12px), calc(50dvh - 56px));
+    --phone-avatar: clamp(32px, calc(var(--phone-label-width) - 12px), calc(var(--app-height) / 2 - 56px));
   }
 
   /* Very short screens need every pixel for the cards */
@@ -34,7 +71,7 @@
   }
 
   .App:has(.battle-layout) .app-layout {
-    height: 100dvh;
+    height: var(--app-height);
     min-height: 0;
   }
 
@@ -44,7 +81,7 @@
 
   .App:has(.battle-layout) .game-sidebar {
     width: var(--phone-sidebar-width);
-    height: 100dvh;
+    height: var(--app-height);
     max-height: none;
     box-sizing: border-box;
     display: flex;
@@ -89,7 +126,8 @@
     font-size: 13px;
   }
 
-  .App:has(.battle-layout) .current-turn,
+  /* The turn banner, not the hero card that shares the class name */
+  .App:has(.battle-layout) .current-turn:not(.hero-card),
   .App:has(.battle-layout) .opponent-turn {
     font-size: var(--phone-sidebar-font);
     padding: 4px;
@@ -149,20 +187,24 @@
   .App .battle-layout.battle-layout {
     flex-direction: row;
     min-height: 0;
-    height: 100dvh;
-    max-height: 100dvh;
+    height: var(--app-height);
+    max-height: var(--app-height);
     margin-right: var(--phone-actions-width);
     overflow: visible;
   }
 
+  /* Fixed to the viewport, so it pads out the insets itself: the background reaches the edge under the
+     notch, the controls stay beside the board (which the padded app root already keeps clear) */
   .App .battle-layout .action-bar {
     position: fixed;
-    width: var(--phone-actions-width);
+    top: 0;
+    width: calc(var(--phone-actions-width) + var(--safe-right));
     height: 100dvh;
     box-sizing: border-box;
     border-left: 1px solid var(--brass);
-    padding-top: 0;
-    padding-bottom: 66px;
+    padding-top: var(--safe-top);
+    padding-right: var(--safe-right);
+    padding-bottom: calc(66px + var(--safe-bottom));
   }
 
   .App .battle-layout .action-bar > * {
@@ -183,7 +225,6 @@
 
   .App .battle-layout .action-prompt,
   .App .battle-layout .hero-info,
-  .App .battle-layout .selected-target,
   .App .battle-layout .ability-description {
     font-size: var(--phone-actions-font);
     overflow-wrap: anywhere;
@@ -294,11 +335,11 @@
   .App:has(.battle-layout) .message-icon {
     width: 36px;
     height: 36px;
-    bottom: max(6px, env(safe-area-inset-bottom));
+    bottom: max(6px, var(--safe-bottom));
   }
 
-  .App:has(.battle-layout) .friends-icon { left: 8px; }
-  .App:has(.battle-layout) .message-icon { left: 50px; }
+  .App:has(.battle-layout) .friends-icon { left: calc(8px + var(--safe-left)); }
+  .App:has(.battle-layout) .message-icon { left: calc(50px + var(--safe-left)); }
 
   .App:has(.battle-layout) .friends-icon-svg,
   .App:has(.battle-layout) .message-icon-svg {
@@ -308,12 +349,13 @@
 
   .App:has(.battle-layout) .friends-icon .notification-badge,
   .App:has(.battle-layout) .message-icon .notification-badge {
-    min-width: 14px;
-    height: 14px;
-    padding: 0 2px;
-    top: -5px;
-    right: -5px;
-    font-size: 9px;
+    /* Text never below 12px (--text-xs shrinks with the root size); badge sized to fit it */
+    min-width: 18px;
+    height: 18px;
+    padding: 0 3px;
+    top: -6px;
+    right: -6px;
+    font-size: max(12px, var(--text-xs));
   }
 
   .App:has(.battle-layout) .friends-icon-tooltip,
@@ -322,8 +364,8 @@
   }
 
   .App:has(.battle-layout) .floating-surrender-button {
-    bottom: max(6px, env(safe-area-inset-bottom)) !important;
-    right: 6px !important;
+    bottom: max(6px, var(--safe-bottom)) !important;
+    right: calc(6px + var(--safe-right)) !important;
     padding: 7px 5px !important;
     font-size: var(--phone-actions-font) !important;
     max-width: calc(var(--phone-actions-width) - 12px);
@@ -331,17 +373,153 @@
   }
 
   .App:has(.battle-layout) .turn-timer-bar {
-    right: calc(var(--phone-actions-width) / 2);
+    right: calc(var(--phone-actions-width) / 2 + var(--safe-right));
     width: calc(var(--phone-actions-width) - 16px);
-    bottom: 44px;
+    bottom: calc(44px + var(--safe-bottom));
     height: 10px;
   }
 
   .App:has(.battle-layout) .spectator-count-button {
     width: 30px !important;
     height: 30px !important;
-    bottom: 6px !important;
-    right: calc(var(--phone-actions-width) + 6px) !important;
+    bottom: max(6px, var(--safe-bottom)) !important;
+    right: calc(var(--phone-actions-width) + 6px + var(--safe-right)) !important;
     font-size: 14px !important;
+  }
+}
+
+/*
+ * Sideways phone (short screen). The phone layout above always applies at this height (up to 1400px wide),
+ * so these rules only tune it: text is at least 12px and every control is a 40px tap target.
+ * The right column stacks, from the bottom: Surrender, the turn timer, then the spectator count.
+ */
+@media (max-height: 500px) and (max-width: 1400px) {
+  .App:has(.battle-layout) {
+    --phone-sidebar-font: clamp(12px, calc(var(--phone-sidebar-width) / 18), 14px);
+    --phone-actions-font: clamp(12px, calc(var(--phone-actions-width) / 12), 14px);
+    /* Bottom of the Surrender button, and the space it and the turn timer take in the action bar */
+    --phone-dock-bottom: max(6px, var(--safe-bottom));
+    --phone-dock-h: 62px;
+  }
+
+  .App:has(.battle-layout) .active-hero h4,
+  .App:has(.battle-layout) .log-entries .roll-info,
+  .App:has(.battle-layout) .log-entries .damage-roll-info,
+  .App:has(.battle-layout) .log-entries .heal-roll-info,
+  .App:has(.battle-layout) .log-entry.crit::before,
+  .App:has(.battle-layout) .log-entry.killed::after {
+    font-size: 12px;
+  }
+
+  .App .battle-layout .team-label {
+    font-size: clamp(12px, calc(var(--phone-label-width) / 8), 16px);
+    padding: 2px 4px;
+  }
+
+  /* The bar's content scrolls inside its own box, above the fixed dock; scrolling the bar itself would
+     carry the lower buttons under Surrender and the spectator count */
+  .App .battle-layout .action-bar {
+    overflow: hidden;
+    padding-bottom: calc(var(--phone-dock-bottom) + var(--phone-dock-h));
+  }
+
+  .App .battle-layout .action-bar > :not(h3) {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* The box is only as tall as its content, so centring did nothing except push an overflowing top
+       out of reach of the scroll */
+    justify-content: flex-start;
+  }
+
+  /* ...and the buttons in it keep their height instead of squeezing to fit */
+  .App .battle-layout .action-bar > :not(h3) > *,
+  .App .battle-layout .ability-options > * {
+    flex-shrink: 0;
+  }
+
+  /* Players being watched also keep a 40px spectator count above the timer */
+  .App:has(.spectator-count-button) .battle-layout .action-bar {
+    padding-bottom: calc(var(--phone-dock-bottom) + var(--phone-dock-h) + 46px);
+  }
+
+  .App .battle-layout .action-button,
+  .App .battle-layout .ability-option-button,
+  .App .battle-layout .stop-spectating-button {
+    min-height: 40px;
+  }
+
+  /* The active hero's stats line repeats its card's gems and the sidebar's HP; the buttons need the room */
+  .App .battle-layout .hero-info > div {
+    display: none;
+  }
+
+  .App .battle-layout .spectator-controls .ui-hint {
+    font-size: 12px;
+  }
+
+  .App:has(.battle-layout) .floating-surrender-button {
+    bottom: var(--phone-dock-bottom) !important;
+    min-height: 40px;
+  }
+
+  .App:has(.battle-layout) .turn-timer-bar {
+    bottom: calc(var(--phone-dock-bottom) + 46px);
+  }
+
+  .App:has(.battle-layout) .spectator-count-button {
+    width: 40px !important;
+    height: 40px !important;
+    bottom: calc(var(--phone-dock-bottom) + var(--phone-dock-h)) !important;
+    right: calc(var(--phone-actions-width) / 2 - 20px + var(--safe-right)) !important;
+  }
+
+  .App:has(.battle-layout) .spectator-list-modal {
+    right: calc(var(--phone-actions-width) + 6px + var(--safe-right));
+    bottom: var(--phone-dock-bottom);
+    min-width: 0;
+    width: min(220px, calc(100vw - var(--phone-actions-width) - 12px - var(--safe-left) - var(--safe-right)));
+    max-height: calc(var(--app-height) - 12px);
+    box-sizing: border-box;
+    padding: var(--space-3);
+  }
+
+  .App:has(.battle-layout) .spectator-list-modal li {
+    font-size: 14px;
+  }
+
+  /* Friends and messages dock: a 40px tap target with a readable badge */
+  .App:has(.battle-layout) .friends-icon,
+  .App:has(.battle-layout) .message-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .App:has(.battle-layout) .message-icon { left: calc(54px + var(--safe-left)); }
+
+  .App:has(.battle-layout) .friends-icon .notification-badge,
+  .App:has(.battle-layout) .message-icon .notification-badge {
+    min-width: 18px;
+    height: 18px;
+    top: -6px;
+    right: -6px;
+    font-size: 12px;
+  }
+
+  .App:has(.battle-layout) .friends-icon-tooltip,
+  .App:has(.battle-layout) .message-icon-tooltip {
+    bottom: 46px;
+  }
+
+  /* End Turn stays in view however many actions there are: it sticks to the bottom of the scrolling box */
+  .App .battle-layout .action-buttons > .end-turn-button {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    /* Opaque version of the box's own tint, covering the gap and padding around it */
+    --end-turn-bg: color-mix(in srgb, var(--bone) 10%, var(--walnut));
+    background: var(--end-turn-bg);
+    box-shadow: 0 -5px 0 var(--end-turn-bg), 0 5px 0 var(--end-turn-bg);
   }
 }

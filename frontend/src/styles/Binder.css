@@ -348,6 +348,12 @@
   z-index: 2;
 }
 
+/* The hero the Binder was opened on (from the lobby's featured card) is lit for a moment */
+.binder-pocket--spotlight::before {
+  border: 2px solid var(--brass-hi);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brass-hi) 35%, transparent), 0 0 24px 6px color-mix(in srgb, var(--brass-hi) 55%, transparent);
+}
+
 .binder-pocket.empty::before {
   background: color-mix(in srgb, var(--walnut) 7%, transparent);
   border-color: color-mix(in srgb, var(--brass) 35%, transparent);

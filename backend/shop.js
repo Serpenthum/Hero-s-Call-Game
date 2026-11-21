@@ -1,16 +1,16 @@
-// Shop endpoints: hero of the moment (5 VP) and card packs (12 VP).
+// Shop endpoints: hero of the moment (5 VP) and card packs (12 VP, rule in packs.js: 3 cards,
+// repeats give 2 back each, and a 1 in 5 bonus holographic).
 // Every route needs a login token, acts only on the token's own account, and spends Victory Points
 // through a guarded statement so simultaneous requests can never overspend.
-const express = require('express');
+const { createRouter } = require('./http/router');
+const { rollPack, PACK_PRICE } = require('./packs');
 
 const HERO_PRICE = 5;
-const PACK_PRICE = 12;
-const PACK_SIZE = 3;
 const ROTATION_SIZE = 6;
 const ROTATION_MS = 15 * 60 * 1000;
 
-function createShopRouter({ database, getHeroes, auth, now = () => Date.now() }) {
-  const router = express.Router();
+function createShopRouter({ database, getHeroes, auth, now = () => Date.now(), random = Math.random }) {
+  const router = createRouter();
   router.use(auth.requireUser);
 
   // Requests for the same user run one at a time (read VP -> spend -> write heroes)
@@ -92,26 +92,28 @@ function createShopRouter({ database, getHeroes, auth, now = () => Date.now() })
       if (!user) return fail(res, 404, 'User not found');
       if (user.victory_points < PACK_PRICE) return fail(res, 400, 'Not enough to buy this.');
 
-      const unowned = getHeroes().filter(h => !h.disabled && !user.available_heroes.includes(h.name));
-      if (unowned.length === 0) return fail(res, 400, 'All heroes already owned');
+      const heroes = getHeroes();
+      const { cards, coinsBack } = rollPack({ heroes, owned: user.available_heroes, holo: user.holo_heroes, random });
+      const namesOf = (...kinds) => cards.filter(c => kinds.includes(c.kind)).map(c => c.name);
 
-      // Fisher-Yates, unlike sort(() => Math.random() - 0.5) which is biased
-      const pool = [...unowned];
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
-      const received = pool.slice(0, Math.min(PACK_SIZE, pool.length)).map(h => h.name);
-
-      const purchase = await database.purchaseHeroes(req.userId, PACK_PRICE, received);
+      const purchase = await database.savePack(req.userId, {
+        cost: PACK_PRICE,
+        refund: coinsBack,
+        addHeroes: namesOf('new'),
+        addHolo: namesOf('holo', 'holo_upgrade')
+      });
       if (!purchase.success) return fail(res, 400, purchase.error);
       res.json({
         success: true,
-        message: `Pack opened! Received ${received.length} hero${received.length > 1 ? 'es' : ''}`,
+        message: `Pack opened! Received ${cards.length} card${cards.length > 1 ? 's' : ''}`,
+        cards: cards.map(c => ({ ...c, hero: heroes.find(h => h.name === c.name) })),
+        coinsSpent: PACK_PRICE,
+        coinsBack,
         newVP: purchase.newVP,
-        heroesReceived: received,
+        holo_heroes: purchase.holo_heroes,
         available_heroes: purchase.available_heroes,
-        heroCount: purchase.available_heroes.length
+        heroCount: purchase.available_heroes.length,
+        heroesReceived: namesOf('new', 'holo')
       });
     }).catch(error => fail(res, 500, error.message || 'Failed to purchase pack'));
   });

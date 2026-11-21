@@ -1,36 +1,9 @@
-const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcryptjs');
-const path = require('path');
+const { hashPassword, verifyPassword, randomPasswordHash } = require('./passwords');
 
 class Database {
-  constructor() {
-    this.db = null;
-    this.init();
-  }
-
-  init() {
-    // Create database file in a persistent data directory
-    const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
-    const dbPath = path.join(dataDir, 'game_database.sqlite');
-    
-    console.log('Attempting to connect to database at:', dbPath);
-    
-    this.db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-      if (err) {
-        console.error('Error opening database:', err.message);
-        console.error('Database path was:', dbPath);
-      } else {
-        console.log('Connected to SQLite database at:', dbPath);
-        // Serialize so the ALTER TABLE statements never run before CREATE TABLE has finished
-        // (on a fresh database they otherwise race, and the columns are silently never added)
-        this.db.serialize(() => this.createTables());
-
-      }
-    });
-    
-    this.db.on('error', (err) => {
-      console.error('Database error event:', err);
-    });
+  constructor(db) {
+    this.db = db;
+    this.createTables();
   }
 
   createTables() {
@@ -48,7 +21,11 @@ class Database {
         available_heroes TEXT DEFAULT '[]',
         best_gauntlet_trial INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_login DATETIME DEFAULT CURRENT_TIMESTAMP
+        last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
+        favorite_heroes TEXT DEFAULT '[]',
+        player_id TEXT,
+        tutorial_completed INTEGER DEFAULT 1,
+        holo_heroes TEXT DEFAULT '[]'
       )
     `;
 
@@ -104,6 +81,13 @@ class Database {
       }
     });
 
+    // Databases made before holographics existed lack the column; add it once (a no-op error after that).
+    this.db.run("ALTER TABLE users ADD COLUMN holo_heroes TEXT DEFAULT '[]'", (err) => {
+      if (err && !String(err.message).includes('duplicate column')) {
+        console.error('Error adding holo_heroes column:', err.message);
+      }
+    });
+
     this.db.run(createFriendsTable, (err) => {
       if (err) {
         console.error('Error creating friends table:', err.message);
@@ -147,14 +131,6 @@ class Database {
       }
     });
 
-    this.db.run(createGauntletSaveStatesTable, (err) => {
-      if (err) {
-        console.error('Error creating gauntlet_save_states table:', err.message);
-      } else {
-        console.log('Gauntlet save states table created or already exists');
-      }
-    });
-
     this.db.run(createPlayerStatsTable, (err) => {
       if (err) {
         console.error('Error creating player_stats table:', err.message);
@@ -176,42 +152,6 @@ class Database {
     `, (err) => {
       if (err) {
         console.error('Error creating player_quests table:', err.message);
-      }
-    });
-
-    // Add favorite_heroes column to users table if it doesn't exist
-    this.db.run(`ALTER TABLE users ADD COLUMN favorite_heroes TEXT DEFAULT '[]'`, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.error('Error adding favorite_heroes column:', err.message);
-      } else if (!err) {
-        console.log('Added favorite_heroes column to users table');
-      }
-    });
-
-    // Add best_gauntlet_trial column to users table if it doesn't exist
-    this.db.run(`ALTER TABLE users ADD COLUMN best_gauntlet_trial INTEGER DEFAULT 0`, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.error('Error adding best_gauntlet_trial column:', err.message);
-      } else if (!err) {
-        console.log('Added best_gauntlet_trial column to users table');
-      }
-    });
-
-    // Add player_id column to users table if it doesn't exist
-    this.db.run(`ALTER TABLE users ADD COLUMN player_id TEXT`, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.error('Error adding player_id column:', err.message);
-      } else if (!err) {
-        console.log('Added player_id column to users table');
-      }
-    });
-
-    // Existing accounts default to 1 (tutorial done); createUser inserts 0 for new accounts
-    this.db.run(`ALTER TABLE users ADD COLUMN tutorial_completed INTEGER DEFAULT 1`, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.error('Error adding tutorial_completed column:', err.message);
-      } else if (!err) {
-        console.log('Added tutorial_completed column to users table');
       }
     });
   }
@@ -247,11 +187,7 @@ class Database {
         }
 
         // Hash the password
-        bcrypt.hash(password, 10, (hashErr, hash) => {
-          if (hashErr) {
-            reject(hashErr);
-            return;
-          }
+        hashPassword(password).then((hash) => {
 
           // Get starter heroes for new user (same as Gauntlet starter heroes)
           try {
@@ -278,13 +214,14 @@ class Database {
                 survival_wins: 0,
                 survival_losses: 0,
                 survival_used_heroes: [],
-                available_heroes: starterHeroes
+                available_heroes: starterHeroes,
+                holo_heroes: []
               });
             });
           } catch (heroErr) {
             reject(new Error('Error loading heroes data'));
           }
-        });
+        }).catch(reject);
       });
     });
   }
@@ -293,7 +230,7 @@ class Database {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT id, username, password_hash, victory_points, survival_wins, 
-               survival_losses, survival_used_heroes, available_heroes, tutorial_completed
+               survival_losses, survival_used_heroes, available_heroes, holo_heroes, tutorial_completed
         FROM users 
         WHERE username = ?
       `;
@@ -310,11 +247,7 @@ class Database {
         }
 
         // Compare password
-        bcrypt.compare(password, row.password_hash, async (compareErr, isMatch) => {
-          if (compareErr) {
-            reject(compareErr);
-            return;
-          }
+        verifyPassword(password, row.password_hash).then(async (isMatch) => {
 
           if (!isMatch) {
             reject(new Error('Invalid password'));
@@ -327,10 +260,12 @@ class Database {
           // Parse JSON fields
           let survivalUsedHeroes = [];
           let availableHeroes = [];
+          let holoHeroes = [];
           
           try {
             survivalUsedHeroes = JSON.parse(row.survival_used_heroes || '[]');
             availableHeroes = JSON.parse(row.available_heroes || '[]');
+            holoHeroes = JSON.parse(row.holo_heroes || '[]');
           } catch (parseErr) {
             console.error('Error parsing user data:', parseErr);
           }
@@ -347,6 +282,7 @@ class Database {
               survival_losses: row.survival_losses,
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
+              holo_heroes: holoHeroes,
               tutorial_completed: row.tutorial_completed !== 0,
               xp: playerStats.xp,
               level: playerStats.level
@@ -362,12 +298,13 @@ class Database {
               survival_losses: row.survival_losses,
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
+              holo_heroes: holoHeroes,
               tutorial_completed: row.tutorial_completed !== 0,
               xp: 0,
               level: 1
             });
           }
-        });
+        }).catch(reject);
       });
     });
   }
@@ -377,7 +314,7 @@ class Database {
       const query = `
         SELECT 
           u.id, u.username, u.victory_points, u.survival_wins, 
-          u.survival_losses, u.survival_used_heroes, u.available_heroes,
+          u.survival_losses, u.survival_used_heroes, u.available_heroes, u.holo_heroes,
           u.favorite_heroes, u.best_gauntlet_trial, u.player_id,
           ps.level, ps.xp
         FROM users u
@@ -399,11 +336,13 @@ class Database {
         // Parse JSON fields
         let survivalUsedHeroes = [];
         let availableHeroes = [];
+        let holoHeroes = [];
         let favoriteHeroes = [];
         
         try {
           survivalUsedHeroes = JSON.parse(row.survival_used_heroes || '[]');
           availableHeroes = JSON.parse(row.available_heroes || '[]');
+          holoHeroes = JSON.parse(row.holo_heroes || '[]');
           favoriteHeroes = JSON.parse(row.favorite_heroes || '[]');
         } catch (parseErr) {
           console.error('Error parsing user data:', parseErr);
@@ -417,6 +356,7 @@ class Database {
           survival_losses: row.survival_losses || 0,
           survival_used_heroes: survivalUsedHeroes,
           available_heroes: availableHeroes,
+          holo_heroes: holoHeroes,
           favorite_heroes: favoriteHeroes,
           xp: row.xp || 0,
           level: row.level || 1,
@@ -1146,6 +1086,30 @@ class Database {
     });
   }
 
+  // Saves an opened pack in one guarded statement: spends `cost`, pays back `refund`, and adds the new
+  // heroes and holographics. Every holographic hero is also an owned hero. Applies only if the player
+  // can still afford `cost`, so two simultaneous packs can never spend the same points twice.
+  // Resolves { success: true, newVP, available_heroes, holo_heroes } or { success: false, error }.
+  async savePack(userId, { cost = 0, refund = 0, addHeroes = [], addHolo = [] } = {}) {
+    const user = await this.getUserById(userId);
+    if (!user) return { success: false, error: 'User not found' };
+    if (user.victory_points < cost) return { success: false, error: 'Not enough to buy this.' };
+
+    const updatedHeroes = [...new Set([...user.available_heroes, ...addHeroes, ...addHolo])];
+    const updatedHolo = [...new Set([...user.holo_heroes, ...addHolo])];
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'UPDATE users SET victory_points = victory_points - ? + ?, available_heroes = ?, holo_heroes = ? WHERE id = ? AND victory_points >= ?',
+        [cost, refund, JSON.stringify(updatedHeroes), JSON.stringify(updatedHolo), userId, cost],
+        function(err) {
+          if (err) return reject(err);
+          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough to buy this.' });
+          resolve({ success: true, newVP: user.victory_points - cost + refund, available_heroes: updatedHeroes, holo_heroes: updatedHolo });
+        }
+      );
+    });
+  }
+
   async updateHeroUsage(userId, heroName) {
     return new Promise((resolve, reject) => {
       this.getPlayerStats(userId)
@@ -1432,14 +1396,32 @@ class Database {
     }
   }
 
+  // The one place the admin password hash is decided: the configured
+  // ADMIN_PASSWORD if there is one, otherwise an unguessable random hash.
+  async adminPasswordHash(adminPassword) {
+    return adminPassword ? hashPassword(adminPassword) : randomPasswordHash();
+  }
+
+  // When ADMIN_PASSWORD is set, every existing AdminN account takes it (hashed once).
+  async syncAdminPasswords(adminPassword) {
+    if (!adminPassword) return;
+    const hash = await hashPassword(adminPassword);
+    await new Promise((resolve, reject) => {
+      this.db.run(
+        "UPDATE users SET password_hash = ? WHERE player_id = username AND (username GLOB 'Admin[0-9]' OR username GLOB 'Admin[0-9][0-9]' OR username = 'Admin100')",
+        [hash],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+  }
+
   // Auto-create admin accounts for testing
-  async createAdminAccounts() {
+  async createAdminAccounts(adminPassword) {
     const adminAccounts = ['Admin1', 'Admin2', 'Admin3'];
-    const adminPassword = 'admin';
     
     try {
+      await this.syncAdminPasswords(adminPassword);
       // Get all enabled heroes
-      delete require.cache[require.resolve('./heros.json')];
       const allHeroes = require('./heros.json');
       const enabledHeroes = allHeroes.filter(hero => !hero.disabled).map(hero => hero.name);
       const heroesJson = JSON.stringify(enabledHeroes);
@@ -1459,7 +1441,7 @@ class Database {
         }
         
         // Create admin account
-        const hash = await bcrypt.hash(adminPassword, 10);
+        const hash = await this.adminPasswordHash(adminPassword);
         
         const userId = await new Promise((resolve, reject) => {
           this.db.run(

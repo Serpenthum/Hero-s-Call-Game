@@ -64,6 +64,7 @@ export interface Hero {
   Ability: Ability[];
   Special: Ability[];
   disabled?: boolean; // Whether hero is disabled/not available in game
+  holo?: boolean;
   
   // Runtime properties
   currentHP?: number;
@@ -101,6 +102,7 @@ export interface StatusEffects {
     source: string;
   };
   untargetable: boolean;
+  untargetableAttacker?: string; // The one hero that may still target an untargetable hero
   damageStacks?: number;
   defenseReduction?: number;
   grantedAdvantage?: boolean;
@@ -147,7 +149,8 @@ export interface Player {
   hasUsedSpecial?: boolean;
   usedAbilities?: string[];
   usedAttacks?: number;
-  selectedTarget?: string | null;
+  selectedTarget?: string | null; // Battle focus: a hero on the opponent's team
+  focusLocked?: boolean; // Set by the first action of the turn; the focus can no longer change
   initiativeRoll?: number;
   monkAttacksRemaining?: number;
   oneTwoPunchAttacksRemaining?: number;
@@ -157,6 +160,8 @@ export interface Player {
     playerId: string;
     playerName: string;
     remainingTime: number;
+    remainingMs?: number;
+    durationMs?: number;
     surrendered: boolean;
   } | null;
 }
@@ -172,10 +177,13 @@ export interface GameState {
     name: string;
     playerIndex: number;
     heroIndex: number;
+    abilityTargeting?: import('./battle/focus').AbilityTargeting[]; // One entry per ability of the active hero
   } | null;
   currentDraftPhase: number;
   draftTurn: number;
   winner: string | null;
+  // 'disconnect': the loser dropped out and did not come back in time
+  endReason?: string | null;
   draftCards?: {
     player1: string[];
     player2: string[];
@@ -275,7 +283,7 @@ export interface Message {
 
 export interface SocketEvents {
   // Client to Server
-  'authenticate': (data: { userId: number; token: string | null }) => void;
+  'authenticate': (data: { userId: number; token: string | null; heartbeatMs?: number }) => void;
   'join-game': (data: { name: string; mode?: 'draft' | 'random' | 'friendly'; roomName?: string }) => void;
   'join-survival-game': (data: { name: string; team: Hero[] }) => void;
   'cancel-survival-search': () => void;
@@ -298,7 +306,7 @@ export interface SocketEvents {
   'activate-special': () => void;
   'end-turn': () => void;
   'auto-draft': () => void;
-  'reconnect-game': (data: { gameId: string; playerName: string }) => void;
+  'reconnect-game': (data: { gameId?: string; playerName?: string }) => void;
   'get-survival-state': () => void;
   'reset-survival-state': () => void;  
   'surrender-game': () => void;
@@ -334,7 +342,9 @@ export interface SocketEvents {
   'get-spectator-info': (data: { gameId: string }) => void;
 
   // Server to Client
-  'authentication-success': (data: { userId: number }) => void;
+  // activeGame: a game this account dropped out of that is still holding its seat
+  // rejoined: the server already put this connection back in that game ('reconnect-success' came first)
+  'authentication-success': (data: { userId: number; activeGame?: { gameId: string; mode: string; phase: string } | null; rejoined?: boolean }) => void;
   'authentication-failed': (data: { message: string }) => void;
   'force-logout': (data: { message: string }) => void;
   'join-result': (data: { success: boolean; gameId: string; playerId: string; players: Player[]; gameReady: boolean; draftCards?: any; mode?: 'draft' | 'random' | 'friendly' | 'survival' | 'tutorial'; roomName?: string }) => void;
@@ -354,7 +364,12 @@ export interface SocketEvents {
   'ability-result': (data: any) => void;
   'special-activated': (data: any) => void;
   'turn-ended': (data: any) => void;
-  'turn-timer': (data: { gameId: string; playerId: string; durationMs: number; remainingMs: number }) => void;
+  // paused: the clock is stopped while a player is disconnected, with remainingMs left on it
+  'turn-timer': (data: { gameId: string; playerId: string; durationMs: number; remainingMs: number; paused?: boolean }) => void;
+  'disconnection-countdown-started': (data: { gameId?: string; playerId: string; playerName: string; remainingTime: number; remainingMs?: number; durationMs?: number }) => void;
+  'player-reconnected': (data: { gameId: string; playerId: string; oldPlayerId: string; playerName: string | null; gameState: GameState }) => void;
+  // outcome: 'forfeit' (winner set), 'cancelled' (before the battle) or 'abandoned' (nobody left)
+  'game-ended-by-disconnection': (data: { gameId?: string; outcome?: 'forfeit' | 'cancelled' | 'abandoned'; winner: string | null; winnerName: string | null; disconnectedPlayer: string; disconnectedPlayerName: string; gameState: GameState }) => void;
   'draft-timer': (data: { gameId: string; round: number; durationMs: number; remainingMs: number }) => void;
   'auto-draft-complete': (data: any) => void;
   'reconnect-success': (data: GameState) => void;
