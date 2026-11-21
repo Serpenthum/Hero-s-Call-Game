@@ -150,6 +150,7 @@ describe('Shop packs', () => {
     await settle();
 
     expect(buttonByText(root, 'Buy pack')?.disabled).toBe(false);
+    expect(root.querySelector('.shop-showcase')?.textContent).toContain('3 random heroes, and a 1 in 5 chance of a bonus holographic card.');
 
     click(buttonByText(root, "See what's inside"));
     await settle();

@@ -344,6 +344,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
           </div>
 
           <HoloPack width="var(--shop-pack-w)" />
+          <p className="shop-pack-note">3 random heroes, and a 1 in 5 chance of a bonus holographic card.</p>
 
           <button
             type="button"
