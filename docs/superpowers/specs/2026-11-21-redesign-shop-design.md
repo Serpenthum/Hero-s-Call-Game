@@ -26,7 +26,7 @@ and every window the shop opens must keep every card and its text clearly readab
    - A close button, placed as in the mockup.
 2. **Bigger screens.** The owner wants two rows of cards on bigger screens when they fit (owner, 2026-11-21: "in a
    regular game I have room for 3 top 3 bottom with plenty of space"). The layout stays the same, with the showcase
-   column on the left and the felt table on the right. The table holds as many cards as fit, up to two rows, using the
+   column on the left and the felt table on the right. The table holds as many cards as fit, up to three rows (owner, 2026-11-21: "It can be 3 rows if it fits on a big enough screen"), using the
    existing `useCardGrid` fitting. That fitting already keeps the card's 260:391 shape and a minimum card height, and
    it must keep every card at least 222px wide.
    - **Sale:** the six sale heroes fill 3 top and 3 bottom when there is room, with no paging. With less room it

@@ -114,7 +114,7 @@ it('counts owned pack heroes', () => {
 
 **Interfaces:**
 - Produces:
-  - `calculateShopGrid(width: number, height: number, count: number, minCardWidth = 222, maxRows = 2, gap = 18): { columns: number; rows: number; scale: number }`
+  - `calculateShopGrid(width: number, height: number, count: number, minCardWidth = 222, maxRows = 3, gap = 18): { columns: number; rows: number; scale: number }`
   - `useCardGrid({ shopCount })` uses it in place of `calculateCardGrid`. It returns the same `{ ref, style, pageSize }`.
 
 - [ ] **Step 1: Write the failing tests**
