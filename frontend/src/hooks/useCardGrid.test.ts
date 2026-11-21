@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateCardGrid } from './useCardGrid';
+import { calculateCardGrid, calculateShopGrid } from './useCardGrid';
 
 const cardWidth = (scale: number) => 260 * scale;
 
@@ -29,5 +29,30 @@ describe('calculateCardGrid', () => {
 
   it('leaves fixed columns alone', () => {
     expect(calculateCardGrid(600, 320, 0, 1, 4, undefined, undefined, 130).columns).toBe(4);
+  });
+});
+
+describe('calculateShopGrid', () => {
+  it('fits two cards of at least 222px on a 640x360 phone table', () => {
+    const g = calculateShopGrid(470, 348, 6);
+    expect([g.columns, g.rows]).toEqual([2, 1]);
+    expect(260 * g.scale).toBeGreaterThanOrEqual(222);
+  });
+  it('fits the 844x390 phone table at two cards of about 246px', () => {
+    const g = calculateShopGrid(560, 378, 6);
+    expect([g.columns, g.rows]).toEqual([2, 1]);
+    expect(260 * g.scale).toBeGreaterThanOrEqual(240);
+  });
+  it('lays the six sale heroes 3 over 3 on a desktop table', () => {
+    expect(calculateShopGrid(1500, 1000, 6)).toMatchObject({ columns: 3, rows: 2 });
+  });
+  it('uses two rows for the inside window on a desktop table', () => {
+    expect(calculateShopGrid(1500, 1000, 30).rows).toBe(2);
+  });
+  it('shows one big card when one is left', () => {
+    expect(calculateShopGrid(1500, 1000, 1)).toMatchObject({ columns: 1, rows: 1 });
+  });
+  it('never makes a second row whose cards would be under 222px', () => {
+    expect(calculateShopGrid(1500, 600, 6).rows).toBe(1);
   });
 });
