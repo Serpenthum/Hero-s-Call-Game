@@ -597,6 +597,7 @@
     position: absolute;
     inset: 0;
     z-index: 4;
+    --foil-jewel: clamp(9px, 1.5em, 12px);
     display: block;
     border-radius: inherit;
     pointer-events: none;
@@ -607,15 +608,18 @@
     position: absolute;
     top: 0;
     left: 50%;
-    width: max(8px, 1.4em);
-    height: max(8px, 1.4em);
-    border: max(1px, 0.12em) solid var(--card-white);
-    border-radius: 0.2em;
+    box-sizing: border-box;
+    width: var(--foil-jewel);
+    height: var(--foil-jewel);
+    border: 1px solid var(--card-white);
+    border-radius: 1px;
     background: conic-gradient(from 45deg, var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue), var(--holo-violet), var(--holo-pink));
     box-shadow:
-      0 0 0 max(1px, 0.1em) color-mix(in srgb, var(--card-black) 70%, transparent),
-      0 0 max(4px, 0.7em) color-mix(in srgb, var(--holo-glow) 80%, transparent);
-    transform: translate(-50%, -42%) rotate(45deg);
+      0 0 0 1px color-mix(in srgb, var(--card-black) 70%, transparent),
+      0 0 3px color-mix(in srgb, var(--holo-glow) 80%, transparent);
+    /* Turned to a diamond whose top point is 3px above the card's edge at every size (a diamond's half
+       height is 70.7% of its side), so with its 1px outline it never needs more than 4px of room. */
+    transform: translate(-50%, calc(20.7% - 3px)) rotate(45deg);
   }
 
   @supports (mask-composite: exclude) {
@@ -662,19 +666,19 @@
     border-width: max(2px, 0.1em);
   }
 
-  /* The stat gems sit above the foil, so their colours stay true. */
-  .hero-card.card-holo:not(.banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-stats {
+  /* The stat gems sit above the foil, so their colours stay true. A hovered rail keeps its own, higher place. */
+  .hero-card.card-holo:not(.banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-stats:not(:hover) {
     z-index: 6;
   }
 
   /* Fallen or banned: the foil goes dull with the rest of the card. */
-  .hero-card:is(.dead, .banned) .card-foil {
+  .hero-card.card-holo:is(.dead, .banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-foil {
     opacity: 0.4;
     filter: grayscale(0.85);
     animation: none;
   }
 
-  .hero-card:is(.dead, .banned) :is(.card-sheen, .card-spark) {
+  .hero-card.card-holo:is(.dead, .banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) :is(.card-sheen, .card-spark) {
     opacity: 0.35;
   }
 }
