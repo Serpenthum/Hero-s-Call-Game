@@ -89,6 +89,16 @@ const MIGRATED = [
   'styles/AppError.css',
   'draft/draftRules.ts',
   'draft/draftRules.test.ts',
+  'draft/useDraftLayout.ts',
+  'components/DraftPhase.tsx',
+  'components/draft/DraftTopBar.tsx',
+  'components/draft/DraftBand.tsx',
+  'components/draft/DraftBand.test.tsx',
+  'components/draft/DraftHand.tsx',
+  'components/draft/DraftHand.test.tsx',
+  'components/draft/DraftBigCard.tsx',
+  'components/draft/DraftPortrait.tsx',
+  'styles/Draft.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;

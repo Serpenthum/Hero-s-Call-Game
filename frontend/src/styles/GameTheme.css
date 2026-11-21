@@ -2,7 +2,7 @@
 
 /* The draft content may shrink next to the sidebar instead of pushing the page sideways */
 .game-content { min-width: 0; }
-.draft-phase, .setup-phase { box-sizing: border-box; }
+.setup-phase { box-sizing: border-box; }
 
 /* Halves of the board: the opponent's side is warm, yours is green */
 .opponent-area { background: color-mix(in srgb, var(--ember) 14%, transparent); }
@@ -81,7 +81,6 @@
 .surrender-message { margin: var(--space-3) 0 0; color: var(--bone-dim); }
 
 /* Draft and setup */
-.current-team, .opponent-team { background: color-mix(in srgb, var(--leather) 70%, transparent); border: 1px solid var(--brass-dim); }
 .draggable-hero-slot { cursor: grab; }
 .position-badge { background: var(--brass); color: var(--felt-deep); border: 2px solid var(--walnut); font-family: var(--font-ui); }
 .ready-status, .opponent-ready-indicator { background: color-mix(in srgb, var(--verdigris) 18%, transparent); border: 1px solid var(--verdigris); color: var(--bone); }

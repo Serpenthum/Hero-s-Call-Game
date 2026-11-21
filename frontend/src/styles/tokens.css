@@ -58,6 +58,33 @@
   --mode-flame-core: #ffd27a;
   --mode-ink: #17110b;
 
+  /* Draft table (from the step 3 mockup) */
+  --draft-felt-hi: #1d3d34;
+  --draft-bar-top: #2a1f18;
+  --draft-bar-bottom: #1c1410;
+  --draft-title: #f1e3bd;
+  --draft-step-ink: #6f6656;
+  --draft-step-ring: #4a4033;
+  --draft-step-line: #3a3127;
+  --draft-step-well: #120d0a;
+  --draft-step-now: #f6e7c1;
+  --draft-ink-dark: #1a130c;
+  --draft-leave-line: #4a3a2c;
+  --draft-slot-line: #3c4a44;
+  --draft-slot-ink: #4a5a53;
+  --draft-enemy-rim: #a9493a;
+  --draft-ban-set: #7a3a2c;
+  --draft-ban-name: #cf8f80;
+  --draft-hint: #e9dcbc;
+  --draft-ban-hint: #ff9b80;
+  --draft-ban-ring: #ef8a6f;
+  --draft-act-top: #d4ae63;
+  --draft-act-bottom: #a07a35;
+  --draft-act-edge: #5e4519;
+  --draft-ban-top: #e0694d;
+  --draft-ban-bottom: #a8371f;
+  --draft-ban-edge: #5f1c0e;
+
   /* Lobby embers rising round the featured hero */
   --ember-spark: #ffcf7a;
   --ember-glow: #ffaa3c;

@@ -808,7 +808,6 @@
 }
 
 /* ---- Card sizes per screen ---- */
-.draft-phase .hero-layout-card,
 .shop-hero-card .hero-layout-card,
 .hero-card-back .hero-layout-card,
 .gauntlet-hero-wrapper .hero-layout-card,
@@ -831,10 +830,6 @@
 
 .hero-card-back .hero-layout-card {
   --hero-card-scale: var(--pack-card-scale, 0.75);
-}
-
-.draft-phase .teams-display .hero-layout-card {
-  --hero-card-scale: 0.55;
 }
 
 .shop-hero-card:has(.hero-layout-card) {

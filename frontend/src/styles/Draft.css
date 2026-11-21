@@ -1,0 +1,536 @@
+/* The draft table: ban and pick rounds. Two layouts:
+   table (.draft-table--table): column  bar | band | hint | hand | foot  (heights from TABLE_CHROME in draftRules.ts)
+   focus (.draft-table--focus): big card down the left, the same column on the right.
+   Sizes come from useDraftLayout as inline variables: --draft-card-w/-scale, --draft-big-w/-scale,
+   --draft-slot-w/-scale, --draft-hand-pad. Spacing numbers here match useDraftLayout.
+   Text is in px: the app shrinks the root font size on small screens, and text here must stay 12px or more. */
+
+.draft-table {
+  container: draft-table / inline-size;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--app-height);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  color: var(--bone);
+  font-family: var(--font-ui);
+  text-align: left;
+  background: radial-gradient(ellipse at 50% 55%, var(--draft-felt-hi), var(--felt) 55%, var(--felt-deep));
+}
+
+/* Vignette */
+.draft-table::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 55%, transparent 45%, color-mix(in srgb, var(--card-black) 55%, transparent));
+}
+
+/* ---- Top bar: title, steps, clock, Leave ---- */
+.draft-bar {
+  position: relative;
+  z-index: 4;
+  flex: none;
+  box-sizing: border-box;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  background: linear-gradient(var(--draft-bar-top), var(--draft-bar-bottom));
+  border-bottom: 1px solid var(--brass-dim);
+}
+
+.draft-title {
+  margin: 0;
+  font: 400 27px / 1 var(--font-display);
+  color: var(--draft-title);
+  text-shadow: 0 2px 0 var(--card-black);
+}
+
+.draft-steps {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draft-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--draft-step-ink);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.draft-step-mark {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--draft-step-ring);
+  background: var(--draft-step-well);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.draft-step + .draft-step::before {
+  content: "";
+  width: 26px;
+  height: 2px;
+  margin-right: 4px;
+  background: var(--draft-step-line);
+}
+
+.draft-step--done { color: var(--bone-dim); }
+.draft-step--done .draft-step-mark { background: var(--brass-dim); border-color: var(--brass); color: var(--draft-ink-dark); }
+.draft-step--done + .draft-step::before { background: var(--brass-dim); }
+
+.draft-step--now { color: var(--draft-step-now); }
+.draft-step--now .draft-step-mark {
+  border-color: var(--brass-hi);
+  background: var(--brass);
+  color: var(--draft-ink-dark);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--brass-hi) 25%, transparent),
+    0 0 14px color-mix(in srgb, var(--brass-hi) 55%, transparent);
+}
+.draft-step--now.draft-step--ban .draft-step-mark {
+  border-color: var(--draft-ban-ring);
+  background: var(--ember);
+  color: var(--card-white);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--ember) 30%, transparent),
+    0 0 14px color-mix(in srgb, var(--ember) 60%, transparent);
+}
+
+.draft-connecting {
+  color: var(--brass-hi);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* The clock dial (DraftClock) sits in the bar instead of the screen corner */
+.draft-clock-slot {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 42px;
+}
+.draft-clock-slot .draft-clock {
+  position: absolute;
+  inset: 0;
+  z-index: auto;
+  width: 100%;
+  height: 100%;
+  box-shadow: none;
+}
+.draft-clock-slot .draft-clock-seconds { font: 800 16px / 1 var(--font-ui); }
+.draft-clock-slot .draft-clock-note {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.draft-leave {
+  flex: none;
+  min-height: 40px;
+  padding: 5px 12px;
+  border: 1px solid var(--draft-leave-line);
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--bone-dim);
+  font: 700 16px / 1 var(--font-ui);
+  white-space: nowrap;
+}
+.draft-leave:hover { color: var(--bone); border-color: var(--ember); transform: none; box-shadow: none; }
+
+/* ---- Band: your team | VS over the bans | their team (mirrored) ---- */
+.draft-band {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  box-sizing: border-box;
+  height: 190px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 10px 22px 6px;
+}
+
+.draft-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.draft-side--them { align-items: flex-end; }
+
+.draft-side-head {
+  max-width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.draft-side--them .draft-side-head { flex-direction: row-reverse; }
+
+.draft-side-name {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font: 400 18px / 1.2 var(--font-label);
+  color: var(--bone);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.draft-side-name small {
+  margin-left: 6px;
+  font: 700 14px / 1 var(--font-ui);
+  color: var(--bone-dim);
+}
+
+.draft-status {
+  color: var(--bone-dim);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.draft-status--done { color: var(--verdigris); }
+
+.draft-slots { display: flex; gap: 10px; }
+.draft-slots--them { flex-direction: row-reverse; }
+
+.draft-slot {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--draft-slot-w);
+  height: calc(var(--draft-slot-w) * 391 / 260);
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--draft-slot-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card-black) 18%, transparent);
+  color: var(--draft-slot-ink);
+  font: 400 26px / 1 var(--font-display);
+}
+.draft-slot--filled {
+  --hero-card-scale: var(--draft-slot-scale);
+  display: block;
+  border: 0;
+  background: none;
+}
+
+.draft-band-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.draft-vs {
+  font: 400 51px / 0.8 var(--font-display);
+  color: var(--draft-title);
+  text-shadow: 0 3px 0 var(--card-black), 0 0 18px color-mix(in srgb, var(--ember) 45%, transparent);
+}
+
+.draft-bans { display: flex; gap: 14px; }
+
+.draft-ban {
+  min-width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.draft-ban-token {
+  position: relative;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border: 1.5px dashed var(--draft-leave-line);
+  border-radius: 50%;
+  background: var(--draft-step-well);
+}
+.draft-ban--set .draft-ban-token { border: 0; }
+.draft-ban-token .draft-portrait { position: absolute; inset: 0; border-color: var(--draft-ban-set); }
+.draft-ban-token .draft-portrait img { filter: grayscale(1) brightness(0.6); }
+/* The red slash */
+.draft-ban--set .draft-ban-token::after {
+  content: "";
+  position: absolute;
+  top: 46%;
+  left: -10%;
+  z-index: 1;
+  width: 120%;
+  height: 3px;
+  background: var(--ember);
+  transform: rotate(-40deg);
+  pointer-events: none;
+}
+
+.draft-ban-name {
+  max-width: 76px;
+  color: var(--bone-dim);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+.draft-ban--set .draft-ban-name { color: var(--draft-ban-name); }
+
+/* ---- Round portraits (team slots in the big-card layout, bans everywhere) ---- */
+.draft-portrait {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid var(--brass);
+  border-radius: 50%;
+  background: var(--draft-step-well);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--card-black) 60%, transparent);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.draft-portrait:hover { transform: none; box-shadow: 0 3px 8px color-mix(in srgb, var(--card-black) 60%, transparent); }
+.draft-portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 15%;
+  pointer-events: none;
+}
+.draft-portrait--enemy { border-color: var(--draft-enemy-rim); }
+
+/* Holographic: a rainbow rim that turns slowly */
+@property --draft-rim-a {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.draft-portrait--holo,
+.draft-ban-token .draft-portrait--holo {
+  border: 2.5px solid transparent;
+  background: conic-gradient(
+    from var(--draft-rim-a),
+    var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue), var(--holo-violet), var(--holo-pink)
+  ) border-box;
+  box-shadow:
+    0 3px 8px color-mix(in srgb, var(--card-black) 60%, transparent),
+    0 0 10px color-mix(in srgb, var(--holo-glow) 45%, transparent);
+  animation: draft-rim 4s linear infinite;
+}
+@keyframes draft-rim { to { --draft-rim-a: 360deg; } }
+.draft-table--still .draft-portrait--holo { animation: none; }
+
+/* ---- Hint and hand ---- */
+.draft-hint {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  height: 30px;
+  margin: 0;
+  overflow: hidden;
+  color: var(--draft-hint);
+  font: 400 18px / 30px var(--font-label);
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.draft-hint b { font-family: var(--font-ui); font-weight: 800; color: var(--fav-gold); }
+.draft-hint--ban b { color: var(--draft-ban-hint); }
+
+.draft-hand {
+  position: relative;
+  z-index: 3;
+  flex: 1 1 0;
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  gap: 18px;
+  padding: 0 var(--draft-hand-pad);
+}
+
+.draft-hand-card {
+  --hero-card-scale: var(--draft-card-scale);
+  position: relative;
+  flex: none;
+  width: var(--draft-card-w);
+  height: calc(var(--draft-card-w) * 391 / 260);
+}
+.draft-hand:not(.draft-hand--locked) .draft-hand-card:hover { transform: translateY(-6px); }
+.draft-hand-card--chosen,
+.draft-hand:not(.draft-hand--locked) .draft-hand-card--chosen:hover { transform: translateY(-12px); }
+.draft-hand .hero-card.selected { --state-c: var(--brass-hi); }
+.draft-hand--ban .hero-card.selected { --state-c: var(--ember-hi); }
+.draft-hand--locked .draft-hand-card:not(.draft-hand-card--chosen) { filter: brightness(0.6); }
+
+/* ---- Foot: the Ban / Pick button ---- */
+.draft-foot {
+  position: relative;
+  z-index: 4;
+  flex: none;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.draft-act {
+  min-width: 200px;
+  min-height: 44px;
+  padding: 11px 26px;
+  border: 1px solid var(--brass-hi);
+  border-radius: 6px;
+  background: linear-gradient(var(--draft-act-top), var(--draft-act-bottom));
+  color: var(--draft-ink-dark);
+  font: 800 18px / 1.1 var(--font-ui);
+  box-shadow: 0 4px 0 var(--draft-act-edge), 0 6px 14px color-mix(in srgb, var(--card-black) 50%, transparent);
+  transition: none;
+}
+.draft-act:hover { transform: none; box-shadow: 0 4px 0 var(--draft-act-edge), 0 6px 14px color-mix(in srgb, var(--card-black) 50%, transparent); }
+.draft-act:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--draft-act-edge); }
+.draft-act--ban {
+  border-color: var(--draft-ban-hint);
+  background: linear-gradient(var(--draft-ban-top), var(--draft-ban-bottom));
+  color: var(--card-white);
+  box-shadow: 0 4px 0 var(--draft-ban-edge), 0 6px 14px color-mix(in srgb, var(--card-black) 50%, transparent);
+}
+.draft-act--ban:hover { box-shadow: 0 4px 0 var(--draft-ban-edge), 0 6px 14px color-mix(in srgb, var(--card-black) 50%, transparent); }
+.draft-act--ban:active:not(:disabled) { box-shadow: 0 2px 0 var(--draft-ban-edge); }
+.draft-act:disabled { opacity: 1; filter: grayscale(0.8) brightness(0.55); cursor: default; }
+
+/* ---- Focus layout: the big card down the left ---- */
+.draft-table--focus {
+  display: grid;
+  grid-template-columns: calc(var(--draft-big-w) + 20px) minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+.draft-table--focus > * { grid-column: 2; }
+.draft-table--focus > .draft-bar { grid-row: 1; }
+.draft-table--focus > .draft-band { grid-row: 2; }
+.draft-table--focus > .draft-hint { grid-row: 3; }
+.draft-table--focus > .draft-hand { grid-row: 4; }
+.draft-table--focus > .draft-foot { grid-row: 5; }
+
+.draft-big {
+  position: relative;
+  z-index: 3;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border-right: 1px solid var(--brass-dim);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--card-black) 35%, transparent),
+    color-mix(in srgb, var(--card-black) 15%, transparent)
+  );
+}
+.draft-table--focus > .draft-big { grid-column: 1; }
+.draft-big-card {
+  --hero-card-scale: var(--draft-big-scale);
+  width: var(--draft-big-w);
+  height: calc(var(--draft-big-w) * 391 / 260);
+}
+.draft-big-wait {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--bone-dim);
+  font: 400 18px / 1.3 var(--font-label);
+  text-align: center;
+}
+
+.draft-table--focus .draft-bar { height: 44px; gap: 8px; padding: 0 10px; }
+.draft-table--focus .draft-title { font-size: 19px; }
+.draft-table--focus .draft-step { gap: 4px; font-size: 12px; }
+.draft-table--focus .draft-step-mark { width: 20px; height: 20px; }
+.draft-table--focus .draft-step + .draft-step::before { width: 12px; margin-right: 2px; }
+.draft-table--focus .draft-clock-slot { width: 36px; height: 36px; }
+.draft-table--focus .draft-clock-slot .draft-clock-seconds { font-size: 12px; }
+.draft-table--focus .draft-clock-note { display: none; }
+.draft-table--focus .draft-leave { padding: 0 10px; font-size: 14px; }
+
+/* Band: six portraits with VS above the two bans; padding and gaps match FOCUS_BAND in useDraftLayout */
+.draft-table--focus .draft-band { height: auto; gap: 6px; padding: 6px 8px 0; }
+.draft-table--focus .draft-side { gap: 2px; }
+.draft-table--focus .draft-slots { gap: 6px; }
+.draft-table--focus .draft-slot {
+  height: var(--draft-slot-w);
+  border-radius: 50%;
+  font-size: 16px;
+}
+.draft-table--focus .draft-status { font-size: 12px; }
+.draft-table--focus .draft-band-centre { width: 86px; gap: 2px; }
+.draft-table--focus .draft-vs { font-size: 24px; line-height: 1; }
+.draft-table--focus .draft-bans { gap: 6px; }
+.draft-table--focus .draft-ban { min-width: 0; }
+.draft-table--focus .draft-ban-token { width: 40px; height: 40px; }
+.draft-table--focus .draft-ban-name { display: none; }
+
+.draft-table--focus .draft-hint { height: 22px; font-size: 14px; line-height: 22px; }
+.draft-table--focus .draft-hand { gap: 10px; }
+.draft-table--focus .draft-hand-card--chosen,
+.draft-table--focus .draft-hand:not(.draft-hand--locked) .draft-hand-card--chosen:hover { transform: translateY(-6px); }
+.draft-table--focus .draft-foot { height: 52px; }
+.draft-table--focus .draft-act { min-width: 150px; min-height: 40px; padding: 7px 18px; font-size: 15px; }
+
+/* Hand cards too narrow for readable rules text show as tiny cards (the big card is the one to read).
+   Same face as HeroCard's own tiny mode (its container query at 129px). */
+.draft-table--tiny-hand .draft-hand .hero-card .card-details,
+.draft-table--tiny-hand .draft-hand .hero-card .card-rule { display: none; }
+.draft-table--tiny-hand .draft-hand .hero-card .card-hero-name { font-size: 2.625em; }
+.draft-table--tiny-hand .draft-hand .hero-card .card-stats { font-size: calc(1.5em * var(--gem-scale)); }
+.draft-table--tiny-hand .draft-hand .hero-card .card-lower { padding: 2em 0.7em 0.6em; }
+
+/* Narrow tables: step numbers only, then no title */
+@container draft-table (max-width: 699px) {
+  .draft-step-label { display: none; }
+}
+@container draft-table (max-width: 640px) {
+  .draft-title { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-portrait--holo { animation: none; }
+}
+
+/* The floating Friends button would cover the big card and the hand: hidden while the draft table is up */
+.App:has(.draft-table) .friends-icon { display: none; }
