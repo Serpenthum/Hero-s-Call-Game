@@ -11,6 +11,8 @@ export interface DraftHandProps {
   onChoose(name: string): void;
   /** The big-card layout: the hint tells the player a tap shows the card big. */
   layout?: 'table' | 'focus';
+  /** Laid across the hand area (the opponent-away notice). */
+  banner?: React.ReactNode;
 }
 
 const hint = (step: DraftStep, layout: 'table' | 'focus') => {
@@ -29,10 +31,11 @@ const hint = (step: DraftStep, layout: 'table' | 'focus') => {
 };
 
 /** The hint line and the hand you hold. Each card is sized by the table's --draft-card-w. */
-const DraftHand: React.FC<DraftHandProps> = ({ cards, chosen, step, locked, onChoose, layout = 'table' }) => (
+const DraftHand: React.FC<DraftHandProps> = ({ cards, chosen, step, locked, onChoose, layout = 'table', banner }) => (
   <>
     <p className={`draft-hint${step === 0 ? ' draft-hint--ban' : ''}`}>{hint(step, layout)}</p>
     <div className={`draft-hand${step === 0 ? ' draft-hand--ban' : ''}${locked ? ' draft-hand--locked' : ''}`}>
+      {banner}
       {cards.map(hero => {
         const isChosen = chosen === hero.name;
         return (

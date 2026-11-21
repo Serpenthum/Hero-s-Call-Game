@@ -1,4 +1,4 @@
-/* The draft table: ban and pick rounds. Two layouts:
+/* The draft table: ban, pick and order rounds. Two layouts:
    table (.draft-table--table): column  bar | band | hint | hand | foot  (heights from TABLE_CHROME in draftRules.ts)
    focus (.draft-table--focus): big card down the left, the same column on the right.
    Sizes come from useDraftLayout as inline variables: --draft-card-w/-scale, --draft-big-w/-scale,
@@ -400,6 +400,72 @@
 .draft-hand--ban .hero-card.selected { --state-c: var(--ember-hi); }
 .draft-hand--locked .draft-hand-card:not(.draft-hand-card--chosen) { filter: brightness(0.6); }
 
+/* ---- Order step: the three heroes numbered 1-3, "Attacks first" under 1; tap one, then another to swap ---- */
+.draft-order-card {
+  --hero-card-scale: var(--draft-card-scale);
+  position: relative;
+  flex: none;
+  width: var(--draft-card-w);
+  height: calc(var(--draft-card-w) * 391 / 260);
+}
+.draft-hand--order:not(.draft-hand--ready) .draft-order-card:hover { transform: translateY(-6px); }
+.draft-order-card--selected,
+.draft-hand--order:not(.draft-hand--ready) .draft-order-card--selected:hover { transform: translateY(-12px); }
+
+.draft-order-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  z-index: 7;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  transform: translateX(-50%);
+  border: 2px solid var(--draft-order-rim);
+  border-radius: 50%;
+  background: var(--brass);
+  color: var(--draft-ink-dark);
+  font: 800 18px / 1 var(--font-ui);
+  box-shadow: 0 3px 8px var(--card-black);
+  pointer-events: none;
+}
+
+.draft-order-first {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  z-index: 7;
+  transform: translateX(-50%);
+  color: var(--fav-gold);
+  font: 800 13px / 1 var(--font-ui);
+  white-space: nowrap;
+  text-shadow: 0 1px 3px var(--card-black);
+  pointer-events: none;
+}
+
+/* ---- Opponent away: a banner across the hand area. Taps pass through to the cards under it ---- */
+.draft-away {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  display: flex;
+  justify-content: center;
+  padding: 8px 12px;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, var(--card-black) 55%, transparent);
+  border-block: 1px solid var(--ember);
+  pointer-events: none;
+}
+/* Text in px: the app's root font shrinks on small screens */
+.draft-away .disconnect-notice { max-width: 100%; box-sizing: border-box; }
+.draft-away .disconnect-notice__name { font-size: 18px; }
+.draft-away .disconnect-caption__title { font-size: 12px; }
+.draft-away .disconnect-caption__count { font-size: 14px; }
+
 /* ---- Foot: the Ban / Pick button ---- */
 .draft-foot {
   position: relative;
@@ -512,6 +578,16 @@
 .draft-table--focus .draft-foot { height: 52px; }
 .draft-table--focus .draft-act { min-width: 150px; min-height: 40px; padding: 7px 18px; font-size: 15px; }
 
+/* Order step, big-card layout: smaller numbers */
+.draft-table--focus .draft-order-card--selected,
+.draft-table--focus .draft-hand--order:not(.draft-hand--ready) .draft-order-card--selected:hover { transform: translateY(-6px); }
+.draft-table--focus .draft-order-badge { top: -10px; width: 24px; height: 24px; font-size: 13px; }
+.draft-table--focus .draft-order-first { bottom: -16px; font-size: 12px; }
+.draft-table--focus .draft-away { padding: 4px 8px; }
+.draft-table--focus .draft-away .disconnect-notice__img { width: 40px; height: 40px; }
+.draft-table--focus .draft-away .disconnect-notice__name { font-size: 14px; }
+.draft-table--focus .draft-away .disconnect-caption__count { font-size: 12px; }
+
 /* Hand cards too narrow for readable rules text show as tiny cards (the big card is the one to read).
    Same face as HeroCard's own tiny mode (its container query at 129px). */
 .draft-table--tiny-hand .draft-hand .hero-card .card-details,
@@ -532,5 +608,3 @@
   .draft-portrait--holo { animation: none; }
 }
 
-/* The floating Friends button would cover the big card and the hand: hidden while the draft table is up */
-.App:has(.draft-table) .friends-icon { display: none; }

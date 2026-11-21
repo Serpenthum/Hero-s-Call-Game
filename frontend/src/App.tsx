@@ -665,7 +665,8 @@ function App() {
               if (updatedPlayer) {
                 return {
                   ...player,
-                  isReady: updatedPlayer.isReady
+                  // The server's game state carries no isReady flag: a player whose attack order is set is ready
+                  isReady: updatedPlayer.isReady ?? (updatedPlayer.attackOrder?.length === 3)
                   // Do NOT update team or attackOrder here - only update ready status
                   // Each player maintains their own team order locally until both are ready
                 };
@@ -2355,6 +2356,8 @@ function App() {
   // Whether renderGameContent shows GameLobby: its branch and the floating-icon gate both use this.
   // The lobby has Friends and Messages in its top bar, so the floating icons stay off while it shows.
   const devScreenShowing = import.meta.env.DEV && (window.location.hash === '#ui-kit' || window.location.hash.startsWith('#screens'));
+  // The draft table (draft and setup) fills the screen: no sidebar and no floating Friends or Message button
+  const draftShowing = !!state.gameState && (state.gameState.phase === 'draft' || state.gameState.phase === 'setup');
   const lobbyShowing = !devScreenShowing && !showCardLayoutTest && !!state.user
     && !(tutorial.stage === 'battle' && !state.gameState)
     && !state.showSurvival && !state.showGauntlet
@@ -2540,6 +2543,8 @@ function App() {
             opponent={opponent}
             allHeroes={state.allHeroes}
             draftTimer={draftTimer}
+            away={draftAwayNotice(opponent)}
+            connecting={!state.isConnected}
           />
         );
 
@@ -2609,24 +2614,27 @@ function App() {
     );
   };
 
-  const renderSidebar = () => {
-    if (!state.gameState || state.isTransitioningToBattle || state.gameState.phase === 'waiting') return null;
-    
-    const currentPlayer = getCurrentPlayer();
-    const opponent = getOpponentPlayer();
-    // The opponent dropped out of the draft or setup: the sign sits in this sidebar, clear of the
-    // draft clock and the team panels
-    const opponentAway = !!opponent && !state.isSpectating &&
+  // The opponent dropped out of the draft or setup: a sign with the countdown, laid across the draft table's hand
+  const draftAwayNotice = (opponent: Player | null) => {
+    const away = !!opponent && !state.isSpectating &&
       (opponent.connected === false || disconnectDeadlines[opponent.id] !== undefined);
-    const awayNotice = opponentAway && opponent ? (
+    return away && opponent ? (
       <DisconnectNotice
-        stacked
         countdown={disconnectDeadlines[opponent.id] ?? null}
         name={opponent.name}
         profileIcon={opponent.profile_icon}
         viewerIsOpponent={true}
       />
     ) : null;
+  };
+
+  const renderSidebar = () => {
+    if (!state.gameState || state.isTransitioningToBattle || state.gameState.phase === 'waiting') return null;
+    // Draft and setup: the draft table takes the whole game area and carries what the sidebar showed
+    if (draftShowing) return null;
+    
+    const currentPlayer = getCurrentPlayer();
+    const opponent = getOpponentPlayer();
     
     return (
       <aside className="game-sidebar">
@@ -2647,109 +2655,6 @@ function App() {
         )}
         
         <div className="game-info">
-          {/* Draft Phase Information */}
-          {state.gameState.phase === 'draft' && (
-            <div className="draft-info">
-              {currentPlayer && opponent && (
-                <div className="matchup-display">
-                  <span className="player-name-sidebar">{currentPlayer.name}</span>
-                  <span className="vs-text-sidebar">vs</span>
-                  <span className="opponent-name-sidebar">{opponent.name}</span>
-                </div>
-              )}
-              {awayNotice}
-              {currentPlayer && !awayNotice && (
-                <div className="turn-status">
-                  {(currentPlayer.team?.length || 0) < state.gameState.currentDraftPhase 
-                    ? "Your turn to pick" 
-                    : "Waiting for opponent"}
-                </div>
-              )}
-              
-              {/* Banned Cards Section */}
-              {currentPlayer?.bannedCard && opponent?.bannedCard && (
-                <div className="banned-cards-section">
-                  <h3>Banned cards</h3>
-                  <div className="banned-cards-subtitle">
-                    These cards cannot be picked
-                  </div>
-                  
-                  <div className="banned-cards-list">
-                    {[currentPlayer.bannedCard, opponent.bannedCard].filter(Boolean).map((cardName, index) => {
-                      const bannedByPlayer = cardName === currentPlayer.bannedCard;
-                      return (
-                        <div key={index} className="banned-card-item">
-                          <img 
-                            src={`${config.IMAGE_BASE_URL}/hero-images/${cardName.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`}
-                            alt={cardName}
-                            className="banned-card-image"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vPC90ZXh0Pjwvc3ZnPg==';
-                            }}
-                          />
-                          <span className="banned-card-name">{cardName}</span>
-                          <span className="banned-by-label">{bannedByPlayer ? '(You)' : '(Opp.)'}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  <div className="banned-cards-count">
-                    2 cards banned
-                  </div>
-                </div>
-              )}
-              
-              {/* Abandon Draft Button */}
-              <button
-                onClick={() => {
-                  socketService.abandonDraft();
-                }}
-                className="abandon-draft-button"
-                title="Return to lobby without rewards"
-              >
-                Abandon draft
-              </button>
-            </div>
-          )}
-          
-          {/* Setup Phase Information */}
-          {state.gameState.phase === 'setup' && (
-            <div className="setup-info">
-              {currentPlayer && opponent && (
-                <div className="matchup-display">
-                  <span className="player-name-sidebar">{currentPlayer.name}</span>
-                  <span className="vs-text-sidebar">vs</span>
-                  <span className="opponent-name-sidebar">{opponent.name}</span>
-                </div>
-              )}
-              
-              {awayNotice}
-              {currentPlayer && opponent && !awayNotice && (
-                <div className="turn-status">
-                  {!currentPlayer.attackOrder || currentPlayer.attackOrder.length !== 3
-                    ? "Set your attack order"
-                    : opponent.attackOrder && opponent.attackOrder.length === 3
-                    ? "Both players are ready"
-                    : "Waiting for opponent"}
-                </div>
-              )}
-              
-              {/* Abandon Draft Button */}
-              <button
-                onClick={() => {
-                  socketService.abandonDraft();
-                }}
-                className="abandon-draft-button"
-                title="Return to lobby without rewards"
-              >
-                Abandon draft
-              </button>
-            </div>
-          )}
-          
-
-          
           {/* Battle Phase Information - Combined Active Hero and Battle Log */}
           {/* Shown from the starting roll on, so the board keeps its battle layout */}
           <SidebarBattleInfo
@@ -2959,7 +2864,7 @@ function App() {
       {state.user && !state.showCollection && tutorial.stage === null && (
         <>
           {/* Floating Friends icon: the lobby has its own in the top bar, unless the Shop covers it */}
-          {(!lobbyShowing || lobbyShopOpen) && (
+          {(!lobbyShowing || lobbyShopOpen) && !draftShowing && (
             <FriendsIcon
               onClick={handleToggleFriendsOverlay}
               hasNotifications={state.friendsNotificationCount > 0}
@@ -2969,7 +2874,7 @@ function App() {
           )}
 
           {/* Message Icon: only shown when there are unread or minimized chats (in the lobby, in the top bar) */}
-          {hasMessageChats && (!lobbyShowing || lobbyShopOpen) && (
+          {hasMessageChats && (!lobbyShowing || lobbyShopOpen) && !draftShowing && (
             <MessageIcon 
               onClick={handleMessageIconClick}
               hasNotifications={state.messageNotificationCount > 0}

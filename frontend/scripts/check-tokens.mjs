@@ -98,6 +98,8 @@ const MIGRATED = [
   'components/draft/DraftHand.test.tsx',
   'components/draft/DraftBigCard.tsx',
   'components/draft/DraftPortrait.tsx',
+  'components/draft/DraftOrder.tsx',
+  'components/draft/DraftOrder.test.tsx',
   'styles/Draft.css',
 ];
 

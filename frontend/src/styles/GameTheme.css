@@ -2,7 +2,6 @@
 
 /* The draft content may shrink next to the sidebar instead of pushing the page sideways */
 .game-content { min-width: 0; }
-.setup-phase { box-sizing: border-box; }
 
 /* Halves of the board: the opponent's side is warm, yours is green */
 .opponent-area { background: color-mix(in srgb, var(--ember) 14%, transparent); }
@@ -26,7 +25,7 @@
   box-shadow: none;
 }
 .action-button:hover:not(:disabled) { background: var(--brass-hi); transform: none; box-shadow: none; }
-.action-button:focus-visible, .return-to-lobby-button:focus-visible, .abandon-draft-button:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
+.action-button:focus-visible, .return-to-lobby-button:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 .action-button:disabled, .action-button.used {
   background: var(--leather);
   color: var(--bone-dim);
@@ -38,8 +37,6 @@
 .action-button.end-turn-button:hover:not(:disabled), .action-button.cancel-ability-selection:hover:not(:disabled) { background: var(--leather); }
 .ability-option-button { background: var(--leather); color: var(--bone); border: 1px solid var(--brass-dim); border-radius: var(--radius-control); }
 .ability-option-button:hover:not(:disabled) { border-color: var(--brass); background: var(--leather-hi); }
-.abandon-draft-button { background: transparent; color: var(--ember-hi); border: 1px solid var(--ember); border-radius: var(--radius-control); text-transform: none; letter-spacing: 0; font-family: var(--font-ui); }
-.abandon-draft-button:hover { background: var(--ember); color: var(--bone); transform: none; box-shadow: none; }
 
 /* Turn banner and status lines */
 .current-turn, .turn-status { color: var(--bone); font-weight: 700; }
@@ -81,12 +78,6 @@
 .surrender-message { margin: var(--space-3) 0 0; color: var(--bone-dim); }
 
 /* Draft and setup */
-.draggable-hero-slot { cursor: grab; }
-.position-badge { background: var(--brass); color: var(--felt-deep); border: 2px solid var(--walnut); font-family: var(--font-ui); }
-.ready-status, .opponent-ready-indicator { background: color-mix(in srgb, var(--verdigris) 18%, transparent); border: 1px solid var(--verdigris); color: var(--bone); }
-.ready-indicator, .opponent-ready-indicator span { display: inline-flex; align-items: center; gap: var(--space-2); }
-.ready-button { background: var(--brass); }
-.banned-cards-section h3 { color: var(--ember-hi); text-shadow: none; letter-spacing: 0; }
 
 /* Floating controls in the corners of the battle screen */
 .floating-surrender-button, .spectator-count-button, .spectator-list-modal { position: fixed; z-index: 1000; }
