@@ -66,6 +66,11 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
   const [packContentHeroes, setPackContentHeroes] = useState<Hero[]>([]);
   const [packContentsPage, setPackContentsPage] = useState(0);
   const [turning, setTurning] = useState(false);
+  // The balance bumps each time it changes while the shop is open (a new key replays the bump), not when it opens
+  const balanceBumps = useRef({ shown: victoryPoints, count: 0 });
+  if (balanceBumps.current.shown !== victoryPoints) {
+    balanceBumps.current = { shown: victoryPoints, count: balanceBumps.current.count + 1 };
+  }
 
   // A new message replaces the one showing, and lasts its own time from now
   const showMessage = useCallback((text: string, ms: number, type: ShopMessage['type'] = 'error') => {
@@ -339,7 +344,9 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
             <h2>Hero shop</h2>
             <div className="shop-balance">
               <Coin className="vp-icon" />
-              <span className="vp-amount">{victoryPoints}</span>
+              <span key={balanceBumps.current.count} className={`vp-amount${balanceBumps.current.count > 0 ? ' is-bumped' : ''}`}>
+                {victoryPoints}
+              </span>
             </div>
           </div>
 
