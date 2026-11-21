@@ -177,3 +177,35 @@ describe('12px floor', () => {
     expect(renderToStaticMarkup(<HeroCard hero={hero('Monk')} />)).not.toContain('data-min-text-px');
   });
 });
+
+describe('draft motion hooks in the markup', () => {
+  it('stamps your ban while it waits for the server (ban step, locked, the sent card only)', () => {
+    const html = render({ step: 0, locked: true, chosen: 'Wizard' });
+    expect(handCard(html, 'Wizard')).toContain('draft-hand-card--banned');
+    expect(handCard(html, 'Wizard')).toContain('<span class="draft-stamp" aria-hidden="true">Banned</span>');
+    expect(handCard(html, 'Monk')).not.toContain('draft-stamp');
+  });
+
+  it('never stamps a pick, or a card that is only chosen', () => {
+    expect(render({ step: 1, locked: true, chosen: 'Wizard' })).not.toContain('draft-stamp');
+    expect(render({ step: 0, locked: false, chosen: 'Wizard' })).not.toContain('draft-stamp');
+  });
+
+  it('numbers the hand cards for the deal and the slide (one after another)', () => {
+    const html = render();
+    expect(handCard(html, 'Monk')).toContain('--i:0');
+    expect(handCard(html, 'Cleric')).toContain('--i:4');
+  });
+
+  it('with animations off the table carries no motion marks, and never says "Hands swap"', () => {
+    const me = player('me', { draftCards: HAND });
+    const html = renderToStaticMarkup(
+      <DraftPhase gameState={gameState(1, [me, player('them')])} currentPlayer={me} opponent={player('them')} allHeroes={[]} draftTimer={null} />,
+    );
+    expect(html).toContain('draft--still');
+    expect(html).toContain('class="draft-fx"');
+    expect(html).not.toMatch(/data-(hand|fly-slot|fly-ban|land|flip|pop)=/);
+    expect(html).not.toContain('draft-table--sending');
+    expect(html.toLowerCase()).not.toContain('hands swap');
+  });
+});

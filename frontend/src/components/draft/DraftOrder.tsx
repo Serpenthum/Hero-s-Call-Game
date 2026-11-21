@@ -39,6 +39,7 @@ const DraftOrder: React.FC<DraftOrderProps> = ({ order, selected, ready, onTap, 
             key={hero.name}
             className={`draft-order-card${isSelected ? ' draft-order-card--selected' : ''}`}
             data-name={hero.name}
+            style={{ '--i': i } as React.CSSProperties}
           >
             <span className="draft-order-badge">{i + 1}</span>
             {i === 0 && <span className="draft-order-first">Attacks first</span>}

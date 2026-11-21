@@ -36,14 +36,18 @@ const DraftHand: React.FC<DraftHandProps> = ({ cards, chosen, step, locked, onCh
     <p className={`draft-hint${step === 0 ? ' draft-hint--ban' : ''}`}>{hint(step, layout)}</p>
     <div className={`draft-hand${step === 0 ? ' draft-hand--ban' : ''}${locked ? ' draft-hand--locked' : ''}`}>
       {banner}
-      {cards.map(hero => {
+      {cards.map((hero, i) => {
         const isChosen = chosen === hero.name;
+        // Your ban, sent and waiting for the server: stamped and greyed.
+        const banned = step === 0 && locked && isChosen;
         return (
           <div
             key={hero.name}
-            className={`draft-hand-card${isChosen ? ' draft-hand-card--chosen' : ''}`}
+            className={`draft-hand-card${isChosen ? ' draft-hand-card--chosen' : ''}${banned ? ' draft-hand-card--banned' : ''}`}
             data-name={hero.name}
+            style={{ '--i': i } as React.CSSProperties}
           >
+            {banned && <span className="draft-stamp" aria-hidden="true">Banned</span>}
             <HeroCard
               hero={hero}
               holo={!!hero.holo}

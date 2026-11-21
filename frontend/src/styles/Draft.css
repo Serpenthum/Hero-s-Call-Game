@@ -416,7 +416,8 @@
   position: absolute;
   top: -14px;
   left: 50%;
-  z-index: 7;
+  /* Over the card even while it is hovered (a hovered card rises to 15) */
+  z-index: 16;
   box-sizing: border-box;
   width: 34px;
   height: 34px;
@@ -445,25 +446,39 @@
   pointer-events: none;
 }
 
-/* ---- Opponent away: a banner across the hand area. Taps pass through to the cards under it ---- */
+/* ---- Opponent away: a one-line strip along the top edge of the hand area. It lies over the hint line,
+   so it covers no card. Taps pass through ---- */
 .draft-away {
   position: absolute;
-  top: 50%;
+  bottom: 100%;
   left: 0;
   right: 0;
-  z-index: 8;
+  z-index: 17;
+  box-sizing: border-box;
+  height: 30px;
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 8px 12px;
-  transform: translateY(-50%);
-  background: color-mix(in srgb, var(--card-black) 55%, transparent);
+  padding: 0 12px;
+  overflow: hidden;
+  background: var(--draft-bar-bottom);
   border-block: 1px solid var(--ember);
   pointer-events: none;
 }
-/* Text in px: the app's root font shrinks on small screens */
-.draft-away .disconnect-notice { max-width: 100%; box-sizing: border-box; }
-.draft-away .disconnect-notice__name { font-size: 18px; }
-.draft-away .disconnect-caption__title { font-size: 12px; }
+/* The notice on one line: name, "Disconnected", the countdown. Text in px: the app's root font shrinks on small screens */
+.draft-away .disconnect-notice {
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.draft-away .disconnect-notice__portrait { display: none; }
+.draft-away .disconnect-notice__text,
+.draft-away .disconnect-caption { flex-direction: row; align-items: baseline; gap: 10px; }
+.draft-away .disconnect-notice__name { font-size: 16px; }
+.draft-away .disconnect-caption__title { font-size: 12px; white-space: nowrap; }
 .draft-away .disconnect-caption__count { font-size: 14px; }
 
 /* ---- Foot: the Ban / Pick button ---- */
@@ -583,18 +598,25 @@
 .draft-table--focus .draft-hand--order:not(.draft-hand--ready) .draft-order-card--selected:hover { transform: translateY(-6px); }
 .draft-table--focus .draft-order-badge { top: -10px; width: 24px; height: 24px; font-size: 13px; }
 .draft-table--focus .draft-order-first { bottom: -16px; font-size: 12px; }
-.draft-table--focus .draft-away { padding: 4px 8px; }
-.draft-table--focus .draft-away .disconnect-notice__img { width: 40px; height: 40px; }
+.draft-table--focus .draft-away { height: 22px; padding: 0 8px; }
+.draft-table--focus .draft-away .disconnect-notice,
+.draft-table--focus .draft-away .disconnect-notice__text,
+.draft-table--focus .draft-away .disconnect-caption { gap: 8px; }
 .draft-table--focus .draft-away .disconnect-notice__name { font-size: 14px; }
 .draft-table--focus .draft-away .disconnect-caption__count { font-size: 12px; }
 
 /* Hand cards too narrow for readable rules text show as tiny cards (the big card is the one to read).
    Same face as HeroCard's own tiny mode (its container query at 129px). */
 .draft-table--tiny-hand .draft-hand .hero-card .card-details,
-.draft-table--tiny-hand .draft-hand .hero-card .card-rule { display: none; }
-.draft-table--tiny-hand .draft-hand .hero-card .card-hero-name { font-size: 2.625em; }
-.draft-table--tiny-hand .draft-hand .hero-card .card-stats { font-size: calc(1.5em * var(--gem-scale)); }
-.draft-table--tiny-hand .draft-hand .hero-card .card-lower { padding: 2em 0.7em 0.6em; }
+.draft-table--tiny-hand .draft-hand .hero-card .card-rule,
+.draft-flyer-card--tiny .hero-card .card-details,
+.draft-flyer-card--tiny .hero-card .card-rule { display: none; }
+.draft-table--tiny-hand .draft-hand .hero-card .card-hero-name,
+.draft-flyer-card--tiny .hero-card .card-hero-name { font-size: 2.625em; }
+.draft-table--tiny-hand .draft-hand .hero-card .card-stats,
+.draft-flyer-card--tiny .hero-card .card-stats { font-size: calc(1.5em * var(--gem-scale)); }
+.draft-table--tiny-hand .draft-hand .hero-card .card-lower,
+.draft-flyer-card--tiny .hero-card .card-lower { padding: 2em 0.7em 0.6em; }
 
 /* Narrow tables: step numbers only, then no title */
 @container draft-table (max-width: 699px) {
@@ -604,7 +626,163 @@
   .draft-title { display: none; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .draft-portrait--holo { animation: none; }
+/* ---- Motion. Timings follow the approved mockup (draft-step3.html). The server's state is always drawn at
+   once: these are short animations on what is drawn, or copies laid over it (.draft-fx, .draft-flyer) that
+   ignore the pointer. All of it is off under .draft--still and reduced motion (end of this section). ---- */
+
+/* Copies laid over the table: the old hand sliding off, a stamped card waiting to fly */
+.draft-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  overflow: hidden;
+  pointer-events: none;
+}
+.draft-table--focus > .draft-fx { grid-column: 1 / -1; grid-row: 1 / -1; }
+.draft-hand--ghost {
+  position: absolute;
+  flex: none;
+  margin: 0;
+  pointer-events: none;
+}
+.draft-hand--stamped { padding: 0; }
+
+/* A copy in flight (flyCard.ts), on the page itself */
+.draft-flyer {
+  position: fixed;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.draft-flyer-card { flex: none; }
+.draft-flyer-ban img { filter: grayscale(1) brightness(0.6); }
+
+/* Lift on hover and on choosing */
+.draft-hand-card,
+.draft-order-card { transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+
+/* Deal: the hand comes in from the left, one card after another (ban round and order step) */
+.draft-table[data-hand="wait"] .draft-hand:not(.draft-hand--ghost) > :is(.draft-hand-card, .draft-order-card) { opacity: 0; }
+.draft-table[data-hand="deal"] .draft-hand:not(.draft-hand--ghost) > :is(.draft-hand-card, .draft-order-card) {
+  animation: draft-deal 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+@keyframes draft-deal { from { transform: translate(-60vw, -20px) rotate(-25deg); opacity: 0; } }
+
+/* Hands swap: the old hand (a copy) slides off toward the opponent's side while the new one comes in from
+   there. The new cards are the real ones: they can be tapped from the first frame. No words. */
+.draft-hand--out > :is(.draft-hand-card, .draft-order-card) {
+  animation: draft-out 0.4s ease-in forwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+.draft-table[data-hand="in"] .draft-hand:not(.draft-hand--ghost) > :is(.draft-hand-card, .draft-order-card) {
+  animation: draft-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) backwards;
+  animation-delay: calc(240ms + var(--i, 0) * 60ms);
+}
+@keyframes draft-out { to { transform: translateX(70vw) rotate(12deg); opacity: 0; } }
+@keyframes draft-in { from { transform: translateX(70vw) rotate(12deg); opacity: 0; } }
+
+/* Ban: the stamp slams on and the card greys */
+.draft-stamp,
+.draft-table--big-banned .draft-big-card::after {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  z-index: 8;
+  padding: 0 0.2em;
+  transform: translate(-50%, -50%) rotate(-14deg);
+  border: 0.08em solid var(--draft-stamp);
+  border-radius: 0.15em;
+  color: var(--draft-stamp);
+  font: 400 calc(var(--draft-card-w) * 0.22) / 1.15 var(--font-display);
+  white-space: nowrap;
+  text-shadow: 0 0 0.3em var(--card-black);
+  pointer-events: none;
+  animation: draft-stamp 0.3s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.draft-table--big-banned .draft-big-card { position: relative; }
+.draft-table--big-banned .draft-big-card::after { content: "Banned"; font-size: calc(var(--draft-big-w) * 0.2); }
+.draft-hand-card--banned .hero-card,
+.draft-table--big-banned .draft-big-card .hero-card {
+  filter: grayscale(1) brightness(0.55);
+  animation: draft-grey 0.3s ease-out;
+}
+@keyframes draft-stamp { from { transform: translate(-50%, -50%) rotate(-14deg) scale(2.4); opacity: 0; } }
+@keyframes draft-grey { from { filter: none; } }
+
+/* The card just sent is in the air (a copy): its place in the hand stays, empty, until it lands */
+.draft-table--sending .draft-hand:not(.draft-hand--ghost) > .draft-hand-card--chosen { visibility: hidden; }
+
+/* While a copy flies to your slot or your ban spot, the spot looks empty; then it pulses (slot) or pops (ban) */
+.draft-table[data-fly-slot="1"] .draft-slots--me > .draft-slot--filled:nth-child(1),
+.draft-table[data-fly-slot="2"] .draft-slots--me > .draft-slot--filled:nth-child(2),
+.draft-table[data-fly-slot="3"] .draft-slots--me > .draft-slot--filled:nth-child(3) {
+  border: 1.5px dashed var(--draft-slot-line);
+  background: color-mix(in srgb, var(--card-black) 18%, transparent);
+}
+.draft-table[data-fly-slot="1"] .draft-slots--me > .draft-slot--filled:nth-child(1) > *,
+.draft-table[data-fly-slot="2"] .draft-slots--me > .draft-slot--filled:nth-child(2) > *,
+.draft-table[data-fly-slot="3"] .draft-slots--me > .draft-slot--filled:nth-child(3) > *,
+.draft-table[data-fly-ban] .draft-ban--mine .draft-ban-token > *,
+.draft-table[data-fly-ban] .draft-ban--mine .draft-ban-token::after { visibility: hidden; }
+.draft-table[data-fly-ban] .draft-ban--mine .draft-ban-token { border: 1.5px dashed var(--draft-leave-line); }
+
+.draft-table[data-land="1"] .draft-slots--me > .draft-slot:nth-child(1),
+.draft-table[data-land="2"] .draft-slots--me > .draft-slot:nth-child(2),
+.draft-table[data-land="3"] .draft-slots--me > .draft-slot:nth-child(3) { animation: draft-land 0.4s ease-out; }
+@keyframes draft-land {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brass-hi) 90%, transparent); }
+  to { box-shadow: 0 0 0 14px transparent; }
 }
 
+.draft-table:is([data-pop="mine"], [data-pop="both"]) .draft-ban--mine .draft-ban-token,
+.draft-table:is([data-pop="theirs"], [data-pop="both"]) .draft-ban--theirs .draft-ban-token {
+  animation: draft-banpop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes draft-banpop { from { transform: scale(1.8); filter: brightness(2); } }
+
+/* The opponent's pick turns over into their slot */
+.draft-table[data-flip="1"] .draft-slots--them > .draft-slot:nth-child(1),
+.draft-table[data-flip="2"] .draft-slots--them > .draft-slot:nth-child(2),
+.draft-table[data-flip="3"] .draft-slots--them > .draft-slot:nth-child(3) {
+  animation: draft-flip 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes draft-flip { from { transform: perspective(600px) rotateY(90deg) scale(0.8); filter: brightness(2); } }
+
+/* The clock is on screen for the last 10 seconds: red, and the number ticks */
+.draft-clock-slot .draft-clock-hand { stroke: var(--ember); }
+.draft-clock-slot .draft-clock--urgent .draft-clock-hand { stroke: var(--ember-hi); }
+.draft-clock-slot .draft-clock-seconds {
+  color: var(--draft-ban-hint);
+  animation: draft-tick 1s steps(1) infinite;
+}
+@keyframes draft-tick { 50% { transform: scale(1.18); } }
+
+/* Big card (big-card layout): eases in when it changes */
+.draft-big-card { animation: draft-peek 0.22s ease-out; }
+@keyframes draft-peek { from { opacity: 0.3; transform: translateX(-10px) scale(0.97); } }
+
+/* Animations off: nothing moves, cards appear in place */
+.draft--still :is(.draft-hand-card, .draft-order-card, .draft-stamp, .draft-slot, .draft-ban-token, .draft-big-card, .draft-clock-seconds, .draft-clock-hand),
+.draft--still .draft-big-card::after,
+.draft--still .draft-hand-card--banned .hero-card,
+.draft--still .draft-big-card .hero-card {
+  animation: none;
+  transition: none;
+}
+.draft--still[data-hand="wait"] .draft-hand > :is(.draft-hand-card, .draft-order-card) { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .draft-table :is(.draft-hand-card, .draft-order-card, .draft-stamp, .draft-slot, .draft-ban-token, .draft-big-card, .draft-clock-seconds),
+  .draft-table .draft-big-card::after,
+  .draft-table .draft-hand-card--banned .hero-card,
+  .draft-table .draft-big-card .hero-card {
+    animation: none;
+    transition: none;
+  }
+  .draft-table[data-hand="wait"] .draft-hand > :is(.draft-hand-card, .draft-order-card) { opacity: 1; }
+  .draft-portrait--holo { animation: none; }
+}

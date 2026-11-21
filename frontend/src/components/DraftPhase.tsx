@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import { getAnimSpeed } from '../battleAnimations';
 import { useCardReader } from '../cards/CardReader';
 import { READABLE_CARD_MIN_WIDTH, draftStep, playerStatus, draftChoice, visibleBans } from '../draft/draftRules';
 import { useDraftLayout } from '../draft/useDraftLayout';
+import { BeforeUpdate, useDraftMotion } from '../draft/useDraftMotion';
 import DraftClock from './DraftClock';
 import DraftTopBar from './draft/DraftTopBar';
 import DraftBand from './draft/DraftBand';
@@ -76,8 +77,33 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const orderNames = sameHeroes(localOrder) ? localOrder : sameHeroes(serverOrder) ? serverOrder : teamNames;
   const orderHeroes = orderNames.map(n => team.find(h => h.name === n)).filter(Boolean) as Hero[];
 
-  const sizes = useDraftLayout(rootRef, ordering ? orderHeroes.length : hand.length, step);
+  const bans = visibleBans(currentPlayer.bannedCard, opponent?.bannedCard);
+  // Animations off (the setting, or the system's reduced-motion setting): nothing on this screen moves.
+  const motionOff =
+    getAnimSpeed() === 'off' ||
+    (typeof window !== 'undefined' && typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const motion = useDraftMotion({
+    root: rootRef,
+    off: motionOff,
+    step,
+    hand,
+    teamNames,
+    theirCount: opponent?.team?.length ?? 0,
+    bans,
+    timer: draftTimer,
+  });
+  // The card just sent keeps its place in the hand (hidden) while its copy flies, so the other cards stay put.
+  const held = motion.held;
+  const shownHand = held?.gap ? [...hand.slice(0, held.index), held.hero, ...hand.slice(held.index)] : hand;
+
+  const sizes = useDraftLayout(rootRef, ordering ? orderHeroes.length : shownHand.length, step);
   const { layout } = sizes;
+  const orderKey = orderNames.join('|');
+  useLayoutEffect(() => {
+    motion.hopOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderKey]);
 
   const serverStatus = playerStatus(currentPlayer, step);
   const ready = ordering && (readySent || serverStatus === 'done');
@@ -103,7 +129,6 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   [...hand, ...team, ...(opponent?.team ?? [])].forEach(h => seen.current.set(h.name, h));
   const heroByName = (name: string) => seen.current.get(name) ?? allHeroes.find(h => h.name === name);
 
-  const bans = visibleBans(currentPlayer.bannedCard, opponent?.bannedCard);
   const banHolo = {
     mine: !!(bans.mine && heroByName(bans.mine)?.holo),
     theirs: !!(bans.theirs && heroByName(bans.theirs)?.holo),
@@ -119,6 +144,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const tapHero = (name: string) => {
     if (ready) return;
     const next = tapOrder({ order: orderNames, selected: orderSel }, name);
+    if (next.order !== orderNames) motion.noteOrder();
     setPeek(null);
     setLastTapped(name);
     setLocalOrder(next.order);
@@ -144,6 +170,8 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
     } else {
       socketService.pickCard(chosen);
     }
+    // The socket call has gone; the stamp or the flight starts from here and waits for nothing.
+    motion.send(chosen, step === 0 ? 'ban' : 'pick');
     setSent(chosen);
     setPeek(null);
   };
@@ -159,12 +187,13 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
     ) : null;
 
   const verb = step === 0 ? 'Ban' : 'Pick';
-  const shown = sent ?? chosen;
+  const shown = sent ?? held?.name ?? chosen;
   // Order step: the big card shows the last hero tapped (the first hero before any tap).
   const bigHero = ordering
     ? peek ?? orderHeroes.find(h => h.name === lastTapped) ?? orderHeroes[0] ?? null
-    : peek ?? (shown ? hand.find(h => h.name === shown) ?? null : null);
-  const motionOff = getAnimSpeed() === 'off';
+    : peek ?? (shown ? shownHand.find(h => h.name === shown) ?? null : null);
+  // The big card wears the stamp too while your ban is on its way.
+  const bigBanned = step === 0 && !!bigHero && bigHero.name === (sent ?? held?.name);
   const banner = away ? <div className="draft-away">{away}</div> : null;
 
   const style = {
@@ -182,11 +211,14 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
     `draft-table--${layout}`,
     // Big-card layout: hand cards too narrow for readable rules text show as tiny cards (name and stats).
     layout === 'focus' && sizes.handCard < READABLE_CARD_MIN_WIDTH ? 'draft-table--tiny-hand' : '',
+    held ? 'draft-table--sending' : '',
+    bigBanned ? 'draft-table--big-banned' : '',
     motionOff ? 'draft--still' : '',
   ].filter(Boolean).join(' ');
 
   return (
-    <div ref={rootRef} className={classes} style={style}>
+    <div ref={rootRef} className={classes} style={style} {...motion.attrs}>
+      <BeforeUpdate onBefore={motion.before} />
       {layout === 'focus' ? <DraftBigCard hero={bigHero} waiting={!ordering && locked} /> : null}
       <DraftTopBar step={step} clock={clock} connecting={connecting} onLeave={() => socketService.abandonDraft()} />
       <DraftBand
@@ -202,7 +234,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
         <DraftOrder order={orderHeroes} selected={orderSel} ready={ready} onTap={tapHero} layout={layout} banner={banner} />
       ) : (
         <DraftHand
-          cards={hand}
+          cards={shownHand}
           chosen={shown}
           step={step}
           locked={locked}
@@ -227,6 +259,8 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
           </button>
         )}
       </footer>
+      {/* Copies in motion (the old hand sliding off, a stamped card) are laid here; they ignore the pointer. */}
+      <div className="draft-fx" aria-hidden="true" />
     </div>
   );
 };
