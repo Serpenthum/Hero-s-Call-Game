@@ -11,6 +11,7 @@ import {
   fitCards,
   shouldPlayReveal,
   resolveChosen,
+  draftChoice,
 } from './draftRules';
 
 describe('draftStep', () => {
@@ -112,5 +113,33 @@ describe('resolveChosen', () => {
     expect(resolveChosen('Wizard', ['Monk'])).toBeNull();
     expect(resolveChosen('Monk', ['Monk', 'Bard'])).toBe('Monk');
     expect(resolveChosen(null, ['Monk'])).toBeNull();
+  });
+});
+
+describe('draftChoice', () => {
+  const hand = ['Monk', 'Wizard', 'Bard'];
+  const base = { picked: null, sent: null, handNames: hand, layout: 'table' as const, serverDone: false };
+
+  it('chooses nothing in the table layout until a card is tapped', () => {
+    expect(draftChoice(base)).toEqual({ chosen: null, locked: false });
+    expect(draftChoice({ ...base, picked: 'Wizard' })).toEqual({ chosen: 'Wizard', locked: false });
+  });
+
+  it('shows the first card chosen in the big-card layout', () => {
+    expect(draftChoice({ ...base, layout: 'focus' })).toEqual({ chosen: 'Monk', locked: false });
+  });
+
+  it('locks as soon as a ban or pick is sent, before the server answers', () => {
+    // The card was sent but the server state has not arrived: no fallback to the first card, nothing to press.
+    expect(draftChoice({ ...base, layout: 'focus', sent: 'Wizard' })).toEqual({ chosen: null, locked: true });
+    expect(draftChoice({ ...base, sent: 'Wizard', picked: 'Bard' })).toEqual({ chosen: null, locked: true });
+  });
+
+  it('locks once the server says this player is done', () => {
+    expect(draftChoice({ ...base, layout: 'focus', serverDone: true })).toEqual({ chosen: null, locked: true });
+  });
+
+  it('drops a choice that left the hand', () => {
+    expect(draftChoice({ ...base, picked: 'Druid' })).toEqual({ chosen: null, locked: false });
   });
 });

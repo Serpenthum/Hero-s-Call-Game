@@ -352,7 +352,7 @@
   animation: draft-rim 4s linear infinite;
 }
 @keyframes draft-rim { to { --draft-rim-a: 360deg; } }
-.draft-table--still .draft-portrait--holo { animation: none; }
+.draft--still .draft-portrait--holo { animation: none; }
 
 /* ---- Hint and hand ---- */
 .draft-hint {

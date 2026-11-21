@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import React from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 vi.mock('../../config', () => ({ default: { IMAGE_BASE_URL: 'http://img.test', API_BASE_URL: '', SOCKET_URL: '' } }));
 vi.mock('../../battleAnimations', () => ({ getAnimSpeed: () => 'off' }));
 
 import DraftBand, { DraftBandProps } from './DraftBand';
+import DraftPortrait from './DraftPortrait';
 import { visibleBans } from '../../draft/draftRules';
 import type { Hero } from '../../types';
 
@@ -114,5 +116,58 @@ describe('DraftBand', () => {
   it('gives opponent portraits the enemy rim', () => {
     const html = render({ layout: 'focus', them: { name: 'Bo', team: [HEROES.Druid], status: 'done' } });
     expect(html).toContain('draft-portrait--enemy');
+  });
+});
+
+describe('DraftPortrait', () => {
+  afterEach(() => vi.useRealTimers());
+
+  // Renders the portrait once and hands back the props on its button, so its handlers can be driven directly.
+  const portraitProps = (onRead: (h: Hero) => void) => {
+    let props: Record<string, any> = {};
+    const Probe = () => {
+      const el = DraftPortrait({ hero: HEROES.Monk, onRead }) as React.ReactElement;
+      props = el.props;
+      return el;
+    };
+    renderToStaticMarkup(<Probe />);
+    return props;
+  };
+  const click = () => ({ stopPropagation: vi.fn(), preventDefault: vi.fn() });
+
+  it('a tap shows the card (onRead) and is not swallowed', () => {
+    vi.useFakeTimers();
+    const onRead = vi.fn();
+    const p = portraitProps(onRead);
+    p.onPointerDown({ button: 0, clientX: 5, clientY: 5 });
+    vi.advanceTimersByTime(100);
+    p.onPointerUp({});
+    const e = click();
+    p.onClickCapture(e);
+    expect(e.stopPropagation).not.toHaveBeenCalled();
+    p.onClick(e);
+    expect(onRead).toHaveBeenCalledWith(HEROES.Monk);
+  });
+
+  it('a hold opens the reader only: the click that ends it stops in the capture phase, before onClick', () => {
+    vi.useFakeTimers();
+    const p = portraitProps(vi.fn());
+    p.onPointerDown({ button: 0, clientX: 5, clientY: 5 });
+    vi.advanceTimersByTime(500);
+    p.onPointerUp({});
+    const e = click();
+    p.onClickCapture(e);
+    expect(e.stopPropagation).toHaveBeenCalled();
+    expect(e.preventDefault).toHaveBeenCalled();
+  });
+
+  it('a right-click opens the reader and swallows a following click', () => {
+    const p = portraitProps(vi.fn());
+    const menu = { preventDefault: vi.fn() };
+    p.onContextMenu(menu);
+    expect(menu.preventDefault).toHaveBeenCalled();
+    const e = click();
+    p.onClickCapture(e);
+    expect(e.stopPropagation).toHaveBeenCalled();
   });
 });

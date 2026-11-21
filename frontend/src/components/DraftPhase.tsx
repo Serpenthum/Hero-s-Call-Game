@@ -3,7 +3,7 @@ import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import { getAnimSpeed } from '../battleAnimations';
 import { useCardReader } from '../cards/CardReader';
-import { READABLE_CARD_MIN_WIDTH, draftStep, playerStatus, resolveChosen, visibleBans } from '../draft/draftRules';
+import { READABLE_CARD_MIN_WIDTH, draftStep, playerStatus, draftChoice, visibleBans } from '../draft/draftRules';
 import { useDraftLayout } from '../draft/useDraftLayout';
 import HeroCard from './HeroCard';
 import Icon from './ui/Icon';
@@ -49,20 +49,20 @@ const DraftTable: React.FC<DraftPhaseProps> = ({ gameState, currentPlayer, oppon
 
   const myStatus = playerStatus(currentPlayer, step);
   const theirStatus = opponent ? playerStatus(opponent, step) : 'choosing';
-  const locked = myStatus === 'done';
-
   // The card you tapped, and (big-card layout) a team or ban card shown big without changing that choice.
   const [picked, setPicked] = useState<string | null>(null);
   const [peek, setPeek] = useState<Hero | null>(null);
+  // The card this round's ban or pick was sent for: the hand stays locked on it until the server answers.
+  const [sent, setSent] = useState<string | null>(null);
   useEffect(() => {
     setPicked(null);
     setPeek(null);
+    setSent(null);
   }, [step, handKey]);
 
-  // The server wins: a choice no longer in the hand (the clock ran out, hands swapped) is dropped.
-  const kept = locked ? null : resolveChosen(picked, handNames);
-  // Big-card layout: a round starts with its first card shown and chosen.
-  const chosen = kept ?? (layout === 'focus' && !locked ? handNames[0] ?? null : null);
+  // Locked once sent or done on the server. A choice no longer in the hand (the clock ran out) is dropped;
+  // the big-card layout shows its first card chosen when nothing else is.
+  const { chosen, locked } = draftChoice({ picked, sent, handNames, layout, serverDone: myStatus === 'done' });
 
   // Heroes seen on this screen, so a ban keeps its card (and holo flag) after it leaves the hand.
   const seen = useRef(new Map<string, Hero>());
@@ -93,12 +93,12 @@ const DraftTable: React.FC<DraftPhaseProps> = ({ gameState, currentPlayer, oppon
     } else {
       socketService.pickCard(chosen);
     }
-    setPicked(null);
+    setSent(chosen);
     setPeek(null);
   };
 
   const clock =
-    draftTimer && draftTimer.round === gameState.currentDraftPhase && !locked ? (
+    draftTimer && draftTimer.round === gameState.currentDraftPhase && myStatus !== 'done' ? (
       <DraftClock
         key={draftTimer.round}
         deadline={draftTimer.deadline}
@@ -108,7 +108,8 @@ const DraftTable: React.FC<DraftPhaseProps> = ({ gameState, currentPlayer, oppon
     ) : null;
 
   const verb = step === 0 ? 'Ban' : 'Pick';
-  const bigHero = peek ?? (chosen ? hand.find(h => h.name === chosen) ?? null : null);
+  const shown = sent ?? chosen;
+  const bigHero = peek ?? (shown ? hand.find(h => h.name === shown) ?? null : null);
   const motionOff = getAnimSpeed() === 'off';
 
   const style = {
@@ -126,7 +127,7 @@ const DraftTable: React.FC<DraftPhaseProps> = ({ gameState, currentPlayer, oppon
     `draft-table--${layout}`,
     // Big-card layout: hand cards too narrow for readable rules text show as tiny cards (name and stats).
     layout === 'focus' && sizes.handCard < READABLE_CARD_MIN_WIDTH ? 'draft-table--tiny-hand' : '',
-    motionOff ? 'draft-table--still' : '',
+    motionOff ? 'draft--still' : '',
   ].filter(Boolean).join(' ');
 
   return (
@@ -142,7 +143,7 @@ const DraftTable: React.FC<DraftPhaseProps> = ({ gameState, currentPlayer, oppon
         onRead={read}
         heroByName={heroByName}
       />
-      <DraftHand cards={hand} chosen={chosen} step={step} locked={locked} onChoose={choose} layout={layout} />
+      <DraftHand cards={hand} chosen={shown} step={step} locked={locked} onChoose={choose} layout={layout} />
       <footer className="draft-foot">
         <button
           type="button"

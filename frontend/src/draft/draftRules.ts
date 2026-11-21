@@ -47,6 +47,23 @@ export function resolveChosen(chosen: string | null, handNames: string[]): strin
   return chosen !== null && handNames.includes(chosen) ? chosen : null;
 }
 
+/**
+ * The card the Ban/Pick button acts on, and whether the hand is locked.
+ * Locked once this round's ban or pick was sent (before the server answers) or the server says this player is done.
+ * The big-card layout shows its first card chosen when nothing else is.
+ */
+export function draftChoice(o: {
+  picked: string | null;
+  sent: string | null;
+  handNames: string[];
+  layout: 'table' | 'focus';
+  serverDone: boolean;
+}): { chosen: string | null; locked: boolean } {
+  if (o.sent !== null || o.serverDone) return { chosen: null, locked: true };
+  const kept = resolveChosen(o.picked, o.handNames);
+  return { chosen: kept ?? (o.layout === 'focus' ? o.handNames[0] ?? null : null), locked: false };
+}
+
 export const READABLE_CARD_MIN_WIDTH = 222;
 
 /** Table layout chrome in px. CSS must use the same numbers. */

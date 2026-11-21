@@ -154,5 +154,8 @@ describe('DraftPhase', () => {
     expect(html).toContain('draft-table draft-table--table');
     expect(html).toContain('--draft-card-w');
     expect(html).toContain('--draft-slot-w');
+    // Battle animations are off in this test (mocked): the root carries the still class motion keys off.
+    expect(html).toContain('draft--still');
+    expect(html).not.toContain('draft-table--still');
   });
 });
