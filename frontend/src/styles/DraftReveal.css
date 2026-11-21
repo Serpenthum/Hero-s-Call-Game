@@ -1,0 +1,108 @@
+/* The reveal: when both players are Ready the battle board is already drawn underneath. Copies of its six
+   cards face off in the middle of the screen, VS slams between them, then both rows glide onto the board's
+   own cards while this backdrop fades (components/draft/DraftReveal.tsx).
+   Above every game screen, modal and the card reader (30000); below the rotate screen (40000).
+   Timings follow the owner-approved mockup (docs/superpowers/specs/2026-11-17-redesign-mockups/draft-step3.html);
+   keep them in step with REVEAL in draft/revealRules.ts. */
+
+.draft-reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 35000;
+  overflow: hidden;
+  background-color: color-mix(in srgb, var(--felt-deep) 30%, var(--card-black));
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.5s;
+}
+
+/* The glide: the backdrop clears so the real board (row colours, name plates, log and actions) shows around the copies */
+.draft-reveal--board { background-color: transparent; }
+
+/* Stills, or a board that never showed its cards: one short fade straight to the board */
+.draft-reveal--fade { animation: draft-reveal-out 0.3s both; }
+
+/* While the copies stand in for them, the board's own cards and the Starting Roll box are hidden but keep
+   their places (the copies are measured from them). */
+:root[data-draft-reveal='on'] .battle-layout .game-board .hero-layout-card,
+:root[data-draft-reveal='on'] .initiative-overlay {
+  visibility: hidden;
+}
+/* The reveal played through: the Starting Roll box fades in over the board (a skip shows it at once) */
+:root[data-draft-reveal='done'] .initiative-overlay { animation: draft-reveal-roll-in 0.35s both; }
+
+/* A row of copies. Each copy sits on its battle card; the row is shifted sideways so it starts centred on
+   the whole screen, and glides back to no shift. */
+.draft-reveal-row {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translateX(var(--draft-reveal-dx, 0px));
+  transition: transform 0.75s cubic-bezier(0.45, 0, 0.2, 1);
+}
+.draft-reveal--board .draft-reveal-row { transform: none; }
+
+.draft-reveal-card {
+  position: absolute;
+  animation: 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.08) backwards;
+}
+.draft-reveal-row--them .draft-reveal-card { animation-name: draft-reveal-drop; }
+.draft-reveal-row--me .draft-reveal-card { animation-name: draft-reveal-rise; }
+
+.draft-reveal-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  margin-top: -1px;
+  background: linear-gradient(90deg, transparent, var(--ember-spark), transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--ember-spark) 70%, transparent);
+  pointer-events: none;
+  animation: draft-reveal-line 0.5s ease-out 0.95s backwards;
+  transition: opacity 0.4s;
+}
+
+.draft-reveal-vs {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums;
+  font-size: 80px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--ember-spark) 30%, var(--card-white));
+  text-shadow: 0 4px 0 var(--card-black), 0 0 30px var(--ember-spark);
+  pointer-events: none;
+  animation: draft-reveal-slam 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) 0.85s backwards;
+  transition: opacity 0.4s, transform 0.4s;
+}
+
+.draft-reveal--board .draft-reveal-line { opacity: 0; }
+.draft-reveal--board .draft-reveal-vs { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+
+/* The white flash as VS lands; invisible before and after */
+.draft-reveal-flash {
+  position: absolute;
+  inset: 0;
+  background: var(--card-white);
+  opacity: 0;
+  pointer-events: none;
+  animation: draft-reveal-flash 0.5s ease-out 0.95s;
+}
+
+/* Sideways phones */
+@media (max-height: 500px) {
+  .draft-reveal-vs { font-size: 48px; }
+}
+
+@keyframes draft-reveal-out { to { opacity: 0; } }
+@keyframes draft-reveal-roll-in { from { opacity: 0; } }
+@keyframes draft-reveal-drop { from { transform: translateY(-140%); opacity: 0; } }
+@keyframes draft-reveal-rise { from { transform: translateY(140%); opacity: 0; } }
+@keyframes draft-reveal-slam { from { transform: translate(-50%, -50%) scale(4); opacity: 0; } }
+@keyframes draft-reveal-line { from { transform: scaleX(0); } }
+@keyframes draft-reveal-flash {
+  0% { opacity: 0.55; }
+  100% { opacity: 0; }
+}

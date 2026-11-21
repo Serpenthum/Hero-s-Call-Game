@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, Suspense } from 'react';
 import { socketService } from './socketService';
 import { GameState, Player, Hero, Quest, PendingQuestReward } from './types';
 import GameLobby from './components/GameLobby';
@@ -9,6 +9,9 @@ import UiKit from './components/ui/UiKit';
 import DevScreens from './components/ui/DevScreens';
 import RotatePrompt from './components/RotatePrompt';
 import MatchFoundOverlay from './components/lobby/MatchFoundOverlay';
+import DraftReveal from './components/draft/DraftReveal';
+import { shouldPlayReveal } from './draft/draftRules';
+import { setupSeen } from './draft/revealRules';
 import { markLobbyArrival, matchFoundPlayers } from './lobby/lobbyRules';
 import InstallHint from './install/InstallHint';
 import { CardReaderProvider } from './cards/CardReader';
@@ -310,6 +313,11 @@ function App() {
   // The "Match found" moment over the game screen (Random and Draft queue matches only)
   const [matchFound, setMatchFound] = useState<NonNullable<ReturnType<typeof matchFoundPlayers>> | null>(null);
   const closeMatchFound = useCallback(() => setMatchFound(null), []);
+  // The reveal (draft into the battle board) plays only on a live Order-to-roll change seen in this tab
+  const [revealing, setRevealing] = useState(false);
+  const closeReveal = useCallback(() => setRevealing(false), []);
+  const sawSetupRef = useRef(false);
+  const prevPhaseRef = useRef<string | null>(null);
 
   // Ref to track survival return timeout
   const survivalReturnTimeoutRef = useRef<number | null>(null);
@@ -376,6 +384,8 @@ function App() {
       queuedMatchRef.current = false;
       pendingSurvivalSearchRef.current = null;
       const rejoinedSameGame = gameStateRef.current?.id === gameState.id;
+      // A state handed back after a reconnect is not a live change: coming back past the Order step plays no reveal
+      if (gameState.phase !== 'setup') sawSetupRef.current = false;
       setState(prev => ({
         ...prev,
         gameState: gameState,
@@ -2329,6 +2339,17 @@ function App() {
     if (spectatedPlayerGone) stopSpectatingWithNotice('The player you were watching left the game.');
   }, [spectatedPlayerGone, stopSpectatingWithNotice]);
 
+  // The reveal starts in the same frame the battle board first shows, so the board is never seen bare.
+  // Not on a refresh or rejoin (no Order step seen here), for spectators, or in the tutorial (starts at the roll).
+  const gamePhase = state.gameState?.phase ?? null;
+  useLayoutEffect(() => {
+    const prevPhase = prevPhaseRef.current;
+    prevPhaseRef.current = gamePhase;
+    sawSetupRef.current = setupSeen(sawSetupRef.current, gamePhase, state.isSpectating);
+    setRevealing(!!gamePhase && shouldPlayReveal(sawSetupRef.current, prevPhase, gamePhase));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gamePhase]);
+
   // A Chrono Shift ability pick belongs to the turn it was offered in; drop it when the turn passes
   const turnPlayerIndex = state.gameState?.currentTurn;
   const turnHeroPlayerIndex = state.gameState?.activeHero?.playerIndex;
@@ -2358,6 +2379,11 @@ function App() {
   const devScreenShowing = import.meta.env.DEV && (window.location.hash === '#ui-kit' || window.location.hash.startsWith('#screens'));
   // The draft table (draft and setup) fills the screen: no sidebar and no floating Friends or Message button
   const draftShowing = !!state.gameState && (state.gameState.phase === 'draft' || state.gameState.phase === 'setup');
+  // The reveal covers the first moments of the roll screen; the floating buttons wait until it ends
+  const revealPlayers = revealing && !state.isSpectating && state.gameState?.phase === 'initiative'
+    ? { me: getCurrentPlayer(), them: getOpponentPlayer() }
+    : null;
+  const revealShowing = !!revealPlayers?.me && !!revealPlayers.them;
   const lobbyShowing = !devScreenShowing && !showCardLayoutTest && !!state.user
     && !(tutorial.stage === 'battle' && !state.gameState)
     && !state.showSurvival && !state.showGauntlet
@@ -2836,6 +2862,11 @@ function App() {
       {/* Match found: covers the game screen for under two seconds; the rotate screen stays above it */}
       {matchFound && <MatchFoundOverlay me={matchFound.me} them={matchFound.them} onDone={closeMatchFound} />}
 
+      {/* Reveal: the two teams face off over the battle board, then glide onto it; the rotate screen stays above it */}
+      {revealPlayers?.me && revealPlayers.them && (
+        <DraftReveal me={revealPlayers.me} them={revealPlayers.them} onDone={closeReveal} />
+      )}
+
       {/* Install hint: lobby only */}
       {state.user && (!state.gameState || state.gameState.phase === 'waiting') && !state.showSurvival && !state.showGauntlet && tutorial.stage === null && <InstallHint />}
 
@@ -2864,7 +2895,7 @@ function App() {
       {state.user && !state.showCollection && tutorial.stage === null && (
         <>
           {/* Floating Friends icon: the lobby has its own in the top bar, unless the Shop covers it */}
-          {(!lobbyShowing || lobbyShopOpen) && !draftShowing && (
+          {(!lobbyShowing || lobbyShopOpen) && !draftShowing && !revealShowing && (
             <FriendsIcon
               onClick={handleToggleFriendsOverlay}
               hasNotifications={state.friendsNotificationCount > 0}
@@ -2874,7 +2905,7 @@ function App() {
           )}
 
           {/* Message Icon: only shown when there are unread or minimized chats (in the lobby, in the top bar) */}
-          {hasMessageChats && (!lobbyShowing || lobbyShopOpen) && !draftShowing && (
+          {hasMessageChats && (!lobbyShowing || lobbyShopOpen) && !draftShowing && !revealShowing && (
             <MessageIcon 
               onClick={handleMessageIconClick}
               hasNotifications={state.messageNotificationCount > 0}
