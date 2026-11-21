@@ -85,6 +85,8 @@ const MIGRATED = [
   'app/AppErrorBoundary.tsx',
   'app/AppErrorBoundary.test.tsx',
   'styles/AppError.css',
+  'draft/draftRules.ts',
+  'draft/draftRules.test.ts',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;

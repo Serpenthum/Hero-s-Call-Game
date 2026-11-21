@@ -64,6 +64,7 @@ export interface Hero {
   Ability: Ability[];
   Special: Ability[];
   disabled?: boolean; // Whether hero is disabled/not available in game
+  holo?: boolean;
   
   // Runtime properties
   currentHP?: number;
