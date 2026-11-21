@@ -113,6 +113,15 @@ Used whenever layout A's cards would be under 222 px wide. In practice: sideways
 - **After acting**, until the next round: the big card area says "Waiting for your opponent…".
 - Step labels hide on the smallest screens (numbers only); the "Draft" title hides at 640 wide.
 
+### 12px floor on cards read on this screen (owner chose, 2026-11-20)
+
+Measured in Task 3: `HeroCard` shrinks rules text (down to 0.8em) so the text panel covers at most 62% of the card.
+At 235 px (640x360 big card) Monk came out 11.5 px, Engineer 11.75 px, Blood Hunter 10.1 px; at 228 px five across,
+Arcane Archer 11.2 px. Rule: on the draft screen's readable cards (the big card, and hand cards in layout A) rules
+text never goes below **12 px**. When a hero's text doesn't fit at 12 px, the text panel grows higher up the card
+(less art shows) instead of the text shrinking. `HeroCard` gets an opt-in for this; every other screen (battle,
+binder, shop) keeps today's fitting.
+
 ### Reading any card
 
 Everywhere on this screen, holding a card (touch) or right-clicking it (mouse) opens the existing large card reader,
