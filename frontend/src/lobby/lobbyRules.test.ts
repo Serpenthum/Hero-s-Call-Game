@@ -102,6 +102,10 @@ describe('collectionSummary', () => {
   it('counts holo heroes when given', () => {
     expect(collectionSummary(heroes, ['A', 'B', 'D'], ['A'], ['A']).holo).toBe(1);
   });
+  it('the lobby holo count comes from holo_heroes', () => {
+    const lobbyHeroes = [{ name: 'Monk' }, { name: 'Bard' }];
+    expect(collectionSummary(lobbyHeroes, ['Monk', 'Bard'], [], ['Monk']).holo).toBe(1);
+  });
 });
 
 describe('lobby arrival flag', () => {

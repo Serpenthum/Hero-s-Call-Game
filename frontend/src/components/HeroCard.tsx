@@ -3,6 +3,7 @@ import { Hero, Ability } from '../types';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
 import { getAnimSpeed } from '../battleAnimations';
+import { getHoloEffects } from '../holoSetting';
 import { ReadMode, resolveReadMode, pickTextSize, ruleSections, textSizeRange, textFitStages } from '../cards/cardRules';
 import { useCardReader } from '../cards/CardReader';
 import { useLongPress } from '../cards/useLongPress';
@@ -91,7 +92,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
   tutorialReveal,
   className = '',
   children,
-  holo = false,
+  holo: holoProp = false,
   favorite = false,
   glint = false,
   tilt = false,
@@ -100,6 +101,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
   isFocused = false,
   minTextPx
 }) => {
+  // "Show holographic effects: off" draws a holographic card plain, everywhere.
+  const holo = holoProp && getHoloEffects();
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
   const [hpColor, setHpColor] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState(false);

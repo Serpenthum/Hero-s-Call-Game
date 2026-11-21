@@ -18,6 +18,7 @@ import SettingsModal from './SettingsModal';
 import config from '../config';
 import { timeUntilUtcMidnight, utcDayKey, searchElapsed, formatRecord, nextFeaturedHero, collectionSummary, markLobbyArrival, consumeLobbyArrival } from '../lobby/lobbyRules';
 import { getAnimSpeed } from '../battleAnimations';
+import { isHolo } from '../holoSetting';
 import '../styles/Lobby.css';
 
 interface User {
@@ -29,6 +30,7 @@ interface User {
   survival_used_heroes: string[];
   available_heroes: string[];
   favorite_heroes: string[];
+  holo_heroes?: string[];
   xp: number;
   level: number;
   best_gauntlet_trial: number;
@@ -387,7 +389,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   }, [allHeroes]);
 
   const collection = allHeroes.length > 0
-    ? collectionSummary(allHeroes, user.available_heroes || [], user.favorite_heroes || [], (user as { holo_heroes?: string[] }).holo_heroes)
+    ? collectionSummary(allHeroes, user.available_heroes || [], user.favorite_heroes || [], user.holo_heroes)
     : null;
 
   const unlockClass = (mode: RankedMode) => (modeAnimates(mode) || rankedAnimates ? 'mode-unlock-reveal' : undefined);
@@ -429,6 +431,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
           <FeaturedHero
             hero={featuredHero}
             favorite={!!featuredHero && (user.favorite_heroes || []).includes(featuredHero.name)}
+            holo={!!featuredHero && isHolo(user, featuredHero.name)}
             swapKey={swapKey}
             arriving={arrived}
             onOpen={name => { featureHovered.current = false; handleShowCollection(name); }}

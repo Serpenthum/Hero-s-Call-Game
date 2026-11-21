@@ -5,6 +5,7 @@ import { Hero } from '../../types';
 interface FeaturedHeroProps {
   hero: Hero | null;
   favorite: boolean;
+  holo: boolean;
   swapKey: number;
   // The player has just arrived at the lobby: the first card flips in as part of the arrival
   arriving?: boolean;
@@ -29,7 +30,7 @@ const makeEmbers = (): React.CSSProperties[] =>
   });
 
 // The featured hero on its pedestal. A tap opens the Binder on that hero's page.
-const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, swapKey, arriving = false, onOpen, onHoverChange }) => {
+const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, holo, swapKey, arriving = false, onOpen, onHoverChange }) => {
   // Pointer hover and keyboard focus are tracked apart, so a mouse passing over a focused card
   // does not report "not hovering" and let the next swap remount it (dropping focus).
   const hovered = useRef(false);
@@ -87,6 +88,7 @@ const FeaturedHero: React.FC<FeaturedHeroProps> = ({ hero, favorite, swapKey, ar
                 disableHPAnimations
                 glint
                 tilt
+                holo={holo}
                 favorite={favorite}
                 readable="none"
               />

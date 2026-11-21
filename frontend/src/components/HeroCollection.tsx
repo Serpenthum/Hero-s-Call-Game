@@ -5,6 +5,7 @@ import Coin from './Coin';
 import config from '../config';
 import { authHeaders } from '../authSession';
 import SharedHeroCard from './HeroCard';
+import { isHolo } from '../holoSetting';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ResponsiveCardGrid.css';
 import '../styles/Binder.css';
@@ -70,8 +71,9 @@ const HeroCard = React.memo<{
   isSelected: boolean;
   isFavorite: boolean;
   isOwned: boolean;
+  isHolo: boolean;
   onClick: (index: number) => void;
-}>(({ hero, actualIndex, isSelected, isFavorite, isOwned, onClick }) => {
+}>(({ hero, actualIndex, isSelected, isFavorite, isOwned, isHolo: holo, onClick }) => {
   const handleClick = useCallback(() => {
     onClick(actualIndex);
   }, [actualIndex, onClick]);
@@ -84,6 +86,7 @@ const HeroCard = React.memo<{
       isSelected={isSelected}
       showFullInfo={false}
       disableHPAnimations
+      holo={holo}
       onClick={handleClick}
       readable="none"
     >
@@ -106,6 +109,8 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
   const [currentPage, setCurrentPage] = useState(0);
   const [favoriteHeroes, setFavoriteHeroes] = useState<string[]>([]);
   const [availableHeroes, setAvailableHeroes] = useState<string[]>([]);
+  // The player's collection as the server last sent it, for their holographics
+  const [owner, setOwner] = useState<{ holo_heroes?: string[] } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [introDone, setIntroDone] = useState(false);
   // The hero to open on, until the binder has found its page; then the hero whose pocket is lit
@@ -345,6 +350,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
         const data = await response.json();
         if (data.success && data.user) {
           setAvailableHeroes(data.user.available_heroes || []);
+          setOwner(data.user);
         }
       }
     } catch (error) {
@@ -427,6 +433,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
                 isSelected={selectedHeroIndex === actualIndex}
                 isFavorite={favoriteHeroes.includes(hero.name)}
                 isOwned={availableHeroes.includes(hero.name)}
+                isHolo={isHolo(owner, hero.name)}
                 onClick={handleHeroClick}
               />
             </div>
@@ -532,7 +539,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victor
       {selectedHeroIndex !== null && sortedHeroes[selectedHeroIndex] && (
         <div className="collection-card-preview" role="dialog" aria-modal="true" aria-label={sortedHeroes[selectedHeroIndex].name}>
           <CloseButton onClick={() => setSelectedHeroIndex(null)} />
-          <SharedHeroCard hero={sortedHeroes[selectedHeroIndex]} showFullInfo={false} disableHPAnimations readable="none" />
+          <SharedHeroCard hero={sortedHeroes[selectedHeroIndex]} holo={isHolo(owner, sortedHeroes[selectedHeroIndex].name)} showFullInfo={false} disableHPAnimations readable="none" />
           {userId && (
             <div className="favorite-button-container">
               <button 

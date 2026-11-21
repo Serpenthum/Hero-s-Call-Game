@@ -448,6 +448,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   animKey={`${opponent?.id}:${heroIndex}`}
                   tutorialReveal={revealFor(true, heroIndex)}
                   hero={hero}
+                  holo={!!hero.holo}
                   isCurrentTurn={(() => {
                     if (!gameState.activeHero) return false;
                     // Find opponent's player index
@@ -479,6 +480,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   animKey={`${currentPlayer.id}:${heroIndex}`}
                   tutorialReveal={revealFor(false, heroIndex)}
                   hero={hero}
+                  holo={!!hero.holo}
                   isCurrentTurn={(() => {
                     if (!gameState.activeHero) return false;
                     // Find current player's index

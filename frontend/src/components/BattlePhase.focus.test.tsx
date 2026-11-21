@@ -293,3 +293,24 @@ describe('BattlePhase focus', () => {
     expect(focusButtonState({ ...base, focus: { name: 'Warlock', alive: true }, focusLocked: true })).toEqual({ show: false });
   });
 });
+
+describe('BattlePhase holo', () => {
+  // The opening tag of one board card (its class list comes before its hero name).
+  const boardCard = (html: string, name: string) => {
+    const at = html.indexOf(`data-hero-name="${name}"`);
+    expect(at).toBeGreaterThan(-1);
+    return html.slice(html.lastIndexOf('<div', at), at);
+  };
+
+  it('battle board cards show holo from the game state', () => {
+    const { gameState, me, them } = state({ active: 'Barbarian' });
+    me.team[0] = { ...me.team[0], holo: true };
+    them.team[1] = { ...them.team[1], holo: true };
+    const html = renderToStaticMarkup(
+      <BattlePhase gameState={gameState} currentPlayer={me} opponent={them} playerId="me" />
+    );
+    expect(boardCard(html, 'Barbarian')).toContain('card-holo');
+    expect(boardCard(html, 'Shroomguard')).toContain('card-holo');
+    expect(boardCard(html, 'Warlock')).not.toContain('card-holo');
+  });
+});

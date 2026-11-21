@@ -128,6 +128,7 @@ interface User {
   survival_used_heroes: string[];
   available_heroes: string[];
   favorite_heroes: string[];
+  holo_heroes?: string[];
   xp: number;
   level: number;
   best_gauntlet_trial: number;

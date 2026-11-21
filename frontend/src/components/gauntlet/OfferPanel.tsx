@@ -1,11 +1,13 @@
 import React from 'react';
 import HeroCard from '../HeroCard';
 import useCardGrid from '../../hooks/useCardGrid';
+import { isHolo } from '../../holoSetting';
 import type { GauntletHeroOffer, GauntletRunState, Hero } from '../../types';
 import '../../styles/ResponsiveCardGrid.css';
 
 interface OfferPanelProps {
   offer: GauntletHeroOffer[];
+  user?: { holo_heroes?: string[] }; // whose holographics to show
   runState: GauntletRunState;
   fromBattle: boolean; // the free offer after a battle can be skipped for good; a camp offer can be put away
   replacing: string | null; // set when the roster is full and a hero must make room
@@ -17,7 +19,7 @@ interface OfferPanelProps {
   onCancelReplace: () => void;
 }
 
-const OfferPanel: React.FC<OfferPanelProps> = ({ offer, runState, fromBattle, replacing, busy, onChoose, onReplace, onReroll, onLeave, onCancelReplace }) => {
+const OfferPanel: React.FC<OfferPanelProps> = ({ offer, user, runState, fromBattle, replacing, busy, onChoose, onReplace, onReroll, onLeave, onCancelReplace }) => {
   const grid = useCardGrid({ packCount: offer.length || 1 });
 
   if (replacing) {
@@ -55,7 +57,7 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ offer, runState, fromBattle, re
             const hero: Hero = { ...entry.data, currentHP: entry.data.HP, maxHP: entry.data.HP };
             return (
               <div key={entry.name} className="gt-offer-card">
-                <HeroCard hero={hero} showFullInfo={false} disableHPAnimations readable="tap" />
+                <HeroCard hero={hero} holo={isHolo(user, hero.name)} showFullInfo={false} disableHPAnimations readable="tap" />
                 <button type="button" className="ui-btn ui-btn--primary" disabled={busy} onClick={() => onChoose(entry.name)}>
                   Choose {entry.name}
                 </button>

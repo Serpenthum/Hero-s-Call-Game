@@ -15,6 +15,7 @@ import {
   setAutoEndTurnEnabled,
   sfx
 } from '../battleAnimations';
+import { getHoloEffects, setHoloEffects } from '../holoSetting';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -31,6 +32,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [sfxOn, setSfxOn] = useState(getSfxEnabled);
   const [volume, setVolume] = useState(() => Math.round(getSfxVolume() * 100));
   const [autoEnd, setAutoEnd] = useState(getAutoEndTurnEnabled);
+  const [holoOn, setHoloOn] = useState(getHoloEffects);
   // undefined = measuring, null = no answer
   const [ping, setPing] = useState<number | null | undefined>(undefined);
 
@@ -68,6 +70,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const changeVolume = (value: number) => {
     setSfxVolume(value / 100);
     setVolume(value);
+  };
+
+  const toggleHolo = () => {
+    setHoloEffects(!holoOn);
+    setHoloOn(!holoOn);
   };
 
   const toggleAutoEnd = () => {
@@ -110,6 +117,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label">
+              <span>Show holographic effects</span>
+              <small>Rainbow shine on holographic cards</small>
+            </div>
+            <button
+              className={`settings-switch${holoOn ? ' on' : ''}`}
+              role="switch"
+              aria-checked={holoOn}
+              aria-label="Show holographic effects"
+              onClick={toggleHolo}
+            >
+              <span className="settings-switch-knob" />
+            </button>
           </div>
 
           <div className="settings-row">
