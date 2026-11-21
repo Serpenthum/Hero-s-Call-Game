@@ -31,6 +31,7 @@
 
 /* ---- Top bar: title, steps, clock, Leave ---- */
 .draft-bar {
+  container: draft-bar / inline-size;
   position: relative;
   z-index: 4;
   flex: none;
@@ -45,6 +46,7 @@
 }
 
 .draft-title {
+  flex: none;
   margin: 0;
   font: 400 27px / 1 var(--font-display);
   color: var(--draft-title);
@@ -55,7 +57,7 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  justify-content: center;
+  justify-content: safe center; /* too wide: overflow to the right, never back over the title */
   align-items: center;
   gap: 4px;
   margin: 0;
@@ -631,6 +633,10 @@
 }
 @container draft-table (max-width: 640px) {
   .draft-title { display: none; }
+}
+/* Focus: the bar is only the right-hand column, so go by its own width (labels need about 505px there) */
+@container draft-bar (max-width: 519px) {
+  .draft-table--focus .draft-step-label { display: none; }
 }
 
 /* ---- Motion. Timings follow the approved mockup (draft-step3.html). The server's state is always drawn at
