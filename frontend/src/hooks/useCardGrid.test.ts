@@ -55,4 +55,12 @@ describe('calculateShopGrid', () => {
   it('never makes a second row whose cards would be under 222px', () => {
     expect(calculateShopGrid(1500, 600, 6).rows).toBe(1);
   });
+  it('uses three rows for the inside window on a tall desktop table', () => {
+    const g = calculateShopGrid(1600, 1100, 30);
+    expect(g.rows).toBe(3);
+    expect(260 * g.scale).toBeGreaterThanOrEqual(222);
+  });
+  it('keeps the six sale heroes 3 over 3 even when three rows would fit', () => {
+    expect(calculateShopGrid(1600, 1100, 6)).toMatchObject({ columns: 3, rows: 2 });
+  });
 });

@@ -56,10 +56,11 @@ export function calculatePackGrid(width: number, height: number, count: number) 
 }
 
 // The shop's sale and "See what's inside" grids: up to maxRows rows, a row only when its cards stay at least
-// minCardWidth wide, and as many columns as the width holds at the height-limited (or minimum) card width.
-export function calculateShopGrid(width: number, height: number, count: number, minCardWidth = 222, maxRows = 2, gap = GAP) {
+// minCardWidth wide. Of the row counts that fit, the one showing the most cards wins; on a tie, the bigger cards.
+export function calculateShopGrid(width: number, height: number, count: number, minCardWidth = 222, maxRows = 3, gap = GAP) {
   const cardCount = Math.max(1, count);
-  for (let rowLimit = maxRows; rowLimit >= 1; rowLimit--) {
+  let best = { columns: 1, rows: 1, cardWidth: -Infinity, shown: 0 };
+  for (let rowLimit = 1; rowLimit <= maxRows; rowLimit++) {
     // The width the height allows, capped at a scale of 1.2
     const heightLimitedWidth = Math.min(CARD_WIDTH * 1.2, ((height - gap * (rowLimit - 1)) / rowLimit) * CARD_WIDTH / CARD_HEIGHT);
     if (rowLimit > 1 && heightLimitedWidth < minCardWidth) continue;
@@ -69,9 +70,10 @@ export function calculateShopGrid(width: number, height: number, count: number, 
     columns = Math.min(columns, Math.ceil(cardCount / rowLimit));
     const rows = Math.min(rowLimit, Math.ceil(cardCount / columns));
     const cardWidth = Math.min(heightLimitedWidth, (width - gap * (columns - 1)) / columns);
-    return { columns, rows, scale: Math.max(0.1, Math.floor(cardWidth / CARD_WIDTH * 1000) / 1000) };
+    const shown = Math.min(cardCount, columns * rows);
+    if (shown > best.shown || (shown === best.shown && cardWidth > best.cardWidth)) best = { columns, rows, cardWidth, shown };
   }
-  return { columns: 1, rows: 1, scale: 0.1 };
+  return { columns: best.columns, rows: best.rows, scale: Math.max(0.1, Math.floor(best.cardWidth / CARD_WIDTH * 1000) / 1000) };
 }
 
 export default function useCardGrid({ packCount, shopCount, rowExtra = 0, singleRowOnPhone = false, fixedColumns, gap = GAP, frameSpace = FRAME_SPACE, shortScreenMinCardWidth }: {
