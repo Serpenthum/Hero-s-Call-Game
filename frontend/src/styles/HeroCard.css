@@ -809,7 +809,6 @@
 
 /* ---- Card sizes per screen ---- */
 .shop-hero-card .hero-layout-card,
-.hero-card-back .hero-layout-card,
 .gauntlet-hero-wrapper .hero-layout-card,
 .team-slot .hero-layout-card {
   --hero-card-scale: 0.75;
@@ -817,19 +816,6 @@
 
 .favorite-hero-display .hero-layout-card {
   --hero-card-scale: 0.75;
-}
-
-.pack-opening-container {
-  --pack-card-scale: 0.75;
-}
-
-.pack-opening-container .pack-card-slot {
-  width: calc(260px * var(--pack-card-scale));
-  height: calc(391px * var(--pack-card-scale));
-}
-
-.hero-card-back .hero-layout-card {
-  --hero-card-scale: var(--pack-card-scale, 0.75);
 }
 
 .shop-hero-card:has(.hero-layout-card) {
@@ -912,10 +898,6 @@
 @media (max-width: 1200px) {
   .shop-hero-card .hero-layout-card { --hero-card-scale: 0.6; }
   .shop-hero-card:has(.hero-layout-card) { width: 156px; min-height: 234.6px; }
-}
-
-@media (max-width: 768px) {
-  .pack-opening-container { --pack-card-scale: 0.45; }
 }
 
 @media (max-width: 500px) {

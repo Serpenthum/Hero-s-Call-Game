@@ -3,7 +3,8 @@ import QuestRewardModal from '../QuestRewardModal';
 import RequirementModal from '../RequirementModal';
 import SettingsModal from '../SettingsModal';
 import HowToPlayModal from '../HowToPlayModal';
-import PackOpeningAnimation from '../PackOpeningAnimation';
+import PackOpening from '../packs/PackOpening';
+import type { PackCardKind, PackResult } from '../packs/packTypes';
 import TutorialOverlay from '../tutorial/TutorialOverlay';
 import config from '../../config';
 
@@ -14,10 +15,20 @@ const DevScreens: React.FC = () => {
   useEffect(() => {
     fetch(`${config.API_BASE_URL}/api/heroes`)
       .then(r => r.json())
-      .then(list => setHeroes(list.slice(0, 3)))
+      .then(list => setHeroes(list.slice(0, 4)))
       .catch(() => undefined);
   }, []);
   const noop = () => undefined;
+  // Sample packs: /#screens/pack-opening (3 cards) and /#screens/pack-opening-holo (a bonus holographic fourth)
+  const samplePack = (kinds: PackCardKind[]): PackResult => ({
+    cards: kinds.map((kind, i) => ({ name: heroes[i].name, kind, hero: heroes[i] })),
+    coinsBack: kinds.filter(k => k === 'repeat').length * 2,
+    newVP: 30,
+  });
+  const packScreen = (kinds: PackCardKind[]) =>
+    heroes.length >= kinds.length
+      ? <PackOpening result={samplePack(kinds)} price={12} canBuyAnother buying={false} onBuyAnother={noop} onDone={noop} />
+      : null;
 
   switch (name) {
     case 'quest-reward':
@@ -34,11 +45,13 @@ const DevScreens: React.FC = () => {
     case 'how-to-play':
       return <HowToPlayModal onClose={noop} />;
     case 'pack-opening':
-      return heroes.length ? <PackOpeningAnimation heroes={heroes} onComplete={noop} /> : null;
+      return packScreen(['new', 'repeat', 'new']);
+    case 'pack-opening-holo':
+      return packScreen(['new', 'repeat', 'new', 'holo']);
     case 'tutorial':
       return <TutorialOverlay step={{ key: 'dev', text: 'This is your Binder. Every hero you own lives here.', showNext: true, nextLabel: 'Got it', anchor: 'center' }} onNext={noop} />;
     default:
-      return <div style={{ padding: 'var(--space-7)', color: 'var(--bone)' }}>Screens: quest-reward, requirement, settings, how-to-play, pack-opening, tutorial</div>;
+      return <div style={{ padding: 'var(--space-7)', color: 'var(--bone)' }}>Screens: quest-reward, requirement, settings, how-to-play, pack-opening, pack-opening-holo, tutorial</div>;
   }
 };
 

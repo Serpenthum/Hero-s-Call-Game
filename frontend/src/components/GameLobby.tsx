@@ -309,7 +309,8 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
         // Update the user object by merging with existing data
         Object.assign(user, {
           victory_points: userData.victory_points,
-          available_heroes: userData.available_heroes
+          available_heroes: userData.available_heroes,
+          holo_heroes: userData.holo_heroes || []
         });
         setUserRefreshTrigger(prev => prev + 1);
         console.log(`✅ User data updated: ${userData.available_heroes.length} heroes`);

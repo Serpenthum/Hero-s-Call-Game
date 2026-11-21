@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Hero, Ability } from '../types';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
-import { getAnimSpeed } from '../battleAnimations';
+import { cardMotionOff } from '../cards/cardMotion';
 import { getHoloEffects } from '../holoSetting';
 import { ReadMode, resolveReadMode, pickTextSize, ruleSections, textSizeRange, textFitStages } from '../cards/cardRules';
 import { useCardReader } from '../cards/CardReader';
@@ -46,11 +46,6 @@ interface HeroCardProps {
 const LOWER_PANEL_MAX = 0.62;
 // 14px on a 260px card: the size today's card gives short rules text.
 const CARD_TEXT_MAX_EM = 1.08;
-
-// Glint, tilt and holo drift stop with "Battle animations: off" and with the system's reduced-motion setting.
-const cardMotionOff = () =>
-  getAnimSpeed() === 'off' ||
-  (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 const STAT_ICONS = {
   hp: (

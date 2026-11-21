@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import HeroCard from './HeroCard';
-import PackOpeningAnimation from './PackOpeningAnimation';
+import PackOpening from './packs/PackOpening';
+import type { PackResult } from './packs/packTypes';
 import CloseButton from './CloseButton';
 import Coin from './Coin';
 import Icon from './ui/Icon';
@@ -10,6 +11,8 @@ import { authHeaders } from '../authSession';
 import '../styles/Shop.css';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/ResponsiveCardGrid.css';
+
+const PACK_PRICE = 12;
 
 interface ShopProps {
   onClose: () => void;
@@ -21,19 +24,20 @@ interface ShopProps {
 }
 
 const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHeroes, onPurchaseComplete, onVictoryPointsChange }) => {
-  // The purchase reply carries the new balance; show it at once (a pack's refresh waits for its animation)
+  // The purchase reply carries the new balance; show it at once (a pack's refresh waits for its opening to close)
   const applyNewBalance = (newVP: unknown) => {
     if (typeof newVP === 'number') onVictoryPointsChange?.(newVP);
   };
-  const [unownedHeroes, setUnownedHeroes] = useState<Hero[]>([]);
   const [saleHeroes, setSaleHeroes] = useState<Hero[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [timeUntilRefresh, setTimeUntilRefresh] = useState('');
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [packOpening, setPackOpening] = useState(false);
-  const [packHeroes, setPackHeroes] = useState<Hero[]>([]);
+  const [packResult, setPackResult] = useState<PackResult | null>(null);
+  // Heroes owned now: the prop, plus what packs bought here since (the prop catches up when an opening closes)
+  const [owned, setOwned] = useState<string[]>(availableHeroes);
+  useEffect(() => { setOwned(availableHeroes); }, [availableHeroes]);
   const [purchasedHeroes, setPurchasedHeroes] = useState<Set<string>>(new Set());
   const [showPackContents, setShowPackContents] = useState(false);
   const [packContentHeroes, setPackContentHeroes] = useState<Hero[]>([]);
@@ -58,6 +62,8 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
   useEffect(() => {
     setPackContentsPage(0);
   }, [packContentsPerPage]);
+
+  const ownsEveryPackHero = packContentHeroes.length > 0 && packContentHeroes.every(h => owned.includes(h.name));
 
   const handleNextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -145,13 +151,6 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       const rotationResponse = await fetch(`${config.API_BASE_URL}/api/shop/rotation?userId=${userId}`, { headers: authHeaders() });
       const rotationData = await rotationResponse.json();
       
-      // Fetch ALL enabled heroes and user data to check total unowned count for packs
-      const allHeroesResponse = await fetch(`${config.API_BASE_URL}/api/heroes`);
-      const allHeroesData = await allHeroesResponse.json();
-      
-      const userResponse = await fetch(`${config.API_BASE_URL}/api/user/${userId}`);
-      const userData = await userResponse.json();
-      
       if (rotationData.success) {
         // Store all rotation heroes
         const rotationHeroes = rotationData.heroes;
@@ -162,14 +161,6 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
         
         // Set sale heroes (all 6 from rotation)
         setSaleHeroes(rotationHeroes);
-        
-        // Track ALL unowned enabled heroes for pack purchases
-        if (allHeroesData && userData.success) {
-          const enabledHeroes = Array.isArray(allHeroesData) ? allHeroesData : allHeroesData.heroes || [];
-          const userOwnedHeroes = userData.user.available_heroes || [];
-          const allUnowned = enabledHeroes.filter((h: any) => !userOwnedHeroes.includes(h.name));
-          setUnownedHeroes(allUnowned);
-        }
       }
       
       setLoading(false);
@@ -211,11 +202,12 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
     }
   };
 
+  // One lock for Buy pack and Buy another: a second tap while a request is out sends nothing.
   const handlePurchasePack = async () => {
-    if (purchasing || victoryPoints < 12 || unownedHeroes.length === 0) return;
+    if (purchasing || victoryPoints < PACK_PRICE) return;
+    const buyingAnother = packResult !== null;
 
     setPurchasing(true);
-    
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/shop/purchase-pack`, {
         method: 'POST',
@@ -224,36 +216,23 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       });
 
       const data = await response.json();
-      
-      if (data.success) {
-        const heroesReceived = data.heroesReceived || [];
-        applyNewBalance(data.newVP);
 
-        // Mark received heroes as purchased in the shop
+      if (data.success && Array.isArray(data.cards)) {
+        applyNewBalance(data.newVP);
+        if (Array.isArray(data.available_heroes)) setOwned(data.available_heroes);
+
+        // New heroes leave the sale
         setPurchasedHeroes(prev => {
-          const newSet = new Set(prev);
-          heroesReceived.forEach((name: string) => newSet.add(name));
-          return newSet;
+          const next = new Set(prev);
+          data.cards.forEach((card: PackResult['cards'][number]) => {
+            if (card.kind === 'new' || card.kind === 'holo') next.add(card.name);
+          });
+          return next;
         });
-        
-        // Fetch full hero data for animation
-        const allHeroesResponse = await fetch(`${config.API_BASE_URL}/api/heroes`);
-        const allHeroes: Hero[] = await allHeroesResponse.json();
-        
-        // Get full hero objects for animation from all heroes
-        const heroObjects = heroesReceived
-          .map((heroName: string) => allHeroes.find(h => h.name === heroName))
-          .filter((h: Hero | undefined): h is Hero => h !== undefined);
-        
-        if (heroObjects.length > 0) {
-          setPackHeroes(heroObjects);
-          setPackOpening(true);
-        }
-        
-        console.log(`✅ Pack purchased: ${data.heroCount} total heroes now`);
-        
-        // Remove purchased heroes from unowned list
-        setUnownedHeroes(prev => prev.filter(h => !heroesReceived.includes(h.name)));
+
+        setPackResult({ cards: data.cards, coinsBack: data.coinsBack ?? 0, newVP: data.newVP });
+        // The opening already on screen covers the lobby; bring the lobby up to date with the pack before
+        if (buyingAnother) onPurchaseComplete();
       } else {
         setMessage({ text: `${data.message}`, type: 'error' });
         setTimeout(() => setMessage(null), 3000);
@@ -267,6 +246,11 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
     }
   };
 
+  const handlePackDone = () => {
+    setPackResult(null);
+    onPurchaseComplete(); // Refresh user data: balance, owned and holographic heroes
+  };
+
   if (loading) {
     return (
       <div className="shop-overlay">
@@ -277,19 +261,16 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
     );
   }
 
-  const handlePackAnimationComplete = () => {
-    setPackOpening(false);
-    setPackHeroes([]);
-    onPurchaseComplete(); // Refresh user data
-  };
-
   return (
     <>
-      {/* Pack Opening Animation */}
-      {packOpening && packHeroes.length > 0 && (
-        <PackOpeningAnimation 
-          heroes={packHeroes} 
-          onComplete={handlePackAnimationComplete}
+      {packResult && (
+        <PackOpening
+          result={packResult}
+          price={PACK_PRICE}
+          canBuyAnother={victoryPoints >= PACK_PRICE && !purchasing}
+          buying={purchasing}
+          onBuyAnother={handlePurchasePack}
+          onDone={handlePackDone}
         />
       )}
 
@@ -404,11 +385,11 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
             <div className="shop-section-header">
               <h3>Hero packs</h3>
             </div>
-            <p className="pack-description">Get 3 random heroes. Start your first adventure by collecting over 30 new heroes!</p>
+            <p className="pack-description">3 random heroes, and a 1 in 5 chance of a bonus holographic card.</p>
             
             <div className="shop-hero-wrapper pack-wrapper">
               <div className="shop-vp-badge pack-vp-badge">
-                <span><Coin /> 12</span>
+                <span><Coin /> {PACK_PRICE}</span>
               </div>
               
               <div className="shop-hero-card pack-card-display">
@@ -423,10 +404,9 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
               <button 
                 className="shop-buy-btn pack-buy-btn"
                 onClick={handlePurchasePack}
-                disabled={purchasing || victoryPoints < 12 || unownedHeroes.length === 0}
+                disabled={purchasing || victoryPoints < PACK_PRICE}
               >
-                {unownedHeroes.length === 0 ? 'All Heroes Owned!' : 
-                 victoryPoints < 12 ? 'Not Enough' : 'Buy pack'}
+                {victoryPoints < PACK_PRICE ? 'Not Enough' : 'Buy pack'}
               </button>
               
               <button 
@@ -445,12 +425,16 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
             <div className="pack-contents-container" onClick={(e) => e.stopPropagation()}>
               <CloseButton className="modal-close-btn" onClick={() => setShowPackContents(false)} />
               <h2 className="pack-contents-title">Adventure Pack Contents</h2>
-              <p className="pack-contents-subtitle">{packContentHeroes.length} Heroes Available</p>
+              <p className="pack-contents-subtitle">
+                {ownsEveryPackHero
+                  ? <>You own every hero. Packs give repeats (<Coin />+2 each) and a chance of a holographic card.</>
+                  : '3 heroes from this list, and a 1 in 5 chance of a bonus holographic card.'}
+              </p>
               
               <div className="responsive-card-viewport" ref={packContentsGrid.ref} style={packContentsGrid.style}>
               <div className="pack-contents-grid responsive-card-grid">
                 {displayedPackContents.map((hero) => {
-                  const isOwned = availableHeroes.includes(hero.name);
+                  const isOwned = owned.includes(hero.name);
                   return (
                   <div key={hero.name} className="shop-hero-wrapper pack-content-hero">
                     <div className={`shop-hero-card ${isOwned ? 'purchased' : ''}`}>

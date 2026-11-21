@@ -1,0 +1,139 @@
+/* Pack opening: plain, functional layout. Stages on the root: data-stage="pack | opening | cards";
+   each card carries data-kind and data-turned. The drawn look and motion come later on these hooks. */
+
+.pack-opening {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: max(var(--space-4), var(--safe-top)) max(var(--space-4), var(--safe-right))
+    max(var(--space-4), var(--safe-bottom)) max(var(--space-4), var(--safe-left));
+  color: var(--bone);
+  font-family: var(--font-ui);
+}
+
+.pack-opening__start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.pack-opening__pack {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.pack-opening__pack-image {
+  display: block;
+  height: min(60vh, 420px);
+  width: auto;
+}
+
+.pack-opening[data-stage="opening"] .pack-opening__pack {
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.pack-opening__hint {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.pack-opening__reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.pack-opening__heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.8rem;
+}
+
+.pack-opening__cards {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), var(--grid-card-width));
+  grid-auto-rows: var(--grid-card-height);
+  gap: var(--space-4);
+  align-content: center;
+  justify-content: center;
+}
+
+.pack-opening__card {
+  position: relative;
+  width: var(--grid-card-width);
+  height: var(--grid-card-height);
+  cursor: pointer;
+}
+
+.pack-opening__card .hero-layout-card {
+  --hero-card-scale: var(--grid-card-scale);
+}
+
+.pack-opening__back {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 2px solid var(--brass);
+  border-radius: var(--radius-panel);
+  background: var(--walnut);
+}
+
+.pack-opening__face {
+  animation: pack-opening-fade 0.3s ease both;
+}
+
+.pack-opening__label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * var(--space-6));
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.pack-opening__label .coin-icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  margin-right: 0.1em;
+}
+
+.pack-opening__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+}
+
+.pack-opening__again .coin-icon {
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0 0.2em 0 0.4em;
+  vertical-align: -0.2em;
+}
+
+@keyframes pack-opening-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pack-opening--still .pack-opening__pack {
+  transition: none;
+}

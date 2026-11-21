@@ -27,7 +27,7 @@ const MIGRATED = [
   'styles/Shop.css',
   'styles/HeroCollection.css',
   'styles/Binder.css',
-  'styles/PackOpeningAnimation.css',
+  'styles/PackOpening.css',
   'styles/ProfileModal.css',
   'styles/QuestRewardModal.css',
   'styles/SettingsModal.css',
