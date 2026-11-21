@@ -352,7 +352,7 @@
   box-shadow: 0 0.5em 1.2em var(--shade);
 }
 
-.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]) .pack-opening__back {
+.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]):not(.is-turned) .pack-opening__back {
   box-shadow: 0 0 16px 4px var(--holo-aura);
 }
 
@@ -376,11 +376,11 @@
 }
 
 /* A holographic card glows face down: the foil colours in turn (gold when the effects are off). */
-.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]) .pack-opening__back {
+.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]):not(.is-turned) .pack-opening__back {
   animation: pack-holo-back 1.6s linear infinite;
 }
 
-.pack-opening[data-holo-light="gold"] .pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]) .pack-opening__back {
+.pack-opening[data-holo-light="gold"] .pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]):not(.is-turned) .pack-opening__back {
   animation: pack-gold-back 1.6s ease-in-out infinite;
 }
 
@@ -466,7 +466,7 @@
 
 .pack-opening__card.is-spot {
   z-index: 20;
-  transform: translate(var(--spot-x), calc(var(--spot-y) + var(--drop))) scale(var(--spot-scale));
+  transform: translate(var(--spot-x), var(--spot-y)) scale(var(--spot-scale));
 }
 
 .pack-opening__card.is-spot:not(.is-turned) .pack-opening__flip {

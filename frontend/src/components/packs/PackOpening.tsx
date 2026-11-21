@@ -71,7 +71,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
   const timers = useRef<number[]>([]);
   // Motion state: none of it decides the stage or which cards are turned.
   const fxTimers = useRef<number[]>([]);
-  const waitingHolo = useRef(new Set<number>());
+  const revealed = useRef(new Set<number>()); // cards turned or on their way, so a card is revealed only once
   const spotBusy = useRef(false);
   const fxId = useRef(0);
   const rootEl = useRef<HTMLDivElement | null>(null);
@@ -93,7 +93,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
   const clearFx = () => {
     fxTimers.current.forEach(id => window.clearTimeout(id));
     fxTimers.current = [];
-    waitingHolo.current.clear();
+    revealed.current.clear();
     spotBusy.current = false;
   };
   useEffect(() => () => {
@@ -174,21 +174,25 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
     const el = cardEls.current[index];
     const root = rootEl.current;
     if (!el || !root) {
-      waitingHolo.current.delete(index);
       turn(index);
       return;
     }
     spotBusy.current = true;
+    // Measured from the card's place in the row, not where its launch has carried it so far.
+    const row = el.offsetParent?.getBoundingClientRect();
     const box = el.getBoundingClientRect();
+    const centreX = row ? row.left + el.offsetLeft + el.offsetWidth / 2 : box.left + box.width / 2;
+    const centreY = row ? row.top + el.offsetTop + el.offsetHeight / 2 : box.top + box.height / 2;
+    const width = el.offsetWidth || box.width;
+    const height = el.offsetHeight || box.height;
     const screen = root.getBoundingClientRect();
     setSpot({
       index,
-      dx: screen.left + screen.width / 2 - (box.left + box.width / 2),
-      dy: screen.top + screen.height * 0.54 - (box.top + box.height / 2),
-      scale: Math.min(1.38, (screen.height * 0.72) / box.height, (screen.width * 0.86) / box.width),
+      dx: screen.left + screen.width / 2 - centreX,
+      dy: screen.top + screen.height * 0.54 - centreY,
+      scale: Math.min(1.38, (screen.height * 0.72) / height, (screen.width * 0.86) / width),
     });
     later(() => {
-      waitingHolo.current.delete(index);
       turn(index);
       showBanner(index);
       later(() => {
@@ -204,19 +208,19 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
 
   // Turns one face-down card with its motion (motion off: at once).
   const reveal = (index: number) => {
+    if (revealed.current.has(index)) return;
+    revealed.current.add(index);
     const holo = isHoloKind(cards[index].kind);
     if (still) {
       turn(index);
       if (holo) showBanner(index);
       return;
     }
-    if (waitingHolo.current.has(index)) return;
     if (!holo) {
       turn(index);
       later(() => sparks(cardEls.current[index], 'gold', 14, 0.45), TURN_SPARKS_MS);
       return;
     }
-    waitingHolo.current.add(index);
     holoTakeover(index);
   };
 

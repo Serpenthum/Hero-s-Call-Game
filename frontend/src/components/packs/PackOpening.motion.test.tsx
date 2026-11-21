@@ -1,0 +1,76 @@
+// @vitest-environment jsdom
+import { act } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../config', () => ({ default: { IMAGE_BASE_URL: 'http://img.test', API_BASE_URL: '', SOCKET_URL: '' } }));
+
+import PackOpening from './PackOpening';
+import { CardReaderProvider } from '../../cards/CardReader';
+import type { PackCard, PackCardKind, PackResult } from './packTypes';
+import type { Hero } from '../../types';
+import { buttonByText, cleanup, click, render, stubBrowserApis } from '../../testing/dom';
+
+const hero = (name: string): Hero => ({ name, HP: 18, Defense: 8, Accuracy: '+2', BasicAttack: '1D6', Ability: [], Special: [] });
+const card = (name: string, kind: PackCardKind): PackCard => ({ name, kind, hero: hero(name) });
+const fourCards: PackResult = {
+  cards: [card('Ninja', 'new'), card('Monk', 'repeat'), card('Pirate', 'new'), card('Samurai', 'holo')],
+  coinsBack: 2,
+  newVP: 30,
+};
+const noop = () => undefined;
+const cards = (root: ParentNode) => Array.from(root.querySelectorAll('[data-kind]')) as HTMLElement[];
+const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+
+// Animations on (the default): cards turn on timers, and a holographic card trembles before it turns.
+describe('PackOpening with animations on', () => {
+  beforeEach(() => {
+    stubBrowserApis();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  const openPack = (turns: string[]) => {
+    const root = render(
+      <CardReaderProvider>
+        <PackOpening result={fourCards} price={12} canBuyAnother buying={false} onBuyAnother={noop} onDone={noop} onTurn={name => turns.push(name)} />
+      </CardReaderProvider>
+    );
+    click(root.querySelector('.pack-opening__pack'));
+    expect((root.querySelector('[data-stage]') as HTMLElement).dataset.stage).toBe('opening');
+    advance(3000);
+    expect(cards(root)).toHaveLength(4);
+    return root;
+  };
+
+  it('turn all over, then a tap on the holographic card, turns each card exactly once', () => {
+    const turns: string[] = [];
+    const root = openPack(turns);
+
+    click(buttonByText(root, 'Turn all over'));
+    advance(100);
+    click(cards(root)[3]);
+    act(() => { vi.runAllTimers(); });
+
+    expect(cards(root).map(c => c.dataset.turned)).toEqual(['true', 'true', 'true', 'true']);
+    expect([...turns].sort()).toEqual(['Monk', 'Ninja', 'Pirate', 'Samurai']);
+    expect(root.querySelector('[data-spot]')).toBeNull();
+  });
+
+  it('tapping a plain card during turn all over does not turn it twice', () => {
+    const turns: string[] = [];
+    const root = openPack(turns);
+
+    click(buttonByText(root, 'Turn all over'));
+    advance(100);
+    click(cards(root)[2]);
+    act(() => { vi.runAllTimers(); });
+
+    expect(turns.filter(name => name === 'Pirate')).toHaveLength(1);
+    expect(turns).toHaveLength(4);
+  });
+});
