@@ -41,6 +41,18 @@ const SURVIVAL_UNLOCK_HEROES = 21;
 const DRAFT_UNLOCK_LEVEL = 3;
 const DRAFT_HAND_SIZE = 5;
 
+// Copies of the heroes, each marked holo: true if its name is one of the owner's holographics, else
+// with no holo key at all (whatever the input said). Never touches the objects passed in.
+function stampHolo(heroes, holoNames) {
+  const holo = new Set(holoNames || []);
+  return heroes.map(hero => {
+    const copy = { ...hero };
+    if (holo.has(hero.name)) copy.holo = true;
+    else delete copy.holo;
+    return copy;
+  });
+}
+
 class GameManager {
   constructor(heroes, database = null) {
     this.allHeroes = heroes; // Keep all heroes for reference
@@ -730,13 +742,15 @@ class GameManager {
     return shuffled.slice(0, size);
   }
 
-  // Enabled heroes a user owns (hero objects), or null if the account can't be loaded
+  // Enabled heroes a user owns (copies marked with the user's holographics), or null if the account
+  // can't be loaded
   async getOwnedHeroes(userId) {
     const user = userId && this.database ? await this.database.getUserById(userId) : null;
     if (!user) return null;
-    return (user.available_heroes || [])
+    const owned = (user.available_heroes || [])
       .map(name => this.heroes.find(h => h.name === name))
       .filter(hero => hero && !hero.disabled);
+    return stampHolo(owned, user.holo_heroes);
   }
 
   /**
@@ -845,22 +859,16 @@ class GameManager {
       return { success: false, error: 'Game not found' };
     }
 
-    // Get both players' owned heroes from database
-    const user1 = await this.database.getUserById(game.players[0].userId);
-    const user2 = await this.database.getUserById(game.players[1].userId);
+    // Get both players' owned heroes (marked with their own holographics) from the database
+    const [player1OwnedHeroes, player2OwnedHeroes] = await Promise.all([
+      this.getOwnedHeroes(game.players[0].userId),
+      this.getOwnedHeroes(game.players[1].userId)
+    ]);
     
-    if (!user1 || !user2) {
+    if (!player1OwnedHeroes || !player2OwnedHeroes) {
       console.error('Could not load user data for random mode');
       return { success: false, error: 'Could not load user data' };
     }
-    
-    // Get hero objects for each player's owned heroes
-    const player1OwnedHeroes = user1.available_heroes
-      .map(name => this.heroes.find(h => h.name === name))
-      .filter(h => h && !h.disabled);
-    const player2OwnedHeroes = user2.available_heroes
-      .map(name => this.heroes.find(h => h.name === name))
-      .filter(h => h && !h.disabled);
     
     console.log('Random mode - Player 1 owns', player1OwnedHeroes.length, 'heroes');
     console.log('Random mode - Player 2 owns', player2OwnedHeroes.length, 'heroes');
@@ -8496,7 +8504,8 @@ class GameManager {
       templates.push(template);
     }
     
-    return { success: true, team: templates.map(template => this.resetHeroToOriginalState(template)) };
+    const team = templates.map(template => this.resetHeroToOriginalState(template));
+    return { success: true, team: stampHolo(team, user.holo_heroes) };
   }
 
   /**
@@ -8880,7 +8889,7 @@ class GameManager {
   /**
    * Queue for Gauntlet trial matchmaking
    */
-  queueForGauntletTrial(playerId) {
+  queueForGauntletTrial(playerId, holoHeroes = []) {
     const runState = this.gauntletRuns.get(playerId);
     if (!runState) {
       return { success: false, error: 'No active Gauntlet run' };
@@ -8914,6 +8923,7 @@ class GameManager {
       playerName: runState.playerName,
       currentTrial: runState.current_trial,
       bracket,
+      holoHeroes,
       timestamp: Date.now()
     });
 
@@ -8967,9 +8977,9 @@ class GameManager {
     const gameId = uuidv4();
     const game = this.createNewGame(gameId, 'gauntlet');
 
-    // Prepare teams from battle_team_indices
-    const player1Team = this.buildGauntletTeam(player1Run);
-    const player2Team = this.buildGauntletTeam(player2Run);
+    // Prepare teams from battle_team_indices (only these battle copies are marked holo, never the run)
+    const player1Team = stampHolo(this.buildGauntletTeam(player1Run), player1Data.holoHeroes);
+    const player2Team = stampHolo(this.buildGauntletTeam(player2Run), player2Data.holoHeroes);
 
     // Create players
     const player1 = {

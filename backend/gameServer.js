@@ -2720,10 +2720,13 @@ io.on('connection', (socket) => {
     socket.emit('gauntlet-battle-team-set', result);
   });
 
-  socket.on('queue-for-gauntlet-trial', () => {
+  socket.on('queue-for-gauntlet-trial', async () => {
     console.log('🎯 Queueing for Gauntlet trial:', socket.id);
-    
-    const result = gameManager.queueForGauntletTrial(socket.id);
+
+    // The battle copies of the heroes show the player's own holographics
+    const userId = userSessions.get(socket.id);
+    const user = userId ? await database.getUserById(userId).catch(() => null) : null;
+    const result = gameManager.queueForGauntletTrial(socket.id, (user && user.holo_heroes) || []);
     
     if (result.success && result.matched) {
       // Match found - emit to both players

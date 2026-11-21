@@ -9,6 +9,7 @@ test('startRandomMode sends a client game state with the active hero set', async
   const gm = makeManager({ getUserById: async () => ({ available_heroes: owned }) });
   const game = gm.createNewGame('g-random', 'random');
   game.players = [newPlayer('p0', 'Alice'), newPlayer('p1', 'Bob')];
+  game.players.forEach((p, i) => { p.userId = i + 1; }); // random battles are between logged in players
   gm.games.set('g-random', game);
 
   const result = await gm.startRandomMode('g-random');
