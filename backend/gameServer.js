@@ -143,7 +143,8 @@ router.post('/api/register', async (req, res) => {
         victory_points: user.victory_points,
         survival_wins: user.survival_wins,
         survival_losses: user.survival_losses,
-        available_heroes: user.available_heroes
+        available_heroes: user.available_heroes,
+        holo_heroes: user.holo_heroes || []
       }
     });
   } catch (error) {
@@ -246,6 +247,7 @@ router.post('/api/login', async (req, res) => {
         survival_losses: user.survival_losses,
         survival_used_heroes: user.survival_used_heroes,
         available_heroes: user.available_heroes,
+        holo_heroes: user.holo_heroes || [],
         favorite_heroes: favoriteHeroes,
         xp: playerStats.xp || 0,
         level: playerStats.level || 1,
@@ -476,6 +478,7 @@ router.get('/api/user/:userId', async (req, res) => {
         survival_losses: user.survival_losses,
         survival_used_heroes: user.survival_used_heroes,
         available_heroes: user.available_heroes,
+        holo_heroes: user.holo_heroes || [],
         xp: playerStats.xp,
         level: playerStats.level,
         total_wins: playerStats.total_wins,

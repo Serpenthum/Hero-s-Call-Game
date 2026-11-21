@@ -24,7 +24,8 @@ class Database {
         last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
         favorite_heroes TEXT DEFAULT '[]',
         player_id TEXT,
-        tutorial_completed INTEGER DEFAULT 1
+        tutorial_completed INTEGER DEFAULT 1,
+        holo_heroes TEXT DEFAULT '[]'
       )
     `;
 
@@ -77,6 +78,13 @@ class Database {
       } else {
         console.log('Users table created or already exists');
         console.log('Database initialization complete');
+      }
+    });
+
+    // Databases made before holographics existed lack the column; add it once (a no-op error after that).
+    this.db.run("ALTER TABLE users ADD COLUMN holo_heroes TEXT DEFAULT '[]'", (err) => {
+      if (err && !String(err.message).includes('duplicate column')) {
+        console.error('Error adding holo_heroes column:', err.message);
       }
     });
 
@@ -206,7 +214,8 @@ class Database {
                 survival_wins: 0,
                 survival_losses: 0,
                 survival_used_heroes: [],
-                available_heroes: starterHeroes
+                available_heroes: starterHeroes,
+                holo_heroes: []
               });
             });
           } catch (heroErr) {
@@ -221,7 +230,7 @@ class Database {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT id, username, password_hash, victory_points, survival_wins, 
-               survival_losses, survival_used_heroes, available_heroes, tutorial_completed
+               survival_losses, survival_used_heroes, available_heroes, holo_heroes, tutorial_completed
         FROM users 
         WHERE username = ?
       `;
@@ -251,10 +260,12 @@ class Database {
           // Parse JSON fields
           let survivalUsedHeroes = [];
           let availableHeroes = [];
+          let holoHeroes = [];
           
           try {
             survivalUsedHeroes = JSON.parse(row.survival_used_heroes || '[]');
             availableHeroes = JSON.parse(row.available_heroes || '[]');
+            holoHeroes = JSON.parse(row.holo_heroes || '[]');
           } catch (parseErr) {
             console.error('Error parsing user data:', parseErr);
           }
@@ -271,6 +282,7 @@ class Database {
               survival_losses: row.survival_losses,
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
+              holo_heroes: holoHeroes,
               tutorial_completed: row.tutorial_completed !== 0,
               xp: playerStats.xp,
               level: playerStats.level
@@ -286,6 +298,7 @@ class Database {
               survival_losses: row.survival_losses,
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
+              holo_heroes: holoHeroes,
               tutorial_completed: row.tutorial_completed !== 0,
               xp: 0,
               level: 1
@@ -301,7 +314,7 @@ class Database {
       const query = `
         SELECT 
           u.id, u.username, u.victory_points, u.survival_wins, 
-          u.survival_losses, u.survival_used_heroes, u.available_heroes,
+          u.survival_losses, u.survival_used_heroes, u.available_heroes, u.holo_heroes,
           u.favorite_heroes, u.best_gauntlet_trial, u.player_id,
           ps.level, ps.xp
         FROM users u
@@ -323,11 +336,13 @@ class Database {
         // Parse JSON fields
         let survivalUsedHeroes = [];
         let availableHeroes = [];
+        let holoHeroes = [];
         let favoriteHeroes = [];
         
         try {
           survivalUsedHeroes = JSON.parse(row.survival_used_heroes || '[]');
           availableHeroes = JSON.parse(row.available_heroes || '[]');
+          holoHeroes = JSON.parse(row.holo_heroes || '[]');
           favoriteHeroes = JSON.parse(row.favorite_heroes || '[]');
         } catch (parseErr) {
           console.error('Error parsing user data:', parseErr);
@@ -341,6 +356,7 @@ class Database {
           survival_losses: row.survival_losses || 0,
           survival_used_heroes: survivalUsedHeroes,
           available_heroes: availableHeroes,
+          holo_heroes: holoHeroes,
           favorite_heroes: favoriteHeroes,
           xp: row.xp || 0,
           level: row.level || 1,
@@ -1065,6 +1081,30 @@ class Database {
           if (err) return reject(err);
           if (this.changes !== 1) return resolve({ success: false, error: 'Not enough to buy this.' });
           resolve({ success: true, newVP: user.victory_points - cost, available_heroes: updatedHeroes });
+        }
+      );
+    });
+  }
+
+  // Saves an opened pack in one guarded statement: spends `cost`, pays back `refund`, and adds the new
+  // heroes and holographics. Every holographic hero is also an owned hero. Applies only if the player
+  // can still afford `cost`, so two simultaneous packs can never spend the same points twice.
+  // Resolves { success: true, newVP, available_heroes, holo_heroes } or { success: false, error }.
+  async savePack(userId, { cost = 0, refund = 0, addHeroes = [], addHolo = [] } = {}) {
+    const user = await this.getUserById(userId);
+    if (!user) return { success: false, error: 'User not found' };
+    if (user.victory_points < cost) return { success: false, error: 'Not enough to buy this.' };
+
+    const updatedHeroes = [...new Set([...user.available_heroes, ...addHeroes, ...addHolo])];
+    const updatedHolo = [...new Set([...user.holo_heroes, ...addHolo])];
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'UPDATE users SET victory_points = victory_points - ? + ?, available_heroes = ?, holo_heroes = ? WHERE id = ? AND victory_points >= ?',
+        [cost, refund, JSON.stringify(updatedHeroes), JSON.stringify(updatedHolo), userId, cost],
+        function(err) {
+          if (err) return reject(err);
+          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough to buy this.' });
+          resolve({ success: true, newVP: user.victory_points - cost + refund, available_heroes: updatedHeroes, holo_heroes: updatedHolo });
         }
       );
     });
