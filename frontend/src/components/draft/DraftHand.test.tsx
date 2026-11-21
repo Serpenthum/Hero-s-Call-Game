@@ -9,6 +9,8 @@ vi.mock('../../socketService', () => ({
 
 import DraftHand, { DraftHandProps } from './DraftHand';
 import DraftTopBar from './DraftTopBar';
+import DraftBigCard from './DraftBigCard';
+import HeroCard from '../HeroCard';
 import DraftPhase from '../DraftPhase';
 import type { GameState, Hero, Player } from '../../types';
 
@@ -72,6 +74,11 @@ describe('DraftHand', () => {
   it('offers no card to choose once locked', () => {
     expect(render({ locked: false })).toContain('selectable');
     expect(render({ locked: true })).not.toContain('selectable');
+  });
+
+  it('keeps the 12px rules-text floor on hand cards in the table layout only', () => {
+    expect(render({ layout: 'table' }).match(/data-min-text-px="12"/g)?.length).toBe(HAND.length);
+    expect(render({ layout: 'focus' })).not.toContain('data-min-text-px');
   });
 
   it('keeps cards readable by press', () => {
@@ -157,5 +164,16 @@ describe('DraftPhase', () => {
     // Battle animations are off in this test (mocked): the root carries the still class motion keys off.
     expect(html).toContain('draft--still');
     expect(html).not.toContain('draft-table--still');
+  });
+});
+
+describe('12px floor', () => {
+  it('the big card keeps the 12px rules-text floor', () => {
+    const html = renderToStaticMarkup(<DraftBigCard hero={hero('Monk')} waiting={false} />);
+    expect(html).toContain('data-min-text-px="12"');
+  });
+
+  it('cards elsewhere (no prop) keep the usual fitting', () => {
+    expect(renderToStaticMarkup(<HeroCard hero={hero('Monk')} />)).not.toContain('data-min-text-px');
   });
 });

@@ -94,6 +94,11 @@ describe('DraftBand', () => {
     expect(side).toContain('Monk');
   });
 
+  it('team slot cards are tiny and get no text floor', () => {
+    const html = render({ me: { name: 'Ada', team: [HEROES.Monk], status: 'done' } });
+    expect(html).not.toContain('data-min-text-px');
+  });
+
   it('marks your slots and the mirrored opponent slots', () => {
     const html = render();
     expect(html).toContain('draft-slots--me');
@@ -120,7 +125,7 @@ describe('DraftBand', () => {
 });
 
 describe('DraftPortrait', () => {
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => { vi.useRealTimers(); });
 
   // Renders the portrait once and hands back the props on its button, so its handlers can be driven directly.
   const portraitProps = (onRead: (h: Hero) => void) => {

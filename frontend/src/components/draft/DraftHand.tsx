@@ -1,6 +1,6 @@
 import React from 'react';
 import { Hero } from '../../types';
-import { DraftStep } from '../../draft/draftRules';
+import { DraftStep, READ_TEXT_MIN_PX } from '../../draft/draftRules';
 import HeroCard from '../HeroCard';
 
 export interface DraftHandProps {
@@ -48,6 +48,9 @@ const DraftHand: React.FC<DraftHandProps> = ({ cards, chosen, step, locked, onCh
               isSelected={isChosen}
               onClick={() => onChoose(hero.name)}
               readable="press"
+              // Table layout: these are the cards read on the table, so their rules text keeps the 12px floor.
+              // In the big-card layout they are small (or tiny) and the big card is the one read.
+              minTextPx={layout === 'table' ? READ_TEXT_MIN_PX : undefined}
               disableHPAnimations
             />
           </div>

@@ -3,7 +3,7 @@ import { Hero, Ability } from '../types';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
 import { getAnimSpeed } from '../battleAnimations';
-import { ReadMode, resolveReadMode, pickTextSize, ruleSections } from '../cards/cardRules';
+import { ReadMode, resolveReadMode, pickTextSize, ruleSections, textSizeRange, textFitStages } from '../cards/cardRules';
 import { useCardReader } from '../cards/CardReader';
 import { useLongPress } from '../cards/useLongPress';
 import '../styles/HeroCard.css';
@@ -36,6 +36,9 @@ interface HeroCardProps {
   // Battle: a tap that does not choose the card shows its details instead (no reader; fallen cards too)
   onInspect?: () => void;
   isFocused?: boolean; // Battle: this card is the active player's focus
+  // Rules text never smaller than this (px): when it does not fit, the text panel grows up the card instead.
+  // Off by default; every screen without it keeps the 62% panel and shrinks the text.
+  minTextPx?: number;
 }
 
 // Largest share of the card's height the name-and-rules panel may cover.
@@ -94,7 +97,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
   tilt = false,
   readable,
   onInspect,
-  isFocused = false
+  isFocused = false,
+  minTextPx
 }) => {
   const [animatedHP, setAnimatedHP] = useState<number | null>(null);
   const [hpColor, setHpColor] = useState<string>('');
@@ -871,26 +875,45 @@ const HeroCard: React.FC<HeroCardProps> = ({
     if (!card || !lower) return;
 
     // The largest rules-text size at which the name-and-rules panel covers no more than its share of the card
-    // and the name stays clear of the stat rail above it.
+    // and the name stays clear of the stat rail above it. With minTextPx the size never goes below that floor:
+    // when nothing fits, the floor size is used and the panel grows past its share.
     const fitText = () => {
       if (card.clientHeight === 0) return;
+      const range = textSizeRange({
+        cardFontPx: parseFloat(getComputedStyle(card).fontSize),
+        maxEm: CARD_TEXT_MAX_EM,
+        minTextPx,
+      });
       const limit = card.clientHeight * LOWER_PANEL_MAX;
       const rail = card.querySelector<HTMLElement>('.card-stats');
       const name = lower.querySelector<HTMLElement>('.card-hero-name');
-      const railBottom = rail ? rail.offsetTop + rail.offsetHeight : 0;
-      const size = pickTextSize(sizeEm => {
-        card.style.setProperty('--card-text-size', `${sizeEm}em`);
-        const nameTop = lower.offsetTop + (name ? name.offsetTop : 0);
-        return lower.offsetHeight <= limit && nameTop >= railBottom;
-      }, CARD_TEXT_MAX_EM);
-      card.style.setProperty('--card-text-size', `${size}em`);
+      const railBottom = () => (rail ? rail.offsetTop + rail.offsetHeight : 0);
+      const nameTop = () => lower.offsetTop + (name ? name.offsetTop : 0);
+      // With a floor, a card whose name would run into the stat rail tries tighter text spacing, then smaller
+      // gems (data-fit; React leaves the attribute alone). Without a floor there is one stage: today's fitting.
+      const stages = textFitStages(minTextPx);
+      let crowded = false;
+      for (const stage of stages) {
+        if (stage) card.setAttribute('data-fit', stage);
+        else card.removeAttribute('data-fit');
+        const bottom = railBottom();
+        const size = pickTextSize(sizeEm => {
+          card.style.setProperty('--card-text-size', `${sizeEm}em`);
+          return lower.offsetHeight <= limit && nameTop() >= bottom;
+        }, range.maxEm, range.minEm);
+        card.style.setProperty('--card-text-size', `${size}em`);
+        crowded = nameTop() < bottom;
+        if (!crowded) break;
+      }
+      // Even at the floor with every stage the name runs into the rail: flag it so it can be found and measured.
+      if (minTextPx) card.toggleAttribute('data-text-crowded', crowded);
     };
 
     fitText();
     const observer = new ResizeObserver(fitText);
     observer.observe(card);
     return () => observer.disconnect();
-  }, [hero.Ability, hero.Special, hero.name]);
+  }, [hero.Ability, hero.Special, hero.name, minTextPx]);
 
   const renderCardDetails = () => (
     <div className="card-details">
@@ -962,6 +985,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       data-anim-key={animKey}
       data-hero-name={animKey ? hero.name : undefined}
       data-read-mode={readMode}
+      data-min-text-px={minTextPx}
       data-focused={isFocused ? 'true' : undefined}
       onClick={canChoose || readMode === 'tap' || onInspect ? handleClick : undefined}
       onPointerDown={readMode === 'press' ? pressHandlers.onPointerDown : undefined}

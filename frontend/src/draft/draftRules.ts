@@ -66,6 +66,9 @@ export function draftChoice(o: {
 
 export const READABLE_CARD_MIN_WIDTH = 222;
 
+/** Rules text on a card read on the draft screen (big card, table-layout hand) never goes below this (px). */
+export const READ_TEXT_MIN_PX = 12;
+
 /** Table layout chrome in px. CSS must use the same numbers. */
 export const TABLE_CHROME = { bar: 56, band: 190, hint: 30, foot: 76, handPadY: 24, handPadX: 44, gap: 18 };
 

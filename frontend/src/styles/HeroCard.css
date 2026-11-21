@@ -1051,3 +1051,41 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- Text floor (minTextPx, the draft screen's readable cards) ----
+   When the rules text may not shrink and the name would run into the stat rail, HeroCard tries these in turn:
+   "tight" closes up the text panel's spacing and narrows its margins; "rail" also makes the stat gems smaller.
+   Cards without a floor never get data-fit. */
+.hero-card[data-fit="tight"] .card-lower,
+.hero-card[data-fit="rail"] .card-lower {
+  padding: 2.6em 0.6em 0.55em;
+}
+
+.hero-card[data-fit="tight"] .card-hero-name,
+.hero-card[data-fit="rail"] .card-hero-name {
+  font-size: 1.85em;
+}
+
+.hero-card[data-fit="tight"] .card-rule,
+.hero-card[data-fit="rail"] .card-rule {
+  margin: 0.3em 0 0.35em;
+}
+
+.hero-card[data-fit="tight"] .card-details,
+.hero-card[data-fit="rail"] .card-details {
+  line-height: 1.15;
+}
+
+.hero-card[data-fit="tight"] .card-text-section,
+.hero-card[data-fit="rail"] .card-text-section {
+  margin: 0 0 0.25em;
+}
+
+.hero-card[data-fit="tight"] .card-text-section:last-child,
+.hero-card[data-fit="rail"] .card-text-section:last-child {
+  margin: 0;
+}
+
+.hero-card[data-fit="rail"] .card-stats {
+  --gem-scale: 0.95;
+}

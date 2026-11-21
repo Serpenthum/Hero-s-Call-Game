@@ -31,6 +31,34 @@ export function pickTextSize(
   return minEm;
 }
 
+/**
+ * The range of rules-text sizes (em of the card's own font size) the card may pick.
+ * Without minTextPx this is today's range. With it, the smallest size is raised (to the next hundredth) so the
+ * rules text is never under minTextPx; the card then lets its text panel grow instead of shrinking the text.
+ */
+export function textSizeRange(opts: {
+  cardFontPx: number;
+  maxEm: number;
+  minEm?: number;
+  minTextPx?: number;
+}): { minEm: number; maxEm: number } {
+  const baseMin = opts.minEm ?? 0.8;
+  if (!opts.minTextPx || !(opts.cardFontPx > 0)) return { minEm: baseMin, maxEm: opts.maxEm };
+  const floorEm = Math.ceil((opts.minTextPx / opts.cardFontPx) * 100 - 1e-6) / 100;
+  const minEm = Math.max(baseMin, floorEm);
+  return { minEm, maxEm: Math.max(opts.maxEm, minEm) };
+}
+
+export type TextFitStage = null | 'tight' | 'rail';
+
+/**
+ * The layouts a card tries, in order, until its name clears the stat rail: as drawn, tighter text spacing, then
+ * smaller stat gems. Only a card with a text floor gets the extra stages; every other card fits exactly as before.
+ */
+export function textFitStages(minTextPx?: number): TextFitStage[] {
+  return minTextPx ? [null, 'tight', 'rail'] : [null];
+}
+
 type RuleText = { name: string; description: string };
 export interface RuleSection {
   label: 'Ability' | 'Special';

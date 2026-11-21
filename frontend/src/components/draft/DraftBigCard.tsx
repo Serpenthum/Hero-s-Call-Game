@@ -1,5 +1,6 @@
 import React from 'react';
 import { Hero } from '../../types';
+import { READ_TEXT_MIN_PX } from '../../draft/draftRules';
 import HeroCard from '../HeroCard';
 
 interface DraftBigCardProps {
@@ -12,7 +13,7 @@ const DraftBigCard: React.FC<DraftBigCardProps> = ({ hero, waiting }) => (
   <aside className="draft-big" aria-live="polite">
     {hero ? (
       <div className="draft-big-card" key={hero.name} data-name={hero.name}>
-        <HeroCard hero={hero} holo={!!hero.holo} readable="none" disableHPAnimations />
+        <HeroCard hero={hero} holo={!!hero.holo} readable="none" minTextPx={READ_TEXT_MIN_PX} disableHPAnimations />
       </div>
     ) : (
       waiting && <p className="draft-big-wait">Waiting for your opponent…</p>
