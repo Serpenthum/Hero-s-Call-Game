@@ -28,11 +28,13 @@ describe('HeroCard holo', () => {
     expect(off).not.toContain('card-holo');
     expect(off).not.toContain('card-sheen');
     expect(off).not.toContain('card-spark');
+    expect(off).not.toContain('card-foil');
 
     setHoloEffects(true);
     const on = renderToStaticMarkup(<HeroCard hero={monk} holo readable="none" disableHPAnimations />);
     expect(on).toContain('card-holo');
     expect(on).toContain('card-sheen');
     expect(on).toContain('card-spark');
+    expect(on).toContain('card-foil');
   });
 });

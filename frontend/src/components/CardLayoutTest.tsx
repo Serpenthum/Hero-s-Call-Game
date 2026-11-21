@@ -17,6 +17,8 @@ const FACE_WIDTHS = [350, 260, 195, 143, 78];
 const LONG_TEXT_HEROES = ['Arcane Archer', 'Ninja', 'Shroomguard'];
 const LONG_TEXT_WIDTHS = [195, 143];
 const STATE_WIDTHS = [195, 78];
+// Battle board card widths: desktop, a wide phone, a small phone
+const BATTLE_WIDTHS = [182, 135, 110];
 
 type FaceFixture = { label: string; hero: Hero; props?: Partial<React.ComponentProps<typeof HeroCard>> };
 
@@ -56,8 +58,23 @@ const buildFaceFixtures = (find: (name: string) => Hero) => {
     { label: 'Enemy', hero: full('Blood Hunter'), props: { isEnemy: true } },
     { label: 'Dragon Rider dismounted', hero: { ...full('Dragon Rider'), permanentDisables: { abilities: true } } as unknown as Hero }
   ];
+  // Holographic next to plain at battle sizes, and holographic under every battle state
+  const battleHolo: FaceFixture[] = [
+    { label: 'Plain', hero: full('Paladin') },
+    { label: 'Holo', hero: full('Wizard'), props: { holo: true } },
+    { label: 'Plain enemy', hero: full('Blood Hunter'), props: { isEnemy: true } },
+    { label: 'Holo enemy', hero: full('Plague Spreader'), props: { holo: true, isEnemy: true } },
+    { label: 'Holo favourite', hero: full('Ninja'), props: { holo: true, favorite: true } },
+    { label: 'Holo, its turn', hero: full('Monk'), props: { holo: true, isCurrentTurn: true } },
+    { label: 'Holo selected', hero: full('Brawler'), props: { holo: true, isSelected: true } },
+    { label: 'Holo selectable', hero: full('Angel'), props: { holo: true, isSelectable: true, isEnemy: true } },
+    { label: 'Holo blocked', hero: full('Engineer'), props: { holo: true, isBlocked: true, isEnemy: true } },
+    { label: 'Holo dead', hero: { ...full('Cavalier'), currentHP: 0 }, props: { holo: true } },
+    { label: 'Holo busy', hero: busy, props: { holo: true, favorite: true, showFullInfo: true } },
+    { label: 'Holo banned', hero: full('Barbarian'), props: { holo: true, isBanned: true } }
+  ];
   const longText: FaceFixture[] = LONG_TEXT_HEROES.map(name => ({ label: name, hero: full(name) }));
-  return { looks, states, longText };
+  return { looks, states, battleHolo, longText };
 };
 
 const FaceRow: React.FC<{ title: string; width: number; fixtures: FaceFixture[] }> = ({ title, width, fixtures }) => (
@@ -213,6 +230,7 @@ const CardLayoutTest: React.FC<CardLayoutTestProps> = ({ onExit }) => {
               <h2>Face states</h2>
               {FACE_WIDTHS.map(width => <FaceRow key={`looks-${width}`} title="Looks" width={width} fixtures={faces.looks} />)}
               {STATE_WIDTHS.map(width => <FaceRow key={`states-${width}`} title="Battle and draft states" width={width} fixtures={faces.states} />)}
+              {BATTLE_WIDTHS.map(width => <FaceRow key={`battle-holo-${width}`} title="Holographic on the battle board" width={width} fixtures={faces.battleHolo} />)}
               {LONG_TEXT_WIDTHS.map(width => <FaceRow key={`long-${width}`} title="Longest texts" width={width} fixtures={faces.longText} />)}
             </section>
           )}

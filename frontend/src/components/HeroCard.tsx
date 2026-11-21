@@ -1043,6 +1043,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
         <>
           <div className="card-sheen" aria-hidden="true" />
           <div className="card-spark" aria-hidden="true" />
+          <div className="card-foil" aria-hidden="true" />
         </>
       )}
       {favorite && (
