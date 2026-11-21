@@ -160,3 +160,31 @@ test('the tutorial bot focuses, acts and ends its turn', { timeout: 20000 }, asy
   assert.equal(ended.success, true);
   c.send('tutorial-skip');
 });
+
+test('toggling a favourite acts on the logged-in user, not the body\'s userId', async () => {
+  const loginAs = async (username) => {
+    await api('POST', '/api/register', { username, password: 'secret1' });
+    return (await api('POST', '/api/login', { username, password: 'secret1' })).json;
+  };
+  const a = await loginAs('favA1');
+  const b = await loginAs('favB1');
+  const toggle = async (token, body) => {
+    const res = await handleFetch(router, new Request('http://t/api/toggle-favorite-hero', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body)
+    }));
+    return { status: res.status, json: await res.json() };
+  };
+
+  await toggle(a.token, { userId: b.user.id, heroName: 'Fighter' });
+  assert.deepEqual(await testDb.database.getFavoriteHeroes(b.user.id), [], "B's favourites are untouched");
+
+  const own = await toggle(a.token, { heroName: 'Fighter' });
+  assert.equal(own.status, 200);
+  assert.deepEqual(await testDb.database.getFavoriteHeroes(a.user.id), ['Fighter']);
+
+  const missing = await toggle(a.token, {});
+  assert.equal(missing.status, 400);
+  assert.equal(missing.json.message, 'Hero name is required');
+});

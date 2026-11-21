@@ -550,16 +550,16 @@ router.post('/api/update-profile-icon', auth.requireUser, async (req, res) => {
 // API endpoint to toggle favorite hero
 router.post('/api/toggle-favorite-hero', auth.requireUser, async (req, res) => {
   try {
-    const { userId, heroName } = req.body;
-    
-    if (!userId || !heroName) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User ID and hero name are required' 
+    const { heroName } = req.body;
+
+    if (!heroName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Hero name is required'
       });
     }
 
-    const result = await database.toggleFavoriteHero(userId, heroName);
+    const result = await database.toggleFavoriteHero(req.userId, heroName);
     res.json(result);
   } catch (error) {
     console.error('Toggle favorite hero error:', error);
