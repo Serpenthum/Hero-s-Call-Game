@@ -90,6 +90,24 @@
   color: var(--ember);
 }
 
+/* The shop's message while a pack opening (z-index 10000) covers the shop */
+.shop-message.shop-message--over-opening {
+  position: fixed;
+  top: var(--space-4);
+  left: 0;
+  right: 0;
+  z-index: 10001;
+  width: fit-content;
+  max-width: calc(100% - 2 * var(--space-4));
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: var(--felt-deep);
+}
+
+.shop-message.shop-message--over-opening.error {
+  background-image: linear-gradient(color-mix(in srgb, var(--ember) 20%, transparent), color-mix(in srgb, var(--ember) 20%, transparent));
+}
+
 @keyframes slideDown {
   from {
     transform: translateY(-20px);

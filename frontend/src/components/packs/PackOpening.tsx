@@ -350,7 +350,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
             >
               Buy another<Coin />{price}
             </button>
-            <button type="button" className="ui-btn ui-btn--primary pack-opening__done" onClick={onDone}>
+            <button type="button" className="ui-btn ui-btn--primary pack-opening__done" onClick={onDone} disabled={buying}>
               Done
             </button>
           </div>

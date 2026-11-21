@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import HeroCard from './HeroCard';
 import PackOpening from './packs/PackOpening';
 import type { PackResult } from './packs/packTypes';
@@ -33,6 +33,8 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
   const [timeUntilRefresh, setTimeUntilRefresh] = useState('');
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
+  // Set at once on a click, so a second click in the same tick (before `purchasing` renders) sends nothing
+  const purchaseLock = useRef(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [packResult, setPackResult] = useState<PackResult | null>(null);
   // Heroes owned now: the prop, plus what packs bought here since (the prop catches up when an opening closes)
@@ -171,8 +173,9 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
   };
 
   const handlePurchaseHero = async (heroName: string) => {
-    if (purchasing || victoryPoints < 5 || purchasedHeroes.has(heroName)) return;
+    if (purchaseLock.current || victoryPoints < 5 || purchasedHeroes.has(heroName)) return;
 
+    purchaseLock.current = true;
     setPurchasing(true);
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/shop/purchase-hero`, {
@@ -198,15 +201,17 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       setMessage({ text: 'Purchase failed. Check your connection and try again.', type: 'error' });
       setTimeout(() => setMessage(null), 3000);
     } finally {
+      purchaseLock.current = false;
       setPurchasing(false);
     }
   };
 
   // One lock for Buy pack and Buy another: a second tap while a request is out sends nothing.
   const handlePurchasePack = async () => {
-    if (purchasing || victoryPoints < PACK_PRICE) return;
+    if (purchaseLock.current || victoryPoints < PACK_PRICE) return;
     const buyingAnother = packResult !== null;
 
+    purchaseLock.current = true;
     setPurchasing(true);
     try {
       const response = await fetch(`${config.API_BASE_URL}/api/shop/purchase-pack`, {
@@ -242,6 +247,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
       setMessage({ text: 'Pack purchase failed. Check your connection and try again.', type: 'error' });
       setTimeout(() => setMessage(null), 3000);
     } finally {
+      purchaseLock.current = false;
       setPurchasing(false);
     }
   };
@@ -272,6 +278,12 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
           onBuyAnother={handlePurchasePack}
           onDone={handlePackDone}
         />
+      )}
+      {/* The shop's message sits under the opening; while it is up, show it above */}
+      {packResult && message && (
+        <div className={`shop-message shop-message--over-opening ${message.type}`} role="alert">
+          {message.text}
+        </div>
       )}
 
       <div className="shop-overlay" onClick={onClose}>

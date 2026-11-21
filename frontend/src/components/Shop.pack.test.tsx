@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useState } from 'react';
+import { act, useState } from 'react';
 
 vi.mock('../config', () => ({ default: { IMAGE_BASE_URL: 'http://img.test', API_BASE_URL: '', SOCKET_URL: '' } }));
 
@@ -32,7 +32,10 @@ const calls = (path: string) => fetchMock.mock.calls.filter(([url]) => String(ur
 function installFetch(rotation: Hero[] = [hero('Ninja')]) {
   fetchMock = vi.fn((url: string) => {
     if (url.includes('/api/shop/rotation')) return reply({ success: true, heroes: rotation.map(h => ({ ...h, owned: false })) });
-    if (url.includes('/api/shop/purchase-pack')) return reply(packReplies.shift());
+    if (url.includes('/api/shop/purchase-pack')) {
+      const next = packReplies.shift();
+      return next instanceof Promise ? next : reply(next);
+    }
     if (url.includes('/api/heroes')) return reply([hero('Ninja'), hero('Monk'), hero('Pirate')]);
     if (url.includes('/api/user/')) return reply({ success: true, user: { available_heroes: ['Fighter'] } });
     return reply({});
@@ -52,6 +55,24 @@ function ShopHarness(props: { start: number; owned?: string[]; onPurchaseComplet
       onVictoryPointsChange={setBalance}
     />
   );
+}
+
+// A pack reply held back until the test lets it go (resolve), or fails it (fail).
+function heldReply() {
+  let resolve!: (body: unknown) => void;
+  let fail!: (error: Error) => void;
+  const promise = new Promise<Response>((ok, no) => {
+    resolve = body => ok({ ok: true, json: () => Promise.resolve(body) } as Response);
+    fail = no;
+  });
+  return { promise, resolve, fail };
+}
+
+async function openFirstPack(root: HTMLElement) {
+  click(buttonByText(root, 'Buy pack'));
+  await settle();
+  click(document.querySelector('.pack-opening__pack'));
+  click(buttonByText(document, 'Turn all over'));
 }
 
 const balanceShown = (root: ParentNode) => root.querySelector('.shop-header .vp-amount')?.textContent;
@@ -154,5 +175,81 @@ describe('Shop packs', () => {
     click(buttonByText(document, 'Done'));
     expect(document.querySelector('.pack-opening')).toBeNull();
     expect(onPurchaseComplete).toHaveBeenCalledTimes(2);
+  });
+
+  it('two clicks in the same tick send one request', async () => {
+    installFetch();
+    packReplies.push(packReply(['Ninja', 'Monk', 'Pirate'], 18), packReply(['Samurai', 'Monk', 'Pirate'], 6));
+    const root = render(<ShopHarness start={30} />);
+    await settle();
+
+    const buy = buttonByText(root, 'Buy pack') as HTMLButtonElement;
+    act(() => {
+      buy.click();
+      buy.click();
+    });
+    await settle();
+
+    expect(calls('/api/shop/purchase-pack')).toHaveLength(1);
+    expect(balanceShown(root)).toBe('18');
+  });
+
+  it('Done is disabled while Buy another is out, and works once it is back', async () => {
+    installFetch();
+    const second = heldReply();
+    const onPurchaseComplete = vi.fn();
+    packReplies.push(packReply(['Ninja', 'Monk', 'Pirate'], 18), second.promise);
+    const root = render(<ShopHarness start={30} onPurchaseComplete={onPurchaseComplete} />);
+    await settle();
+    await openFirstPack(root);
+
+    click(buttonByText(document, 'Buy another'));
+    await settle();
+    expect(buttonByText(document, 'Done')?.disabled).toBe(true);
+    click(buttonByText(document, 'Done'));
+    expect(document.querySelector('.pack-opening')).not.toBeNull();
+
+    second.resolve(packReply(['Samurai', 'Viking', 'Pirate'], 6));
+    await settle();
+    click(document.querySelector('.pack-opening__pack'));
+    expect(packCardNames()).toEqual(['Samurai', 'Viking', 'Pirate']);
+    expect(buttonByText(document, 'Done')?.disabled).toBe(false);
+    click(buttonByText(document, 'Done'));
+    expect(document.querySelector('.pack-opening')).toBeNull();
+  });
+
+  it('a Buy another the server refuses shows its message above the opening', async () => {
+    installFetch();
+    packReplies.push(packReply(['Ninja', 'Monk', 'Pirate'], 18), { success: false, message: 'The shop is closed for now.' });
+    const root = render(<ShopHarness start={30} />);
+    await settle();
+    await openFirstPack(root);
+
+    click(buttonByText(document, 'Buy another'));
+    await settle();
+
+    const toast = document.querySelector('.shop-message--over-opening');
+    expect(toast?.textContent).toBe('The shop is closed for now.');
+    expect(root.querySelector('.shop-container')?.contains(toast)).toBe(false);
+    expect(document.querySelector('.pack-opening')).not.toBeNull();
+  });
+
+  it('a Buy another that fails to send shows the connection message above the opening', async () => {
+    installFetch();
+    const second = heldReply();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    packReplies.push(packReply(['Ninja', 'Monk', 'Pirate'], 18), second.promise);
+    const root = render(<ShopHarness start={30} />);
+    await settle();
+    await openFirstPack(root);
+
+    click(buttonByText(document, 'Buy another'));
+    second.fail(new Error('offline'));
+    await settle();
+
+    const toast = document.querySelector('.shop-message--over-opening');
+    expect(toast?.textContent).toBe('Pack purchase failed. Check your connection and try again.');
+    expect(root.querySelector('.shop-container')?.contains(toast)).toBe(false);
+    expect(buttonByText(document, 'Done')?.disabled).toBe(false);
   });
 });
