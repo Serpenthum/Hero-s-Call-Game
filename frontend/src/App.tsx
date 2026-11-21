@@ -2585,6 +2585,7 @@ function App() {
             away={draftAwayNotice(opponent)}
             connecting={!state.isConnected}
             rejoins={rejoins}
+            holoHeroes={state.user?.holo_heroes}
           />
         );
 

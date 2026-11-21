@@ -90,6 +90,27 @@ describe('Shop packs', () => {
     vi.unstubAllGlobals();
   });
 
+  it('a repeat of a hero the reply lists as holographic is drawn holographic', async () => {
+    installFetch();
+    packReplies.push({
+      ...packReply(['Ninja', 'Pirate'], 18),
+      cards: [
+        { name: 'Ninja', kind: 'new', hero: hero('Ninja') },
+        { name: 'Monk', kind: 'repeat', hero: hero('Monk') },
+        { name: 'Pirate', kind: 'repeat', hero: hero('Pirate') },
+      ],
+      holo_heroes: ['Monk'],
+    });
+    const root = render(<ShopHarness start={30} owned={['Fighter', 'Monk', 'Pirate']} />);
+    await settle();
+    await openFirstPack(root);
+
+    const face = (name: string) => document.querySelector(`.pack-opening [data-name="${name}"]`);
+    expect(face('Monk')?.querySelector('.card-holo')).not.toBeNull();
+    expect(face('Pirate')?.querySelector('.card-holo')).toBeNull();
+    expect(face('Ninja')?.querySelector('.card-holo')).toBeNull();
+  });
+
   it('buying a pack uses the cards from the reply without fetching /api/heroes', async () => {
     installFetch();
     packReplies.push(packReply(['Ninja', 'Monk', 'Pirate'], 18));

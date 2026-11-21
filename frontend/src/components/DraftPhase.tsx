@@ -12,6 +12,7 @@ import DraftBand from './draft/DraftBand';
 import DraftHand from './draft/DraftHand';
 import DraftBigCard from './draft/DraftBigCard';
 import DraftOrder, { tapOrder } from './draft/DraftOrder';
+import { isHolo } from '../holoSetting';
 import '../styles/Draft.css';
 
 interface DraftPhaseProps {
@@ -26,6 +27,8 @@ interface DraftPhaseProps {
   connecting?: boolean;
   /** Goes up each time the server hands the game back after a reconnect (no motion for that state). */
   rejoins?: number;
+  /** The heroes you own holographic: the opponent bans from your collection, so their ban may be one. */
+  holoHeroes?: string[];
 }
 
 /** The hand you hold: from your player, or from the older per-game lists. */
@@ -49,6 +52,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   away = null,
   connecting = false,
   rejoins = 0,
+  holoHeroes,
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const reader = useCardReader();
@@ -135,7 +139,8 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
 
   const banHolo = {
     mine: !!(bans.mine && heroByName(bans.mine)?.holo),
-    theirs: !!(bans.theirs && heroByName(bans.theirs)?.holo),
+    // Their ban is one of your heroes: holo if this screen saw it holo, or you own it holographic.
+    theirs: !!(bans.theirs && (heroByName(bans.theirs)?.holo || isHolo({ holo_heroes: holoHeroes }, bans.theirs))),
   };
 
   const choose = (name: string) => {

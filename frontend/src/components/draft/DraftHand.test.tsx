@@ -154,6 +154,21 @@ describe('DraftPhase', () => {
     expect(html).toContain('draft-act--ban');
   });
 
+  it("draws the opponent's ban holographic when it is one of your holographic heroes", () => {
+    // They ban from a hand of your collection: this screen never saw Sorcerer as a card.
+    const me = player('me', { bannedCard: 'Monk', draftCards: [hero('Bard'), hero('Druid')] });
+    const them = player('them', { bannedCard: 'Sorcerer' });
+    const ban = (holoHeroes?: string[]) => {
+      const html = renderToStaticMarkup(
+        <DraftPhase gameState={gameState(1, [me, them])} currentPlayer={me} opponent={them} allHeroes={[]} draftTimer={null} holoHeroes={holoHeroes} />,
+      );
+      return html.slice(html.indexOf('draft-ban--theirs'), html.indexOf('draft-ban-name', html.indexOf('draft-ban--theirs')));
+    };
+    expect(ban(['Sorcerer'])).toContain('draft-portrait--holo');
+    expect(ban(['Monk'])).not.toContain('draft-portrait--holo');
+    expect(ban()).not.toContain('draft-portrait--holo');
+  });
+
   it('renders the table root with its size variables', () => {
     const me = player('me', { draftCards: HAND });
     const html = renderToStaticMarkup(

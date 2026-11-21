@@ -61,6 +61,30 @@ describe('PackOpening with animations on', () => {
     expect(root.querySelector('[data-spot]')).toBeNull();
   });
 
+  it('a repeat of a hero you own holographic turns holographic, without the holographic takeover', () => {
+    const result: PackResult = {
+      cards: [card('Ninja', 'new'), { ...card('Monk', 'repeat'), holo: true }, card('Pirate', 'new')],
+      coinsBack: 2,
+      newVP: 30,
+    };
+    const root = render(
+      <CardReaderProvider>
+        <PackOpening result={result} price={12} canBuyAnother buying={false} onBuyAnother={noop} onDone={noop} />
+      </CardReaderProvider>
+    );
+    click(root.querySelector('.pack-opening__pack'));
+    advance(3000);
+    const monk = cards(root)[1];
+
+    click(monk);
+
+    expect(monk.dataset.turned).toBe('true');
+    expect(root.querySelector('[data-spot]')).toBeNull();
+    expect(monk.querySelector('.card-holo')).not.toBeNull();
+    expect(monk.querySelector('.pack-opening__label')?.textContent).toBe('Already owned · +2');
+    expect(cards(root)[0].querySelector('.card-holo')).toBeNull();
+  });
+
   it('tapping a plain card during turn all over does not turn it twice', () => {
     const turns: string[] = [];
     const root = openPack(turns);

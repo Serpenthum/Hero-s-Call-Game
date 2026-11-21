@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import HeroCard from './HeroCard';
 import PackOpening from './packs/PackOpening';
-import type { PackResult } from './packs/packTypes';
+import { isHoloKind, type PackCard, type PackResult } from './packs/packTypes';
 import CloseButton from './CloseButton';
 import Coin from './Coin';
 import Icon from './ui/Icon';
@@ -235,7 +235,13 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, availableHe
           return next;
         });
 
-        setPackResult({ cards: data.cards, coinsBack: data.coinsBack ?? 0, newVP: data.newVP });
+        // A repeat of a hero already owned holographic is drawn holographic too.
+        const holoHeroes: string[] = Array.isArray(data.holo_heroes) ? data.holo_heroes : [];
+        const cards: PackCard[] = data.cards.map((card: PackCard) => ({
+          ...card,
+          holo: isHoloKind(card.kind) || (card.kind === 'repeat' && holoHeroes.includes(card.name)),
+        }));
+        setPackResult({ cards, coinsBack: data.coinsBack ?? 0, newVP: data.newVP });
         // The opening already on screen covers the lobby; bring the lobby up to date with the pack before
         if (buyingAnother) onPurchaseComplete();
       } else {

@@ -5,7 +5,7 @@ import { useCardReader } from '../../cards/CardReader';
 import { cardMotionOff } from '../../cards/cardMotion';
 import { getHoloEffects } from '../../holoSetting';
 import useCardGrid from '../../hooks/useCardGrid';
-import { isHoloKind, PackCard, PackResult } from './packTypes';
+import { isHoloCard, isHoloKind, PackCard, PackResult } from './packTypes';
 import CardBack from './CardBack';
 import PackSparks, { makeBurst, SparkBurst, SparkTone } from './PackSparks';
 import '../../styles/PackOpening.css';
@@ -230,7 +230,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
       return;
     }
     if (spot) return;
-    reader.open(cards[index].hero, { holo: isHoloKind(cards[index].kind) });
+    reader.open(cards[index].hero, { holo: isHoloCard(cards[index]) });
   };
 
   const turnAll = () => {
@@ -329,7 +329,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
                     <CardBack />
                     {turned[index] && (
                       <div className="pack-opening__face">
-                        <HeroCard hero={card.hero} holo={isHoloKind(card.kind)} readable="none" disableHPAnimations />
+                        <HeroCard hero={card.hero} holo={isHoloCard(card)} readable="none" disableHPAnimations />
                       </div>
                     )}
                   </div>
