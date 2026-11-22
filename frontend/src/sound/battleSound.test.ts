@@ -64,8 +64,10 @@ describe('startBattleSound', () => {
   });
 
   it('a throwing playSound does not escape the listener', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.mocked(playSound).mockImplementationOnce(() => { throw new Error('boom'); });
     expect(() => battleEventBus.emit(attack())).not.toThrow();
+    expect(warn).toHaveBeenCalledWith('battle sound failed', expect.any(Error));
   });
 
   it('stops listening after the returned unsubscribe', () => {
@@ -78,11 +80,14 @@ describe('startBattleSound', () => {
 
 describe('battleEventBus isolation', () => {
   it('a throwing listener does not stop the next listener, and emit does not throw', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const before = battleEventBus.subscribe(() => { throw new Error('bad listener'); });
     const after = vi.fn();
     const unsub = battleEventBus.subscribe(after);
     expect(() => battleEventBus.emit(attack())).not.toThrow();
     expect(after).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith('battleEventBus listener failed', expect.any(Error));
+    error.mockRestore();
     before();
     unsub();
   });

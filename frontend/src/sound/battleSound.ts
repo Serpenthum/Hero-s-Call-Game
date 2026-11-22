@@ -17,8 +17,9 @@ export function startBattleSound(): () => void {
           playSound(cue.sound, { delayMs: cue.delayMs });
         }
       }
-    } catch {
+    } catch (err) {
       // skip this event's sounds
+      console.warn('battle sound failed', err);
     }
   });
 }
