@@ -7,9 +7,9 @@ import QuestRewardModal from './QuestRewardModal';
 import type { PendingQuestReward } from '../types';
 import { cleanup, render, stubBrowserApis } from '../testing/dom';
 
-const reward = (vpGained: number): PendingQuestReward => ({
-  completed: [{ id: 'q1', text: 'Win a battle' }] as PendingQuestReward['completed'],
-  xpGained: 50, vpGained, oldXP: 0, oldLevel: 1, oldVictoryPoints: 0, leveledUp: false,
+const reward = (vpGained: number, leveledUp = false): PendingQuestReward => ({
+  completed: [{ id: 'q1', text: 'Win a battle' }],
+  xpGained: 50, vpGained, oldXP: 0, oldLevel: 1, oldVictoryPoints: 0, leveledUp,
 });
 
 describe('QuestRewardModal sound', () => {
@@ -24,5 +24,10 @@ describe('QuestRewardModal sound', () => {
   it('no coins, no coin sound', () => {
     render(<QuestRewardModal reward={reward(0)} onOk={vi.fn()} />);
     expect(sound.playSound.mock.calls).toEqual([['quest']]);
+  });
+
+  it('a quest level up plays levelup once, after the coin', () => {
+    render(<StrictMode><QuestRewardModal reward={reward(5, true)} onOk={vi.fn()} /></StrictMode>);
+    expect(sound.playSound.mock.calls).toEqual([['quest'], ['coin', { delayMs: 600 }], ['levelup', { delayMs: 1200 }]]);
   });
 });

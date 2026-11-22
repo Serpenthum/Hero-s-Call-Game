@@ -2369,7 +2369,12 @@ function App() {
   useEffect(() => {
     installAudioUnlock();
     setMusicMode('none');
-    const offMenuSounds = onAudioUnlocked(() => { void loadSoundGroup('menu'); });
+    // Menu, binder and pack sounds load at the first tap, so the first binder or pack moment is ready in time
+    const offMenuSounds = onAudioUnlocked(() => {
+      void loadSoundGroup('menu');
+      void loadSoundGroup('binder');
+      void loadSoundGroup('pack');
+    });
     const stopBattleSound = startBattleSound();
     return () => {
       offMenuSounds();

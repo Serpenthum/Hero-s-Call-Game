@@ -11,14 +11,15 @@ interface QuestRewardModalProps {
 }
 
 const QuestRewardModal: React.FC<QuestRewardModalProps> = ({ reward, onOk }) => {
-  // The chime plays once when the modal opens (a ref keeps StrictMode's second effect quiet); its coins follow.
+  // The chime plays once when the modal opens (a ref keeps StrictMode's second effect quiet); its coins and level up follow.
   const played = useRef(false);
   useEffect(() => {
     if (played.current) return;
     played.current = true;
     playSound('quest');
     if (reward.vpGained > 0) playSound('coin', { delayMs: 600 });
-  }, [reward.vpGained]);
+    if (reward.leveledUp) playSound('levelup', { delayMs: 1200 });
+  }, [reward.vpGained, reward.leveledUp]);
 
   return (
     <div className="quest-reward-overlay">
