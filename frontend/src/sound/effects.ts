@@ -56,14 +56,14 @@ export async function loadSoundGroup(group: SoundGroup): Promise<void> {
 
 /** Plays a loaded effect now, or delayMs from now. Silently does nothing when off, muted or not loaded. */
 export function playSound(id: SoundId, opts?: { delayMs?: number }): void {
-  if (!getSfxEnabled()) return;
-  const level = EFFECT_BASE_GAIN * getSfxVolume() * 2;
-  if (level <= 0) return;
-  const buffer = buffers.get(id);
-  if (!buffer) return;
-  const c = getAudioContext();
-  if (!c) return;
   try {
+    if (!getSfxEnabled()) return;
+    const level = EFFECT_BASE_GAIN * getSfxVolume() * 2;
+    if (level <= 0) return;
+    const buffer = buffers.get(id);
+    if (!buffer) return;
+    const c = getAudioContext();
+    if (!c) return;
     if (c.state === 'suspended') {
       const p = c.resume();
       if (p && typeof p.catch === 'function') p.catch(() => { /* ignore */ });

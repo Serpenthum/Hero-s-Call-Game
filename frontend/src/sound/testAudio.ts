@@ -47,8 +47,10 @@ export class FakeAudioContext {
   sources: FakeBufferSource[] = [];
   gains: FakeGainNode[] = [];
   resumeCalls = 0;
+  /** When true, resume() resolves but the context stays suspended (iOS without a real activation). */
+  resumeLeavesSuspended = false;
   constructor() { FakeAudioContext.instances.push(this); }
-  resume() { this.resumeCalls++; this.state = 'running'; return Promise.resolve(); }
+  resume() { this.resumeCalls++; if (!this.resumeLeavesSuspended) this.state = 'running'; return Promise.resolve(); }
   createBufferSource() { const s = new FakeBufferSource(); this.sources.push(s); return s; }
   createGain() { const g = new FakeGainNode(); this.gains.push(g); return g; }
   createOscillator() { return new FakeOscillator(); }

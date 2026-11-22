@@ -23,8 +23,11 @@ export function getAudioContext(): AudioContext | null {
 
 export function isAudioUnlocked(): boolean { return unlocked; }
 
-/** Calls fn once audio is unlocked (right away, inside the gesture); returns an unsubscribe function. */
+/** Calls fn once audio is unlocked (inside the gesture when possible; at once if already unlocked); returns an unsubscribe function. */
 export function onAudioUnlocked(fn: () => void): () => void {
+  if (unlocked) {
+    try { fn(); } catch { /* ignore */ }
+  }
   unlockListeners.add(fn);
   return () => { unlockListeners.delete(fn); };
 }
@@ -57,7 +60,7 @@ function playSilentElement() {
     el.setAttribute('x-webkit-airplay', 'deny');
     el.setAttribute('playsinline', '');
     el.preload = 'auto';
-    el.muted = true;
+    // Unmuted on purpose: the clip is silence, and a muted element may not switch the session.
     el.src = silentWavUrl();
     const p = el.play();
     if (p && typeof p.catch === 'function') p.catch(() => { /* ignore */ });
@@ -66,12 +69,24 @@ function playSilentElement() {
   }
 }
 
-function unlock() {
+// Touch pointerdown is not a user activation on iOS, so listen for several gestures and keep
+// trying on each until the context is running.
+const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'] as const;
+
+function removeGestureListeners() {
+  GESTURES.forEach(type => window.removeEventListener(type, onGesture, true));
+}
+
+function markUnlocked() {
+  removeGestureListeners();
   if (unlocked) return;
   unlocked = true;
-  window.removeEventListener('pointerdown', unlock, true);
-  window.removeEventListener('keydown', unlock, true);
+  unlockListeners.forEach(fn => {
+    try { fn(); } catch { /* one bad listener must not stop the others */ }
+  });
+}
 
+function onGesture() {
   const nav = navigator as Navigator & { audioSession?: { type: string } };
   try {
     if (nav.audioSession) nav.audioSession.type = 'playback';
@@ -81,32 +96,30 @@ function unlock() {
   }
 
   const c = getAudioContext();
+  if (!c) { markUnlocked(); return; }
   try {
-    if (c && c.state === 'suspended') {
+    if (c.state !== 'running') {
       const p = c.resume();
-      if (p && typeof p.catch === 'function') p.catch(() => { /* ignore */ });
+      if (p && typeof p.then === 'function') {
+        p.then(() => { if (c.state === 'running') markUnlocked(); }, () => { /* try again next gesture */ });
+      }
     }
   } catch {
-    // optional
+    // try again next gesture
   }
-
-  unlockListeners.forEach(fn => {
-    try { fn(); } catch { /* one bad listener must not stop the others */ }
-  });
+  if (c.state === 'running') markUnlocked();
 }
 
-/** Listens (once) for the first pointerdown or keydown and unlocks audio then. Safe to call many times. */
+/** Listens for gestures and unlocks audio on the first one that works. Safe to call many times. */
 export function installAudioUnlock(): void {
   if (installed || typeof window === 'undefined') return;
   installed = true;
-  window.addEventListener('pointerdown', unlock, true);
-  window.addEventListener('keydown', unlock, true);
+  GESTURES.forEach(type => window.addEventListener(type, onGesture, true));
 }
 
 /** Test helper: forget the context and unlock state. */
 export function resetAudioContextForTests(): void {
-  window.removeEventListener('pointerdown', unlock, true);
-  window.removeEventListener('keydown', unlock, true);
+  removeGestureListeners();
   ctx = null;
   triedCreate = false;
   installed = false;

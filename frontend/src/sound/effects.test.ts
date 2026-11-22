@@ -100,6 +100,13 @@ describe('effect player', () => {
     expect(ctx().sources[ctx().sources.length - 1].startedAt).toBeCloseTo(3.25);
   });
 
+  it('a throwing localStorage never reaches the caller', async () => {
+    await loadSoundGroup('battle');
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    expect(() => playSound('weapon.hit')).not.toThrow();
+    vi.restoreAllMocks();
+  });
+
   it('does nothing when Web Audio is unsupported', async () => {
     (window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
     resetAudioContextForTests();
