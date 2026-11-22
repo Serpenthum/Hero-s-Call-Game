@@ -2,8 +2,12 @@
 
 export class FakeAudioParam {
   value = 1;
-  setValueAtTime(v: number) { this.value = v; return this; }
-  linearRampToValueAtTime(v: number) { this.value = v; return this; }
+  /** Every scheduled change, so tests can check ramp targets and end times. */
+  events: { type: 'set' | 'ramp'; value: number; time: number }[] = [];
+  setValueAtTime(v: number, time = 0) { this.value = v; this.events.push({ type: 'set', value: v, time }); return this; }
+  linearRampToValueAtTime(v: number, time = 0) { this.value = v; this.events.push({ type: 'ramp', value: v, time }); return this; }
+  /** The last linear ramp scheduled, or undefined. */
+  get lastRamp() { return [...this.events].reverse().find(e => e.type === 'ramp'); }
   exponentialRampToValueAtTime(v: number) { this.value = v; return this; }
   cancelScheduledValues() { return this; }
 }
@@ -39,6 +43,52 @@ export class FakeOscillator extends FakeNode {
   stop() {}
 }
 
+export class FakeMediaElementSource extends FakeNode {
+  constructor(public mediaElement: unknown) { super(); }
+}
+
+/** A stand-in for HTMLAudioElement: play/pause, loop, volume, currentTime and an end() to fire 'ended'. */
+export class FakeAudioElement extends EventTarget {
+  static instances: FakeAudioElement[] = [];
+  /** When true, every element's play() rejects. */
+  static refuseAll = false;
+  src = '';
+  preload = '';
+  loop = false;
+  volume = 1;
+  currentTime = 0;
+  paused = true;
+  playCalls = 0;
+  attributes: Record<string, string> = {};
+  /** When true, play() rejects (a browser refusing playback outside a gesture). */
+  refusePlay = false;
+  constructor() { super(); FakeAudioElement.instances.push(this); }
+  setAttribute(name: string, value: string) { this.attributes[name] = value; }
+  play() {
+    this.playCalls++;
+    if (this.refusePlay || FakeAudioElement.refuseAll) return Promise.reject(new Error('NotAllowedError'));
+    this.paused = false;
+    return Promise.resolve();
+  }
+  pause() { this.paused = true; }
+  /** Simulate the track reaching its end (a looping element never ends). */
+  end() {
+    if (this.loop) { this.currentTime = 0; return; }
+    this.paused = true;
+    this.dispatchEvent(new Event('ended'));
+  }
+}
+
+/** Installs FakeAudioElement as window.Audio; returns an uninstall function. */
+export function installFakeAudioElement(): () => void {
+  const w = window as unknown as { Audio?: unknown };
+  const before = w.Audio;
+  FakeAudioElement.instances = [];
+  FakeAudioElement.refuseAll = false;
+  w.Audio = FakeAudioElement;
+  return () => { w.Audio = before; };
+}
+
 export class FakeAudioContext {
   static instances: FakeAudioContext[] = [];
   currentTime = 0;
@@ -54,6 +104,8 @@ export class FakeAudioContext {
   createBufferSource() { const s = new FakeBufferSource(); this.sources.push(s); return s; }
   createGain() { const g = new FakeGainNode(); this.gains.push(g); return g; }
   createOscillator() { return new FakeOscillator(); }
+  mediaSources: FakeMediaElementSource[] = [];
+  createMediaElementSource(el: unknown) { const m = new FakeMediaElementSource(el); this.mediaSources.push(m); return m; }
   decodeAudioData(data: ArrayBuffer) { return Promise.resolve({ duration: 1, data }); }
   /** Sources that have started and not stopped. */
   get active() { return this.sources.filter(s => s.startedAt !== null && !s.stopped); }
