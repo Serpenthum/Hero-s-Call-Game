@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+const sound = vi.hoisted(() => ({ playSound: vi.fn(), loadSoundGroup: vi.fn() }));
+vi.mock('../sound', () => sound);
 import BinderOpening, { LAND_MS, OPENING_MS } from './BinderOpening';
 import { cleanup, click, render, stubBrowserApis } from '../testing/dom';
 
@@ -76,5 +78,30 @@ describe('BinderOpening', () => {
     const root = render(<BinderOpening onOpened={onOpened} />);
     expect(onOpened).toHaveBeenCalledTimes(1);
     expect(root.innerHTML).toBe('');
+  });
+
+  describe('sound', () => {
+    const opens = () => sound.playSound.mock.calls.filter(c => c[0] === 'binder.open').length;
+    beforeEach(() => { sound.playSound.mockClear(); sound.loadSoundGroup.mockClear(); });
+
+    it('binder opening plays binder.open when it opens', () => {
+      const root = render(<BinderOpening onOpened={vi.fn()} />);
+      expect(sound.loadSoundGroup).toHaveBeenCalledWith('binder');
+      advance(LAND_MS - 1);
+      expect(opens()).toBe(0);
+      advance(1);
+      expect(opening(root)!.dataset.stage).toBe('opening');
+      expect(opens()).toBe(1);
+      click(opening(root));
+      advance(OPENING_MS * 3);
+      expect(opens()).toBe(1);
+    });
+
+    it('a skip tap while closed plays binder.open once', () => {
+      const root = render(<BinderOpening onOpened={vi.fn()} />);
+      click(opening(root));
+      advance(LAND_MS + OPENING_MS);
+      expect(opens()).toBe(1);
+    });
   });
 });

@@ -21,7 +21,7 @@ import MessageIcon from './components/MessageIcon';
 import config from './config';
 import { saveSession, restoreSession, clearSession } from './authSession';
 import { battleEventBus } from './battleAnimations';
-import { installAudioUnlock, loadSoundGroup, playSound, setMusicMode, soundForSpecial, startBattleSound } from './sound';
+import { installAudioUnlock, loadSoundGroup, onAudioUnlocked, playRewardSounds, playSound, setMusicMode, soundForSpecial, startBattleSound } from './sound';
 import { watchedPlayerLeft, spectatorReactionToLeaver } from './spectating';
 import { countdownFrom, deadlinesFromState, staleGameAfterLogin, DisconnectCountdown } from './reconnect';
 import { DisconnectNotice } from './components/DisconnectBadge';
@@ -1731,6 +1731,7 @@ function App() {
         // Level up from login with existing XP
         console.log(`🎉 LEVEL UP! You are now Level ${data.newLevel}! (+${data.vpGained} VP)`);
       }
+      playRewardSounds({ leveledUp: !!data.leveledUp });
     });
 
     socket.on('victory-points-update', (data) => {
@@ -1755,6 +1756,8 @@ function App() {
           victoryPoints: data.newVictoryPoints
         };
       });
+      // The coin plays here only: the other 'victory-points-update' listener above gets the same message
+      playRewardSounds({ coinsGained: data.victoryPointsGained ?? data.pointsAwarded });
     });
 
     // Skipping the tutorial still pays the rewards, but silently: no reward modal, just updated totals
@@ -2366,7 +2369,12 @@ function App() {
   useEffect(() => {
     installAudioUnlock();
     setMusicMode('none');
-    return startBattleSound();
+    const offMenuSounds = onAudioUnlocked(() => { void loadSoundGroup('menu'); });
+    const stopBattleSound = startBattleSound();
+    return () => {
+      offMenuSounds();
+      stopBattleSound();
+    };
   }, []);
 
   // Battle music from the roll to the result; menu music everywhere else (draft, lobby, survival, gauntlet).

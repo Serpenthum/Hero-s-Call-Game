@@ -2,6 +2,8 @@
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const sound = vi.hoisted(() => ({ playSound: vi.fn(), loadSoundGroup: vi.fn() }));
+vi.mock('../../sound', () => sound);
 vi.mock('../../config', () => ({ default: { IMAGE_BASE_URL: 'http://img.test', API_BASE_URL: '', SOCKET_URL: '' } }));
 
 import PackOpening from './PackOpening';
@@ -96,5 +98,38 @@ describe('PackOpening with animations on', () => {
 
     expect(turns.filter(name => name === 'Pirate')).toHaveLength(1);
     expect(turns).toHaveLength(4);
+  });
+
+  it('loads the pack sounds on mount, and the cut plays pack.tear once', () => {
+    sound.playSound.mockClear();
+    sound.loadSoundGroup.mockClear();
+    const root = render(
+      <CardReaderProvider>
+        <PackOpening result={fourCards} price={12} canBuyAnother buying={false} onBuyAnother={noop} onDone={noop} />
+      </CardReaderProvider>
+    );
+    expect(sound.loadSoundGroup).toHaveBeenCalledWith('pack');
+    click(root.querySelector('.pack-opening__pack'));
+    expect(sound.playSound).not.toHaveBeenCalledWith('pack.tear');
+    advance(3000);
+    expect(sound.playSound.mock.calls.filter(c => c[0] === 'pack.tear')).toHaveLength(1);
+  });
+
+  it('tapping the holo card plays pack.holo once, when it turns', () => {
+    const root = openPack([]);
+    sound.playSound.mockClear();
+    click(cards(root)[3]);
+    expect(sound.playSound).not.toHaveBeenCalledWith('pack.holo');
+    act(() => { vi.runAllTimers(); });
+    expect(sound.playSound.mock.calls.filter(c => c[0] === 'pack.holo')).toHaveLength(1);
+    expect(cards(root)[3].dataset.turned).toBe('true');
+  });
+
+  it('a plain card plays no holo sound', () => {
+    const root = openPack([]);
+    sound.playSound.mockClear();
+    click(cards(root)[0]);
+    act(() => { vi.runAllTimers(); });
+    expect(sound.playSound).not.toHaveBeenCalledWith('pack.holo');
   });
 });

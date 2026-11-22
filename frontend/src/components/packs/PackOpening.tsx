@@ -4,6 +4,7 @@ import Coin from '../Coin';
 import { useCardReader } from '../../cards/CardReader';
 import { cardMotionOff } from '../../cards/cardMotion';
 import { getHoloEffects } from '../../holoSetting';
+import { loadSoundGroup, playSound } from '../../sound';
 import useCardGrid from '../../hooks/useCardGrid';
 import { isHoloCard, isHoloKind, PackCard, PackResult } from './packTypes';
 import CardBack from './CardBack';
@@ -96,9 +97,12 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
     revealed.current.clear();
     spotBusy.current = false;
   };
-  useEffect(() => () => {
-    clearTimers();
-    clearFx();
+  useEffect(() => {
+    void loadSoundGroup('pack');
+    return () => {
+      clearTimers();
+      clearFx();
+    };
   }, []);
 
   // A new pack (Buy another) starts again at the closed pack.
@@ -151,13 +155,17 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
   const openPack = () => {
     if (stage !== 'pack') return;
     if (still) {
+      playSound('pack.tear'); // reduced motion still hears the pack open
       setStage('cards');
       return;
     }
     setStage('opening');
     setPackLeaving(true);
     timers.current.push(window.setTimeout(() => setStage('cards'), OPENING_MS));
-    later(() => sparks(packEl.current, packTone, 26, 0.5, 0.2), CUT_SPARKS_MS);
+    later(() => {
+      playSound('pack.tear');
+      sparks(packEl.current, packTone, 26, 0.5, 0.2);
+    }, CUT_SPARKS_MS);
     later(() => {
       jolt();
       sparks(packEl.current, packTone, 40, 0.85, 0.25);
@@ -194,6 +202,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
     });
     later(() => {
       turn(index);
+      playSound('pack.holo');
       showBanner(index);
       later(() => {
         jolt();
@@ -213,7 +222,10 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
     const holo = isHoloKind(cards[index].kind);
     if (still) {
       turn(index);
-      if (holo) showBanner(index);
+      if (holo) {
+        playSound('pack.holo');
+        showBanner(index);
+      }
       return;
     }
     if (!holo) {
