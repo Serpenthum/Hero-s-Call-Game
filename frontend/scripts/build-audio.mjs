@@ -1,7 +1,7 @@
 // Builds the game's sound and music files from the raw downloads in Game/audio-source/.
 // Run by hand: `npm run build:audio` (needs ffmpeg; set FFMPEG to override the path).
 // Writes public/audio/sfx/*.mp3, public/audio/music/*.m4a, public/audio/CREDITS.md and src/sound/manifest.ts.
-// Pass --measure to only print the momentary-max loudness of the shipped effects.
+// Pass --measure to only print the loudness of the shipped files.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -15,7 +15,11 @@ const MANIFEST = join(FRONTEND, 'src/sound/manifest.ts');
 const FFMPEG = process.env.FFMPEG
   ?? 'C:/Users/David/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.1-full_build/bin/ffmpeg.exe';
 
-const TARGET = { hit: -14, menu: -14, crit: -11.5 }; // LUFS, momentary max
+const TARGET = { hit: -20, menu: -20, crit: -17.5 }; // LUFS, momentary max (in-game volume can be raised in code)
+const LIMIT = 0.95; // effects peak safety
+const LIMIT_DB = 20 * Math.log10(LIMIT);
+const MUSIC_I = -20; // LUFS integrated
+const MUSIC_LIMIT = 0.89; // about -1 dBFS
 const MAX_SECONDS = 2.0;
 const FADE_SECONDS = 0.3;
 
@@ -44,6 +48,12 @@ function momentaryMax(path) {
   return max;
 }
 
+/** Sample peak in dBFS. */
+function samplePeak(path) {
+  const log = ffmpeg(['-i', path, '-af', 'volumedetect', '-f', 'null', '-']);
+  return parseFloat(log.match(/max_volume:\s*(-?[\d.]+) dB/)[1]);
+}
+
 function buildEffect(pick, tmp) {
   const sources = (pick.join ?? [pick.source]).map((s) => join(AUDIO_SOURCE, s));
   const inputs = sources.flatMap((s) => ['-i', s]);
@@ -64,34 +74,26 @@ function buildEffect(pick, tmp) {
   const shaped = join(tmp, 'shaped.wav');
   ffmpeg(['-i', trimmed, '-af', `${cut}anull`, shaped]);
 
-  // The limiter takes some loudness off peaky sounds that need a lot of gain, so measure after limiting and
-  // nudge the gain until the result is on target (a few passes is enough).
-  const target = TARGET[pick.kind];
-  const limited = join(tmp, 'limited.wav');
-  const limit = (g) => {
-    ffmpeg(['-i', shaped, '-af', `volume=${g.toFixed(2)}dB,alimiter=limit=0.95:level=disabled`, limited]);
-    return momentaryMax(limited);
-  };
-  let gain = target - momentaryMax(shaped);
-  let loudness = limit(gain);
-  for (let pass = 0; pass < 6 && Math.abs(loudness - target) > 0.2; pass++) {
-    gain += target - loudness;
-    loudness = limit(gain);
-  }
-  ffmpeg(['-i', limited, '-ac', '1', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '96k', join(OUT, fileFor(pick.id))]);
-  return { gain, loudness, length: Math.min(length, maxSeconds) };
+  // One fixed gain to the target; the limiter is only a peak safety. Its peak reduction is reported per file.
+  const gain = TARGET[pick.kind] - momentaryMax(shaped);
+  const limiting = Math.max(0, samplePeak(shaped) + gain - LIMIT_DB);
+  ffmpeg(['-i', shaped, '-af', `volume=${gain.toFixed(2)}dB,alimiter=limit=${LIMIT}:attack=1:release=10:level=disabled`,
+    '-ac', '1', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '96k', join(OUT, fileFor(pick.id))]);
+  return { gain, limiting, length: Math.min(length, maxSeconds) };
 }
 
+// Music: measure, then one fixed (linear) gain to -20 LUFS integrated, so dynamic tracks are not pumped the way
+// loudnorm's dynamic mode would. A limiter at about -1 dBFS is only a peak safety; its reduction is reported.
 function buildMusic(pick) {
   const src = join(AUDIO_SOURCE, pick.source);
   const pre = pick.filter ? `${pick.filter},` : '';
-  const first = ffmpeg(['-i', src, '-af', `${pre}loudnorm=I=-20:TP=-2:LRA=11:print_format=json`, '-f', 'null', '-']);
-  const m = JSON.parse(first.slice(first.lastIndexOf('{'), first.lastIndexOf('}') + 1));
-  const second = `${pre}loudnorm=I=-20:TP=-2:LRA=11:measured_I=${m.input_i}:measured_TP=${m.input_tp}`
-    + `:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`;
-  ffmpeg(['-i', src, '-af', second, '-ar', '44100', '-ac', '2', '-c:a', 'aac', '-b:a', '128k',
-    '-movflags', '+faststart', join(OUT, pick.file)]);
-  return m;
+  const log = ffmpeg(['-i', src, '-af', `${pre}loudnorm=I=${MUSIC_I}:TP=-1:LRA=20:print_format=json`, '-f', 'null', '-']);
+  const m = JSON.parse(log.slice(log.lastIndexOf('{'), log.lastIndexOf('}') + 1));
+  const gain = MUSIC_I - parseFloat(m.input_i);
+  const limiting = Math.max(0, parseFloat(m.input_tp) + gain - 20 * Math.log10(MUSIC_LIMIT));
+  ffmpeg(['-i', src, '-af', `${pre}volume=${gain.toFixed(2)}dB,alimiter=limit=${MUSIC_LIMIT}:level=disabled`,
+    '-ar', '44100', '-ac', '2', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', join(OUT, pick.file)]);
+  return { input: m.input_i, gain, limiting };
 }
 
 function writeManifest() {
@@ -170,6 +172,11 @@ function measure() {
     console.log(`${kind}: min ${lo[1].toFixed(2)} (${lo[0]}), max ${hi[1].toFixed(2)} (${hi[0]}), n=${list.length}`);
     for (const [id, v] of list) if (Math.abs(v - (kind === 'crit' ? TARGET.crit : TARGET.hit)) > 1) console.log(`  out of range: ${id} ${v.toFixed(2)}`);
   }
+  for (const m of MUSIC_PICKS) {
+    const log = ffmpeg(['-i', join(OUT, m.file), '-af', 'ebur128', '-f', 'null', '-']);
+    const integrated = log.slice(log.lastIndexOf('Summary')).match(/I:\s*(-?[\d.]+) LUFS/)[1];
+    console.log(`${m.file}: integrated ${integrated} LUFS`);
+  }
   console.log(`total public/audio: ${(sizeOf(OUT) / 1024 / 1024).toFixed(2)} MB`);
 }
 
@@ -185,12 +192,12 @@ function main() {
   mkdirSync(tmp, { recursive: true });
   try {
     for (const pick of PICKS) {
-      const { gain, loudness, length } = buildEffect(pick, tmp);
-      console.log(`${pick.id.padEnd(16)} ${length.toFixed(2)}s gain ${gain >= 0 ? '+' : ''}${gain.toFixed(1)} dB -> ${loudness.toFixed(1)} LUFS`);
+      const { gain, limiting, length } = buildEffect(pick, tmp);
+      console.log(`${pick.id.padEnd(16)} ${length.toFixed(2)}s gain ${gain >= 0 ? '+' : ''}${gain.toFixed(1)} dB, limiter peak reduction ${limiting.toFixed(1)} dB${limiting > 3 ? '  (over 3 dB)' : ''}`);
     }
     for (const pick of MUSIC_PICKS) {
       const m = buildMusic(pick);
-      console.log(`${pick.file.padEnd(22)} input ${m.input_i} LUFS -> -20`);
+      console.log(`${pick.file.padEnd(22)} input ${m.input} LUFS, gain ${m.gain.toFixed(1)} dB, limiter peak reduction ${m.limiting.toFixed(1)} dB`);
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
