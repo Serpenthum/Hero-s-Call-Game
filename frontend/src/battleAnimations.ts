@@ -22,12 +22,34 @@ export interface BattleEvent {
   kind: 'attack' | 'ability' | 'tick';
   cast: CastType | null;
   variant?: 'beast_attack' | null;
-  actor: { playerId: string; heroIndex: number; key: string } | null;
+  actor: { playerId: string; heroIndex: number; key: string; name?: string } | null;
   hit: boolean;
   crit: boolean;
   targetName: string | null;
   targetKey?: string | null;
   targets: BattleEventTarget[];
+  // Sound notes from the server (all optional: older servers send none of them).
+  abilityName?: string | null;
+  commands?: BattleEventCommand[];
+  triggers?: BattleEventTrigger[];
+  turretKeys?: string[];
+}
+
+// A hero made to act by another hero's ability (Declare War, Chrono Shift), in order.
+export interface BattleEventCommand {
+  key: string;
+  name: string;
+  kind: 'attack' | 'ability';
+  abilityName?: string;
+  hit: boolean;
+  crit: boolean;
+}
+
+// A special that fired as a side effect of the event (Bomber's Explosion, Angel's Resurrect, Twin Spell).
+export interface BattleEventTrigger {
+  key: string;
+  name: string;
+  special: string;
 }
 
 type Listener = (event: BattleEvent) => void;
