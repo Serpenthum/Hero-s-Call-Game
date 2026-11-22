@@ -21,6 +21,7 @@ import MessageIcon from './components/MessageIcon';
 import config from './config';
 import { saveSession, restoreSession, clearSession } from './authSession';
 import { battleEventBus } from './battleAnimations';
+import { installAudioUnlock, loadSoundGroup, playSound, setMusicMode, soundForSpecial, startBattleSound } from './sound';
 import { watchedPlayerLeft, spectatorReactionToLeaver } from './spectating';
 import { countdownFrom, deadlinesFromState, staleGameAfterLogin, DisconnectCountdown } from './reconnect';
 import { DisconnectNotice } from './components/DisconnectBadge';
@@ -889,6 +890,8 @@ function App() {
     });
 
     socket.on('special-activated', (data) => {
+      const heroName = data.results[0]?.source;
+      if (heroName) playSound(soundForSpecial(heroName));
       setState(prev => {
         const newLogEntries: BattleLogEntry[] = [];
         
@@ -2357,6 +2360,20 @@ function App() {
     // A reveal still up when the battle begins (the roll winner chose at once) stays to bring its cards home
     setRevealing(was => revealOnPhase(was, play, prevPhase, gamePhase));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gamePhase]);
+
+  // Sound: unlock audio on the first tap, battle cues from the event bus, music idle until the phase picks it.
+  useEffect(() => {
+    installAudioUnlock();
+    setMusicMode('none');
+    return startBattleSound();
+  }, []);
+
+  // Battle music from the roll to the result; menu music everywhere else (draft, lobby, survival, gauntlet).
+  useEffect(() => {
+    const inBattle = gamePhase === 'initiative' || gamePhase === 'battle' || gamePhase === 'ended';
+    setMusicMode(inBattle ? 'battle' : 'menu');
+    if (inBattle) void loadSoundGroup('battle');
   }, [gamePhase]);
 
   // A Chrono Shift ability pick belongs to the turn it was offered in; drop it when the turn passes

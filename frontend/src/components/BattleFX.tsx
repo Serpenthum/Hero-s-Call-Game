@@ -220,7 +220,6 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
     // Beast Tamer's command attack plays like a basic attack lunge toward the target.
     if (ev.kind === 'attack' || ev.variant === 'beast_attack') {
       impactDelay = (ev.kind === 'attack' ? 160 : 200) * f;
-      sfx.swing();
       if (actorEl && primaryEl && actorEl !== primaryEl) {
         const a = center(actorEl);
         const b = center(primaryEl);
@@ -248,7 +247,6 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
       impactDelay = 80 * f;
     } else {
       impactDelay = 300 * f;
-      if (cast === 'heal') sfx.heal(); else sfx.cast();
       if (actorEl) {
         glow(actorEl, hexToRgb(color), f);
         const { x, y } = center(actorEl);
@@ -266,7 +264,6 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
       const sparkCount = ev.crit ? 24 : 12;
 
       if (ev.kind !== 'tick' && !ev.hit && primaryEl) {
-        sfx.miss();
         const { x, y } = center(primaryEl);
         // Target sidesteps and briefly ghosts out of the way.
         primaryEl.animate(
@@ -334,7 +331,6 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
       }
 
       if (anyDamage) {
-        sfx.hit(ev.crit);
         if (ev.crit) {
           // Shake .game-board, not .battle-layout: a transform on the layout would drag the fixed action bar with it.
           // Offsets stay negative so the scrollable overflow never grows (no scrollbar flash).

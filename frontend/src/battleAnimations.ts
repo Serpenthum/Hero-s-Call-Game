@@ -160,7 +160,6 @@ export function startClockSound(durationSec: number): () => void {
 }
 export const sfx = {
   chatter: () => tone(140 + Math.random() * 90, 0.045, 'square', 0.035),
-  swing: () => tone(320, 0.14, 'sawtooth', 0.06, 120),
   hit: (crit: boolean) => tone(crit ? 140 : 110, crit ? 0.28 : 0.18, 'square', crit ? 0.12 : 0.08, 40, 0.1),
   miss: () => tone(500, 0.16, 'sine', 0.04, 250, 0.1),
   cast: () => tone(300, 0.3, 'triangle', 0.06, 700),
