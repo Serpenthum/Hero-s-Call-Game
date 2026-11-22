@@ -1,43 +1,52 @@
-// The binder's opening: a closed leather binder lands on the table and waits for a tap, then its cover swings open
-// and it grows to lie exactly over the real book underneath, and fades away.
-import React, { useEffect, useRef, useState } from 'react';
+// The binder's opening: a closed leather binder lands on the table, then its cover swings open by itself and it
+// grows to lie exactly over the real book underneath, and fades away. A tap (or Enter/Space) skips straight to the book.
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { cardMotionOff } from '../cards/cardMotion';
 
 interface BinderOpeningProps {
   onOpened: () => void; // The real book is showing
 }
 
-// From the tap to the real book showing. Binder.css times the swing, the light and the fade inside this.
+// The binder drops and settles (Binder.css: the fall takes 0.85s) before its cover opens by itself.
+export const LAND_MS = 1100;
+// From the cover starting to open to the real book showing. Binder.css times the swing, the light and the fade inside this.
 export const OPENING_MS = 1500;
 
 const BinderOpening: React.FC<BinderOpeningProps> = ({ onOpened }) => {
   const [still] = useState(cardMotionOff);
   const [stage, setStage] = useState<'closed' | 'opening'>('closed');
-  // Parent re-renders must not restart the timer
+  // Parent re-renders must not restart the timers
   const onOpenedRef = useRef(onOpened);
   onOpenedRef.current = onOpened;
+  // onOpened runs once, whether the opening ends by itself or a tap skips it
+  const doneRef = useRef(false);
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    onOpenedRef.current();
+  }, []);
 
   useEffect(() => {
     if (still) {
-      onOpenedRef.current();
+      finish();
       return;
     }
-    if (stage !== 'opening') return;
-    const timer = window.setTimeout(() => onOpenedRef.current(), OPENING_MS);
+    const timer = stage === 'closed'
+      ? window.setTimeout(() => setStage('opening'), LAND_MS)
+      : window.setTimeout(finish, OPENING_MS);
     return () => window.clearTimeout(timer);
-  }, [still, stage]);
+  }, [still, stage, finish]);
 
-  // Keyboard players open it with Enter or Space
+  // Keyboard players skip it with Enter or Space
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => { rootRef.current?.focus({ preventScroll: true }); }, []);
 
   if (still) return null;
 
-  const open = () => setStage('opening');
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault();
-    open();
+    finish();
   };
 
   return (
@@ -47,8 +56,9 @@ const BinderOpening: React.FC<BinderOpeningProps> = ({ onOpened }) => {
       data-stage={stage}
       style={{ '--open-ms': `${OPENING_MS}ms` } as React.CSSProperties}
       role="button"
+      aria-label="Open the binder now"
       tabIndex={0}
-      onClick={open}
+      onClick={finish}
       onKeyDown={onKeyDown}
     >
       <div className="binder-opening-stage">
@@ -77,7 +87,6 @@ const BinderOpening: React.FC<BinderOpeningProps> = ({ onOpened }) => {
           </div>
         </div>
       </div>
-      <p className="binder-opening-tap">Tap the binder to open it</p>
     </div>
   );
 };

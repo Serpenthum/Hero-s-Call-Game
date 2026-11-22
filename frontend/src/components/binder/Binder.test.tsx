@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroCollection from '../HeroCollection';
-import { OPENING_MS } from '../BinderOpening';
+import { LAND_MS, OPENING_MS } from '../BinderOpening';
 import type { BinderHero } from './binderRules';
 import { buttonByText, cleanup, click, render, settle, stubBrowserApis } from '../../testing/dom';
 import config from '../../config';
@@ -277,9 +277,9 @@ describe('the binder', () => {
     }
   });
 
-  // jsdom does no hit-testing, so this checks the opening's own stylesheet: while it opens, the overlay keeps
-  // catching taps (a second tap must not reach a hidden pocket or arrow under it), and a tap on it does nothing.
-  it('a second tap during the opening is caught by the overlay, not the book underneath', async () => {
+  // jsdom does no hit-testing, so this checks the opening's own stylesheet: while it opens by itself, the overlay
+  // keeps catching taps (a tap must not reach a hidden pocket or arrow under it), and a tap on it skips to the book.
+  it('a tap during the opening is caught by the overlay and skips to the book', async () => {
     stubFetch();
     const style = document.head.appendChild(document.createElement('style'));
     style.textContent = openingCss;
@@ -287,16 +287,15 @@ describe('the binder', () => {
     try {
       const root = await openBinder();
       const opening = () => root.querySelector('.binder-opening') as HTMLElement;
-      click(opening());
+      act(() => { vi.advanceTimersByTime(LAND_MS); });
       let elapsed = 0;
       for (const at of [1, OPENING_MS / 2, OPENING_MS - 1]) {
         act(() => { vi.advanceTimersByTime(at - elapsed); });
         elapsed = at;
         expect(opening().dataset.stage).toBe('opening');
         expect(getComputedStyle(opening()).pointerEvents).not.toBe('none');
-        click(opening());
       }
-      act(() => { vi.advanceTimersByTime(OPENING_MS); });
+      click(opening());
       expect(root.querySelector('.binder-opening')).toBeNull();
       expect(root.querySelector('.binder-large')).toBeNull();
       expect(status(root)).toBe('Page 1 of 3 · 10 of 30 heroes · 2 holographic');
@@ -306,17 +305,18 @@ describe('the binder', () => {
     }
   });
 
-  it('the lit pocket stays lit until the binder has been opened, then goes out', async () => {
+  it('the lit pocket stays lit until the binder has opened by itself, then goes out', async () => {
     stubFetch();
     vi.useFakeTimers();
     try {
       const root = await openBinder({ initialHero: 'H20' });
       const lit = () => /binder-pocket--spotlight/.test(pocket(root, 'H20')!.className);
-      act(() => { vi.advanceTimersByTime(10000); });
+      act(() => { vi.advanceTimersByTime(LAND_MS); }); // the cover starts to open by itself
+      expect(lit()).toBe(true);
+      act(() => { vi.advanceTimersByTime(OPENING_MS - 1); });
       expect(root.querySelector('.binder-opening')).not.toBeNull();
       expect(lit()).toBe(true);
-      click(root.querySelector('.binder-opening'));
-      act(() => { vi.advanceTimersByTime(OPENING_MS); });
+      act(() => { vi.advanceTimersByTime(1); });
       expect(root.querySelector('.binder-opening')).toBeNull();
       expect(lit()).toBe(true);
       act(() => { vi.advanceTimersByTime(1599); });

@@ -142,6 +142,12 @@
   outline: 0; /* its border brightens instead */
 }
 
+/* The site-wide button:hover lift (index.css) would nudge these; binder controls stay put and only brighten */
+.binder button:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .binder :is(button, [role='button']):focus-visible {
   outline: var(--focus-outline);
   outline-offset: 2px;
@@ -717,8 +723,9 @@
   height: auto;
 }
 
-.binder-arrow:hover {
+.binder .binder-arrow:hover {
   border-color: var(--brass-hi);
+  transform: translateY(-50%); /* keep it centred; the arrow is placed with this transform */
 }
 
 .binder-arrow--prev { left: var(--arx); }
