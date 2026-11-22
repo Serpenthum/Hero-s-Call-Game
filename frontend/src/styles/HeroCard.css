@@ -663,11 +663,16 @@
   }
 }
 
-/* Tiny cards have no rules text under the foil, so the sheen can be stronger still. */
+/* Tiny cards have no rules text under the foil, so the sheen can be stronger still.
+   The tiny prop (.card-tiny) gets the same at any width: keep this rule and the one below in step. */
 @container (max-width: 129px) {
   .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-sheen {
     --foil-sheen: 31%;
   }
+}
+
+.hero-card.card-tiny.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-sheen {
+  --foil-sheen: 31%;
 }
 
 @keyframes card-foil-shimmer {
@@ -871,7 +876,9 @@
   pointer-events: none;
 }
 
-/* ---- Tiny mode: no rules text, bigger name and stats. Tap (or press) opens the large view. ---- */
+/* ---- Tiny mode: no rules text, bigger name and stats. Tap (or press) opens the large view. ----
+   A card is tiny at 129px and below, or at any width with the tiny prop (.card-tiny, the binder's pocket cards).
+   The @container block and the .card-tiny block after it must stay in step. */
 @container (max-width: 129px) {
   .hero-card .card-details,
   .hero-card .card-rule {
@@ -907,6 +914,41 @@
   .hero-card .companions {
     top: 0.2em;
   }
+}
+
+.hero-card.card-tiny .card-details,
+.hero-card.card-tiny .card-rule {
+  display: none;
+}
+
+.hero-card.card-tiny .card-hero-name {
+  font-size: 2.625em;
+}
+
+.hero-card.card-tiny .card-stats {
+  font-size: calc(1.5em * var(--gem-scale));
+}
+
+.hero-card.card-tiny .card-lower {
+  padding: 2em 0.7em 0.6em;
+}
+
+.hero-card.card-tiny .card-fav-star {
+  width: 3em;
+  height: 3em;
+}
+
+.hero-card.card-tiny .card-fav-star + .card-status {
+  top: 3.8em;
+}
+
+.hero-card.card-tiny .status-effect,
+.hero-card.card-tiny .companion {
+  font-size: 1.45em;
+}
+
+.hero-card.card-tiny .companions {
+  top: 0.2em;
 }
 
 /* ---- Card sizes per screen ---- */
