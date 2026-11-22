@@ -872,6 +872,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   };
 
   useLayoutEffect(() => {
+    // A tiny card shows no rules text, so there is nothing to fit (and the fitting's forced layouts add up when
+    // a binder page mounts twelve of them)
+    if (tiny) return;
     const card = cardRef.current;
     const lower = lowerRef.current;
     if (!card || !lower) return;
@@ -915,7 +918,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
     const observer = new ResizeObserver(fitText);
     observer.observe(card);
     return () => observer.disconnect();
-  }, [hero.Ability, hero.Special, hero.name, minTextPx]);
+  }, [hero.Ability, hero.Special, hero.name, minTextPx, tiny]);
 
   const renderCardDetails = () => (
     <div className="card-details">

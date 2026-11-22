@@ -21,4 +21,19 @@ describe('HeroCard tiny', () => {
     const full = render(<HeroCard hero={monk} readable="none" disableHPAnimations />);
     expect(full.querySelector('.hero-card')?.classList.contains('card-tiny')).toBe(false);
   });
+
+  // Rules-text fitting does style writes and forced layouts; a tiny card shows no rules text, so it skips them.
+  // jsdom has no layout, so give every element a height to let the fitting run.
+  it('tiny skips rules-text fitting; a full card still fits its text', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
+    try {
+      const tiny = render(<HeroCard hero={monk} tiny readable="none" disableHPAnimations />);
+      expect((tiny.querySelector('.hero-card') as HTMLElement).style.getPropertyValue('--card-text-size')).toBe('');
+
+      const full = render(<HeroCard hero={monk} readable="none" disableHPAnimations />);
+      expect((full.querySelector('.hero-card') as HTMLElement).style.getPropertyValue('--card-text-size')).not.toBe('');
+    } finally {
+      height.mockRestore();
+    }
+  });
 });
