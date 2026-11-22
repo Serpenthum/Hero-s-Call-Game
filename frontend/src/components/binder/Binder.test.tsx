@@ -70,6 +70,26 @@ function pressEscape() {
   act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
 }
 
+// Taps an arrow and sees the turn through: the leaf is laid on still, moves two frames later, and lands when its
+// front face's animation ends. No card is made or dropped while it moves.
+async function turnPage(root: ParentNode, arrow: '.binder-arrow--next' | '.binder-arrow--prev') {
+  click(root.querySelector(arrow));
+  expect(root.querySelector('.binder-book')!.className).toMatch(/binder-book--leafed/);
+  expect(root.querySelector('.binder-book')!.className).not.toMatch(/binder-book--turning/);
+  expect(root.querySelectorAll('.binder-leaf--front, .binder-leaf--back')).toHaveLength(2);
+  await act(async () => {
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  });
+  expect(root.querySelector('.binder-book')!.className).toMatch(/binder-book--turning/);
+  const cards = Array.from(root.querySelectorAll('.binder-card'));
+  act(() => { root.querySelector('.binder-leaf--front')!.dispatchEvent(new Event('animationend', { bubbles: true })); });
+  expect(root.querySelector('.binder-leaf, .binder-cast, .binder-shade')).toBeNull();
+  expect(root.querySelector('.binder-book')!.className).toBe('binder-book');
+  // The cards now showing are the very elements that were on the leaf's back and under its front
+  Array.from(root.querySelectorAll('.binder-card')).forEach(card => expect(cards).toContain(card));
+}
+
 const pocket = (root: ParentNode, name: string) => root.querySelector(`.binder-pocket[aria-label="${name}"]`) as HTMLElement | null;
 
 describe('the binder', () => {
@@ -107,7 +127,7 @@ describe('the binder', () => {
   it('the filter panel changes the filter, sort and search, and resets to spread 0', async () => {
     stubFetch();
     const root = await openBinder();
-    click(root.querySelector('.binder-arrow--next'));
+    await turnPage(root, '.binder-arrow--next');
     expect(status(root)).toMatch(/^Page 2 of 3/);
 
     const btn = root.querySelector('.binder-filter-btn')!;
@@ -129,7 +149,7 @@ describe('the binder', () => {
 
     click(buttonByText(panel(root)!, 'All'));
     click(buttonByText(panel(root)!, 'Name'));
-    click(root.querySelector('.binder-arrow--next'));
+    await turnPage(root, '.binder-arrow--next');
     expect(status(root)).toMatch(/^Page 2 of 3/);
     type(panel(root)!.querySelector('input[type=search]') as HTMLInputElement, 'H2');
     expect(pocketNames(root)).toEqual(['H20', 'H21', 'H22', 'H23', 'H24', 'H25', 'H26', 'H27', 'H28', 'H29']);
@@ -157,12 +177,12 @@ describe('the binder', () => {
   it('the next arrow shows spread 2; prev from spread 1 wraps to the last', async () => {
     stubFetch();
     const root = await openBinder();
-    click(root.querySelector('.binder-arrow--next'));
+    await turnPage(root, '.binder-arrow--next');
     expect(status(root)).toMatch(/^Page 2 of 3/);
     expect(pocketNames(root)).toEqual(NAMES.slice(12, 24));
-    click(root.querySelector('.binder-arrow--prev'));
+    await turnPage(root, '.binder-arrow--prev');
     expect(status(root)).toMatch(/^Page 1 of 3/);
-    click(root.querySelector('.binder-arrow--prev'));
+    await turnPage(root, '.binder-arrow--prev');
     expect(status(root)).toMatch(/^Page 3 of 3/);
     expect(pocketNames(root)).toEqual(NAMES.slice(24));
     expect(root.querySelectorAll('.binder-pocket--empty')).toHaveLength(6);

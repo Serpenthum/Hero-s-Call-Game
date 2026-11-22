@@ -375,6 +375,16 @@
     0 10px 26px color-mix(in srgb, var(--card-black) 60%, transparent);
 }
 
+/* Half the book: the page lying there and, during a turn, a face of the leaf and its shadow, all on one spot. */
+.binder-slot {
+  display: grid;
+  min-width: 0;
+}
+
+.binder-slot > * {
+  grid-area: 1 / 1;
+}
+
 /* A page. Its own layer stack, so a padlock or a lifted card never shows through anything laid over the page. */
 .binder-side {
   position: relative;
@@ -436,6 +446,143 @@
   border-radius: 8px;
   background: linear-gradient(90deg, var(--brass-dim), var(--pack-spark) 45%, color-mix(in srgb, var(--brass) 50%, var(--brass-dim)));
   box-shadow: 0 2px 4px var(--card-black);
+}
+
+/* ---- The page turn ----
+   The leaf is two pages hinged on the spine: the front is the page being turned away, the back is the page it
+   lands as, and each hides when it faces away. The back lies where it will land from the start, so landing is
+   only the leaf classes coming off. Only transform and opacity move. --turn-ms comes from TURN_MS. */
+.binder-leaf {
+  z-index: 5; /* over the pages and the cast shadows, under the rings */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.binder-slot--left > .binder-leaf {
+  --leaf-over: 180deg;
+  transform-origin: right center;
+}
+
+.binder-slot--right > .binder-leaf {
+  --leaf-over: -180deg;
+  transform-origin: left center;
+}
+
+.binder-leaf--front {
+  transform: perspective(2200px) rotateY(0deg);
+}
+
+.binder-leaf--back {
+  transform: perspective(2200px) rotateY(var(--leaf-over));
+}
+
+.binder-book--turning .binder-leaf--front {
+  animation: binder-leaf-away var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+.binder-book--turning .binder-leaf--back {
+  animation: binder-leaf-land var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+@keyframes binder-leaf-away {
+  from { transform: perspective(2200px) rotateY(0deg); }
+  to { transform: perspective(2200px) rotateY(var(--leaf-over)); }
+}
+
+@keyframes binder-leaf-land {
+  from { transform: perspective(2200px) rotateY(var(--leaf-over)); }
+  to { transform: perspective(2200px) rotateY(0deg); }
+}
+
+/* The paper darkens as it lifts away from the light, most at the spine: half dark when the leaf stands on edge.
+   Each face only shows for its half of the turn, so each shade runs one way. */
+.binder-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  border-radius: inherit;
+  opacity: 0;
+  will-change: opacity;
+  pointer-events: none;
+}
+
+.binder-slot--right .binder-shade {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--card-black) 85%, transparent), color-mix(in srgb, var(--card-black) 35%, transparent));
+}
+
+.binder-slot--left .binder-shade {
+  background: linear-gradient(270deg, color-mix(in srgb, var(--card-black) 85%, transparent), color-mix(in srgb, var(--card-black) 35%, transparent));
+}
+
+.binder-book--turning .binder-leaf--front .binder-shade {
+  animation: binder-shade-on var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+.binder-book--turning .binder-leaf--back .binder-shade {
+  animation: binder-shade-off var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+@keyframes binder-shade-on {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes binder-shade-off {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* The shadow the leaf throws on the pages underneath: it lifts off the page being uncovered and falls on the
+   page the leaf lands on. */
+.binder-cast {
+  z-index: 4;
+  opacity: 0;
+  will-change: opacity;
+  pointer-events: none;
+}
+
+.binder-slot--left .binder-cast {
+  border-radius: 9px 0 0 9px;
+  background: linear-gradient(270deg, color-mix(in srgb, var(--card-black) 80%, transparent), color-mix(in srgb, var(--card-black) 15%, transparent) 85%);
+}
+
+.binder-slot--right .binder-cast {
+  border-radius: 0 9px 9px 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--card-black) 80%, transparent), color-mix(in srgb, var(--card-black) 15%, transparent) 85%);
+}
+
+.binder-book--turning .binder-cast--lift {
+  animation: binder-cast-off var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+.binder-book--turning .binder-cast--fall {
+  animation: binder-cast-on var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+@keyframes binder-cast-on {
+  from { opacity: 0; }
+  to { opacity: 0.6; }
+}
+
+@keyframes binder-cast-off {
+  from { opacity: 0.6; }
+  to { opacity: 0; }
+}
+
+/* While a page turns nothing else moves: the foil holds still, and the cards ignore the pointer from the moment
+   the leaf is laid on, so none lifts or settles under it. */
+.binder-book--turning :is(.card-sheen, .card-spark, .card-foil, .card-glint) {
+  animation-play-state: paused;
+}
+
+.binder-book--leafed .binder-pocket {
+  pointer-events: none;
+}
+
+.binder-book--leafed .binder-card.hero-card.hero-layout-card {
+  transition: none;
 }
 
 /* ---- Pockets and their cards ---- */
