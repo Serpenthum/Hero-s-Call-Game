@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   type BinderHero, type BinderFilter, type BinderSort, type Collection, DEFAULT_VIEW, matchesFilter, binderList,
   spreadCount, spreadPages, clampSpread, spreadOfHero, filterForHero, isFiltered, buttonLabel, statusLine,
-  turnLayout, turnTarget, queueTurn,
+  turnLayout, turnTarget, queueTurn, SORT_LABELS,
 } from './binderRules';
 
 const hero = (name: string, HP: number, Defense: number, Accuracy: string, BasicAttack: string, disabled = false): BinderHero =>
@@ -113,6 +113,11 @@ describe('labels', () => {
   it('buttonLabel', () => {
     expect(buttonLabel(DEFAULT_VIEW)).toBe('All · by name');
     expect(buttonLabel({ filter: 'not-owned', sort: 'hp', query: '' })).toBe('Not owned · by HP');
+    expect(buttonLabel({ filter: 'owned', sort: 'defense', query: '' })).toBe('Owned · by defense');
+    expect(buttonLabel({ filter: 'holo', sort: 'attack', query: '' })).toBe('Holographic · by attack');
+  });
+  it('SORT_LABELS', () => {
+    expect(SORT_LABELS).toEqual({ name: 'Name', hp: 'HP', defense: 'Defense', accuracy: 'Accuracy', attack: 'Attack' });
   });
   it('statusLine', () => {
     expect(statusLine({ filter: 'all', spread: 0, spreads: 4, ownedCount: 27, enabledCount: 40, holoCount: 5 }))

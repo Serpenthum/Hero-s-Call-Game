@@ -17,7 +17,7 @@ export const FILTER_LABELS: Record<BinderFilter, string> = {
   all: 'All', owned: 'Owned', favourites: 'Favourites', holo: 'Holographic', 'not-owned': 'Not owned', disabled: 'Disabled',
 };
 export const SORT_LABELS: Record<BinderSort, string> = {
-  name: 'name', hp: 'HP', defense: 'Defense', accuracy: 'Accuracy', attack: 'Attack',
+  name: 'Name', hp: 'HP', defense: 'Defense', accuracy: 'Accuracy', attack: 'Attack',
 };
 
 const SEP = ' · ';
@@ -92,7 +92,8 @@ export function isFiltered(v: BinderView): boolean {
 }
 
 export function buttonLabel(v: BinderView): string {
-  return `${FILTER_LABELS[v.filter]}${SEP}by ${SORT_LABELS[v.sort]}`;
+  const sort = v.sort === 'hp' ? SORT_LABELS.hp : SORT_LABELS[v.sort].toLowerCase(); // HP stays an acronym
+  return `${FILTER_LABELS[v.filter]}${SEP}by ${sort}`;
 }
 
 export function statusLine(a: { filter: BinderFilter; spread: number; spreads: number;
