@@ -1,7 +1,6 @@
-/* Binder: opening animation and the open-binder look of the hero collection */
+/* Binder: the opening animation (replaced in a later step) and plain styles for the open binder */
 
-.binder-intro,
-.collection-fullscreen.binder-theme {
+.binder-intro {
   --leather:
     radial-gradient(color-mix(in srgb, var(--bone) 6%, transparent) 1px, transparent 1.5px) 0 0 / 7px 7px,
     radial-gradient(color-mix(in srgb, var(--felt-deep) 20%, transparent) 1px, transparent 1.5px) 3px 3px / 7px 7px,
@@ -180,267 +179,299 @@
   box-shadow: 0 1px 3px color-mix(in srgb, var(--felt-deep) 35%, transparent);
 }
 
-/* ---------- Open binder ---------- */
+/* ---------- Open binder (plain for now; the leather, brass and paper look comes later) ---------- */
 
-.collection-fullscreen.binder-theme {
-  background-color: var(--felt-deep);
-  background-image:
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--bone) 3%, transparent) 0 2px, transparent 2px 7px),
-    radial-gradient(ellipse at center, var(--walnut) 0%, var(--felt-deep) 80%);
-}
-
-.binder-theme .collection-header {
-  background: linear-gradient(var(--walnut), var(--walnut));
-  border-bottom: 2px solid var(--gold);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--felt-deep) 50%, transparent);
-}
-
-.binder-theme .collection-header h2 {
-  color: var(--gold-light);
+.binder {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--felt-deep);
+  color: var(--bone);
   font-family: var(--font-ui);
-  text-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 70%, transparent);
 }
 
-.binder-theme .filter-controls label {
-  color: var(--bone);
+.binder-top {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-3);
 }
 
-.binder-theme .sort-dropdown,
-.binder-theme .filter-dropdown,
-.binder-theme .search-input {
-  background: color-mix(in srgb, var(--brass-hi) 14%, transparent);
-  border: 2px solid var(--gold);
-  color: var(--bone);
+/* Filter button and its panel */
+.binder-filter {
+  position: relative;
 }
 
-.binder-theme .sort-dropdown:hover,
-.binder-theme .filter-dropdown:hover,
-.binder-theme .search-input:hover {
-  background: color-mix(in srgb, var(--brass-hi) 28%, transparent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--felt-deep) 50%, transparent);
-}
-
-.binder-theme .sort-dropdown:focus,
-.binder-theme .filter-dropdown:focus,
-.binder-theme .search-input:focus {
-  box-shadow: 0 0 14px color-mix(in srgb, var(--felt-deep) 70%, transparent);
-}
-
-.binder-theme .sort-dropdown option,
-.binder-theme .filter-dropdown option {
+.binder-filter-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid var(--brass);
+  border-radius: var(--radius-control);
   background: var(--walnut);
   color: var(--bone);
+  font: inherit;
+  cursor: pointer;
 }
 
-.binder-theme .search-input::placeholder {
-  color: color-mix(in srgb, var(--bone) 50%, transparent);
+.binder-filter-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ember-hi);
 }
 
-.binder-theme .loading-state {
-  color: var(--gold-light);
-}
-
-.binder-theme .loading-spinner {
-  border-color: color-mix(in srgb, var(--brass-hi) 30%, transparent);
-  border-top-color: var(--gold-light);
-}
-
-.binder-theme .collection-grid-container {
-  padding: 14px 60px 44px;
-}
-
-.binder-cover {
-  flex: 1;
-  min-width: 0;
-  max-width: 1600px;
-  margin: 0 auto;
-  display: flex;
-  padding: clamp(10px, 1.6vw, 20px);
-  position: relative;
-  box-sizing: border-box;
-  border-radius: 16px;
-  background: var(--leather);
-  box-shadow: 0 14px 40px color-mix(in srgb, var(--felt-deep) 70%, transparent), inset 0 0 0 2px color-mix(in srgb, var(--felt-deep) 40%, transparent), inset 0 0 50px color-mix(in srgb, var(--felt-deep) 45%, transparent);
-}
-
-.binder-cover::before {
-  content: '';
+.binder-panel {
   position: absolute;
-  inset: clamp(4px, 0.7vw, 8px);
-  border: 2px dashed var(--gold);
-  border-radius: 11px;
-  opacity: 0.75;
-  pointer-events: none;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  width: min(336px, calc(100vw - 2 * var(--space-3)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  padding: var(--space-3);
+  border: 2px solid var(--brass);
+  border-radius: var(--radius-panel);
+  background: var(--walnut);
 }
 
-.binder-pages {
+.binder-panel-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.binder-search {
   flex: 1;
   min-width: 0;
-  display: flex;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-control);
+  background: var(--felt-deep);
+  color: var(--bone);
+  font: inherit;
+}
+
+.binder-panel-head {
+  margin: 0;
+  color: var(--brass-hi);
+  font-size: var(--text-sm);
+}
+
+.binder-panel-opts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.binder-panel-opt,
+.binder-panel-done,
+.binder-retry,
+.binder-large-fav {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-control);
+  background: var(--felt-deep);
+  color: var(--bone);
+  font: inherit;
+  cursor: pointer;
+}
+
+.binder-panel-opt[aria-pressed='true'] {
+  background: var(--brass);
+  color: var(--felt-deep);
+}
+
+/* The book: two pages of 3 x 2 pockets, rings down the middle, arrows at the sides */
+.binder-stage {
   position: relative;
-  perspective: 2200px;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--felt-deep) 45%, transparent);
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-6);
+}
+
+.binder-book {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.binder-spread {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--space-2);
+  border-radius: var(--radius-panel);
+  background: var(--walnut);
 }
 
 .binder-page {
-  flex: 1;
-  min-width: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  height: 100%;
   box-sizing: border-box;
-  padding: clamp(8px, 1vw, 14px);
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--bone-dim);
 }
 
-.binder-page.left {
-  padding-right: clamp(26px, 3vw, 40px);
-  background: linear-gradient(90deg, var(--bone) 0%, var(--bone) 82%, var(--brass-hi) 100%);
+.binder-side {
+  min-width: 0;
+  min-height: 0;
 }
 
-.binder-page.right {
-  padding-left: clamp(26px, 3vw, 40px);
-  background: linear-gradient(270deg, var(--bone) 0%, var(--bone) 82%, var(--brass-hi) 100%);
-}
-
-.binder-spine {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 56px;
-  transform: translateX(-50%);
-  pointer-events: none;
-  z-index: 10;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--walnut) 28%, transparent) 42%, color-mix(in srgb, var(--walnut) 40%, transparent) 50%, color-mix(in srgb, var(--walnut) 28%, transparent) 58%, transparent);
-}
-
-.binder-ring {
-  position: absolute;
-  left: 50%;
-  width: 52px;
-  height: 20px;
-  transform: translateX(-50%);
-  border-radius: 12px;
-  background: linear-gradient(180deg, var(--bone) 0%, var(--bone-dim) 42%, var(--bone) 58%, var(--leather-hi) 100%);
-  box-shadow: 0 3px 6px color-mix(in srgb, var(--felt-deep) 50%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--felt-deep) 25%, transparent);
-}
-
-.binder-ring:nth-child(1) { top: 14%; }
-.binder-ring:nth-child(2) { top: calc(50% - 10px); }
-.binder-ring:nth-child(3) { bottom: 14%; }
-
-/* Card pockets: clear sleeves around each hero */
 .binder-pocket {
-  position: relative;
-  width: var(--grid-card-width);
-  height: var(--grid-card-height);
+  container-type: size;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+  cursor: pointer;
 }
 
-.binder-pocket::before {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--bone) 75%, transparent);
-  background: linear-gradient(115deg, color-mix(in srgb, var(--bone) 14%, transparent) 0%, color-mix(in srgb, var(--bone) 2%, transparent) 40%, color-mix(in srgb, var(--bone) 10%, transparent) 100%);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent), inset 0 -3px 0 color-mix(in srgb, var(--felt-deep) 10%, transparent);
-  pointer-events: none;
-  z-index: 2;
+.binder-pocket--empty {
+  cursor: default;
+  background: color-mix(in srgb, var(--walnut) 10%, transparent);
 }
 
-/* The hero the Binder was opened on (from the lobby's featured card) is lit for a moment */
-.binder-pocket--spotlight::before {
-  border: 2px solid var(--brass-hi);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brass-hi) 35%, transparent), 0 0 24px 6px color-mix(in srgb, var(--brass-hi) 55%, transparent);
+.binder-pocket--spotlight {
+  outline: 3px solid var(--brass-hi);
+  outline-offset: 2px;
 }
 
-.binder-pocket.empty::before {
-  background: color-mix(in srgb, var(--walnut) 7%, transparent);
-  border-color: color-mix(in srgb, var(--brass) 35%, transparent);
-  box-shadow: inset 0 2px 5px color-mix(in srgb, var(--felt-deep) 25%, transparent);
+.binder-pocket:focus-visible {
+  outline: var(--focus-outline);
 }
 
-/* Turning leaf: front is the page being lifted, back is the page it lands on */
-.binder-leaf {
+/* The card fills its pocket, keeping the card's shape */
+.binder-card.hero-card.hero-layout-card {
+  --card-w: min(100cqw, 100cqh * 260 / 391);
+}
+
+.binder-card--locked {
+  filter: grayscale(1) brightness(0.55);
+}
+
+.binder-card--disabled {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.binder-rings {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 50%;
-  z-index: 15;
-  transform-style: preserve-3d;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
   pointer-events: none;
 }
 
-.binder-leaf.next {
-  right: 0;
-  transform-origin: left center;
-  animation: binderFlipNext 0.48s ease-in-out forwards;
+.binder-rings span {
+  width: 24px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bone);
 }
 
-.binder-leaf.prev {
-  left: 0;
-  transform-origin: right center;
-  animation: binderFlipPrev 0.48s ease-in-out forwards;
-}
-
-.binder-leaf-face {
+.binder-empty {
   position: absolute;
   inset: 0;
-  flex: none;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  overflow: hidden;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  color: var(--card-ink);
+  font-size: var(--text-lg);
+  pointer-events: none;
 }
 
-.binder-leaf-face.back {
-  transform: rotateY(180deg);
+.binder-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 5;
+  width: 32px;
+  height: 48px;
+  transform: translateY(-50%);
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-control);
+  background: var(--walnut);
+  color: var(--bone);
+  font-size: var(--text-xl);
+  cursor: pointer;
 }
 
-@keyframes binderFlipNext {
-  from { transform: rotateY(0deg); }
-  to { transform: rotateY(-180deg); }
+.binder-arrow--prev { left: calc(-1 * var(--space-6)); }
+.binder-arrow--next { right: calc(-1 * var(--space-6)); }
+
+.binder-status {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  text-align: center;
+  font-size: var(--text-sm);
 }
 
-@keyframes binderFlipPrev {
-  from { transform: rotateY(0deg); }
-  to { transform: rotateY(180deg); }
+.binder-error,
+.binder-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
 }
 
-.collection-fullscreen.binder-theme .collection-grid-container .pagination-arrow-overlay {
-  background: color-mix(in srgb, var(--walnut) 85%, transparent) !important;
-  border: 2px solid var(--gold) !important;
-  color: var(--gold-light) !important;
+.binder-error p {
+  margin: 0;
 }
 
-.collection-fullscreen.binder-theme .collection-grid-container .pagination-arrow-overlay:hover {
-  background: var(--gold) !important;
-  color: var(--walnut) !important;
+/* The large view of one card */
+.binder-large {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--scrim);
 }
 
-.binder-theme .page-indicator-overlay {
-  background: color-mix(in srgb, var(--walnut) 90%, transparent);
-  border-color: var(--gold);
-  color: var(--gold-light);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--felt-deep) 40%, transparent);
+.binder-large-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
 }
 
-@media (max-width: 480px) {
-  .binder-theme .collection-grid-container {
-    padding: 8px 8px 56px;
-  }
-
-  .binder-ring {
-    width: 36px;
-    height: 14px;
-  }
-
-  .binder-spine {
-    width: 40px;
-  }
+.binder-large-card.hero-card.hero-layout-card {
+  --card-w: min(320px, (100vh - 120px) * 260 / 391);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .binder-leaf {
-    animation-duration: 0.01s;
-  }
+.binder-large-close {
+  position: fixed;
+  top: calc(var(--space-3) + var(--safe-top));
+  right: calc(var(--space-3) + var(--safe-right));
+}
+
+/* Sideways phone: the friends and messages dock would sit over the book, as in the shop */
+@media (max-height: 500px) {
+  body:has(.binder) :is(.friends-icon, .message-icon) { visibility: hidden; }
 }
