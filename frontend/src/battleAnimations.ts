@@ -61,7 +61,10 @@ export const battleEventBus = {
     if (!event || seenIds.has(event.id)) return;
     seenIds.add(event.id);
     if (seenIds.size > 50) seenIds.delete(seenIds.values().next().value as string);
-    listeners.forEach(l => l(event));
+    // Each listener is isolated: a throw in one (sound, FX) must not skip the others or the caller's setState.
+    listeners.forEach(l => {
+      try { l(event); } catch { /* ignore */ }
+    });
   },
   subscribe(listener: Listener) {
     listeners.add(listener);

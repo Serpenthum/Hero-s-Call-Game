@@ -77,10 +77,50 @@ function removeGestureListeners() {
   GESTURES.forEach(type => window.removeEventListener(type, onGesture, true));
 }
 
+// After unlock iOS can still suspend or 'interrupt' the context (screen lock, app switch, a call),
+// and only a gesture or a return to the page brings it back. These stay on until the context is closed.
+const RESUME_GESTURES = ['pointerup', 'touchend', 'keydown'] as const;
+let resumeInstalled = false;
+
+function resumeIfNeeded() {
+  const c = ctx;
+  if (!c) return;
+  try {
+    if (c.state === 'closed') { removeResumeListeners(); return; }
+    if (c.state === 'running') return;
+    const p = c.resume();
+    if (p && typeof p.catch === 'function') p.catch(() => { /* try again next gesture */ });
+  } catch {
+    // try again next gesture
+  }
+}
+
+function onVisibilityResume() {
+  try {
+    if (document.visibilityState === 'hidden') return;
+  } catch { /* ignore */ }
+  resumeIfNeeded();
+}
+
+function installResumeListeners() {
+  if (resumeInstalled || typeof window === 'undefined') return;
+  resumeInstalled = true;
+  RESUME_GESTURES.forEach(type => window.addEventListener(type, resumeIfNeeded, true));
+  document.addEventListener('visibilitychange', onVisibilityResume);
+}
+
+function removeResumeListeners() {
+  if (!resumeInstalled) return;
+  resumeInstalled = false;
+  RESUME_GESTURES.forEach(type => window.removeEventListener(type, resumeIfNeeded, true));
+  document.removeEventListener('visibilitychange', onVisibilityResume);
+}
+
 function markUnlocked() {
   removeGestureListeners();
   if (unlocked) return;
   unlocked = true;
+  installResumeListeners();
   unlockListeners.forEach(fn => {
     try { fn(); } catch { /* one bad listener must not stop the others */ }
   });
@@ -120,6 +160,7 @@ export function installAudioUnlock(): void {
 /** Test helper: forget the context and unlock state. */
 export function resetAudioContextForTests(): void {
   removeGestureListeners();
+  removeResumeListeners();
   ctx = null;
   triedCreate = false;
   installed = false;

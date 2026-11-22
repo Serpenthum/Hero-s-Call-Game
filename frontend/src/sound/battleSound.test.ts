@@ -54,10 +54,36 @@ describe('startBattleSound', () => {
     expect(hit).toHaveBeenCalledWith(false);
   });
 
+  it('synth.death plays the synthesized death sound, also with animation speed off', () => {
+    vi.useFakeTimers();
+    const death = vi.spyOn(sfx, 'death').mockImplementation(() => {});
+    setAnimSpeed('off');
+    battleEventBus.emit(attack({ targets: [{ key: 'p1:0', playerId: 'p1', heroIndex: 0, name: 'X', delta: -9, hpAfter: 0, died: true, revived: false, statusesAdded: [] }] }));
+    vi.runAllTimers();
+    expect(death).toHaveBeenCalledTimes(1);
+  });
+
+  it('a throwing playSound does not escape the listener', () => {
+    vi.mocked(playSound).mockImplementationOnce(() => { throw new Error('boom'); });
+    expect(() => battleEventBus.emit(attack())).not.toThrow();
+  });
+
   it('stops listening after the returned unsubscribe', () => {
     stop();
     battleEventBus.emit(attack());
     expect(playSound).not.toHaveBeenCalled();
     stop = () => {};
+  });
+});
+
+describe('battleEventBus isolation', () => {
+  it('a throwing listener does not stop the next listener, and emit does not throw', () => {
+    const before = battleEventBus.subscribe(() => { throw new Error('bad listener'); });
+    const after = vi.fn();
+    const unsub = battleEventBus.subscribe(after);
+    expect(() => battleEventBus.emit(attack())).not.toThrow();
+    expect(after).toHaveBeenCalledTimes(1);
+    before();
+    unsub();
   });
 });

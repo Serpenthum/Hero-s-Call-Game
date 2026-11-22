@@ -264,6 +264,19 @@ describe('music', () => {
     expect(__musicStateForTests().playing).toBe(MENU1);
   });
 
+  it('returning to the page resumes a suspended or interrupted AudioContext before playing', async () => {
+    await startMenu();
+    for (const state of ['suspended', 'interrupted'] as const) {
+      setVisibility('hidden');
+      ctx().state = state;
+      const before = ctx().resumeCalls;
+      setVisibility('visible');
+      expect(ctx().resumeCalls, state).toBeGreaterThan(before);
+      expect(ctx().state).toBe('running');
+      expect(el(MENU1).paused).toBe(false);
+    }
+  });
+
   it('music off pauses after the fade; on resumes', async () => {
     await startMenu();
     el(MENU1).currentTime = 20;

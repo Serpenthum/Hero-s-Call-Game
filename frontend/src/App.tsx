@@ -890,7 +890,7 @@ function App() {
     });
 
     socket.on('special-activated', (data) => {
-      const heroName = data.results[0]?.source;
+      const heroName = data.results?.[0]?.source;
       if (heroName) playSound(soundForSpecial(heroName));
       setState(prev => {
         const newLogEntries: BattleLogEntry[] = [];

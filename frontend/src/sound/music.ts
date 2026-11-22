@@ -223,7 +223,20 @@ function onVisibility() {
   if (isHidden()) {
     tracks.forEach(t => { try { t.el.pause(); } catch { /* ignore */ } });
   } else if (sounding) {
+    // The elements play through the AudioContext, which iOS may have suspended or interrupted meanwhile.
+    resumeContext();
     void playEl(sounding);
+  }
+}
+
+function resumeContext() {
+  try {
+    const c = getAudioContext();
+    if (!c || c.state === 'running' || c.state === 'closed') return;
+    const p = c.resume();
+    if (p && typeof p.catch === 'function') p.catch(() => { /* ignore */ });
+  } catch {
+    // ignore
   }
 }
 

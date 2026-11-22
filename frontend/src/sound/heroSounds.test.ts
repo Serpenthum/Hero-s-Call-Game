@@ -118,15 +118,32 @@ describe('soundsForEvent', () => {
       name: 'Ranger', targets: [target('p1:0', -9, { died: true })],
       triggers: [{ key: 'p1:0', name: 'Bomber', special: 'Explosion' }]
     }), 'normal');
-    expect(cues).toEqual([{ sound: 'bow.hit', delayMs: 160 }, { sound: 'explosion.hit', delayMs: 560 }]);
+    expect(cues).toEqual([
+      { sound: 'bow.hit', delayMs: 160 },
+      { sound: 'explosion.hit', delayMs: 560 },
+      { sound: 'synth.death', delayMs: 410 }
+    ]);
   });
 
-  it('Angel Resurrect and Sorcerer Twin Spell triggers', () => {
+  it('a target that died adds one synth.death 250 ms after impact (fast factor when off)', () => {
+    const died = [target('p1:0', -9, { died: true, hpAfter: 0 }), target('p1:1', -9, { died: true, hpAfter: 0 })];
+    expect(soundsForEvent(ev({ name: 'Ranger', targets: died }), 'normal'))
+      .toEqual([{ sound: 'bow.hit', delayMs: 160 }, { sound: 'synth.death', delayMs: 410 }]);
+    expect(soundsForEvent(ev({ name: 'Ranger', targets: died }), 'off'))
+      .toEqual([{ sound: 'bow.hit', delayMs: 96 }, { sound: 'synth.death', delayMs: 246 }]);
+    expect(soundsForEvent(ev({ kind: 'ability', cast: 'damage', name: 'Wizard', targets: died }), 'normal'))
+      .toContainEqual({ sound: 'synth.death', delayMs: 550 });
+    expect(soundsForEvent(ev({ kind: 'tick', actor: null, targets: died }), 'normal'))
+      .toContainEqual({ sound: 'synth.death', delayMs: 330 });
+    expect(sounds(ev({ name: 'Ranger' }))).not.toContain('synth.death');
+  });
+
+  it('Angel Resurrect plays buff.self; Sorcerer Twin Spell trigger plays nothing (the recast has its own event)', () => {
     expect(sounds(ev({ name: 'Ranger', triggers: [{ key: 'p1:0', name: 'Angel', special: 'Resurrect' }] }))).toEqual(['bow.hit', 'buff.self']);
     expect(sounds(ev({
       name: 'Sorcerer', kind: 'ability', cast: 'damage', abilityName: 'Chromatic Orb',
       triggers: [{ key: 'p0:0', name: 'Sorcerer', special: 'Twin Spell' }]
-    }))).toEqual(['ice.hit', 'ice.hit']);
+    }))).toEqual(['ice.hit']);
   });
 
   it('event with no actor.name, no abilityName, no commands → weapon.hit, no throw', () => {
@@ -144,7 +161,10 @@ describe('soundsForEvent', () => {
 
   it('Beast Tamer: Call Beast → summon; command attack → weapon', () => {
     expect(sounds(ev({ name: 'Beast Tamer', kind: 'ability', cast: 'summon', abilityName: 'Call Beast / Command Attack', targets: [] }))).toEqual(['summon']);
-    expect(sounds(ev({ name: 'Beast Tamer', kind: 'ability', cast: 'damage', variant: 'beast_attack', abilityName: 'Call Beast / Command Attack' }))).toEqual(['weapon.hit']);
+    expect(soundsForEvent(ev({ name: 'Beast Tamer', kind: 'ability', cast: 'damage', variant: 'beast_attack', abilityName: 'Call Beast / Command Attack' }), 'normal'))
+      .toEqual([{ sound: 'weapon.hit', delayMs: 200 }]);
+    expect(soundsForEvent(ev({ name: 'Beast Tamer', kind: 'ability', cast: 'damage', variant: 'beast_attack' }), 'fast'))
+      .toEqual([{ sound: 'weapon.hit', delayMs: 120 }]);
   });
 
   it('Shaman Elemental Strike (server cast summon) → earth.hit', () => {
@@ -181,7 +201,7 @@ describe('soundsForEvent', () => {
     expect(HERO_SOUNDS['Blood Hunter'].abilities).toEqual({ 'Crimson Rite': 'weapon', 'Sanguine Renewal': 'weapon' });
     expect(HERO_SOUNDS.Bomber.triggers).toEqual({ Explosion: 'explosion.hit' });
     expect(HERO_SOUNDS.Angel.triggers).toEqual({ Resurrect: 'buff.self' });
-    expect(HERO_SOUNDS.Sorcerer.triggers).toEqual({ 'Twin Spell': 'ice.hit' });
+    expect(HERO_SOUNDS.Sorcerer.triggers).toBeUndefined();
 
     const weaponOnly = ['Paladin', 'Champion', 'Barbarian', 'Cavalier', 'Piercer', 'Fighter', 'Warden', 'Swordsman',
       'Assassin', 'Ninja', 'Dual Defender', 'Hoarder', 'Ace'];

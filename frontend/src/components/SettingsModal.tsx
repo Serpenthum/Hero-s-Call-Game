@@ -188,7 +188,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
           <div className={`settings-row${sfxOn ? '' : ' disabled'}`}>
             <div className="settings-label">
-              <span>Volume</span>
+              <span>Effects volume</span>
               <small>{volume}%</small>
             </div>
             <input

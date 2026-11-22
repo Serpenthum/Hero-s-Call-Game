@@ -8,7 +8,8 @@ export type Family =
   | 'laserPistol' | 'laserRifle' | 'emp' | 'holy' | 'dark' | 'arcane';
 
 // 'synth.tick' is today's synthesized end-of-turn hit (poison, auras), kept as is.
-export type Cue = { sound: SoundId | 'synth.tick'; delayMs: number };
+// 'synth.death' is today's synthesized death sound (played here, not in BattleFX, so it sounds with animations off).
+export type Cue = { sound: SoundId | 'synth.tick' | 'synth.death'; delayMs: number };
 
 type AbilitySound = Family | 'heal' | 'summon' | 'buff.self' | 'buff.other' | 'command';
 
@@ -42,7 +43,8 @@ export const HERO_SOUNDS: Record<string, HeroSound> = {
   Shaman: { attack: 'weapon', ability: 'earth' },
   Shroomguard: { attack: 'weapon', ability: 'plant' },
   'Plague Spreader': { attack: 'weapon', ability: 'plant' },
-  Sorcerer: { attack: 'weapon', ability: 'ice', triggers: { 'Twin Spell': 'ice.hit' } },
+  // No Twin Spell trigger sound: the recast is its own ability event, which already plays ice.
+  Sorcerer: { attack: 'weapon', ability: 'ice' },
   Silencer: { attack: 'weapon', ability: 'emp' },
   Bomber: { attack: 'explosion', ability: 'explosion', triggers: { Explosion: 'explosion.hit' } },
   Cleric: { attack: 'weapon', ability: 'holy' },
@@ -59,11 +61,22 @@ export const HERO_SOUNDS: Record<string, HeroSound> = {
 };
 
 const ATTACK_DELAY = 160;
+const BEAST_ATTACK_DELAY = 200;
 const ABILITY_DELAY = 300;
 const TICK_DELAY = 80;
 const COMMAND_GAP = 350;
 const MIXED_HEAL_GAP = 150;
 const TRIGGER_GAP = 400;
+// BattleFX greys out a dead hero 250 ms after impact.
+const DEATH_GAP = 250;
+
+// Impact time at normal speed, matching BattleFX.
+function impactDelay(ev: BattleEvent): number {
+  if (ev.kind === 'attack') return ATTACK_DELAY;
+  if (ev.kind === 'tick') return TICK_DELAY;
+  if (ev.variant === 'beast_attack') return BEAST_ATTACK_DELAY;
+  return ABILITY_DELAY;
+}
 
 const isFamily = (s: unknown): s is Family => FAMILIES.includes(s as Family);
 
@@ -124,7 +137,7 @@ function mainCues(ev: BattleEvent, f: number): Cue[] {
   }
 
   // Beast Tamer's command attack is the beast's weapon strike.
-  if (ev.variant === 'beast_attack') return [{ sound: strike('weapon', ev.hit, ev.crit), delayMs: at }];
+  if (ev.variant === 'beast_attack') return [{ sound: strike('weapon', ev.hit, ev.crit), delayMs: BEAST_ATTACK_DELAY * f }];
 
   const s = abilitySound(name, ev.abilityName);
   const family: Family = isFamily(s) ? s : 'weapon';
@@ -148,16 +161,18 @@ export function soundsForEvent(ev: BattleEvent, speed: AnimSpeed): Cue[] {
   const f = speedFactor(speed === 'off' ? 'fast' : speed);
   const cues = mainCues(ev, f);
   const triggers = ev.triggers ?? [];
-  if (!triggers.length) return cues;
 
   // Triggers follow the last main cue (after commanded allies), or the impact if nothing else played.
-  const base = cues.length
-    ? cues[cues.length - 1].delayMs
-    : (ev.kind === 'attack' ? ATTACK_DELAY : ev.kind === 'tick' ? TICK_DELAY : ABILITY_DELAY) * f;
-  for (const t of triggers) {
-    const sound = heroSound(t.name).triggers?.[t.special];
-    if (sound) cues.push({ sound, delayMs: base + TRIGGER_GAP });
+  if (triggers.length) {
+    const base = cues.length ? cues[cues.length - 1].delayMs : impactDelay(ev) * f;
+    for (const t of triggers) {
+      const sound = heroSound(t.name).triggers?.[t.special];
+      if (sound) cues.push({ sound, delayMs: base + TRIGGER_GAP });
+    }
   }
+
+  // One death sound per event when any target died (several identical tones at once would only be louder).
+  if ((ev.targets ?? []).some(t => t.died)) cues.push({ sound: 'synth.death', delayMs: (impactDelay(ev) + DEATH_GAP) * f });
   return cues;
 }
 

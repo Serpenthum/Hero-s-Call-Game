@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BattleFX from './BattleFX';
 import { battleEventBus, setAnimSpeed, sfx, type BattleEvent, type BattleEventTarget } from '../battleAnimations';
 import { cleanup, render, stubBrowserApis } from '../testing/dom';
+import { startBattleSound } from '../sound/battleSound';
 
 let n = 0;
 function target(key: string, delta: number, extra: Partial<BattleEventTarget> = {}): BattleEventTarget {
@@ -64,13 +65,46 @@ describe('BattleFX sounds', () => {
     expect('swing' in sfx).toBe(false);
   });
 
-  it('still plays the synthesized death sound', () => {
+  it('death plays exactly once per kill (from the battle sound listener) at normal and off speed', () => {
+    const death = vi.spyOn(sfx, 'death').mockImplementation(() => {});
+    const stop = startBattleSound();
+    render(<BattleFX gameOverResult={null} />);
+    for (const speed of ['normal', 'off'] as const) {
+      death.mockClear();
+      setAnimSpeed(speed);
+      act(() => {
+        battleEventBus.emit(ev({ targets: [target('p1:0', -9, { died: true, hpAfter: 0 })] }));
+        vi.runAllTimers();
+      });
+      expect(death, speed).toHaveBeenCalledTimes(1);
+    }
+    stop();
+  });
+
+  it('BattleFX itself no longer plays the death sound', () => {
     const death = vi.spyOn(sfx, 'death').mockImplementation(() => {});
     render(<BattleFX gameOverResult={null} />);
     act(() => {
       battleEventBus.emit(ev({ targets: [target('p1:0', -9, { died: true, hpAfter: 0 })] }));
       vi.runAllTimers();
     });
-    expect(death).toHaveBeenCalledTimes(1);
+    expect(death).not.toHaveBeenCalled();
   });
+
+  for (const speed of ['normal', 'off'] as const) {
+    it(`win and lose each play exactly once with animation speed ${speed}`, () => {
+      const win = vi.spyOn(sfx, 'win').mockImplementation(() => {});
+      const lose = vi.spyOn(sfx, 'lose').mockImplementation(() => {});
+      setAnimSpeed(speed);
+      render(<BattleFX gameOverResult="victory" />);
+      act(() => { vi.runAllTimers(); });
+      expect(win).toHaveBeenCalledTimes(1);
+      expect(lose).not.toHaveBeenCalled();
+      cleanup();
+      render(<BattleFX gameOverResult="defeat" />);
+      act(() => { vi.runAllTimers(); });
+      expect(lose).toHaveBeenCalledTimes(1);
+      expect(win).toHaveBeenCalledTimes(1);
+    });
+  }
 });

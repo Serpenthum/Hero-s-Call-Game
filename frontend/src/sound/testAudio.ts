@@ -94,7 +94,7 @@ export function installFakeAudioElement(): () => void {
 export class FakeAudioContext {
   static instances: FakeAudioContext[] = [];
   currentTime = 0;
-  state: 'suspended' | 'running' | 'closed' = 'suspended';
+  state: 'suspended' | 'running' | 'closed' | 'interrupted' = 'suspended';
   destination = new FakeNode();
   sources: FakeBufferSource[] = [];
   gains: FakeGainNode[] = [];

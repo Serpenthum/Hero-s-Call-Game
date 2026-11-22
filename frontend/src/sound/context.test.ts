@@ -109,6 +109,52 @@ describe('audio context and unlock', () => {
     expect(heard).toHaveBeenCalledTimes(1);
   });
 
+  it('after unlock, a later tap resumes a context iOS suspended or interrupted', () => {
+    installAudioUnlock();
+    window.dispatchEvent(new Event('pointerdown'));
+    const c = getAudioContext() as unknown as FakeAudioContext;
+    expect(isAudioUnlocked()).toBe(true);
+    const before = c.resumeCalls;
+    window.dispatchEvent(new Event('pointerup'));
+    expect(c.resumeCalls).toBe(before); // running: nothing to do
+    for (const [state, type] of [['suspended', 'pointerup'], ['interrupted', 'touchend'], ['suspended', 'keydown']] as const) {
+      c.state = state;
+      window.dispatchEvent(new Event(type));
+      expect(c.state, type).toBe('running');
+    }
+    expect(c.resumeCalls).toBe(before + 3);
+  });
+
+  it('after unlock, returning to the page resumes a context that is not running', () => {
+    let visibility: 'visible' | 'hidden' = 'visible';
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+    installAudioUnlock();
+    window.dispatchEvent(new Event('keydown'));
+    const c = getAudioContext() as unknown as FakeAudioContext;
+    c.state = 'interrupted';
+    visibility = 'hidden';
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(c.state).toBe('interrupted');
+    visibility = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(c.state).toBe('running');
+  });
+
+  it('the resume listeners come off once the context is closed, and a throwing resume never escapes', () => {
+    installAudioUnlock();
+    window.dispatchEvent(new Event('keydown'));
+    const c = getAudioContext() as unknown as FakeAudioContext;
+    c.state = 'suspended';
+    c.resume = () => { c.resumeCalls++; throw new Error('nope'); };
+    expect(() => window.dispatchEvent(new Event('pointerup'))).not.toThrow();
+    const calls = c.resumeCalls;
+    c.state = 'closed';
+    window.dispatchEvent(new Event('pointerup'));
+    c.state = 'suspended';
+    window.dispatchEvent(new Event('pointerup'));
+    expect(c.resumeCalls).toBe(calls);
+  });
+
   it('a subscriber added after unlock is called right away', () => {
     installAudioUnlock();
     window.dispatchEvent(new Event('keydown'));

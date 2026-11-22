@@ -100,6 +100,19 @@ describe('effect player', () => {
     expect(ctx().sources[ctx().sources.length - 1].startedAt).toBeCloseTo(3.25);
   });
 
+  it('resumes a context in any state but running (incl. WebKit interrupted) before playing', async () => {
+    await loadSoundGroup('battle');
+    for (const state of ['suspended', 'interrupted'] as const) {
+      ctx().state = state;
+      const before = ctx().resumeCalls;
+      playSound('weapon.hit');
+      expect(ctx().resumeCalls, state).toBe(before + 1);
+    }
+    const before = ctx().resumeCalls;
+    playSound('weapon.hit');
+    expect(ctx().resumeCalls).toBe(before);
+  });
+
   it('a throwing localStorage never reaches the caller', async () => {
     await loadSoundGroup('battle');
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });

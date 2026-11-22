@@ -31,6 +31,13 @@ describe('SettingsModal sound', () => {
     expect(root.textContent).toContain('Battle and menu sounds');
   });
 
+  it('labels the effects slider "Effects volume"', () => {
+    const root = render(<SettingsModal onClose={() => {}} />);
+    const labels = Array.from(root.querySelectorAll('.settings-label span')).map(e => e.textContent);
+    expect(labels).toContain('Effects volume');
+    expect(labels).not.toContain('Volume');
+  });
+
   it('Music switch toggles heroscall.music', () => {
     const root = render(<SettingsModal onClose={() => {}} />);
     const music = root.querySelector('[aria-label="Music"]') as HTMLButtonElement;

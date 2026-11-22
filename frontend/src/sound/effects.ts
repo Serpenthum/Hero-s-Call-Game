@@ -64,7 +64,8 @@ export function playSound(id: SoundId, opts?: { delayMs?: number }): void {
     if (!buffer) return;
     const c = getAudioContext();
     if (!c) return;
-    if (c.state === 'suspended') {
+    // Any state but running (suspended, or WebKit's 'interrupted' after a lock or call) needs a resume.
+    if (c.state !== 'running' && c.state !== 'closed') {
       const p = c.resume();
       if (p && typeof p.catch === 'function') p.catch(() => { /* ignore */ });
     }
