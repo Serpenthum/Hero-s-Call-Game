@@ -396,9 +396,11 @@
 }
 
 /* ---- Opening: the cover swings over, the book grows onto the real one, then everything fades off it.
-   --open-ms comes from OPENING_MS; the swing and the growing take 1.1s of it, the fade is the rest. ---- */
+   --open-ms comes from OPENING_MS; the swing and the growing take 1.1s of it, the fade is the rest.
+   The overlay keeps catching taps until it is gone (a tap on it does nothing more), so a double tap can't reach
+   a pocket or an arrow on the hidden book underneath. The X sits above it and still works. ---- */
 .binder-opening[data-stage="opening"] {
-  pointer-events: none;
+  cursor: default;
   animation: binder-opening-away calc(var(--open-ms) - 1150ms) ease-in 1150ms forwards;
 }
 

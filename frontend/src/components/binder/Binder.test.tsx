@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroCollection from '../HeroCollection';
@@ -8,6 +10,8 @@ import { buttonByText, cleanup, click, render, settle, stubBrowserApis } from '.
 import config from '../../config';
 
 const API = config.API_BASE_URL;
+// The opening's stylesheet, read as text (vitest hands CSS imports over empty)
+const openingCss = readFileSync(resolve(__dirname, '../../styles/Binder.css'), 'utf8');
 
 // H01..H30 are enabled (HP rises with the number), Golem is disabled.
 const hero = (name: string, HP: number, disabled = false): BinderHero => ({
@@ -270,6 +274,35 @@ describe('the binder', () => {
       expect(onClose).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  // jsdom does no hit-testing, so this checks the opening's own stylesheet: while it opens, the overlay keeps
+  // catching taps (a second tap must not reach a hidden pocket or arrow under it), and a tap on it does nothing.
+  it('a second tap during the opening is caught by the overlay, not the book underneath', async () => {
+    stubFetch();
+    const style = document.head.appendChild(document.createElement('style'));
+    style.textContent = openingCss;
+    vi.useFakeTimers();
+    try {
+      const root = await openBinder();
+      const opening = () => root.querySelector('.binder-opening') as HTMLElement;
+      click(opening());
+      let elapsed = 0;
+      for (const at of [1, OPENING_MS / 2, OPENING_MS - 1]) {
+        act(() => { vi.advanceTimersByTime(at - elapsed); });
+        elapsed = at;
+        expect(opening().dataset.stage).toBe('opening');
+        expect(getComputedStyle(opening()).pointerEvents).not.toBe('none');
+        click(opening());
+      }
+      act(() => { vi.advanceTimersByTime(OPENING_MS); });
+      expect(root.querySelector('.binder-opening')).toBeNull();
+      expect(root.querySelector('.binder-large')).toBeNull();
+      expect(status(root)).toBe('Page 1 of 3 · 10 of 30 heroes · 2 holographic');
+    } finally {
+      vi.useRealTimers();
+      style.remove();
     }
   });
 
