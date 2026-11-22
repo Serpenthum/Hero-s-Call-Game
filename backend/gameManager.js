@@ -38,7 +38,6 @@ const debugLog = DEBUG ? console.log.bind(console) : () => {};
 const SURVIVAL_UNLOCK_HEROES = 21;
 
 // Draft Mode unlocks at this player level, and each ban-phase hand has this many heroes
-const DRAFT_UNLOCK_LEVEL = 3;
 const DRAFT_HAND_SIZE = 5;
 
 // Copies of the heroes, each marked holo: true if its name is one of the owner's holographics, else
@@ -788,10 +787,6 @@ class GameManager {
   // Why this player can't queue for Draft, or null if they can
   async checkDraftEligibility(userId) {
     if (!userId || !this.database) return 'You must be logged in to play Draft Mode.';
-    const stats = await this.database.getPlayerStats(userId);
-    if ((stats.level || 1) < DRAFT_UNLOCK_LEVEL) {
-      return `You must reach level ${DRAFT_UNLOCK_LEVEL} to unlock Draft Mode.`;
-    }
     const owned = await this.getOwnedHeroes(userId);
     if (!owned || owned.length < DRAFT_HAND_SIZE) {
       return `Draft Mode needs at least ${DRAFT_HAND_SIZE} heroes. Visit the shop to get more.`;

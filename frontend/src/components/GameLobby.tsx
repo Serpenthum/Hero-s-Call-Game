@@ -65,12 +65,11 @@ interface GameLobbyProps {
 
 const RANKED_MODES = ['draft', 'survival'] as const;
 type RankedMode = typeof RANKED_MODES[number];
-const DRAFT_UNLOCK_LEVEL = 3;
 const SURVIVAL_UNLOCK_HEROES = 21;
 const RANKED_MODE_NAMES: Record<RankedMode, string> = { draft: 'Draft mode', survival: 'Survival mode' };
 
-// Phase 5 turns this on once the Gauntlet backend fixes land.
-const SHOW_GAUNTLET = true;
+// Gauntlet is hidden from everyone for now.
+const SHOW_GAUNTLET = false;
 
 // The arrival sequence ends 1.35 s after the lobby opens (Lobby.css); its class comes off shortly after.
 const ARRIVAL_MS = 1600;
@@ -195,14 +194,14 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [userRefreshTrigger, setUserRefreshTrigger] = useState(0);
 
-  // Ranked modes stay hidden until unlocked; unlocking shows a notification and animates the mode in.
-  // The level shown in the XP bar is used so the unlock lands with the level-up animation.
+  // Draft is open to every account. Survival stays hidden until unlocked; unlocking shows a
+  // notification and animates the mode in.
   const modeUnlocked: Record<RankedMode, boolean> = {
-    draft: questReveal.display.level >= DRAFT_UNLOCK_LEVEL,
+    draft: true,
     survival: (user.available_heroes?.length || 0) >= SURVIVAL_UNLOCK_HEROES
   };
   const seenModesKey = `heroscall.seenModes.${user.id}`;
-  const [revealedModes, setRevealedModes] = useState<RankedMode[]>(() => {
+  const [storedModes, setRevealedModes] = useState<RankedMode[]>(() => {
     try {
       const stored = localStorage.getItem(seenModesKey);
       if (stored) return JSON.parse(stored) as RankedMode[];
@@ -214,6 +213,8 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
     try { localStorage.setItem(seenModesKey, JSON.stringify(initial)); } catch { /* storage unavailable */ }
     return initial;
   });
+  // Draft always counts as revealed, so existing accounts see it with no unlock notification.
+  const revealedModes: RankedMode[] = storedModes.includes('draft') ? storedModes : ['draft', ...storedModes];
   const [justUnlocked, setJustUnlocked] = useState<RankedMode[]>([]);
   const [unlockToast, setUnlockToast] = useState<RankedMode[] | null>(null);
 
@@ -230,7 +231,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
     }, 900);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modeUnlocked.draft, modeUnlocked.survival, revealedModes]);
+  }, [modeUnlocked.survival, storedModes]);
 
   useEffect(() => {
     if (justUnlocked.length === 0) return;
@@ -252,18 +253,6 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   const modeAnimates = (mode: RankedMode) => justUnlocked.includes(mode) && !rankedAnimates;
 
   const handleModeSelect = (mode: 'draft' | 'random') => {
-    // Check if player meets level requirement for Draft mode
-    if (mode === 'draft' && user.level < 3) {
-      setRequirementModalData({
-        message: 'You must reach level 3 to unlock Draft Mode.',
-        currentCount: user.level,
-        requiredCount: 3,
-        type: 'level'
-      });
-      setShowRequirementModal(true);
-      return;
-    }
-    
     // Cancel any existing search first
     if (isSearching && onCancelSearch) {
       onCancelSearch();

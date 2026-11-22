@@ -1,4 +1,4 @@
-// Draft matchmaking: the level 3 unlock, and the ban-phase hands.
+// Draft matchmaking: open to every account, and the ban-phase hands.
 // Each player bans from 5 random heroes taken from the OPPONENT'S collection; after the bans the hands
 // swap, so each player picks from 4 heroes of their own collection. The two hands never share a hero.
 const { test, before, after, beforeEach, describe } = require('node:test');
@@ -26,16 +26,8 @@ async function player(heroes, level = 3) {
 const join = (socketId, userId, mode = 'draft') => gm.addPlayer(socketId, socketId, mode, 'Sorcerer', userId);
 
 describe('Draft unlock', () => {
-  test('is refused below level 3, with a message, and the player is not queued', async () => {
-    const u = await player(starters, 2);
-    const result = await join('a', u);
-    assert.equal(result.success, false);
-    assert.match(result.error, /level 3/i);
-    assert.equal(gm.draftQueue.length, 0);
-  });
-
-  test('is allowed at level 3', async () => {
-    const u = await player(starters, 3);
+  test('is open to every account, even at level 1', async () => {
+    const u = await player(starters, 1);
     const result = await join('a', u);
     assert.equal(result.success, true);
     assert.equal(result.waiting, true);

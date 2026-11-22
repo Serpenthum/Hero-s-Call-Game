@@ -42,7 +42,8 @@ const ModeCards: React.FC<ModeCardsProps> = ({ modes, searchingMode, searchClock
         <div key={spec.mode} className={classes} onClick={searching ? undefined : spec.onActivate}>
           <div className="mode-card-head">
             <span className="mode-card-icon"><ModeIcon /></span>
-            <h3 className="mode-card-title">{spec.title}</h3>
+            {/* Draft and Survival skip the title: their button already names the mode. */}
+            {spec.mode !== 'draft' && spec.mode !== 'survival' && <h3 className="mode-card-title">{spec.title}</h3>}
             <span className="mode-card-tag">{spec.tag}</span>
           </div>
           <p className="mode-card-text">{searching ? `Finding an opponent · ${searchClock}` : spec.text}</p>
