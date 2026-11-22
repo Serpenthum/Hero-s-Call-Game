@@ -28,6 +28,20 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The X stays over the opening, so a player can back out without opening the binder. .binder-top stops being a
+   layer of its own for as long as the opening is there: the X goes above the opening, the filter stays below. */
+.binder--unopened .binder-top {
+  z-index: auto;
+}
+
+.binder--unopened .binder-filter {
+  z-index: 21;
+}
+
+.binder--unopened .binder-close {
+  z-index: 51;
+}
+
 .binder-opening:focus {
   outline: none;
 }

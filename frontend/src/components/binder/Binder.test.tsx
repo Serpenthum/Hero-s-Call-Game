@@ -236,6 +236,43 @@ describe('the binder', () => {
     expect(pocket(root, 'H19')!.className).not.toMatch(/binder-pocket--spotlight/);
   });
 
+  it('the X is over the closed binder and closes the binder without opening it', async () => {
+    stubFetch();
+    const onClose = vi.fn();
+    const root = await openBinder({ onClose });
+    expect(root.querySelector('.binder-opening')).not.toBeNull();
+    // binder--unopened lifts the X over the opening (Binder.css)
+    expect(root.querySelector('.binder')!.className).toMatch(/binder--unopened/);
+    click(root.querySelector('.binder-close'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect((root.querySelector('.binder-opening') as HTMLElement).dataset.stage).toBe('closed');
+  });
+
+  it('Escape closes the binder while it sits closed', async () => {
+    stubFetch();
+    const onClose = vi.fn();
+    const root = await openBinder({ onClose });
+    expect(root.querySelector('.binder-opening')).not.toBeNull();
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('once the binder is open, the X is no longer lifted and Escape does not close the binder', async () => {
+    stubFetch();
+    const onClose = vi.fn();
+    vi.useFakeTimers();
+    try {
+      const root = await openBinder({ onClose });
+      click(root.querySelector('.binder-opening'));
+      act(() => { vi.advanceTimersByTime(OPENING_MS); });
+      expect(root.querySelector('.binder')!.className).not.toMatch(/binder--unopened/);
+      act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('the lit pocket stays lit until the binder has been opened, then goes out', async () => {
     stubFetch();
     vi.useFakeTimers();

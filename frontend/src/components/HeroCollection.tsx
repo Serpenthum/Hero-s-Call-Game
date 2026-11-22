@@ -74,6 +74,14 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
     return () => window.clearTimeout(timer);
   }, [spotlight, opened]);
 
+  // Until the binder has been opened, Escape backs out of it
+  useEffect(() => {
+    if (opened) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [opened, onClose]);
+
   useEffect(() => {
     if (!openHero) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenHero(null); };
@@ -100,7 +108,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
   const largeHero = openHero ? heroes.find(h => h.name === openHero) : undefined;
 
   return (
-    <div className={`binder${cardMotionOff() ? ' binder--still' : ''}`}>
+    <div className={`binder${cardMotionOff() ? ' binder--still' : ''}${opened ? '' : ' binder--unopened'}`}>
       <div className="binder-top">
         <BinderFilter view={view} onChange={changeView} signedIn={signedIn} />
         <CloseButton className="binder-close" onClick={onClose} />
