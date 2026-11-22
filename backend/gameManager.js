@@ -23,6 +23,7 @@ const {
   calculateEffectiveDefense
 } = require('./utils');
 const { classifyAbility, lostWithFallenFocus } = require('./abilityTargeting');
+const { noteSound } = require('./battleEvents');
 
 // Battle Focus refusals (exact copy shown to players)
 const FOCUS_FIRST = 'Focus an enemy first';
@@ -2105,6 +2106,8 @@ class GameManager {
       for (const special of specials) {
         if (special.trigger === 'on_death') {
           debugLog(` ${deadHero.name}'s ${special.name} activated on death!`);
+          const deadOwner = this.getOwner(game, deadHero);
+          if (deadOwner) noteSound(game, { type: 'trigger', hero: deadHero, playerId: deadOwner.id, special: special.name });
           
           for (const effect of special.effects) {
             if (effect.type === 'damage' && effect.target === 'killer') {
@@ -3942,6 +3945,7 @@ class GameManager {
         
         casterPlayer.twinSpellUsed = true; // Mark as used this round
         casterPlayer.twinSpellActive = true; // Grant extra ability use
+        noteSound(game, { type: 'trigger', hero: caster, playerId: casterPlayer.id, special: 'Twin Spell' });
         
         // Add comprehensive special log entry for Twin Spell
         const twinSpellLogEntry = this.createSpecialLogEntry(
@@ -5394,8 +5398,10 @@ class GameManager {
             const oldHP = randomEnemy.currentHP;
             
             // Negation, HP loss, Vanish, Poison Aura and death all happen in dealDamage
-            const triggeredEffects = this.dealDamage(game, randomEnemy, damageAmount, currentTurnInfo.hero, { source: 'Engineer Turret' }).effects;
+            const turretShot = this.dealDamage(game, randomEnemy, damageAmount, currentTurnInfo.hero, { source: 'Engineer Turret' });
+            const triggeredEffects = turretShot.effects;
             endTurnEffects.push(...triggeredEffects);
+            if (turretShot.final > 0) noteSound(game, { type: 'turret', targetHero: randomEnemy, targetPlayerId: opponent.id });
             
             // Simple turret attack log entry
             const turretAttackLogEntry = {
@@ -6779,6 +6785,8 @@ class GameManager {
 
     debugLog(` Angel found! Resurrecting ${dyingHero.name}...`);
 
+    noteSound(game, { type: 'trigger', hero: angelHero, playerId: angelOwner.id, special: (angelHero.Special && angelHero.Special.name) || 'Resurrect' });
+
     // Mark Angel's resurrect as used
     if (!angelHero.statusEffects) angelHero.statusEffects = {};
     angelHero.statusEffects.resurrectUsed = true;
@@ -7114,6 +7122,7 @@ class GameManager {
         result.wasCommanded = true;
       }
     });
+    noteSound(game, this.commandSoundNote(allyToCommand, casterPlayer, allyAbility, commandResults));
     
     results.push(...commandResults);
     
@@ -7130,6 +7139,17 @@ class GameManager {
     );
     
     return filteredResults;
+  }
+
+  // Sound note for an ally commanded to use an ability: hit and crit come from the ally's own results
+  commandSoundNote(ally, allyPlayer, allyAbility, commandResults) {
+    const own = commandResults.filter(r => r.caster === ally.name);
+    const comprehensive = own.find(r => r.type === 'ability_comprehensive');
+    const hit = comprehensive
+      ? comprehensive.hit !== false
+      : !(commandResults.length > 0 && commandResults.every(r => r.type === 'miss'));
+    const crit = commandResults.some(r => r.isCritical);
+    return { type: 'command', hero: ally, playerId: allyPlayer.id, kind: 'ability', abilityName: allyAbility.name, hit, crit };
   }
 
   processTimekeeperSelectedAbility(ability, caster, primaryTarget, casterPlayer, opponent, game, allyToCommand, selectedAbilityIndex) {
@@ -7211,6 +7231,8 @@ class GameManager {
       commandResults = this.processAbilityEffects(selectedAbility, allyToCommand, primaryTarget, casterPlayer, opponent, game, null, null, null, commandContext);
     }
     
+    noteSound(game, this.commandSoundNote(allyToCommand, casterPlayer, selectedAbility, commandResults));
+
     // Filter command results to get comprehensive entries for the ally's ability
     const commandComprehensiveEntries = commandResults.filter(result => 
       result.type === 'ability_comprehensive'
@@ -7665,6 +7687,7 @@ class GameManager {
         };
         
         results.push(allyAttackLog);
+        noteSound(game, { type: 'command', hero: ally, playerId: casterPlayer.id, kind: 'attack', hit: true, crit: !!attackRoll.isCritical });
         
         // Also add to battle log for immediate visibility
         if (game.battleLog) {
@@ -7695,6 +7718,7 @@ class GameManager {
         };
         
         results.push(allyMissLog);
+        noteSound(game, { type: 'command', hero: ally, playerId: casterPlayer.id, kind: 'attack', hit: false, crit: false });
         
         // Also add to battle log for immediate visibility
         if (game.battleLog) {
