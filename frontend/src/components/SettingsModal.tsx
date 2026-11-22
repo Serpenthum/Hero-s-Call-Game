@@ -7,15 +7,22 @@ import {
   AnimSpeed,
   getAnimSpeed,
   setAnimSpeed,
-  getSfxEnabled,
-  setSfxEnabled,
-  getSfxVolume,
-  setSfxVolume,
   getAutoEndTurnEnabled,
   setAutoEndTurnEnabled,
   sfx
 } from '../battleAnimations';
 import { getHoloEffects, setHoloEffects } from '../holoSetting';
+import {
+  getSfxEnabled,
+  setSfxEnabled,
+  getSfxVolume,
+  setSfxVolume,
+  getMusicEnabled,
+  setMusicEnabled,
+  getMusicVolume,
+  setMusicVolume
+} from '../sound/settings';
+import { CREDITS_TEXT } from '../sound/credits';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -31,6 +38,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [speed, setSpeed] = useState<AnimSpeed>(getAnimSpeed);
   const [sfxOn, setSfxOn] = useState(getSfxEnabled);
   const [volume, setVolume] = useState(() => Math.round(getSfxVolume() * 100));
+  const [musicOn, setMusicOn] = useState(getMusicEnabled);
+  const [musicVolume, setMusicVolumeState] = useState(() => Math.round(getMusicVolume() * 100));
   const [autoEnd, setAutoEnd] = useState(getAutoEndTurnEnabled);
   const [holoOn, setHoloOn] = useState(getHoloEffects);
   // undefined = measuring, null = no answer
@@ -70,6 +79,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const changeVolume = (value: number) => {
     setSfxVolume(value / 100);
     setVolume(value);
+  };
+
+  const toggleMusic = () => {
+    setMusicEnabled(!musicOn);
+    setMusicOn(!musicOn);
+  };
+
+  const changeMusicVolume = (value: number) => {
+    setMusicVolume(value / 100);
+    setMusicVolumeState(value);
   };
 
   const toggleHolo = () => {
@@ -154,7 +173,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           <div className="settings-row">
             <div className="settings-label">
               <span>Sound effects</span>
-              <small>Attack, hit, heal and victory sounds</small>
+              <small>Battle and menu sounds</small>
             </div>
             <button
               className={`settings-switch${sfxOn ? ' on' : ''}`}
@@ -186,6 +205,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               onKeyUp={() => sfx.hit(false)}
               style={{ background: `linear-gradient(90deg, var(--verdigris) ${volume}%, color-mix(in srgb, var(--bone) 15%, transparent) ${volume}%)` }}
             />
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-label">
+              <span>Music</span>
+              <small>Background music in menus and battles</small>
+            </div>
+            <button
+              className={`settings-switch${musicOn ? ' on' : ''}`}
+              role="switch"
+              aria-checked={musicOn}
+              aria-label="Music"
+              onClick={toggleMusic}
+            >
+              <span className="settings-switch-knob" />
+            </button>
+          </div>
+
+          <div className={`settings-row${musicOn ? '' : ' disabled'}`}>
+            <div className="settings-label">
+              <span>Music volume</span>
+              <small>{musicVolume}%</small>
+            </div>
+            <input
+              className="settings-slider"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={musicVolume}
+              disabled={!musicOn}
+              aria-label="Music volume"
+              onChange={e => changeMusicVolume(Number(e.target.value))}
+              style={{ background: `linear-gradient(90deg, var(--verdigris) ${musicVolume}%, color-mix(in srgb, var(--bone) 15%, transparent) ${musicVolume}%)` }}
+            />
+          </div>
+
+          <div className="settings-credits">
+            <h4>Credits</h4>
+            <p>{CREDITS_TEXT}</p>
           </div>
         </div>
       </div>
