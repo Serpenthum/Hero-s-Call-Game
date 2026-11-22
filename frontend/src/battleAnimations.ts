@@ -1,4 +1,6 @@
 // Shared plumbing for combat animations: event bus, user settings, and synthesized SFX.
+import { getAudioContext } from './sound/context';
+import { getSfxEnabled, getSfxVolume } from './sound/settings';
 
 export type CastType = 'damage' | 'heal' | 'buff' | 'debuff' | 'summon' | 'generic';
 
@@ -48,7 +50,6 @@ export const battleEventBus = {
 // ---- Settings ----
 export type AnimSpeed = 'off' | 'fast' | 'normal';
 const SPEED_KEY = 'heroscall.animSpeed';
-const SFX_KEY = 'heroscall.sfx';
 
 export function getAnimSpeed(): AnimSpeed {
   const stored = localStorage.getItem(SPEED_KEY);
@@ -59,30 +60,20 @@ export function getAnimSpeed(): AnimSpeed {
 export function setAnimSpeed(speed: AnimSpeed) { localStorage.setItem(SPEED_KEY, speed); }
 export function speedFactor(speed: AnimSpeed): number { return speed === 'fast' ? 0.6 : 1; }
 
-export function getSfxEnabled(): boolean { return localStorage.getItem(SFX_KEY) !== 'off'; }
-export function setSfxEnabled(on: boolean) { localStorage.setItem(SFX_KEY, on ? 'on' : 'off'); }
+// Sound settings moved to sound/settings; re-exported so existing importers keep working.
+export { getSfxEnabled, setSfxEnabled, getSfxVolume, setSfxVolume } from './sound/settings';
 
 const AUTO_END_KEY = 'heroscall.autoEndTurn';
 export function getAutoEndTurnEnabled(): boolean { return localStorage.getItem(AUTO_END_KEY) !== 'off'; }
 export function setAutoEndTurnEnabled(on: boolean) { localStorage.setItem(AUTO_END_KEY, on ? 'on' : 'off'); }
 
-// Slider position 0-1; 0.5 plays effects at their designed loudness, 1 is twice as loud.
-const VOLUME_KEY = 'heroscall.sfxVolume';
-export function getSfxVolume(): number {
-  const stored = parseFloat(localStorage.getItem(VOLUME_KEY) ?? '');
-  return Number.isFinite(stored) ? Math.min(1, Math.max(0, stored)) : 0.5;
-}
-export function setSfxVolume(volume: number) { localStorage.setItem(VOLUME_KEY, String(Math.min(1, Math.max(0, volume)))); }
-
 // ---- Synthesized SFX (no asset files) ----
-let audioCtx: AudioContext | null = null;
-
 function tone(freq: number, duration: number, type: OscillatorType, volume: number, slideTo?: number, delay = 0) {
   const level = volume * getSfxVolume() * 2;
   if (!getSfxEnabled() || level <= 0) return;
   try {
-    audioCtx = audioCtx || new (window.AudioContext || (window as any).webkitAudioContext)();
-    const ctx = audioCtx;
+    const ctx = getAudioContext();
+    if (!ctx) return;
     const start = ctx.currentTime + delay;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -104,8 +95,8 @@ export function startClockSound(durationSec: number): () => void {
   const level = 0.16 * getSfxVolume() * 2;
   if (!getSfxEnabled() || level <= 0) return () => {};
   try {
-    audioCtx = audioCtx || new (window.AudioContext || (window as any).webkitAudioContext)();
-    const ctx = audioCtx;
+    const ctx = getAudioContext();
+    if (!ctx) return () => {};
     if (ctx.state === 'suspended') ctx.resume();
 
     const master = ctx.createGain();
