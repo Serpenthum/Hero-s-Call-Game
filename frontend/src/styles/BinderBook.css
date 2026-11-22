@@ -4,7 +4,8 @@
 /* ---- Sizes ----
    Everything hangs off the pocket card's width, --cw: the largest card that lets two pages of 3 x 2 pockets fit
    between the gutters, under the top edge and over the status line. The binder is a size container, so 100cqw and
-   100cqh are its own width and height. */
+   100cqh are its own width and height. It has no padding (it is left out of the overlay safe-area list in
+   index.css): the safe-area insets are taken once, here in --T/--B/--L/--R and in each control's own offsets. */
 .binder {
   --pp: 3px;       /* pocket padding round a card */
   --g: 5px;        /* gap between pockets */

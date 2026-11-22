@@ -83,9 +83,11 @@ function auditInPage({ minCardPx, minNamePx, phone }) {
   };
   const over = (a, b, slack = 1) =>
     Math.min(a.right, b.right) - Math.max(a.left, b.left) > slack && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > slack;
-  // The first ancestor (up to the binder) whose clipping box the rect sticks out of
+  // The first ancestor (up to the binder) whose clipping box the rect sticks out of. It stops at the binder: the
+  // binder is fixed to the screen, so the app's boxes round it (smaller than the screen with a safe-area inset)
+  // don't clip it.
   const clipper = (el, rect) => {
-    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    for (let p = el.parentElement; p && p !== document.body; p = p === binder ? null : p.parentElement) {
       const pcs = getComputedStyle(p);
       if (pcs.overflowX === 'visible' && pcs.overflowY === 'visible') continue;
       const box = p.getBoundingClientRect();
