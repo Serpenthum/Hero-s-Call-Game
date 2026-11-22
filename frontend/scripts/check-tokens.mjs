@@ -27,6 +27,8 @@ const MIGRATED = [
   'styles/Shop.css',
   'styles/HeroCollection.css',
   'styles/Binder.css',
+  'styles/BinderBook.css',
+  'components/binder/BinderIcons.tsx',
   'styles/PackOpening.css',
   'components/packs/PackOpening.tsx',
   'components/packs/CardBack.tsx',

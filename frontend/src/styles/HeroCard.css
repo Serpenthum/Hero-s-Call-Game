@@ -866,16 +866,6 @@
   pointer-events: none;
 }
 
-.hero-card.hero-layout-card.disabled-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  border-radius: inherit;
-  background: repeating-linear-gradient(45deg, transparent 0 10px, color-mix(in srgb, var(--ember) 10%, transparent) 10px 20px);
-  pointer-events: none;
-}
-
 /* ---- Tiny mode: no rules text, bigger name and stats. Tap (or press) opens the large view. ----
    A card is tiny at 129px and below, or at any width with the tiny prop (.card-tiny, the binder's pocket cards).
    The @container block and the .card-tiny block after it must stay in step. */
@@ -967,34 +957,6 @@
   min-height: 293.25px;
 }
 
-.collection-card-preview {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  overflow: auto;
-  padding: 24px;
-  pointer-events: none;
-}
-
-.collection-card-preview > * {
-  pointer-events: auto;
-}
-
-.collection-card-preview .hero-layout-card {
-  --hero-card-scale: 1.35;
-}
-
-.collection-card-preview > .game-close-btn {
-  position: fixed;
-  top: calc(16px + var(--safe-top));
-  right: calc(16px + var(--safe-right));
-}
-
 .survival-card-slot.survival-card-placeholder {
   visibility: hidden;
   pointer-events: none;
@@ -1044,17 +1006,12 @@
   .shop-hero-card:has(.hero-layout-card) { width: 156px; min-height: 234.6px; }
 }
 
-@media (max-width: 500px) {
-  .collection-card-preview .hero-layout-card { --hero-card-scale: 1.1; }
-}
-
 @media (max-height: 700px) {
   .game-board .hero-layout-card { --hero-card-height-scale: 0.7; }
 }
 
 @media (max-height: 550px) {
   .game-board .hero-layout-card { --hero-card-height-scale: 0.5; }
-  .collection-card-preview .hero-layout-card { --hero-card-height-scale: 0.85; }
 }
 
 @media (max-width: 900px) {

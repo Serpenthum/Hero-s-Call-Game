@@ -4,6 +4,7 @@ import {
   FILTER_LABELS, SORT_LABELS, buttonLabel, isFiltered,
   type BinderFilter as Filter, type BinderSort, type BinderView,
 } from './binderRules';
+import { FILTER_ICONS, FunnelIcon } from './BinderIcons';
 
 interface BinderFilterProps {
   view: BinderView;
@@ -55,6 +56,7 @@ export const BinderFilter: React.FC<BinderFilterProps> = ({ view, onChange, sign
         title="Filter, sort and search"
         onClick={() => setOpen(o => !o)}
       >
+        <FunnelIcon />
         <span className="binder-filter-label">{buttonLabel(view)}</span>
         {isFiltered(view) && <span className="binder-filter-dot" aria-hidden="true" />}
       </button>
@@ -83,7 +85,7 @@ export const BinderFilter: React.FC<BinderFilterProps> = ({ view, onChange, sign
                 aria-pressed={view.filter === f}
                 onClick={() => onChange({ ...view, filter: f })}
               >
-                {FILTER_LABELS[f]}
+                {FILTER_ICONS[f]}{FILTER_LABELS[f]}
               </button>
             ))}
           </div>

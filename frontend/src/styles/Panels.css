@@ -60,7 +60,7 @@
   box-shadow: none;
 }
 /* Secondary actions are outlines */
-.pack-info-btn, .cancel-button, .profile-tool-btn, .favorite-button, .tooltip-action {
+.pack-info-btn, .cancel-button, .profile-tool-btn, .tooltip-action {
   background: transparent;
   color: var(--bone);
   border: 1px solid var(--brass);
@@ -70,7 +70,7 @@
   text-shadow: none;
 }
 .pack-info-btn:hover:not(:disabled), .cancel-button:hover:not(:disabled), .profile-tool-btn:hover:not(:disabled),
-.favorite-button:hover:not(:disabled), .tooltip-action:hover:not(:disabled) { background: var(--leather); transform: none; box-shadow: none; }
+.tooltip-action:hover:not(:disabled) { background: var(--leather); transform: none; box-shadow: none; }
 /* Destructive actions are ember outlines */
 .reject-button, .remove-friend-action {
   background: transparent;

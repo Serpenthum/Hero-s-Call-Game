@@ -10,9 +10,10 @@ interface BinderPageProps {
   onOpen: (name: string) => void;
 }
 
-function cardClass(hero: BinderHero, collection: Collection): string {
-  if (hero.disabled) return 'binder-card binder-card--disabled';
-  return collection.owned.includes(hero.name) ? 'binder-card' : 'binder-card binder-card--locked';
+// '' for an owned hero. The pocket carries the state too: its padlock or crossed circle sits over the card.
+function cardState(hero: BinderHero, collection: Collection): '' | 'locked' | 'disabled' {
+  if (hero.disabled) return 'disabled';
+  return collection.owned.includes(hero.name) ? '' : 'locked';
 }
 
 // Memoised: a page re-renders only when its heroes, the collection, the spotlight or onOpen change.
@@ -21,10 +22,11 @@ export const BinderPage = React.memo<BinderPageProps>(({ heroes, collection, spo
     {heroes.map((hero, slot) => {
       if (!hero) return <div key={`empty-${slot}`} className="binder-pocket binder-pocket--empty" />;
       const open = () => onOpen(hero.name);
+      const state = cardState(hero, collection);
       return (
         <div
           key={hero.name}
-          className={`binder-pocket${spotlight === hero.name ? ' binder-pocket--spotlight' : ''}`}
+          className={`binder-pocket${state && ` binder-pocket--${state}`}${spotlight === hero.name ? ' binder-pocket--spotlight' : ''}`}
           role="button"
           tabIndex={0}
           aria-label={hero.name}
@@ -43,7 +45,7 @@ export const BinderPage = React.memo<BinderPageProps>(({ heroes, collection, spo
             disableHPAnimations
             holo={collection.holo.includes(hero.name)}
             favorite={collection.favourites.includes(hero.name)}
-            className={cardClass(hero, collection)}
+            className={`binder-card${state && ` binder-card--${state}`}`}
           />
         </div>
       );

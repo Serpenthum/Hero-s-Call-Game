@@ -4,6 +4,7 @@ import HeroCard, { type HeroCardData } from '../HeroCard';
 import CloseButton from '../CloseButton';
 import { READ_TEXT_MIN_PX } from '../../draft/draftRules';
 import type { BinderHero, Collection } from './binderRules';
+import { StarIcon } from './BinderIcons';
 
 interface BinderLargeViewProps {
   hero: BinderHero;
@@ -37,7 +38,7 @@ export const BinderLargeView: React.FC<BinderLargeViewProps> = ({ hero, collecti
         />
         {signedIn && (
           <button type="button" className="binder-large-fav" onClick={() => onToggleFavourite(hero.name)}>
-            {favourite ? 'Remove from favourites' : 'Add to favourites'}
+            <StarIcon />{favourite ? 'Remove from favourites' : 'Add to favourites'}
           </button>
         )}
       </div>

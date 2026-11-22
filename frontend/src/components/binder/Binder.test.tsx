@@ -237,4 +237,45 @@ describe('the binder', () => {
     expect(root.textContent).not.toContain("Couldn't load the heroes.");
     expect(pocketNames(root)).toEqual(NAMES.slice(0, 12));
   });
+
+  describe('the filter fade', () => {
+    let animate: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      animate = vi.fn();
+      (Element.prototype as { animate?: unknown }).animate = animate; // jsdom has no Web Animations
+    });
+    afterEach(() => {
+      delete (Element.prototype as { animate?: unknown }).animate;
+      localStorage.clear();
+    });
+    const fadedPages = () => animate.mock.instances.map(el => (el as Element).className);
+
+    it('fades both pages in over 140 ms on a filter or sort change, and not on a page turn or while typing in search', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(root.querySelector('.binder-arrow--next'));
+      expect(animate).not.toHaveBeenCalled(); // nothing fades when the binder opens or a page turns
+
+      click(buttonByText(openPanel(root), 'Owned'));
+      expect(fadedPages()).toEqual(['binder-page', 'binder-page']);
+      expect(animate.mock.calls[0]).toEqual([[{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' }]);
+
+      click(buttonByText(panel(root)!, 'HP'));
+      expect(animate).toHaveBeenCalledTimes(4);
+
+      type(panel(root)!.querySelector('input[type=search]') as HTMLInputElement, 'H0');
+      expect(pocketNames(root)).toHaveLength(9);
+      expect(animate).toHaveBeenCalledTimes(4);
+    });
+
+    it('does not fade with battle animations off', async () => {
+      localStorage.setItem('heroscall.animSpeed', 'off');
+      stubFetch();
+      const root = await openBinder();
+      click(buttonByText(openPanel(root), 'Owned'));
+      expect(pocketNames(root)).toEqual(OWNED);
+      expect(animate).not.toHaveBeenCalled();
+      expect(root.querySelector('.binder')!.className).toMatch(/binder--still/);
+    });
+  });
 });

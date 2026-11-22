@@ -7,12 +7,14 @@ import { BinderBook } from './binder/BinderBook';
 import { BinderFilter } from './binder/BinderFilter';
 import { BinderStatus } from './binder/BinderStatus';
 import { BinderLargeView } from './binder/BinderLargeView';
+import { cardMotionOff } from '../cards/cardMotion';
 import {
   DEFAULT_VIEW, binderList, clampSpread, filterForHero, matchesFilter, spreadCount, spreadOfHero, statusLine,
   type BinderView, type Collection,
 } from './binder/binderRules';
 import '../styles/HeroCollection.css'; // shared form styles other screens still rely on
-import '../styles/Binder.css';
+import '../styles/Binder.css'; // the opening animation
+import '../styles/BinderBook.css';
 
 interface HeroCollectionProps {
   onClose: () => void;
@@ -98,7 +100,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
   const largeHero = openHero ? heroes.find(h => h.name === openHero) : undefined;
 
   return (
-    <div className="binder">
+    <div className={`binder${cardMotionOff() ? ' binder--still' : ''}`}>
       {!introDone && <BinderOpening onDone={() => setIntroDone(true)} />}
       <div className="binder-top">
         <BinderFilter view={view} onChange={changeView} signedIn={signedIn} />
@@ -121,6 +123,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
             spotlight={spotlight}
             onOpen={setOpenHero}
             viewKey={`${view.filter}|${view.sort}|${view.query}`}
+            fadeKey={`${view.filter}|${view.sort}`}
           />
         )}
       </div>
