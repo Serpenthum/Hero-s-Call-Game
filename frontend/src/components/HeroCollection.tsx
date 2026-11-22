@@ -1,615 +1,151 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import '../styles/HeroCollection.css';
+// The binder: every hero in pockets, two pages at a time, with one filter button and a large view for reading a card.
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CloseButton from './CloseButton';
-import Coin from './Coin';
-import config from '../config';
-import { authHeaders } from '../authSession';
-import SharedHeroCard from './HeroCard';
-import { isHolo } from '../holoSetting';
-import useCardGrid from '../hooks/useCardGrid';
-import '../styles/ResponsiveCardGrid.css';
-import '../styles/Binder.css';
 import BinderOpening from './BinderOpening';
-import Icon from './ui/Icon';
-
-interface HeroAbility {
-  name: string;
-  description: string;
-  category?: string;
-  target_type?: string;
-}
-
-interface HeroSpecial {
-  name: string;
-  description: string;
-  category?: string;
-  trigger?: string;
-}
-
-interface Hero {
-  name: string;
-  HP: number;
-  Defense: number;
-  Accuracy: string;
-  BasicAttack: string;
-  Ability: HeroAbility[];
-  Special: HeroSpecial | HeroSpecial[];
-  disabled?: boolean;
-}
+import useBinderData from './binder/useBinderData';
+import { BinderBook } from './binder/BinderBook';
+import { BinderFilter } from './binder/BinderFilter';
+import { BinderStatus } from './binder/BinderStatus';
+import { BinderLargeView } from './binder/BinderLargeView';
+import { cardMotionOff } from '../cards/cardMotion';
+import {
+  DEFAULT_VIEW, binderList, clampSpread, filterForHero, matchesFilter, spreadCount, spreadOfHero, statusLine,
+  type BinderView, type Collection,
+} from './binder/binderRules';
+import '../styles/HeroCollection.css'; // shared form styles other screens still rely on
+import '../styles/Binder.css'; // the opening
+import '../styles/BinderBook.css';
 
 interface HeroCollectionProps {
   onClose: () => void;
-  userId?: number; // Optional user ID for authenticated users
-  victoryPoints?: number; // Victory points to display
-  onFavoritesChange?: (favoriteHeroes: string[]) => void; // Callback when favorites change
-  initialHero?: string; // Open on this hero's page and spotlight its pocket
+  userId?: number; // Signed-in player; signed out shows every hero with no favourites
+  victoryPoints?: number; // Passed by the lobby; the binder shows no coin amount
+  onFavoritesChange?: (favoriteHeroes: string[]) => void;
+  initialHero?: string; // Open on this hero's page and light its pocket
+  initialView?: BinderView; // Dev screen only: the filter, sort and search to open on
 }
 
-type SortOption = 'alphabetical' | 'hp' | 'ac' | 'accuracy' | 'damage';
-
-// Matches the page-turn animation in Binder.css
-const FLIP_MS = 480;
-type FilterOption = 'available' | 'not-owned' | 'all' | 'favorites' | 'disabled';
-
-// How long the pocket of the hero the Binder opened on stays lit
+// How long the pocket of the hero the binder opened on stays lit
 const SPOTLIGHT_MS = 1600;
 
-const matchesFilter = (hero: Hero, filter: FilterOption, owned: string[], favorites: string[]) => {
-  switch (filter) {
-    case 'available': return owned.includes(hero.name) && !hero.disabled;
-    case 'not-owned': return !owned.includes(hero.name) && !hero.disabled;
-    case 'disabled': return !!hero.disabled;
-    case 'favorites': return favorites.includes(hero.name);
-    default: return true;
-  }
-};
-
-// Memoized HeroCard component to prevent unnecessary re-renders
-const HeroCard = React.memo<{
-  hero: Hero;
-  actualIndex: number;
-  isSelected: boolean;
-  isFavorite: boolean;
-  isOwned: boolean;
-  isHolo: boolean;
-  onClick: (index: number) => void;
-}>(({ hero, actualIndex, isSelected, isFavorite, isOwned, isHolo: holo, onClick }) => {
-  const handleClick = useCallback(() => {
-    onClick(actualIndex);
-  }, [actualIndex, onClick]);
-
-  return (
-    <SharedHeroCard
-      hero={hero}
-      className={`collection-card ${!isOwned || hero.disabled ? 'disabled-hero' : ''}`}
-      isSelectable
-      isSelected={isSelected}
-      showFullInfo={false}
-      disableHPAnimations
-      holo={holo}
-      onClick={handleClick}
-      readable="none"
-    >
-      {isFavorite && (
-        <Icon name="star" size={18} className="favorite-star" />
-      )}
-    </SharedHeroCard>
+const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavoritesChange, initialHero, initialView }) => {
+  const { heroes, collection: loaded, loading, error, retry, toggleFavourite } = useBinderData(userId, onFavoritesChange);
+  // The hook hands back a new object every render; the pages only re-render when a list really changes.
+  const collection: Collection = useMemo(
+    () => ({ owned: loaded.owned, favourites: loaded.favourites, holo: loaded.holo }),
+    [loaded.owned, loaded.favourites, loaded.holo],
   );
-});
+  const signedIn = !!userId;
 
-HeroCard.displayName = 'HeroCard';
-
-const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, victoryPoints = 0, onFavoritesChange, initialHero }) => {
-  const [heroes, setHeroes] = useState<Hero[]>([]);
-  const [sortedHeroes, setSortedHeroes] = useState<Hero[]>([]);
-  const [selectedHeroIndex, setSelectedHeroIndex] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [sortOption, setSortOption] = useState<SortOption>('alphabetical');
-  const [filterOption, setFilterOption] = useState<FilterOption>('available');
-  const [currentPage, setCurrentPage] = useState(0);
-  const [favoriteHeroes, setFavoriteHeroes] = useState<string[]>([]);
-  const [availableHeroes, setAvailableHeroes] = useState<string[]>([]);
-  // The player's collection as the server last sent it, for their holographics
-  const [owner, setOwner] = useState<{ holo_heroes?: string[] } | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [introDone, setIntroDone] = useState(false);
-  // The hero to open on, until the binder has found its page; then the hero whose pocket is lit
-  const [pendingHero, setPendingHero] = useState<string | null>(initialHero ?? null);
+  const [view, setView] = useState<BinderView>(initialView ?? DEFAULT_VIEW);
+  const [spread, setSpread] = useState(0);
+  const [openHero, setOpenHero] = useState<string | null>(null);
   const [spotlight, setSpotlight] = useState<string | null>(null);
-  const [ownedLoaded, setOwnedLoaded] = useState(!userId);
-  // While a page turns: which way, and the spread being left behind
-  const [flip, setFlip] = useState<{ direction: 'next' | 'prev'; from: number } | null>(null);
-  
-  const cardGrid = useCardGrid({ singleRowOnPhone: true });
-  // The grid measures one page of the binder; the open binder shows two
-  const pageSize = cardGrid.pageSize;
-  const heroesPerPage = pageSize * 2;
+  const [opened, setOpened] = useState(false);
+  // The hero to open on, until the heroes have loaded and its spread is known
+  const [pendingHero, setPendingHero] = useState<string | null>(initialHero ?? null);
 
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [heroesPerPage]);
+  const list = useMemo(() => binderList(heroes, view, collection), [heroes, view, collection]);
+  // A list can shrink with no view change (unfavouriting under Favourites): never show a spread past the end.
+  const shownSpread = clampSpread(spread, list.length);
 
-  useEffect(() => {
-    fetchHeroes();
-    if (userId) {
-      fetchFavoriteHeroes();
-      fetchAvailableHeroes();
-    }
-  }, [filterOption, userId]); // Refetch when filter changes or userId changes
+  const changeView = useCallback((v: BinderView) => {
+    setView(v);
+    setSpread(0);
+  }, []);
 
+  // Opening on a hero: switch to a filter that shows it if need be, then go to its spread and light its pocket.
   useEffect(() => {
-    if (heroes.length > 0) {
-      let filtered = heroes.filter(hero => matchesFilter(hero, filterOption, availableHeroes, favoriteHeroes));
-      
-      // Apply search filter
-      if (searchQuery.trim() !== '') {
-        filtered = filtered.filter(hero => 
-          hero.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
-      
-      const sorted = sortHeroes(filtered, sortOption);
-      setSortedHeroes(sorted);
-    }
-  }, [heroes, sortOption, filterOption, favoriteHeroes, availableHeroes, searchQuery]);
-
-  // Separate effect to reset page only when sort, filter, or search changes
-  useEffect(() => {
-    setCurrentPage(0);
-    setSelectedHeroIndex(null);
-  }, [sortOption, filterOption, searchQuery]);
-
-  // Opening on a hero: show every hero if the current filter hides it, then turn to its page.
-  // Declared after the page resets above so it runs after them.
-  useEffect(() => {
-    if (!pendingHero || loading || heroes.length === 0 || !ownedLoaded) return;
-    const hero = heroes.find(h => h.name === pendingHero);
-    if (!hero) { setPendingHero(null); return; }
-    if (!matchesFilter(hero, filterOption, availableHeroes, favoriteHeroes)) {
-      setFilterOption('all');
-      return;
-    }
+    if (!pendingHero || loading) return;
     setPendingHero(null);
+    const hero = heroes.find(h => h.name === pendingHero);
+    if (!hero) return;
+    const filter = filterForHero(hero, collection, view.filter);
+    const nextView = filter === view.filter ? view : { ...view, filter };
+    setView(nextView);
+    setSpread(spreadOfHero(binderList(heroes, nextView, collection), hero.name) ?? 0);
     setSpotlight(hero.name);
-  }, [pendingHero, loading, heroes, ownedLoaded, filterOption, availableHeroes, favoriteHeroes]);
-
-  useEffect(() => {
-    if (!spotlight) return;
-    const index = sortedHeroes.findIndex(h => h.name === spotlight);
-    if (index >= 0) setCurrentPage(Math.floor(index / heroesPerPage));
-  }, [spotlight, sortedHeroes, heroesPerPage]);
+  }, [pendingHero, loading, heroes, collection, view]);
 
   // The light goes out a moment after the binder has opened
   useEffect(() => {
-    if (!spotlight || !introDone) return;
+    if (!spotlight || !opened) return;
     const timer = window.setTimeout(() => setSpotlight(null), SPOTLIGHT_MS);
     return () => window.clearTimeout(timer);
-  }, [spotlight, introDone]);
+  }, [spotlight, opened]);
+
+  // Until the binder has been opened, Escape backs out of it
+  useEffect(() => {
+    if (opened) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [opened, onClose]);
 
   useEffect(() => {
-    if (selectedHeroIndex === null) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedHeroIndex(null);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedHeroIndex]);
+    if (!openHero) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenHero(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openHero]);
 
-  const parseAttackValue = useCallback((attack: string): number => {
-    // Extract numeric value from attack string (e.g., "1D6" -> 6, "2D4" -> 8)
-    const match = attack.match(/(\d+)D(\d+)/);
-    if (match) {
-      const numDice = parseInt(match[1]);
-      const diceSize = parseInt(match[2]);
-      return numDice * diceSize; // Use max possible damage for comparison
-    }
-    return 0;
-  }, []);
+  const closeLargeView = useCallback(() => setOpenHero(null), []);
+  const onToggleFavourite = useCallback((name: string) => { void toggleFavourite(name); }, [toggleFavourite]);
 
-  const parseAccuracyValue = useCallback((accuracy: string): number => {
-    // Extract numeric value from accuracy string (e.g., "+2" -> 2, "+1" -> 1)
-    const match = accuracy.match(/[+-](\d+)/);
-    return match ? parseInt(match[1]) : 0;
-  }, []);
+  const status = useMemo(() => {
+    const enabled = heroes.filter(h => !h.disabled);
+    return statusLine({
+      filter: view.filter,
+      spread: shownSpread,
+      spreads: spreadCount(list.length),
+      ownedCount: enabled.filter(h => collection.owned.includes(h.name)).length,
+      enabledCount: enabled.length,
+      holoCount: heroes.filter(h => matchesFilter(h, 'holo', collection)).length,
+    });
+  }, [heroes, collection, view.filter, shownSpread, list.length]);
 
-  const sortHeroes = useCallback((heroList: Hero[], option: SortOption): Hero[] => {
-    const sorted = [...heroList];
-    
-    switch (option) {
-      case 'alphabetical':
-        return sorted.sort((a, b) => a.name.localeCompare(b.name));
-      case 'hp':
-        return sorted.sort((a, b) => b.HP - a.HP);
-      case 'ac':
-        return sorted.sort((a, b) => b.Defense - a.Defense);
-      case 'accuracy':
-        return sorted.sort((a, b) => parseAccuracyValue(b.Accuracy) - parseAccuracyValue(a.Accuracy));
-      case 'damage':
-        return sorted.sort((a, b) => parseAttackValue(b.BasicAttack) - parseAttackValue(a.BasicAttack));
-      default:
-        return sorted;
-    }
-  }, [parseAccuracyValue, parseAttackValue]);
-
-  const fetchHeroes = async () => {
-    try {
-      console.log('Attempting to fetch heroes from:', config.API_BASE_URL);
-      
-      // Always fetch all heroes, then filter based on filterOption
-      let url = `${config.API_BASE_URL}/api/heroes`;
-      const params = new URLSearchParams();
-      
-      if (userId) {
-        params.append('userId', userId.toString());
-        // Request all heroes to properly filter
-        params.append('showAll', 'true');
-      }
-      
-      if (params.toString()) {
-        url += '?' + params.toString();
-      }
-      
-      const response = await fetch(url);
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('Fetched heroes data:', data);
-      console.log('Total heroes received:', data.length);
-      
-      setHeroes(data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching heroes from API, using fallback data:', error);
-      
-      // Fallback heroes data if API fails
-      const fallbackHeroes = [
-        {
-          name: "Barbarian",
-          HP: 25,
-          Defense: 8,
-          Accuracy: "+1",
-          BasicAttack: "2d6+2",
-          Ability: [{ 
-            name: "Rage", 
-            description: "Increase damage for 3 turns", 
-            effects: [{ type: "damage_boost", value: 5, duration: 3 }]
-          }],
-          Special: [{ 
-            name: "Berserker", 
-            description: "Continue fighting when low HP", 
-            effects: [{ type: "survival", trigger: "low_hp" }]
-          }]
-        },
-        {
-          name: "Wizard",
-          HP: 15,
-          Defense: 6,
-          Accuracy: "+0",
-          BasicAttack: "1d6",
-          Ability: [{ 
-            name: "Fireball", 
-            description: "Area damage spell", 
-            effects: [{ type: "area_damage", value: "2d6" }]
-          }],
-          Special: [{ 
-            name: "Arcane Power", 
-            description: "Bonus spell damage", 
-            effects: [{ type: "spell_boost", value: 3 }]
-          }]
-        },
-        {
-          name: "Rogue",
-          HP: 18,
-          Defense: 7,
-          Accuracy: "+2",
-          BasicAttack: "1d6+3",
-          Ability: [{ 
-            name: "Sneak Attack", 
-            description: "High damage from stealth", 
-            effects: [{ type: "sneak_damage", value: "3d6" }]
-          }],
-          Special: [{ 
-            name: "Evasion", 
-            description: "Avoid some attacks", 
-            effects: [{ type: "dodge_chance", value: 25 }]
-          }]
-        }
-      ];
-      
-      console.log('Using fallback heroes for collection:', fallbackHeroes.length);
-      setHeroes(fallbackHeroes);
-      setLoading(false);
-    }
-  };
-
-  const fetchFavoriteHeroes = async () => {
-    if (!userId) return;
-    
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/api/favorite-heroes/${userId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setFavoriteHeroes(data.favoriteHeroes || []);
-      }
-    } catch (error) {
-      console.error('Error fetching favorite heroes:', error);
-    }
-  };
-
-  const fetchAvailableHeroes = async () => {
-    if (!userId) return;
-    
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/api/user/${userId}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.user) {
-          setAvailableHeroes(data.user.available_heroes || []);
-          setOwner(data.user);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching available heroes:', error);
-    } finally {
-      setOwnedLoaded(true);
-    }
-  };
-
-  const toggleFavoriteHero = async (heroName: string) => {
-    if (!userId) return;
-    
-    try {
-      const response = await fetch(`${config.API_BASE_URL}/api/toggle-favorite-hero`, {
-        method: 'POST',
-        headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ userId, heroName }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setFavoriteHeroes(data.favoriteHeroes || []);
-        
-        // Notify parent component of the change
-        if (onFavoritesChange) {
-          onFavoritesChange(data.favoriteHeroes || []);
-        }
-      }
-    } catch (error) {
-      console.error('Error toggling favorite hero:', error);
-    }
-  };
-
-  const handleHeroClick = useCallback((heroIndex: number) => {
-    if (selectedHeroIndex === heroIndex) {
-      setSelectedHeroIndex(null); // Deselect if already selected
-    } else {
-      setSelectedHeroIndex(heroIndex);
-    }
-  }, [selectedHeroIndex]);
-
-  // Memoized pagination helper functions
-  const getTotalPages = useMemo(() => 
-    Math.ceil(sortedHeroes.length / heroesPerPage),
-    [sortedHeroes.length, heroesPerPage]
-  );
-  const visiblePage = Math.min(currentPage, Math.max(0, getTotalPages - 1));
-  
-  const getPageHeroes = useCallback((page: number) => {
-    const startIndex = page * heroesPerPage;
-    return sortedHeroes.slice(startIndex, startIndex + heroesPerPage);
-  }, [sortedHeroes, heroesPerPage]);
-
-  const turnPage = useCallback((direction: 'next' | 'prev') => {
-    if (flip) return; // Prevent rapid clicking
-
-    setSelectedHeroIndex(null); // Clear selection when changing pages
-    setFlip({ direction, from: visiblePage });
-    setCurrentPage(direction === 'next' ? (visiblePage + 1) % getTotalPages : (visiblePage - 1 + getTotalPages) % getTotalPages);
-    setTimeout(() => setFlip(null), FLIP_MS);
-  }, [flip, visiblePage, getTotalPages]);
-
-  const handleNextPage = useCallback(() => turnPage('next'), [turnPage]);
-  const handlePrevPage = useCallback(() => turnPage('prev'), [turnPage]);
-
-  // One page of pockets (side 0 = left, 1 = right) for the given binder spread
-  const renderHalf = (page: number, side: 0 | 1, measure = false) => (
-    <div className="responsive-card-viewport" ref={measure ? cardGrid.ref : undefined}>
-      <div className="collection-grid responsive-card-grid">
-        {Array.from({ length: pageSize }, (_, slot) => {
-          const pageOffset = side * pageSize + slot;
-          const hero = getPageHeroes(page)[pageOffset];
-          if (!hero) return <div key={`empty-${pageOffset}`} className="binder-pocket empty" />;
-          const actualIndex = page * heroesPerPage + pageOffset;
-          return (
-            <div key={hero.name} className={`binder-pocket${spotlight === hero.name ? ' binder-pocket--spotlight' : ''}`}>
-              <HeroCard
-                hero={hero}
-                actualIndex={actualIndex}
-                isSelected={selectedHeroIndex === actualIndex}
-                isFavorite={favoriteHeroes.includes(hero.name)}
-                isOwned={availableHeroes.includes(hero.name)}
-                isHolo={isHolo(owner, hero.name)}
-                onClick={handleHeroClick}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFilterOption(e.target.value as FilterOption);
-  }, []);
-
-  const handleSortChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSortOption(e.target.value as SortOption);
-  }, []);
-
-
-
-  if (loading) {
-    return (
-      <div className="collection-fullscreen binder-theme">
-        {!introDone && <BinderOpening onDone={() => setIntroDone(true)} />}
-        <div className="collection-header">
-          <h2>Binder</h2>
-          <div className="header-right">
-            <div className="victory-points">
-              <Coin className="trophy-icon" />
-              <span className="points-text">{victoryPoints}</span>
-            </div>
-            <CloseButton onClick={onClose} />
-          </div>
-        </div>
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <p>Loading heroes...</p>
-        </div>
-      </div>
-    );
-  }
+  // Looked up among all heroes, so the large view stays put when its hero leaves the current list.
+  const largeHero = openHero ? heroes.find(h => h.name === openHero) : undefined;
 
   return (
-    <div className="collection-fullscreen binder-theme">
-      {!introDone && <BinderOpening onDone={() => setIntroDone(true)} />}
-      <div className="collection-header">
-        <h2>Binder</h2>
-        <div className="header-controls">
-          <div className="filter-controls">
-            <div className="control-group">
-              <label htmlFor="filter-select">Show:</label>
-              <select 
-                id="filter-select"
-                value={filterOption} 
-                onChange={handleFilterChange}
-                className="filter-dropdown"
-              >
-                <option value="available">Owned Heroes</option>
-                <option value="not-owned">Not Owned</option>
-                <option value="all">All Heroes</option>
-                {userId && <option value="favorites">Favorite Heroes</option>}
-                <option value="disabled">Disabled Heroes</option>
-              </select>
-            </div>
-            <div className="control-group">
-              <label htmlFor="sort-select">Sort by:</label>
-              <select 
-                id="sort-select"
-                value={sortOption} 
-                onChange={handleSortChange}
-                className="sort-dropdown"
-              >
-                <option value="alphabetical">Alphabetical</option>
-                <option value="hp">Most HP</option>
-                <option value="ac">Most AC</option>
-                <option value="accuracy">Most Accuracy</option>
-                <option value="damage">Highest Damage</option>
-              </select>
-            </div>
-            <div className="control-group">
-              <label htmlFor="search-input">Search:</label>
-              <input
-                id="search-input"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Hero name..."
-                className="search-input"
-              />
-            </div>
-          </div>
-          <div className="victory-points">
-            <Coin className="trophy-icon" />
-            <span className="points-text">{victoryPoints}</span>
-          </div>
-          <CloseButton onClick={onClose} />
-        </div>
+    <div className={`binder${cardMotionOff() ? ' binder--still' : ''}${opened ? '' : ' binder--unopened'}`}>
+      <div className="binder-top">
+        <BinderFilter view={view} onChange={changeView} signedIn={signedIn} />
+        <CloseButton className="binder-close" onClick={onClose} />
       </div>
-      
-      {selectedHeroIndex !== null && (
-        <div className="selection-overlay" onClick={() => setSelectedHeroIndex(null)}></div>
-      )}
-
-      {selectedHeroIndex !== null && sortedHeroes[selectedHeroIndex] && (
-        <div className="collection-card-preview" role="dialog" aria-modal="true" aria-label={sortedHeroes[selectedHeroIndex].name}>
-          <CloseButton onClick={() => setSelectedHeroIndex(null)} />
-          <SharedHeroCard hero={sortedHeroes[selectedHeroIndex]} holo={isHolo(owner, sortedHeroes[selectedHeroIndex].name)} showFullInfo={false} disableHPAnimations readable="none" />
-          {userId && (
-            <div className="favorite-button-container">
-              <button 
-                className={`favorite-button ${favoriteHeroes.includes(sortedHeroes[selectedHeroIndex].name) ? 'favorited' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFavoriteHero(sortedHeroes[selectedHeroIndex].name);
-                }}
-              >
-                {favoriteHeroes.includes(sortedHeroes[selectedHeroIndex].name) ? 'Remove from favorites' : 'Add to favorites'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      
-      <div className="collection-content">
-        <div className="collection-grid-container binder-book" style={cardGrid.style}>
-          <div className="binder-cover">
-            <div className="binder-pages">
-              <div className="binder-page left">
-                {renderHalf(flip?.direction === 'next' ? flip.from : visiblePage, 0, true)}
-              </div>
-              <div className="binder-page right">
-                {renderHalf(flip?.direction === 'prev' ? flip.from : visiblePage, 1)}
-              </div>
-              <div className="binder-spine" aria-hidden="true">
-                <span className="binder-ring" />
-                <span className="binder-ring" />
-                <span className="binder-ring" />
-              </div>
-              {/* One leaf turns: its front is the page being lifted, its back is the page it lands on */}
-              {flip && (
-                <div className={`binder-leaf ${flip.direction}`} aria-hidden="true">
-                  <div className={`binder-leaf-face binder-page ${flip.direction === 'next' ? 'right' : 'left'}`}>
-                    {renderHalf(flip.from, flip.direction === 'next' ? 1 : 0)}
-                  </div>
-                  <div className={`binder-leaf-face back binder-page ${flip.direction === 'next' ? 'left' : 'right'}`}>
-                    {renderHalf(visiblePage, flip.direction === 'next' ? 0 : 1)}
-                  </div>
-                </div>
-              )}
-            </div>
+      <div className="binder-stage">
+        {error ? (
+          <div className="binder-error" role="alert">
+            <p>Couldn't load the heroes.</p>
+            <button type="button" className="binder-retry" onClick={retry}>Try again</button>
           </div>
-          
-          {getTotalPages > 1 && (
-            <>
-              <button 
-                className={`pagination-arrow-overlay left-arrow ${flip ? 'disabled' : ''}`}
-                onClick={handlePrevPage}
-                disabled={!!flip}
-                title="Previous page"
-              >
-                ‹
-              </button>
-              <button 
-                className={`pagination-arrow-overlay right-arrow ${flip ? 'disabled' : ''}`}
-                onClick={handleNextPage}
-                disabled={!!flip}
-                title="Next page"
-              >
-                ›
-              </button>
-              <div className="page-indicator-overlay">
-                {visiblePage + 1} / {getTotalPages}
-              </div>
-            </>
-          )}
-        </div>
+        ) : loading ? (
+          <p className="binder-loading" role="status">Loading heroes</p>
+        ) : (
+          <BinderBook
+            list={list}
+            collection={collection}
+            spread={shownSpread}
+            onSpreadChange={setSpread}
+            spotlight={spotlight}
+            onOpen={setOpenHero}
+            viewKey={`${view.filter}|${view.sort}|${view.query}`}
+            fadeKey={`${view.filter}|${view.sort}`}
+          />
+        )}
       </div>
+      {!error && !loading && <BinderStatus text={status} />}
+      {largeHero && (
+        <BinderLargeView
+          hero={largeHero}
+          collection={collection}
+          signedIn={signedIn}
+          onToggleFavourite={onToggleFavourite}
+          onClose={closeLargeView}
+        />
+      )}
+      {/* Last, so it lies over the book until the binder has been opened */}
+      {!opened && <BinderOpening onOpened={() => setOpened(true)} />}
     </div>
   );
 };

@@ -40,6 +40,8 @@ interface HeroCardProps {
   // Rules text never smaller than this (px): when it does not fit, the text panel grows up the card instead.
   // Off by default; every screen without it keeps the 62% panel and shrinks the text.
   minTextPx?: number;
+  // Name, art and stats only at any width: the face a card gets at 129px and below (the binder's pocket cards).
+  tiny?: boolean;
 }
 
 // Largest share of the card's height the name-and-rules panel may cover.
@@ -94,7 +96,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
   readable,
   onInspect,
   isFocused = false,
-  minTextPx
+  minTextPx,
+  tiny = false
 }) => {
   // "Show holographic effects: off" draws a holographic card plain, everywhere.
   const holo = holoProp && getHoloEffects();
@@ -310,6 +313,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
     if (!isEnemy) classes += ' ally';
     if (isCurrentTurn && !isDead) classes += ' current-turn'; // Don't highlight dead heroes as current turn
     if (tutorialReveal) classes += ` tutorial-${tutorialReveal}`;
+    if (tiny) classes += ' card-tiny';
     classes += ` hero-layout-card ${className}`;
     return classes;
   };
@@ -868,6 +872,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   };
 
   useLayoutEffect(() => {
+    // A tiny card shows no rules text, so there is nothing to fit (and the fitting's forced layouts add up when
+    // a binder page mounts twelve of them)
+    if (tiny) return;
     const card = cardRef.current;
     const lower = lowerRef.current;
     if (!card || !lower) return;
@@ -911,7 +918,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
     const observer = new ResizeObserver(fitText);
     observer.observe(card);
     return () => observer.disconnect();
-  }, [hero.Ability, hero.Special, hero.name, minTextPx]);
+  }, [hero.Ability, hero.Special, hero.name, minTextPx, tiny]);
 
   const renderCardDetails = () => (
     <div className="card-details">

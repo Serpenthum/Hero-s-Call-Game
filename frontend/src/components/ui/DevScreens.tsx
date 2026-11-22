@@ -7,6 +7,8 @@ import PackOpening from '../packs/PackOpening';
 import type { PackCardKind, PackResult } from '../packs/packTypes';
 import TutorialOverlay from '../tutorial/TutorialOverlay';
 import Shop from '../Shop';
+import HeroCollection from '../HeroCollection';
+import { DEFAULT_VIEW, FILTER_LABELS, type BinderFilter } from '../binder/binderRules';
 import config from '../../config';
 
 // The shop with canned replies, so it can be looked at without signing in: /#screens/shop?coins=3&owned=all
@@ -62,6 +64,65 @@ const DevShop: React.FC<{ query: string }> = ({ query }) => {
   );
 };
 
+// The binder with canned replies: /#screens/binder?owned=all&holo=2&hero=Ninja
+// signedin=0: signed out. owned: some (default: the mockup's 27 of 40), all or none. holo: how many owned heroes are
+// holographic (5). hero: open on this hero. filter: the filter to open on (all, owned, favourites, holo, not-owned,
+// disabled). fail=1: the heroes request fails.
+const BINDER_NOT_OWNED = ['Assassin', 'Bomber', 'Champion', 'Cleric', 'Diplomat', 'Elementalist', 'Hoarder', 'Mech',
+  'Plague Spreader', 'Shaman', 'Silencer', 'Timekeeper', 'Warden'];
+const BINDER_HOLO = ['Angel', 'Blood Hunter', 'Paladin', 'Ninja', 'Dragon Rider'];
+const BINDER_FAVOURITES = ['Arcane Archer', 'Barbarian', 'Blood Hunter', 'Monk', 'Wizard', 'Reaper'];
+const DevBinder: React.FC<{ query: string }> = ({ query }) => {
+  const params = new URLSearchParams(query);
+  const signedIn = params.get('signedin') !== '0';
+  const filterParam = params.get('filter');
+  const filter = filterParam && filterParam in FILTER_LABELS ? filterParam as BinderFilter : DEFAULT_VIEW.filter;
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const realFetch = window.fetch;
+    const reply = (body: unknown, status = 200) =>
+      Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
+    let favourites = [...BINDER_FAVOURITES];
+    realFetch(`${config.API_BASE_URL}/api/heroes?showAll=true`).then(r => r.json()).then((list: any[]) => {
+      const enabled: string[] = list.filter(h => !h.disabled).map(h => h.name);
+      const ownedMode = params.get('owned') ?? 'some';
+      const owned = ownedMode === 'all' ? enabled : ownedMode === 'none' ? [] : enabled.filter(n => !BINDER_NOT_OWNED.includes(n));
+      const holoCount = Number(params.get('holo') ?? BINDER_HOLO.length);
+      const holo = [...BINDER_HOLO.filter(n => owned.includes(n)), ...owned.filter(n => !BINDER_HOLO.includes(n))].slice(0, holoCount);
+      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input instanceof Request ? input.url : input);
+        if (url.includes('/api/heroes')) {
+          if (params.get('fail') === '1') return reply({ error: 'canned failure' }, 500);
+          // As the server: disabled heroes only come with showAll (the signed-in request)
+          return reply(url.includes('showAll=true') ? list : list.filter(h => !h.disabled));
+        }
+        if (url.includes('/api/favorite-heroes/')) return reply({ favoriteHeroes: favourites });
+        if (url.includes('/api/user/')) return reply({ success: true, user: { available_heroes: owned, holo_heroes: holo } });
+        if (url.includes('/api/toggle-favorite-hero')) {
+          const { heroName } = JSON.parse(String(init?.body)) as { heroName: string };
+          favourites = favourites.includes(heroName) ? favourites.filter(n => n !== heroName) : [...favourites, heroName];
+          return reply({ success: true, favoriteHeroes: favourites });
+        }
+        return realFetch(input, init);
+      };
+      setReady(true);
+    }).catch(() => undefined);
+    return () => { window.fetch = realFetch; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!ready) return null;
+  return (
+    <HeroCollection
+      onClose={() => undefined}
+      userId={signedIn ? 1 : undefined}
+      initialHero={params.get('hero') ?? undefined}
+      initialView={{ ...DEFAULT_VIEW, filter }}
+    />
+  );
+};
+
 // Dev only: shows one rarely reached screen with sample data, e.g. /#screens/quest-reward
 const DevScreens: React.FC = () => {
   const [name, query = ''] = window.location.hash.replace('#screens/', '').split('?');
@@ -104,10 +165,12 @@ const DevScreens: React.FC = () => {
       return packScreen(['new', 'repeat', 'new', 'holo']);
     case 'shop':
       return <DevShop query={query} />;
+    case 'binder':
+      return <DevBinder query={query} />;
     case 'tutorial':
       return <TutorialOverlay step={{ key: 'dev', text: 'This is your Binder. Every hero you own lives here.', showNext: true, nextLabel: 'Got it', anchor: 'center' }} onNext={noop} />;
     default:
-      return <div style={{ padding: 'var(--space-7)', color: 'var(--bone)' }}>Screens: quest-reward, requirement, settings, how-to-play, pack-opening, pack-opening-holo, shop, tutorial</div>;
+      return <div style={{ padding: 'var(--space-7)', color: 'var(--bone)' }}>Screens: quest-reward, requirement, settings, how-to-play, pack-opening, pack-opening-holo, shop, binder, tutorial</div>;
   }
 };
 

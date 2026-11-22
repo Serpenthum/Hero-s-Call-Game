@@ -1,0 +1,830 @@
+/* The open binder: a leather book on the table, six pockets a page, brass rings down the spine.
+   Look copied from docs/superpowers/specs/2026-11-21-redesign-step5-binder-mockup.html (option C, version 2). */
+
+/* ---- Sizes ----
+   Everything hangs off the pocket card's width, --cw: the largest card that lets two pages of 3 x 2 pockets fit
+   between the gutters, under the top edge and over the status line. The binder is a size container, so 100cqw and
+   100cqh are its own width and height. It has no padding (it is left out of the overlay safe-area list in
+   index.css): the safe-area insets are taken once, here in --T/--B/--L/--R and in each control's own offsets. */
+.binder {
+  --pp: 3px;       /* pocket padding round a card */
+  --g: 5px;        /* gap between pockets */
+  --p: 7px;        /* page padding */
+  --s: 16px;       /* spine: the gap between the two pages */
+  --c: 4px;        /* leather cover showing round the pages */
+  --ctl: 28px;     /* height of the buttons */
+  --ctl-top: 6px;
+  --ctl-side: 3px;
+  --top: 6px;      /* room above the book */
+  --bottom: 22px;  /* the status line */
+  --gut: 34px;     /* room each side of the book */
+  --arw: 24px;
+  --arh: 60px;
+  --arx: calc((var(--gut) + var(--arw)) / -2); /* arrows sit in the middle of the gutters */
+  --iw: 222px;     /* the large view's card */
+
+  --T: calc(var(--top) + var(--safe-top));
+  --B: calc(var(--bottom) + var(--safe-bottom));
+  --L: calc(var(--gut) + var(--safe-left));
+  --R: calc(var(--gut) + var(--safe-right));
+  --kw: calc(12 * var(--pp) + 4 * var(--g) + 4 * var(--p) + var(--s) + 2 * var(--c));
+  --kh: calc(4 * var(--pp) + var(--g) + 2 * var(--p) + 2 * var(--c));
+  --cw: max(40px, min(
+    calc((100cqw - var(--L) - var(--R) - var(--kw)) / 6),
+    calc((100cqh - var(--T) - var(--B) - var(--kh)) * 130 / 391)
+  ));
+  --dark: var(--draft-bar-bottom);
+
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  container-type: size;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, var(--draft-felt-hi), var(--felt) 55%, var(--felt-deep));
+  color: var(--bone);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.2;
+}
+
+/* Narrow sideways phones: thin gutters and pocket padding so the cards stay big. The side arrows lie over the
+   book's outer edge, and the two buttons sit above the book's corners, in height the book can't use at this width. */
+@media (max-width: 720px) {
+  .binder {
+    --pp: 2px;
+    --g: 4px;
+    --p: 5px;
+    --s: 14px;
+    --c: 3px;
+    --gut: 14px;
+    --top: calc(var(--ctl-top) + var(--ctl) + 4px);
+    --arw: 20px;
+    --arh: 56px;
+    --arx: calc(2px - var(--gut));
+  }
+}
+
+/* Computer: room to spare, so the filter button says what is showing. */
+@media (min-width: 1000px) and (min-height: 560px) {
+  .binder {
+    --pp: 6px;
+    --g: 10px;
+    --p: 16px;
+    --s: 30px;
+    --c: 6px;
+    --ctl: 36px;
+    --ctl-top: 8px;
+    --ctl-side: 14px;
+    --top: 52px;
+    --bottom: 38px;
+    --gut: 48px;
+    --arw: 36px;
+    --arh: 88px;
+    --iw: 351px;
+    font-size: 16px;
+  }
+}
+
+.binder button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.binder-icon {
+  display: block;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+}
+
+/* ---- The two buttons in the top corners ---- */
+.binder-top {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 21;
+  height: 0;
+}
+
+.binder-filter {
+  position: absolute;
+  top: calc(var(--ctl-top) + var(--safe-top));
+  left: calc(var(--ctl-side) + var(--safe-left));
+}
+
+.binder-filter-btn,
+.binder-panel-done,
+.binder-retry,
+.binder-large-fav {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--ctl);
+  min-width: var(--ctl);
+  padding: 0 10px;
+  border: 1px solid var(--draft-act-edge);
+  border-radius: 6px;
+  background: linear-gradient(var(--draft-act-top), var(--draft-act-bottom));
+  color: var(--mode-ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.binder-filter-btn:hover,
+.binder-panel-done:hover,
+.binder-retry:hover,
+.binder-large-fav:hover {
+  border-color: var(--brass-hi);
+}
+
+.binder-search {
+  outline: 0; /* its border brightens instead */
+}
+
+.binder :is(button, [role='button']):focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+/* Phone: the button is a brass square, and a red dot says a filter, sort or search is on */
+.binder-filter-btn {
+  width: var(--ctl);
+  padding: 0;
+}
+
+.binder-filter-label {
+  display: none;
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.binder-filter-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--dark);
+  border-radius: 50%;
+  background: var(--ember-hi);
+}
+
+@media (min-width: 1000px) and (min-height: 560px) {
+  .binder-filter-btn {
+    width: auto;
+    padding: 0 14px;
+  }
+
+  .binder-filter-label {
+    display: block;
+  }
+
+  /* The label already says what is on */
+  .binder-filter-dot {
+    display: none;
+  }
+}
+
+.binder .binder-close,
+.binder .binder-large-close {
+  position: absolute;
+  top: calc(var(--ctl-top) + var(--safe-top));
+  right: calc(var(--ctl-side) + var(--safe-right));
+  width: var(--ctl);
+  height: var(--ctl);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--card-black) 50%, transparent);
+  color: var(--bone);
+}
+
+.binder .binder-close:hover,
+.binder .binder-large-close:hover {
+  border-color: var(--brass-hi);
+}
+
+/* ---- The panel that drops down from the filter button ---- */
+.binder-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: min(336px, calc(100cqw - 2 * var(--ctl-side) - var(--safe-left) - var(--safe-right) - 6px));
+  box-sizing: border-box;
+  padding: 11px 12px 10px;
+  border: 2px solid var(--brass);
+  border-radius: 8px;
+  background: radial-gradient(ellipse at 50% 0, var(--leather), var(--dark) 80%);
+  box-shadow:
+    inset 0 0 0 3px var(--dark),
+    inset 0 0 0 4px var(--brass-dim),
+    0 12px 30px color-mix(in srgb, var(--card-black) 70%, transparent);
+}
+
+/* Bright brass corners, top left and bottom right */
+.binder-panel::before,
+.binder-panel::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--brass-hi);
+  pointer-events: none;
+}
+
+.binder-panel::before {
+  top: -2px;
+  left: -2px;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 8px 0 0;
+}
+
+.binder-panel::after {
+  right: -2px;
+  bottom: -2px;
+  border-top: 0;
+  border-left: 0;
+  border-radius: 0 0 8px;
+}
+
+.binder-panel-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.binder-search {
+  flex: 1;
+  min-width: 0;
+  height: var(--ctl);
+  box-sizing: border-box;
+  padding: 0 9px;
+  border: 1px solid var(--brass-dim);
+  border-radius: 6px;
+  background: var(--draft-step-well);
+  color: var(--bone);
+  font: inherit;
+  font-size: max(16px, 1em); /* under 16px, phones zoom the page when the box is tapped */
+}
+
+.binder-search:focus {
+  border-color: var(--brass-hi);
+}
+
+.binder-search::placeholder {
+  color: var(--bone-dim);
+  opacity: 0.8;
+}
+
+.binder-panel-head {
+  margin: 2px 0 0;
+  color: var(--brass-hi);
+  font: italic 400 1.02em / 1 var(--font-label);
+}
+
+.binder-panel-opts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.binder-panel-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: var(--ctl);
+  padding: 0 4px;
+  border: 1px solid var(--brass-dim);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--card-black) 40%, transparent);
+  color: var(--bone);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.binder-panel-opt:hover {
+  border-color: var(--brass-hi);
+}
+
+.binder-panel-opt[aria-pressed='true'] {
+  border-color: var(--brass-hi);
+  background: var(--brass);
+  color: var(--mode-ink);
+}
+
+.binder-panel-opt .binder-icon {
+  width: 13px;
+  height: 13px;
+}
+
+@media (min-width: 1000px) and (min-height: 560px) {
+  .binder-panel {
+    top: calc(100% + 6px);
+    left: 0;
+    gap: 10px;
+    width: 430px;
+    padding: 16px 16px 14px;
+  }
+
+  .binder-panel-opt .binder-icon {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ---- The book ---- */
+.binder-stage {
+  position: absolute;
+  top: var(--T);
+  right: var(--R);
+  bottom: var(--B);
+  left: var(--L);
+  display: grid;
+  place-items: center;
+}
+
+.binder-book {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* The leather cover, with a grain */
+.binder-spread {
+  position: relative;
+  display: flex;
+  padding: var(--c);
+  border-radius: 12px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(
+      ellipse at 35% 25%,
+      color-mix(in srgb, var(--ember) 62%, var(--card-black)),
+      color-mix(in srgb, var(--ember) 38%, var(--card-black)) 60%,
+      color-mix(in srgb, var(--ember) 22%, var(--card-black))
+    );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ember) 14%, var(--card-black)),
+    0 10px 26px color-mix(in srgb, var(--card-black) 60%, transparent);
+}
+
+/* Half the book: the page lying there and, during a turn, a face of the leaf and its shadow, all on one spot. */
+.binder-slot {
+  display: grid;
+  min-width: 0;
+}
+
+.binder-slot > * {
+  grid-area: 1 / 1;
+}
+
+/* A page. Its own layer stack, so a padlock or a lifted card never shows through anything laid over the page. */
+.binder-side {
+  position: relative;
+  min-width: 0;
+  padding: var(--p);
+  isolation: isolate;
+  background: radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--leather) 50%, var(--leather-hi)), var(--walnut) 85%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--brass-dim) 70%, var(--walnut)),
+    inset 0 0 40px color-mix(in srgb, var(--card-black) 55%, transparent);
+}
+
+.binder-side--left {
+  padding-right: calc(var(--p) + var(--s) / 2);
+  border-radius: 9px 0 0 9px;
+}
+
+.binder-side--right {
+  padding-left: calc(var(--p) + var(--s) / 2);
+  border-radius: 0 9px 9px 0;
+}
+
+/* The pages dip into shadow at the spine */
+.binder-side::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9%;
+  pointer-events: none;
+}
+
+.binder-side--left::after {
+  right: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--card-black) 55%, transparent));
+}
+
+.binder-side--right::after {
+  left: 0;
+  background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--card-black) 55%, transparent));
+}
+
+.binder-rings {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  width: calc(var(--s) * 0.8);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.binder-rings span {
+  height: 11%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--brass-dim), var(--pack-spark) 45%, color-mix(in srgb, var(--brass) 50%, var(--brass-dim)));
+  box-shadow: 0 2px 4px var(--card-black);
+}
+
+/* ---- The page turn ----
+   The leaf is two pages hinged on the spine: the front is the page being turned away, the back is the page it
+   lands as, and each hides when it faces away. The back lies where it will land from the start, so landing is
+   only the leaf classes coming off. Only transform and opacity move. --turn-ms comes from TURN_MS. */
+.binder-leaf {
+  z-index: 5; /* over the pages and the cast shadows, under the rings */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.binder-slot--left > .binder-leaf {
+  --leaf-over: 180deg;
+  transform-origin: right center;
+}
+
+.binder-slot--right > .binder-leaf {
+  --leaf-over: -180deg;
+  transform-origin: left center;
+}
+
+.binder-leaf--front {
+  transform: perspective(2200px) rotateY(0deg);
+}
+
+.binder-leaf--back {
+  transform: perspective(2200px) rotateY(var(--leaf-over));
+}
+
+.binder-book--turning .binder-leaf--front {
+  animation: binder-leaf-away var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+.binder-book--turning .binder-leaf--back {
+  animation: binder-leaf-land var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+@keyframes binder-leaf-away {
+  from { transform: perspective(2200px) rotateY(0deg); }
+  to { transform: perspective(2200px) rotateY(var(--leaf-over)); }
+}
+
+@keyframes binder-leaf-land {
+  from { transform: perspective(2200px) rotateY(var(--leaf-over)); }
+  to { transform: perspective(2200px) rotateY(0deg); }
+}
+
+/* The paper darkens as it lifts away from the light, most at the spine: half dark when the leaf stands on edge.
+   Each face only shows for its half of the turn, so each shade runs one way. */
+.binder-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  border-radius: inherit;
+  opacity: 0;
+  will-change: opacity;
+  pointer-events: none;
+}
+
+.binder-slot--right .binder-shade {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--card-black) 85%, transparent), color-mix(in srgb, var(--card-black) 35%, transparent));
+}
+
+.binder-slot--left .binder-shade {
+  background: linear-gradient(270deg, color-mix(in srgb, var(--card-black) 85%, transparent), color-mix(in srgb, var(--card-black) 35%, transparent));
+}
+
+.binder-book--turning .binder-leaf--front .binder-shade {
+  animation: binder-shade-on var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+.binder-book--turning .binder-leaf--back .binder-shade {
+  animation: binder-shade-off var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+@keyframes binder-shade-on {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes binder-shade-off {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* The shadow the leaf throws on the pages underneath: it lifts off the page being uncovered and falls on the
+   page the leaf lands on. */
+.binder-cast {
+  z-index: 4;
+  opacity: 0;
+  will-change: opacity;
+  pointer-events: none;
+}
+
+.binder-slot--left .binder-cast {
+  border-radius: 9px 0 0 9px;
+  background: linear-gradient(270deg, color-mix(in srgb, var(--card-black) 80%, transparent), color-mix(in srgb, var(--card-black) 15%, transparent) 85%);
+}
+
+.binder-slot--right .binder-cast {
+  border-radius: 0 9px 9px 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--card-black) 80%, transparent), color-mix(in srgb, var(--card-black) 15%, transparent) 85%);
+}
+
+.binder-book--turning .binder-cast--lift {
+  animation: binder-cast-off var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+.binder-book--turning .binder-cast--fall {
+  animation: binder-cast-on var(--turn-ms) cubic-bezier(0.42, 0.02, 0.25, 1) forwards;
+}
+
+@keyframes binder-cast-on {
+  from { opacity: 0; }
+  to { opacity: 0.6; }
+}
+
+@keyframes binder-cast-off {
+  from { opacity: 0.6; }
+  to { opacity: 0; }
+}
+
+/* While a page turns nothing else moves: the foil holds still, and the cards ignore the pointer from the moment
+   the leaf is laid on, so none lifts or settles under it. */
+.binder-book--turning :is(.card-sheen, .card-spark, .card-foil, .card-glint) {
+  animation-play-state: paused;
+}
+
+.binder-book--leafed .binder-pocket {
+  pointer-events: none;
+}
+
+.binder-book--leafed .binder-card.hero-card.hero-layout-card {
+  transition: none;
+}
+
+/* ---- Pockets and their cards ---- */
+.binder-page {
+  display: grid;
+  grid-template-columns: repeat(3, calc(var(--cw) + 2 * var(--pp)));
+  grid-template-rows: repeat(2, calc(var(--cw) * 391 / 260 + 2 * var(--pp)));
+  gap: var(--g);
+}
+
+.binder-pocket {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--card-black) 28%, transparent);
+  box-shadow:
+    inset 0 2px 6px color-mix(in srgb, var(--card-black) 70%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--brass) 25%, transparent);
+  cursor: zoom-in;
+  transition: box-shadow 0.5s ease-out, background-color 0.5s ease-out;
+}
+
+.binder-pocket--empty {
+  cursor: default;
+}
+
+.binder-card.hero-card.hero-layout-card {
+  --card-w: var(--cw);
+  transition: transform 0.16s;
+}
+
+@media (hover: hover) {
+  .binder-card.hero-card.hero-layout-card:hover {
+    transform: translateY(-2px) scale(1.04);
+  }
+}
+
+/* Not owned: dark and grey, under a padlock */
+.binder-card--locked.hero-card.hero-layout-card {
+  --card-frame: color-mix(in srgb, var(--card-white) 23%, var(--card-black));
+  filter: grayscale(1) brightness(0.34) contrast(1.1);
+}
+
+/* Disabled: grey with diagonal ember stripes, under a crossed circle */
+.binder-card--disabled.hero-card.hero-layout-card {
+  --card-frame: var(--ember);
+  filter: grayscale(1) brightness(0.55);
+}
+
+.binder-card--disabled.hero-card.hero-layout-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  background: repeating-linear-gradient(45deg, transparent 0 10px, color-mix(in srgb, var(--ember) 22%, transparent) 10px 20px);
+  pointer-events: none;
+}
+
+.binder-pocket--locked::after,
+.binder-pocket--disabled::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 16;
+  width: 24%;
+  aspect-ratio: 1;
+  margin: auto;
+  background: color-mix(in srgb, var(--bone) 62%, transparent);
+  pointer-events: none;
+  -webkit-mask: var(--binder-mark) center / contain no-repeat;
+  mask: var(--binder-mark) center / contain no-repeat;
+}
+
+.binder-pocket--locked::after {
+  --binder-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 10V7a6 6 0 0 1 12 0v3h1.5v11h-15V10zm3 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E");
+}
+
+.binder-pocket--disabled::after {
+  --binder-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M6 18L18 6'/%3E%3C/svg%3E");
+}
+
+/* The pocket of the hero the binder opened on: lit for a moment, then the light fades out */
+.binder-pocket--spotlight {
+  z-index: 2;
+  background: color-mix(in srgb, var(--fav-gold) 45%, transparent);
+  box-shadow:
+    0 0 0 2px var(--fav-gold),
+    0 0 16px 6px color-mix(in srgb, var(--fav-gold) 85%, transparent),
+    0 0 46px 16px color-mix(in srgb, var(--brass-hi) 60%, transparent);
+  transition: none;
+}
+
+.binder--still .binder-pocket {
+  transition: none;
+}
+
+.binder-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  color: var(--bone);
+  font: 500 1.9em / 1 var(--font-display);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* ---- Side arrows ---- */
+.binder-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  width: var(--arw);
+  height: var(--arh);
+  padding: 0;
+  transform: translateY(-50%);
+  border: 1px solid var(--brass-dim);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--card-black) 50%, transparent);
+  color: var(--bone);
+}
+
+.binder-arrow .binder-icon {
+  width: 70%;
+  height: auto;
+}
+
+.binder-arrow:hover {
+  border-color: var(--brass-hi);
+}
+
+.binder-arrow--prev { left: var(--arx); }
+.binder-arrow--next { right: var(--arx); }
+
+/* ---- Status line, loading and the load failure ---- */
+.binder-status {
+  position: absolute;
+  right: 0;
+  bottom: var(--safe-bottom);
+  left: 0;
+  display: grid;
+  place-items: center;
+  height: var(--bottom);
+  margin: 0;
+  color: var(--bone-dim);
+  font-size: 0.96em;
+  white-space: nowrap;
+}
+
+.binder-error,
+.binder-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  color: var(--bone);
+  font-size: var(--text-md);
+}
+
+.binder-error p {
+  margin: 0;
+}
+
+.binder-retry {
+  font-size: var(--text-sm);
+}
+
+/* ---- The large view ---- */
+.binder-large {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, color-mix(in srgb, var(--felt-deep) 45%, var(--card-black)) 86%, transparent);
+  cursor: zoom-out;
+}
+
+.binder-large-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  cursor: default;
+}
+
+.binder-large-card.hero-card.hero-layout-card {
+  --card-w: min(var(--iw), calc((100cqh - var(--safe-top) - var(--safe-bottom) - 26px) * 260 / 391));
+  animation: binder-pop 0.28s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+
+.binder--still .binder-large-card.hero-card.hero-layout-card {
+  animation: none;
+}
+
+@keyframes binder-pop {
+  from { transform: scale(0.6); opacity: 0; }
+}
+
+.binder-large-fav {
+  height: calc(var(--ctl) + 8px);
+  padding: 0 14px;
+  font-size: 1.05em;
+}
+
+.binder-large-fav .binder-icon {
+  color: var(--fav-gold-edge);
+}
+
+/* Upright screens: the button goes under the card */
+@media (orientation: portrait) {
+  .binder-large-body {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .binder-large-card.hero-card.hero-layout-card {
+    --card-w: min(var(--iw), calc(100cqw - 32px), calc((100cqh - var(--safe-top) - var(--safe-bottom) - 110px) * 260 / 391));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .binder-pocket,
+  .binder-card.hero-card.hero-layout-card {
+    transition: none;
+  }
+
+  .binder-large-card.hero-card.hero-layout-card {
+    animation: none;
+  }
+}
+
+/* Sideways phone: the friends and messages dock would sit over the book, as in the shop */
+@media (max-height: 500px) {
+  body:has(.binder) :is(.friends-icon, .message-icon) { visibility: hidden; }
+}
