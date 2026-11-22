@@ -71,6 +71,8 @@ export class FakeAudioElement extends EventTarget {
     return Promise.resolve();
   }
   pause() { this.paused = true; }
+  /** Simulate the file failing to load (404, decode error). */
+  fail() { this.paused = true; this.dispatchEvent(new Event('error')); }
   /** Simulate the track reaching its end (a looping element never ends). */
   end() {
     if (this.loop) { this.currentTime = 0; return; }

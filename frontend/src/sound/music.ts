@@ -2,7 +2,7 @@
 // Each track is an <audio> element routed through its own GainNode (iOS ignores element.volume);
 // without Web Audio the element volume is faded instead.
 
-import { getAudioContext, onAudioUnlocked } from './context';
+import { getAudioContext, onAudioUnlocked, silentWavUrl } from './context';
 import { MUSIC } from './manifest';
 import { getMusicEnabled, getMusicVolume, onSoundSettingsChange } from './settings';
 
@@ -18,6 +18,10 @@ type Track = {
   gain: GainNode | null;
   pauseTimer: ReturnType<typeof setTimeout> | null;
   fadeTimer: ReturnType<typeof setInterval> | null;
+  /** The real music file has been assigned as src (it loads only once the track is first wanted). */
+  loaded: boolean;
+  /** The music file failed to load; the track is skipped from then on. */
+  failed: boolean;
 };
 
 const ALL_FILES = [...MUSIC.menu, MUSIC.battle];
@@ -28,6 +32,7 @@ let installed = false;
 let mode: MusicMode = 'none';
 let menuIndex = 0;
 let menuHeard = false;
+let lastRealMode: MusicMode = 'none'; // the last mode other than 'none'
 let fresh = false; // the next track to sound starts from the beginning
 let started = false; // a gesture or the unlock has happened
 let sounding: Track | null = null;
@@ -46,10 +51,11 @@ function getTrack(file: string): Track | null {
   let el: HTMLAudioElement;
   try {
     el = new Audio();
-    el.preload = 'auto';
+    // No src yet: the music file loads only when the track is first wanted.
+    el.preload = 'none';
     el.setAttribute('playsinline', '');
+    el.setAttribute('data-music', file);
     el.loop = file === MUSIC.battle;
-    el.src = `/audio/${file}`;
   } catch {
     return null;
   }
@@ -67,8 +73,9 @@ function getTrack(file: string): Track | null {
     }
   }
   if (!gain) el.volume = 0;
-  const track: Track = { file, el, gain, pauseTimer: null, fadeTimer: null };
+  const track: Track = { file, el, gain, pauseTimer: null, fadeTimer: null, loaded: false, failed: false };
   el.addEventListener('ended', () => onEnded(track));
+  el.addEventListener('error', () => onError(track));
   tracks.set(file, track);
   return track;
 }
@@ -131,10 +138,25 @@ function fadeOut(track: Track, ms: number) {
   }, ms);
 }
 
+function hasFailed(file: string): boolean { return tracks.get(file)?.failed ?? false; }
+
 function targetFile(): string | null {
-  if (mode === 'battle') return MUSIC.battle;
-  if (mode === 'menu') return MUSIC.menu[menuIndex];
+  if (mode === 'battle') return hasFailed(MUSIC.battle) ? null : MUSIC.battle;
+  if (mode !== 'menu') return null;
+  for (let i = 0; i < MUSIC.menu.length; i++) {
+    if (!hasFailed(MUSIC.menu[menuIndex])) return MUSIC.menu[menuIndex];
+    menuIndex = (menuIndex + 1) % MUSIC.menu.length;
+  }
   return null;
+}
+
+function load(track: Track) {
+  if (track.loaded) return;
+  track.loaded = true;
+  try {
+    track.el.preload = 'auto';
+    track.el.src = `/audio/${track.file}`;
+  } catch { /* ignore */ }
 }
 
 /** Brings what is sounding in line with mode, settings and visibility. */
@@ -151,7 +173,10 @@ function sync(fadeMs: number) {
 
   if (sounding !== wantTrack) {
     if (wantTrack.pauseTimer) { clearTimeout(wantTrack.pauseTimer); wantTrack.pauseTimer = null; }
-    if (fresh) { try { wantTrack.el.currentTime = 0; } catch { /* ignore */ } }
+    // A track still sounding (mid fade-out after a quick switch) keeps its position.
+    const stillAudible = wantTrack.loaded && !wantTrack.el.paused;
+    load(wantTrack);
+    if (fresh && !stillAudible) { try { wantTrack.el.currentTime = 0; } catch { /* ignore */ } }
     fresh = false;
     sounding = wantTrack;
     if (mode === 'menu') menuHeard = true;
@@ -179,6 +204,21 @@ function onEnded(track: Track) {
   sync(0);
 }
 
+// A missing or broken file: skip it (menu moves to the other track, battle goes silent).
+function onError(track: Track) {
+  if (!track.loaded || track.failed) return; // errors from the priming clip don't count
+  track.failed = true;
+  markPrimed(track.file);
+  if (track !== sounding) return;
+  rampLevel(track, 0, 0);
+  sounding = null;
+  if (mode === 'menu') {
+    menuIndex = (menuIndex + 1) % MUSIC.menu.length;
+    fresh = true;
+  }
+  sync(0);
+}
+
 function onVisibility() {
   if (isHidden()) {
     tracks.forEach(t => { try { t.el.pause(); } catch { /* ignore */ } });
@@ -188,15 +228,17 @@ function onVisibility() {
 }
 
 // Runs synchronously inside the gesture: play the track that should sound, and play-then-pause
-// the others (at zero level) so they may play later outside a gesture.
+// the others (at zero level, on the tiny silent clip so no music downloads) so they may play
+// later outside a gesture.
 function onGesture() {
   if (isHidden()) return;
   started = true;
   sync(CROSSFADE_MS);
   for (const file of ALL_FILES) {
     const track = getTrack(file);
-    if (!track || track === sounding || !track.el.paused) continue;
+    if (!track || track === sounding || !track.el.paused || primed.has(file)) continue;
     rampLevel(track, 0, 0);
+    if (!track.loaded) { try { track.el.src = silentWavUrl(); } catch { /* ignore */ } }
     void playEl(track).then(ok => {
       if (ok && track !== sounding) { try { track.el.pause(); } catch { /* ignore */ } }
     });
@@ -226,8 +268,10 @@ export function setMusicMode(next: MusicMode): void {
   install();
   if (next === mode) return;
   // Leaving battle restarts the menu rotation at the track after the one last heard.
-  if (mode === 'battle' && next === 'menu' && menuHeard) menuIndex = (menuIndex + 1) % MUSIC.menu.length;
+  // Keyed on the last real mode, so battle -> none -> menu also advances.
+  if (lastRealMode === 'battle' && next === 'menu' && menuHeard) menuIndex = (menuIndex + 1) % MUSIC.menu.length;
   mode = next;
+  if (next !== 'none') lastRealMode = next;
   fresh = true;
   sync(CROSSFADE_MS);
 }
@@ -255,6 +299,7 @@ export function resetMusicForTests(): void {
   mode = 'none';
   menuIndex = 0;
   menuHeard = false;
+  lastRealMode = 'none';
   fresh = false;
   started = false;
   sounding = null;

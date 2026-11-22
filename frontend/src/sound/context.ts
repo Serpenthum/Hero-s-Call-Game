@@ -37,8 +37,8 @@ function isIOS(): boolean {
   return /iPad|iPhone|iPod/.test(nav.userAgent) || (nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1);
 }
 
-// 0.1 s of silence as an 8 kHz, 8-bit mono WAV.
-function silentWavUrl(): string {
+// 0.1 s of silence as an 8 kHz, 8-bit mono WAV (also used to prime music elements in a gesture).
+export function silentWavUrl(): string {
   const samples = 800;
   const bytes = new Uint8Array(44 + samples);
   const view = new DataView(bytes.buffer);

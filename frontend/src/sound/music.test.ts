@@ -11,7 +11,7 @@ let uninstallEl: () => void;
 let visibility: 'visible' | 'hidden' = 'visible';
 
 function el(file: string): FakeAudioElement {
-  const found = FakeAudioElement.instances.find(e => e.src.endsWith(`/audio/${file}`));
+  const found = FakeAudioElement.instances.find(e => e.attributes['data-music'] === file);
   if (!found) throw new Error(`no element for ${file}`);
   return found;
 }
@@ -80,7 +80,7 @@ describe('music', () => {
     setMusicMode('menu');
     await flush();
     vi.advanceTimersByTime(5000);
-    expect(FakeAudioElement.instances.every(e => e.paused && e.playCalls === 0)).toBe(true);
+    expect(FakeAudioElement.instances.length).toBe(0);
     expect(__musicStateForTests().playing).toBeNull();
   });
 
@@ -107,6 +107,11 @@ describe('music', () => {
     tap('click');
     expect(el(MENU2).playCalls).toBe(1);
     expect(el(MUSIC.battle).playCalls).toBe(1);
+    // primed on the tiny silent clip: no music file is fetched for them yet
+    expect(el(MENU2).src.startsWith('data:audio/wav')).toBe(true);
+    expect(el(MUSIC.battle).src.startsWith('data:audio/wav')).toBe(true);
+    expect(el(MENU2).preload).toBe('none');
+    expect(el(MENU1).src).toBe(`/audio/${MENU1}`);
     await flush();
     expect(el(MENU2).paused).toBe(true);
     expect(el(MUSIC.battle).paused).toBe(true);
@@ -114,21 +119,56 @@ describe('music', () => {
   });
 
   it('stops listening for gestures once every track has played', async () => {
+    const removed = vi.spyOn(window, 'removeEventListener');
     await startMenu();
-    const calls = el(MENU2).playCalls;
-    tap('keydown');
-    expect(el(MENU2).playCalls).toBe(calls);
+    const types = removed.mock.calls.map(c => c[0]);
+    expect(types).toEqual(expect.arrayContaining(['pointerup', 'touchend', 'click', 'keydown']));
   });
 
-  it('keeps priming on later gestures while play() is refused', async () => {
+  it('a music file loads only once its track is wanted', async () => {
+    await startMenu();
+    expect(el(MUSIC.battle).src).not.toContain(MUSIC.battle);
+    expect(el(MENU2).src).not.toContain(MENU2);
+    setMusicMode('battle');
+    expect(el(MUSIC.battle).src).toBe(`/audio/${MUSIC.battle}`);
+    expect(el(MUSIC.battle).preload).toBe('auto');
+  });
+
+  it('a failed menu file skips to the next menu track', async () => {
+    await startMenu();
+    el(MENU1).fail();
+    await flush();
+    expect(__musicStateForTests().playing).toBe(MENU2);
+    // later rotation passes over the failed file
+    el(MENU2).end();
+    await flush();
+    expect(__musicStateForTests().playing).toBe(MENU2);
+  });
+
+  it('a failed battle file leaves battle silent', async () => {
+    await startMenu();
+    setMusicMode('battle');
+    el(MUSIC.battle).fail();
+    vi.advanceTimersByTime(CROSSFADE_MS);
+    expect(__musicStateForTests().playing).toBeNull();
+    expect(FakeAudioElement.instances.every(e => e.paused)).toBe(true);
+  });
+
+  it('a failed file counts as primed so the gesture listeners come off', async () => {
     setMusicMode('menu');
     FakeAudioElement.refuseAll = true;
-    tap();
+    tap(); // makes the elements; every play() refused
     await flush();
     FakeAudioElement.refuseAll = false;
-    const before = el(MENU1).playCalls;
-    tap();
-    expect(el(MENU1).playCalls).toBeGreaterThan(before);
+    el(MENU1).refusePlay = true;
+    const removed = vi.spyOn(window, 'removeEventListener');
+    tap(); // primes track 2 and battle; track 1 still refused
+    await flush();
+    expect(removed.mock.calls.map(c => c[0])).not.toContain('pointerup');
+    el(MENU1).fail();
+    await flush();
+    expect(removed.mock.calls.map(c => c[0])).toContain('pointerup');
+    expect(__musicStateForTests().playing).toBe(MENU2);
   });
 
   it('menu rotation: track 1 ended → track 2 → track 1', async () => {
@@ -161,11 +201,42 @@ describe('music', () => {
   it('battle track loops', async () => {
     await startMenu();
     setMusicMode('battle');
-    expect(el(MUSIC.battle).loop).toBe(true);
-    el(MUSIC.battle).end();
+    vi.advanceTimersByTime(CROSSFADE_MS);
+    const battle = el(MUSIC.battle);
+    expect(battle.loop).toBe(true);
+    // a browser that fires 'ended' anyway: the battle track starts over instead of stopping
+    battle.currentTime = 50;
+    battle.paused = true;
+    const calls = battle.playCalls;
+    battle.dispatchEvent(new Event('ended'));
     await flush();
+    expect(battle.currentTime).toBe(0);
+    expect(battle.playCalls).toBe(calls + 1);
+    expect(battle.paused).toBe(false);
     expect(__musicStateForTests().playing).toBe(MUSIC.battle);
+    expect(el(MENU1).paused).toBe(true);
+  });
+
+  it('a quick battle -> menu -> battle keeps the battle position', async () => {
+    await startMenu();
+    setMusicMode('battle');
+    vi.advanceTimersByTime(CROSSFADE_MS);
+    el(MUSIC.battle).currentTime = 37;
+    setMusicMode('menu');
+    vi.advanceTimersByTime(1000);
+    setMusicMode('battle');
+    expect(el(MUSIC.battle).currentTime).toBe(37);
     expect(el(MUSIC.battle).paused).toBe(false);
+    vi.advanceTimersByTime(CROSSFADE_MS);
+    expect(el(MUSIC.battle).paused).toBe(false);
+  });
+
+  it('battle -> none -> menu also moves to the next menu track', async () => {
+    await startMenu();
+    setMusicMode('battle');
+    setMusicMode('none');
+    setMusicMode('menu');
+    expect(__musicStateForTests().playing).toBe(MENU2);
   });
 
   it('leaving battle restarts the menu rotation at the track after the one last heard', async () => {
