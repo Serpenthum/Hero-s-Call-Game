@@ -1,180 +1,447 @@
-/* Binder: the opening animation (replaced in a later step). The open binder's look is in BinderBook.css. */
+/* Binder: the opening. A closed leather binder lands on the table; a tap swings its cover open and it grows to lie
+   exactly over the real book (BinderBook.css), then fades away. Look copied from the Binder screen of
+   docs/superpowers/specs/2026-11-17-redesign-mockups/packs-and-binder.html, without its page riffle and card deal.
+   Shown only with motion on: BinderOpening renders nothing otherwise. */
 
-.binder-intro {
-  --leather:
-    radial-gradient(color-mix(in srgb, var(--bone) 6%, transparent) 1px, transparent 1.5px) 0 0 / 7px 7px,
-    radial-gradient(color-mix(in srgb, var(--felt-deep) 20%, transparent) 1px, transparent 1.5px) 3px 3px / 7px 7px,
-    linear-gradient(135deg, var(--brass) 0%, var(--walnut) 55%, var(--walnut) 100%);
-  --paper: linear-gradient(135deg, var(--bone) 0%, var(--brass-hi) 100%);
-  --gold: var(--brass-hi);
-  --gold-light: var(--brass-hi);
-}
+.binder-opening {
+  /* The real book's size: two pages of 3 x 2 pockets inside the leather cover */
+  --bw: calc(6 * var(--cw) + var(--kw));
+  --bh: calc(var(--cw) * 391 / 130 + var(--kh));
+  --red-leather:
+    radial-gradient(
+      ellipse at 35% 25%,
+      color-mix(in srgb, var(--ember) 62%, var(--card-black)),
+      color-mix(in srgb, var(--ember) 38%, var(--card-black)) 60%,
+      color-mix(in srgb, var(--ember) 22%, var(--card-black))
+    );
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+  --page-leather: radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--leather) 50%, var(--leather-hi)), var(--walnut) 85%);
+  --brass-mid: color-mix(in srgb, var(--brass) 50%, var(--brass-dim));
 
-/* ---------- Opening animation ---------- */
-
-.binder-intro {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 10001;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  z-index: 50; /* over the book, its buttons and the status line */
   overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, var(--draft-felt-hi), var(--felt) 55%, var(--felt-deep));
   cursor: pointer;
-  background: radial-gradient(ellipse at center, var(--walnut) 0%, var(--felt-deep) 85%);
-  animation: biOverlay 1.7s linear forwards;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-@keyframes biOverlay {
-  0%, 82% { opacity: 1; }
-  100% { opacity: 0; }
+.binder-opening:focus {
+  outline: none;
 }
 
-.binder-intro-stage {
-  --bw: min(30vw, 36vh);
-  --bh: calc(var(--bw) * 1.3);
+.binder-opening:focus-visible .binder-opening-front {
+  outline: var(--focus-outline);
+  outline-offset: 4px;
+}
+
+/* The same place as .binder-stage, so the open book lands on the real one */
+.binder-opening-stage {
+  position: absolute;
+  top: var(--T);
+  right: var(--R);
+  bottom: var(--B);
+  left: var(--L);
+  display: grid;
+  place-items: center;
   perspective: 1800px;
-  animation: biStage 1.7s ease-in-out forwards;
 }
 
-@keyframes biStage {
-  0% { transform: scale(0.85); opacity: 0; }
-  12% { transform: scale(1); opacity: 1; }
-  62% { transform: scale(1); }
-  100% { transform: scale(1.9); }
+.binder-opening-stage > * {
+  grid-area: 1 / 1;
 }
 
-.binder-intro-book {
-  position: relative;
+/* The fall onto the table has an element of its own, so the book's move from closed to open is a plain transition
+   from wherever a tap finds it. (A transition will not start from a pose a keyframe animation is holding.) */
+.binder-opening-fall {
   width: var(--bw);
   height: var(--bh);
   transform-style: preserve-3d;
-  filter: drop-shadow(0 18px 24px color-mix(in srgb, var(--felt-deep) 60%, transparent));
-  animation: biBook 1.7s ease-in-out forwards;
+  animation: binder-opening-fall 0.85s cubic-bezier(0.3, 0.7, 0.3, 1) both;
 }
 
-@keyframes biBook {
-  0%, 12% { transform: translateX(0) rotateY(-18deg); }
-  62%, 100% { transform: translateX(calc(var(--bw) / 2)) rotateY(0deg); }
+@keyframes binder-opening-fall {
+  0% { transform: translateY(-150%) rotateZ(-18deg); }
+  58% { transform: translateY(0) rotateZ(2deg); }
+  74% { transform: translateY(-5%) rotateZ(-1deg); }
+  100% { transform: none; }
 }
 
-.bi-cover {
+/* Closed, the book is small and tipped back. Its cover is the right half: shrunk about the book's middle, that
+   half's middle sits 0.62 x 25% to the right, so the book shifts left by as much to put the cover mid-table. */
+.binder-opening-book {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform: translateX(-15.5%) scale(0.62) rotateX(14deg);
+  transform-style: preserve-3d;
+  transition: transform 1.1s cubic-bezier(0.4, 0.1, 0.3, 1); /* in step with the cover */
+}
+
+/* A puff of dust under the binder as it lands */
+.binder-opening-dust {
+  width: calc(var(--bw) * 0.6);
+  height: calc(var(--bw) * 0.09);
+  margin-top: calc(var(--bh) * 0.6);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--bone) 40%, transparent), transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  animation: binder-opening-dust 0.9s ease-out 0.48s forwards; /* unseen until the binder lands */
+}
+
+@keyframes binder-opening-dust {
+  0% { opacity: 0.9; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
+
+/* ---- The open book under the cover: leather boards, bare pages and the rings, laid out as the real book is ---- */
+.binder-opening-half {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--grain), var(--red-leather);
+  background-size: 220px 220px, 200% 100%;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--card-black) 60%, transparent);
+}
+
+.binder-opening-half--left {
+  left: 0;
+  border-radius: 12px 0 0 12px;
+  opacity: 0;
+}
+
+.binder-opening-half--right {
+  left: 50%;
+  border-radius: 0 12px 12px 0;
+  background-position: calc(var(--bw) / -2) 0, 100% 0;
+}
+
+.binder-opening-half::before,
+.binder-opening-half::after {
+  content: "";
+  position: absolute;
+  top: var(--c);
+  bottom: var(--c);
+}
+
+.binder-opening-half::before {
+  background: var(--page-leather);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--brass-dim) 70%, var(--walnut)),
+    inset 0 0 40px color-mix(in srgb, var(--card-black) 55%, transparent);
+}
+
+.binder-opening-half--left::before {
+  right: 0;
+  left: var(--c);
+  border-radius: 9px 0 0 9px;
+}
+
+.binder-opening-half--right::before {
+  right: var(--c);
+  left: 0;
+  border-radius: 0 9px 9px 0;
+}
+
+/* The pages dip into shadow at the spine */
+.binder-opening-half::after {
+  width: 9%;
+}
+
+.binder-opening-half--left::after {
+  right: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--card-black) 55%, transparent));
+}
+
+.binder-opening-half--right::after {
+  left: 0;
+  background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--card-black) 55%, transparent));
+}
+
+.binder-opening-rings {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  width: calc(var(--s) * 0.8);
+  transform: translateX(-50%);
+  opacity: 0;
+}
+
+.binder-opening-rings span {
+  height: 11%;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--brass-dim), var(--pack-spark) 45%, var(--brass-mid));
+  box-shadow: 0 2px 4px var(--card-black);
+}
+
+/* ---- Golden light: a halo behind the book, and a glow on the pages as the cover lifts ---- */
+.binder-opening-spill {
+  position: absolute;
+  inset: -18%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in srgb, var(--pack-light) 85%, transparent),
+    color-mix(in srgb, var(--pack-glow) 70%, transparent) 30%,
+    transparent 62%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transform: translateZ(-1px);
+}
+
+.binder-opening-light {
   position: absolute;
   inset: 0;
+  border-radius: 12px;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    var(--pack-light),
+    color-mix(in srgb, var(--pack-glow) 75%, transparent) 35%,
+    transparent 72%
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- The cover: leather drawn in code ---- */
+.binder-opening-cover {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
   transform-origin: left center;
   transform-style: preserve-3d;
-  animation: biCover 1.7s ease-in-out forwards;
 }
 
-@keyframes biCover {
-  0%, 14% { transform: rotateY(0deg); }
-  58%, 100% { transform: rotateY(-180deg); }
-}
-
-.bi-face {
+.binder-opening-front,
+.binder-opening-back {
   position: absolute;
   inset: 0;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  border-radius: 4px 12px 12px 4px;
-  overflow: hidden;
 }
 
-.bi-cover-back {
+.binder-opening-front {
+  border-radius: 4px 12px 12px 4px;
+  background: var(--grain), var(--red-leather);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--ember) 14%, var(--card-black)),
+    inset 0 0 60px color-mix(in srgb, var(--card-black) 65%, transparent),
+    inset 14px 0 18px -6px color-mix(in srgb, var(--card-black) 70%, transparent),
+    10px 16px 30px color-mix(in srgb, var(--card-black) 65%, transparent);
+}
+
+/* Stitching, then the brass frame line */
+.binder-opening-front::before {
+  content: "";
+  position: absolute;
+  inset: 5%;
+  border: 1.5px dashed color-mix(in srgb, var(--pack-spark) 50%, transparent);
+  border-radius: 8px;
+}
+
+.binder-opening-front::after {
+  content: "";
+  position: absolute;
+  inset: 8.5%;
+  border: 2px solid var(--brass);
+  border-radius: 5px;
+  box-shadow:
+    inset 0 0 0 4px color-mix(in srgb, var(--card-black) 25%, transparent),
+    inset 0 0 0 5px color-mix(in srgb, var(--brass) 50%, transparent);
+}
+
+.binder-opening-back {
+  border-radius: 12px 4px 4px 12px;
+  background: var(--page-leather);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--brass-dim) 70%, var(--walnut)),
+    inset 0 0 40px color-mix(in srgb, var(--card-black) 55%, transparent),
+    inset -14px 0 18px -6px color-mix(in srgb, var(--card-black) 70%, transparent);
   transform: rotateY(180deg);
 }
 
-.bi-cover-front {
-  background: var(--leather);
-  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--felt-deep) 35%, transparent), inset 0 0 40px color-mix(in srgb, var(--felt-deep) 45%, transparent);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6%;
-}
-
-.bi-cover-front::before {
-  content: '';
-  position: absolute;
-  inset: 5%;
-  border: 2px dashed var(--gold);
-  border-radius: 6px;
-  opacity: 0.8;
-}
-
-.bi-rings {
-  position: absolute;
-  left: 3%;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-evenly;
-}
-
-.bi-rings span {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, var(--bone), var(--bone-dim) 60%, var(--leather));
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--felt-deep) 60%, transparent);
-}
-
-.bi-crest {
-  width: 42%;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--felt-deep) 45%, transparent));
-}
-
-.bi-crest svg {
-  display: block;
-  width: 100%;
-}
-
-.bi-title {
-  font-family: var(--font-ui);
-  font-weight: 700;
-  font-size: clamp(0.8rem, 1.6vw, 1.4rem);
-  letter-spacing: 3px;
-  text-transform: none;
-  color: var(--gold-light);
-  text-shadow: 0 2px 4px color-mix(in srgb, var(--felt-deep) 80%, transparent);
-}
-
-.bi-page {
+.binder-opening-glint {
   position: absolute;
   inset: 0;
-  background: var(--leather);
-  padding: 7%;
-  box-sizing: border-box;
-  border-radius: 4px 12px 12px 4px;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 40%, color-mix(in srgb, var(--card-white) 13%, transparent) 50%, transparent 60%);
+  background-size: 300% 100%;
+  animation: binder-opening-glint 4.5s ease-in-out infinite;
 }
 
-.bi-page-right {
-  transform: translateZ(-1px);
+@keyframes binder-opening-glint {
+  0%, 55% { background-position: 130% 0; }
+  100% { background-position: -70% 0; }
 }
 
-.bi-page-left {
-  border-radius: 12px 4px 4px 12px;
+.binder-opening-corner {
+  position: absolute;
+  right: -1px;
+  z-index: 2;
+  width: 15%;
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, var(--pack-spark), var(--brass-mid) 55%, var(--brass-dim));
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--card-black) 60%, transparent);
 }
 
-.bi-pocket-grid {
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 6%;
-  padding: 6%;
-  background: var(--paper);
+.binder-opening-corner--top {
+  top: -1px;
+  border-radius: 0 12px 0 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+.binder-opening-corner--bottom {
+  bottom: -1px;
+  border-radius: 0 0 12px 0;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.binder-opening-crest {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  z-index: 2;
+  height: 46%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 3px 2px color-mix(in srgb, var(--card-black) 70%, transparent));
+}
+
+.binder-opening-shield {
+  fill: color-mix(in srgb, var(--ember) 20%, var(--card-black));
+  stroke: var(--brass-hi);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.binder-opening-star {
+  fill: var(--pack-spark);
+}
+
+.binder-opening-title {
+  position: absolute;
+  right: 0;
+  bottom: 13%;
+  left: 0;
+  z-index: 2;
+  background: linear-gradient(var(--draft-title), var(--brass) 60%, var(--brass-dim));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font: 600 calc(var(--bh) * 0.105) / 1.1 var(--font-display);
+  text-align: center;
+  white-space: nowrap;
+  filter: drop-shadow(0 2px 1px color-mix(in srgb, var(--card-black) 80%, transparent));
+}
+
+/* The clasp twitches every couple of seconds, once the binder has landed */
+.binder-opening-clasp {
+  position: absolute;
+  top: 33.5%;
+  right: -3%;
+  z-index: 3;
+  width: 11%;
+  height: 13%;
   border-radius: 4px;
-  box-shadow: inset 0 0 12px color-mix(in srgb, var(--felt-deep) 35%, transparent);
+  background: linear-gradient(90deg, var(--brass-mid), var(--pack-spark) 50%, var(--brass-mid));
+  box-shadow: 0 3px 5px color-mix(in srgb, var(--card-black) 70%, transparent);
+  animation: binder-opening-clasp 2.2s ease-in-out 0.9s infinite;
 }
 
-.bi-pocket {
-  border-radius: 4px;
-  background: linear-gradient(115deg, color-mix(in srgb, var(--bone) 55%, transparent), color-mix(in srgb, var(--bone) 15%, transparent));
-  border: 1px solid color-mix(in srgb, var(--bone) 70%, transparent);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--felt-deep) 35%, transparent);
+@keyframes binder-opening-clasp {
+  0%, 70%, 100% { transform: none; }
+  78% { transform: translateX(5px) rotate(4deg); }
+  86% { transform: translateX(-2px); }
+  93% { transform: translateX(3px); }
+}
+
+.binder-opening-tap {
+  position: absolute;
+  right: 0;
+  bottom: calc(2% + var(--safe-bottom));
+  left: 0;
+  margin: 0;
+  color: var(--bone);
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  animation: binder-opening-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes binder-opening-pulse {
+  50% { opacity: 0.45; }
+}
+
+/* ---- Opening: the cover swings over, the book grows onto the real one, then everything fades off it.
+   --open-ms comes from OPENING_MS; the swing and the growing take 1.1s of it, the fade is the rest. ---- */
+.binder-opening[data-stage="opening"] {
+  pointer-events: none;
+  animation: binder-opening-away calc(var(--open-ms) - 1150ms) ease-in 1150ms forwards;
+}
+
+@keyframes binder-opening-away {
+  to { opacity: 0; }
+}
+
+[data-stage="opening"] .binder-opening-book {
+  transform: none;
+}
+
+[data-stage="opening"] .binder-opening-cover {
+  transform: rotateY(-180deg);
+  transition: transform 1.1s cubic-bezier(0.4, 0.1, 0.3, 1);
+}
+
+[data-stage="opening"] .binder-opening-half--left {
+  opacity: 1;
+  transition: opacity 0.2s 0.5s;
+}
+
+[data-stage="opening"] .binder-opening-rings {
+  opacity: 1;
+  transition: opacity 0.3s 0.7s;
+}
+
+[data-stage="opening"] .binder-opening-back {
+  opacity: 0;
+  transition: opacity 0.3s 0.8s;
+}
+
+[data-stage="opening"] .binder-opening-clasp {
+  opacity: 0;
+  transition: opacity 0.3s;
+  animation: none;
+}
+
+[data-stage="opening"] .binder-opening-spill {
+  animation: binder-opening-spill calc(var(--open-ms) - 150ms) ease-out 0.15s both;
+}
+
+@keyframes binder-opening-spill {
+  0% { opacity: 0; }
+  35% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+[data-stage="opening"] .binder-opening-light {
+  animation: binder-opening-light var(--open-ms) ease-out both;
+}
+
+@keyframes binder-opening-light {
+  0%, 12% { opacity: 0; }
+  50%, 74% { opacity: 0.85; }
+  100% { opacity: 0.3; }
+}
+
+[data-stage="opening"] :is(.binder-opening-tap, .binder-opening-dust) {
+  display: none;
 }

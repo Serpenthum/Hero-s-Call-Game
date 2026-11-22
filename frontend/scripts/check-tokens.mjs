@@ -29,6 +29,7 @@ const MIGRATED = [
   'styles/Binder.css',
   'styles/BinderBook.css',
   'components/binder/BinderIcons.tsx',
+  'components/BinderOpening.tsx',
   'styles/PackOpening.css',
   'components/packs/PackOpening.tsx',
   'components/packs/CardBack.tsx',

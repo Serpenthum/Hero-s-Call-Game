@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroCollection from '../HeroCollection';
+import { OPENING_MS } from '../BinderOpening';
 import type { BinderHero } from './binderRules';
 import { buttonByText, cleanup, click, render, settle, stubBrowserApis } from '../../testing/dom';
 import config from '../../config';
@@ -233,6 +234,28 @@ describe('the binder', () => {
     expect(status(root)).toBe('Page 2 of 3 · 10 of 30 heroes · 2 holographic');
     expect(pocket(root, 'H20')!.className).toMatch(/binder-pocket--spotlight/);
     expect(pocket(root, 'H19')!.className).not.toMatch(/binder-pocket--spotlight/);
+  });
+
+  it('the lit pocket stays lit until the binder has been opened, then goes out', async () => {
+    stubFetch();
+    vi.useFakeTimers();
+    try {
+      const root = await openBinder({ initialHero: 'H20' });
+      const lit = () => /binder-pocket--spotlight/.test(pocket(root, 'H20')!.className);
+      act(() => { vi.advanceTimersByTime(10000); });
+      expect(root.querySelector('.binder-opening')).not.toBeNull();
+      expect(lit()).toBe(true);
+      click(root.querySelector('.binder-opening'));
+      act(() => { vi.advanceTimersByTime(OPENING_MS); });
+      expect(root.querySelector('.binder-opening')).toBeNull();
+      expect(lit()).toBe(true);
+      act(() => { vi.advanceTimersByTime(1599); });
+      expect(lit()).toBe(true);
+      act(() => { vi.advanceTimersByTime(1); });
+      expect(lit()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens on a disabled hero\'s spread', async () => {

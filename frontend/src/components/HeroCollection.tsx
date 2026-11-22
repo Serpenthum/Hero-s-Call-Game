@@ -13,7 +13,7 @@ import {
   type BinderView, type Collection,
 } from './binder/binderRules';
 import '../styles/HeroCollection.css'; // shared form styles other screens still rely on
-import '../styles/Binder.css'; // the opening animation
+import '../styles/Binder.css'; // the opening
 import '../styles/BinderBook.css';
 
 interface HeroCollectionProps {
@@ -41,7 +41,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
   const [spread, setSpread] = useState(0);
   const [openHero, setOpenHero] = useState<string | null>(null);
   const [spotlight, setSpotlight] = useState<string | null>(null);
-  const [introDone, setIntroDone] = useState(false);
+  const [opened, setOpened] = useState(false);
   // The hero to open on, until the heroes have loaded and its spread is known
   const [pendingHero, setPendingHero] = useState<string | null>(initialHero ?? null);
 
@@ -69,10 +69,10 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
 
   // The light goes out a moment after the binder has opened
   useEffect(() => {
-    if (!spotlight || !introDone) return;
+    if (!spotlight || !opened) return;
     const timer = window.setTimeout(() => setSpotlight(null), SPOTLIGHT_MS);
     return () => window.clearTimeout(timer);
-  }, [spotlight, introDone]);
+  }, [spotlight, opened]);
 
   useEffect(() => {
     if (!openHero) return;
@@ -101,7 +101,6 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
 
   return (
     <div className={`binder${cardMotionOff() ? ' binder--still' : ''}`}>
-      {!introDone && <BinderOpening onDone={() => setIntroDone(true)} />}
       <div className="binder-top">
         <BinderFilter view={view} onChange={changeView} signedIn={signedIn} />
         <CloseButton className="binder-close" onClick={onClose} />
@@ -137,6 +136,8 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
           onClose={closeLargeView}
         />
       )}
+      {/* Last, so it lies over the book until the binder has been opened */}
+      {!opened && <BinderOpening onOpened={() => setOpened(true)} />}
     </div>
   );
 };
