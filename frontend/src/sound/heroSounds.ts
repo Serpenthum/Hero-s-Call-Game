@@ -105,6 +105,8 @@ function mainCues(ev: BattleEvent, f: number): Cue[] {
     if ((ev.targets ?? []).some(t => t.delta < 0 && !turrets.includes(t.key))) {
       cues.push({ sound: 'synth.tick', delayMs: TICK_DELAY * f });
     }
+    // End-of-turn heals (Druid's Healing Word, Medic's Emergency Heal).
+    if ((ev.targets ?? []).some(t => t.delta > 0)) cues.push({ sound: 'heal', delayMs: TICK_DELAY * f });
     return cues;
   }
 

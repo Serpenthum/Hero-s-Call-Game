@@ -83,6 +83,18 @@ describe('soundsForEvent', () => {
     expect(sounds(ev({ kind: 'tick', actor: null, targets: [target('p1:1', -1)] }))).toEqual(['synth.tick']);
   });
 
+  it('tick with a +HP target → heal; poison damage plus a heal → synth.tick and heal', () => {
+    expect(soundsForEvent(ev({ kind: 'tick', actor: null, targets: [target('p0:1', 2), target('p0:2', 1)] }), 'normal'))
+      .toEqual([{ sound: 'heal', delayMs: 80 }]);
+    expect(sounds(ev({ kind: 'tick', actor: null, targets: [target('p1:1', -1, { poisoned: true }), target('p0:1', 2)] })))
+      .toEqual(['synth.tick', 'heal']);
+  });
+
+  it('a trigger with no map entry is skipped without throwing', () => {
+    expect(sounds(ev({ name: 'Ranger', triggers: [{ key: 'p1:0', name: 'Paladin', special: 'Shield of Faith' }] }))).toEqual(['bow.hit']);
+    expect(sounds(ev({ name: 'Ranger', triggers: [{ key: 'p1:0', name: 'Nobody', special: 'Nothing' }] }))).toEqual(['bow.hit']);
+  });
+
   it('Declare War commanding Ranger then Monk → bow.hit at 300 ms, fists.hit at 650 ms', () => {
     const cues = soundsForEvent(ev({
       name: 'Diplomat', kind: 'ability', cast: 'generic', abilityName: 'Declare War',
