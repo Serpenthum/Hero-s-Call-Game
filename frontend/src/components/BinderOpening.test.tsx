@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import BinderOpening, { OPENING_MS } from './BinderOpening';
+import BinderOpening, { LAND_MS, OPENING_MS } from './BinderOpening';
 import { cleanup, click, render, stubBrowserApis } from '../testing/dom';
 
 const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
@@ -19,45 +19,54 @@ describe('BinderOpening', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the closed binder and Tap the binder to open it', () => {
-    const onOpened = vi.fn();
-    const root = render(<BinderOpening onOpened={onOpened} />);
+  it('shows the closed binder with no prompt to tap', () => {
+    const root = render(<BinderOpening onOpened={vi.fn()} />);
     expect(opening(root)!.dataset.stage).toBe('closed');
     expect(root.querySelector('.binder-opening-cover')).not.toBeNull();
     expect(root.querySelector('.binder-opening-title')?.textContent).toBe("Hero's Call");
-    expect(root.querySelector('.binder-opening-tap')?.textContent).toBe('Tap the binder to open it');
-    advance(10000); // it waits for the tap
-    expect(onOpened).not.toHaveBeenCalled();
+    expect(root.textContent).not.toMatch(/tap/i);
   });
 
-  it('a tap calls onOpened after the opening finishes', () => {
+  it('opens by itself once it has landed, then calls onOpened when the opening ends', () => {
     const onOpened = vi.fn();
     const root = render(<BinderOpening onOpened={onOpened} />);
-    click(root.querySelector('.binder-opening-cover'));
+    advance(LAND_MS - 1);
+    expect(opening(root)!.dataset.stage).toBe('closed');
+    advance(1);
     expect(opening(root)!.dataset.stage).toBe('opening');
     advance(OPENING_MS - 1);
     expect(onOpened).not.toHaveBeenCalled();
     advance(1);
     expect(onOpened).toHaveBeenCalledTimes(1);
+    advance(10000);
+    expect(onOpened).toHaveBeenCalledTimes(1);
   });
 
-  it('a second tap while it opens changes nothing', () => {
+  it('a tap while it sits closed skips straight to the book', () => {
     const onOpened = vi.fn();
     const root = render(<BinderOpening onOpened={onOpened} />);
     click(root.querySelector('.binder-opening-cover'));
-    advance(OPENING_MS / 2);
-    click(root.querySelector('.binder-opening-cover'));
-    advance(OPENING_MS / 2);
     expect(onOpened).toHaveBeenCalledTimes(1);
+    advance(LAND_MS + OPENING_MS);
+    expect(onOpened).toHaveBeenCalledTimes(1);
+  });
+
+  it('a tap while it opens skips to the end, and onOpened still runs only once', () => {
+    const onOpened = vi.fn();
+    const root = render(<BinderOpening onOpened={onOpened} />);
+    advance(LAND_MS + OPENING_MS / 2);
+    expect(onOpened).not.toHaveBeenCalled();
+    click(opening(root));
+    expect(onOpened).toHaveBeenCalledTimes(1);
+    click(opening(root));
     advance(OPENING_MS);
     expect(onOpened).toHaveBeenCalledTimes(1);
   });
 
-  it('Enter opens the binder', () => {
+  it.each(['Enter', ' '])('the %j key skips it', (key) => {
     const onOpened = vi.fn();
     const root = render(<BinderOpening onOpened={onOpened} />);
-    act(() => { opening(root)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
-    advance(OPENING_MS);
+    act(() => { opening(root)!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); });
     expect(onOpened).toHaveBeenCalledTimes(1);
   });
 
