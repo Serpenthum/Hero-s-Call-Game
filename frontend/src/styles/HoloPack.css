@@ -1,0 +1,125 @@
+/* The shop's pack: a still picture with a holographic card's foil over it. It never floats, bobs or pulses;
+   the foil drifts slowly, follows the pointer, and the pack leans toward a mouse.
+   One size system, as the card face: 1em is a twentieth of the pack's width (--holo-pack-w, set by HoloPack).
+   The drift keyframes (card-holo-drift, card-holo-mask) live in HeroCard.css, which HoloPack imports. */
+.holo-pack {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--holo-pack-w);
+  height: calc(var(--holo-pack-w) * 1.5);
+  border-radius: calc(var(--holo-pack-w) * 0.045);
+  font-size: calc(var(--holo-pack-w) / 20);
+  filter: drop-shadow(0 10px 14px color-mix(in srgb, var(--card-black) 70%, transparent));
+}
+
+.holo-pack__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.holo-pack__name {
+  position: absolute;
+  right: 0;
+  bottom: 7%;
+  left: 0;
+  z-index: 6;
+  color: var(--card-white);
+  font-family: var(--font-display);
+  font-size: calc(var(--holo-pack-w) * 0.128);
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 2px 6px var(--card-black), 0 0 14px var(--card-black);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Holographic: a bright rim, a soft glow, and the card foil at its small-card strength. */
+.holo-pack--foil {
+  --card-mx: 50%;
+  --card-my: 50%;
+  --card-rx: 0deg;
+  --card-ry: 0deg;
+  box-shadow:
+    0 0 0.5em color-mix(in srgb, var(--holo-rim) 55%, transparent),
+    0 0 1.6em color-mix(in srgb, var(--holo-glow) 30%, transparent);
+  transform: perspective(900px) rotateX(var(--card-rx)) rotateY(var(--card-ry));
+  transition: transform 0.18s ease-out;
+}
+
+.holo-pack--foil::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border: max(1px, 0.1em) solid var(--holo-rim);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.holo-pack__sheen,
+.holo-pack__spark {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.holo-pack__sheen {
+  --foil-sheen: 23%;
+  background: linear-gradient(
+    115deg,
+    transparent 24%,
+    color-mix(in srgb, var(--holo-pink) var(--foil-sheen), transparent) 33%,
+    color-mix(in srgb, var(--holo-yellow) var(--foil-sheen), transparent) 42%,
+    color-mix(in srgb, var(--holo-mint) var(--foil-sheen), transparent) 51%,
+    color-mix(in srgb, var(--holo-blue) var(--foil-sheen), transparent) 60%,
+    color-mix(in srgb, var(--holo-violet) var(--foil-sheen), transparent) 69%,
+    transparent 78%
+  );
+  background-position: var(--card-mx) var(--card-my);
+  background-size: 260% 260%;
+  mix-blend-mode: color-dodge;
+  animation: card-holo-drift 6s ease-in-out infinite;
+}
+
+.holo-pack__spark {
+  background-image:
+    radial-gradient(circle at var(--card-mx) var(--card-my), color-mix(in srgb, var(--card-white) 24%, transparent), transparent 30%),
+    radial-gradient(circle, color-mix(in srgb, var(--card-white) 80%, transparent) 0 max(0.5px, 0.055em), transparent max(1.1px, 0.13em)),
+    radial-gradient(circle, color-mix(in srgb, var(--holo-spark-cool) 75%, transparent) 0 max(0.5px, 0.055em), transparent max(1.1px, 0.13em)),
+    radial-gradient(circle, color-mix(in srgb, var(--holo-spark-warm) 75%, transparent) 0 max(0.6px, 0.065em), transparent max(1.2px, 0.15em));
+  background-position: 0 0, 0 0, 0.79em 0.93em, 0.36em 1.5em;
+  background-size: auto, 4.7em 6.3em, 7.3em 5.9em, 8.9em 9.7em;
+  mask: linear-gradient(115deg, transparent 25%, var(--card-black) 45%, var(--card-black) 58%, transparent 76%);
+  mask-position: var(--card-mx) var(--card-my);
+  mask-size: 260% 260%;
+  mix-blend-mode: screen;
+  animation: card-holo-mask 6s ease-in-out infinite;
+}
+
+/* Under the pointer the drift stops, so the foil sits where the pointer is.
+   "Battle animations: off" (holo-pack--still) and reduced motion: no drift and no lean. */
+.holo-pack--hovering .holo-pack__sheen,
+.holo-pack--hovering .holo-pack__spark,
+.holo-pack--still .holo-pack__sheen,
+.holo-pack--still .holo-pack__spark {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo-pack__sheen,
+  .holo-pack__spark {
+    animation: none;
+  }
+
+  .holo-pack--foil {
+    transform: none;
+    transition: none;
+  }
+}

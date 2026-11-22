@@ -55,8 +55,31 @@ export function calculatePackGrid(width: number, height: number, count: number) 
   return { ...best, scale: Math.max(0.1, Math.floor(best.scale * 1000) / 1000) };
 }
 
-export default function useCardGrid({ packCount, rowExtra = 0, singleRowOnPhone = false, fixedColumns, gap = GAP, frameSpace = FRAME_SPACE, shortScreenMinCardWidth }: {
+// The shop's sale and "See what's inside" grids: up to maxRows rows, a row only when its cards stay at least
+// minCardWidth wide. Of the row counts that fit, the one showing the most cards wins; on a tie, the bigger cards.
+export function calculateShopGrid(width: number, height: number, count: number, minCardWidth = 222, maxRows = 3, gap = GAP) {
+  const cardCount = Math.max(1, count);
+  let best = { columns: 1, rows: 1, cardWidth: -Infinity, shown: 0 };
+  for (let rowLimit = 1; rowLimit <= maxRows; rowLimit++) {
+    // The width the height allows, capped at a scale of 1.2
+    const heightLimitedWidth = Math.min(CARD_WIDTH * 1.2, ((height - gap * (rowLimit - 1)) / rowLimit) * CARD_WIDTH / CARD_HEIGHT);
+    if (rowLimit > 1 && heightLimitedWidth < minCardWidth) continue;
+    let columns = Math.max(1,
+      Math.floor((width + gap) / (heightLimitedWidth + gap)),
+      Math.floor((width + gap) / (minCardWidth + gap)));
+    columns = Math.min(columns, Math.ceil(cardCount / rowLimit));
+    const rows = Math.min(rowLimit, Math.ceil(cardCount / columns));
+    const cardWidth = Math.min(heightLimitedWidth, (width - gap * (columns - 1)) / columns);
+    const shown = Math.min(cardCount, columns * rows);
+    if (shown > best.shown || (shown === best.shown && cardWidth > best.cardWidth)) best = { columns, rows, cardWidth, shown };
+  }
+  return { columns: best.columns, rows: best.rows, scale: Math.max(0.1, Math.floor(best.cardWidth / CARD_WIDTH * 1000) / 1000) };
+}
+
+export default function useCardGrid({ packCount, shopCount, rowExtra = 0, singleRowOnPhone = false, fixedColumns, gap = GAP, frameSpace = FRAME_SPACE, shortScreenMinCardWidth }: {
   packCount?: number;
+  // Lay the cards out for the shop (see calculateShopGrid) instead of the normal grid
+  shopCount?: number;
   rowExtra?: number;
   singleRowOnPhone?: boolean;
   fixedColumns?: number;
@@ -77,8 +100,9 @@ export default function useCardGrid({ packCount, rowExtra = 0, singleRowOnPhone 
       const { width, height } = size;
       if (width <= 0 || height <= 0) return;
       const maxRows = fixedColumns !== undefined || (singleRowOnPhone && phoneScreen.matches) ? 1 : Infinity;
-      const next = packCount === undefined ? calculateCardGrid(width, height, rowExtra, maxRows, fixedColumns, gap, frameSpace, shortScreen.matches ? shortScreenMinCardWidth : undefined) :
-        calculatePackGrid(width, height, packCount);
+      const next = packCount !== undefined ? calculatePackGrid(width, height, packCount) :
+        shopCount !== undefined ? calculateShopGrid(width, height, shopCount, undefined, undefined, gap) :
+        calculateCardGrid(width, height, rowExtra, maxRows, fixedColumns, gap, frameSpace, shortScreen.matches ? shortScreenMinCardWidth : undefined);
       setLayout(previous => previous.columns === next.columns &&
         previous.rows === next.rows && previous.scale === next.scale ? previous : next);
     };
@@ -94,7 +118,7 @@ export default function useCardGrid({ packCount, rowExtra = 0, singleRowOnPhone 
       phoneScreen.removeEventListener('change', updateLayout);
       shortScreen.removeEventListener('change', updateLayout);
     };
-  }, [element, packCount, rowExtra, singleRowOnPhone, fixedColumns, gap, frameSpace, shortScreenMinCardWidth]);
+  }, [element, packCount, shopCount, rowExtra, singleRowOnPhone, fixedColumns, gap, frameSpace, shortScreenMinCardWidth]);
 
   const style: CardGridStyle = {
     '--grid-columns': layout.columns,

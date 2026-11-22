@@ -111,6 +111,9 @@ const MIGRATED = [
   'components/draft/DraftOrder.tsx',
   'components/draft/DraftOrder.test.tsx',
   'styles/Draft.css',
+  'components/shop/HoloPack.tsx',
+  'components/shop/HoloPack.test.tsx',
+  'styles/HoloPack.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
