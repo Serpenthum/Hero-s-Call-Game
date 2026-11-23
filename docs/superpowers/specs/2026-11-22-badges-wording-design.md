@@ -1,6 +1,7 @@
 # Hero's Call: battle badges, helper text, card wording and rule fixes: design
 
-Date: 2026-11-22. Status: written for owner approval. Branch: `redesign-badges` (from main b86095b).
+Date: 2026-11-22. Status: **approved by the owner on 22 November.** The healer question is settled (fix l) and every
+call the designer made alone is accepted (see "Owner decisions" near the end). Branch: `redesign-badges` (from main b86095b).
 Approved mockup: https://claude.ai/artifact/3rRuFwTcW4UZvMhbRtEqwE, kept in the repo as
 `2026-11-22-badges-wording-mockup.html` (same folder). Owner decisions from 22 November are applied there.
 
@@ -33,7 +34,7 @@ starts and goes away when it ends, and every card text matches what the game doe
 4. Helper text opens by tap or hover on every device. Phones show the short form, larger screens the full sentence,
    and the hero details view lists every badge with its full sentence.
 5. New badges: Wind Wall, Taunt coming, Frenzy, Desperate Blows, Arcane mark. The dead "Inspired" badge goes.
-6. The rule fixes listed below, each with a test.
+6. The rule fixes listed below (a to l), each with a test.
 7. New card texts for the 40 heroes in play (64 of 80 texts change), plus the switched-off heroes.
 8. Ninja's Vanish works as its new card says, including "once per round".
 
@@ -78,18 +79,31 @@ test does. "Ran" in the mockup means the bug was reproduced against the real rul
 | e | **When Piercing Shot's -1 Defense ends, the shown Defense goes back up.** Today the badge goes but the lowered Defense keeps working until someone uses an ability. | Piercing Shot, then Ranger's next turn starts. The enemy's Defense (shown and used in rolls) is back to normal with no other action. |
 | f | **Correct numbers in helper texts.** Arcane Shield is "more than 5" (today ">6"), Turrets "each deals 1D4" (today reads as 2D4 each), Totems describe the strike that adds a Totem first. These are site texts, done in step 3; listed here so nothing is missed. | Site tests in step 3 check the three texts. |
 | g | **A hero revived after Cavalier's killing blow does not carry Ride Down.** | Cavalier kills an enemy whose Angel revives it. The revived hero has no Ride Down. Same for a kill by Cavalier's ability. |
-| h | **A revived Wizard does not get a second Arcane Shield.** Today the revive wipes the "shield used" mark, so the shield works again, with no badge. **Builder's default: no second shield; the owner can overrule.** | Wizard uses Arcane Shield, dies, is revived. A hit of 6 damage is not blocked. |
+| h | **A revived Wizard does not get a second Arcane Shield.** Today the revive wipes the "shield used" mark, so the shield works again, with no badge. **Accepted by the owner: no second shield.** | Wizard uses Arcane Shield, dies, is revived. A hit of 6 damage is not blocked. |
 | i | **Vanish is once per round.** Today it triggers on every hit, and each new hit changes who may still Focus Ninja to the newest attacker. | Two enemies hit Ninja one after another. Vanish triggers once; the first attacker keeps its exception; the second gets none. After Ninja's next turn starts, Vanish can trigger again. |
 | j | **Every heal to full HP clears Ride Down.** Druid's Healing Word and Medic's Emergency Heal miss it today. | A Ride Down hero is healed to full by Healing Word, then by Emergency Heal (two tests). Ride Down is gone. |
 | k | **Leftover badges go when their source dies.** Hoarder's Bribe (also stops saying "1 turns left"), Angel's Health Link, and the Beast paw on a dead Beast Tamer. | Hoarder bribes an enemy, then dies: no Bribe. Angel links an enemy, then dies: no Health Link. Beast Tamer with a Beast dies: no Beast. |
+| l1 | **Druid's Healing Word heals the hurt ally with the fewest HP, Druid included.** Today it picks the smallest *share* of HP left. | Druid's team: Druid 9/17, Warden 10/21, Cleric full. Druid ends its turn: Druid gains 1D4, Warden is unchanged (today Warden, 48%, is healed). |
+| l2 | **Medic's Emergency Heal: same rule.** It already picks the fewest HP, Medic included; the test pins it so the shared code can't break it. | Medic with 1 Med Bot, Medic 6/16, Warden 7/21 (33%), Cleric full. Medic ends its turn: Medic is healed, Warden unchanged. |
+| l3 | **Paladin's Divine Smite heals the hurt ally with the fewest HP, Paladin included.** Today it picks by smallest share and never heals Paladin unless Paladin is alone. | Paladin 5/19, Warden 10/21, Cleric full. Divine Smite hits: Paladin gains 1D4, Warden unchanged. Second test: everyone on Paladin's team full: the enemy still takes 1D4 damage, nobody is healed and no heal line is logged. |
+
+Healers after fix l (one shared rule for all three):
+
+- "Hurt" means alive and below full HP. The heal goes to the hurt ally with the fewest HP left (raw HP, not share), and
+  the healer counts as an ally.
+- **Tie-break (builder's call, matches the engine today):** when two hurt allies have the same HP, the one further
+  left in the team row (earlier in team order) is healed. All three heals already keep the first of equal values.
+- **Nobody hurt (builder's call, matches Druid and Medic today):** no heal and no heal line in the battle log. Divine
+  Smite still deals its damage. (Today Divine Smite "heals" a full ally for nothing and logs it; that goes.)
+- The heal still needs Divine Smite to hit, as now. Full-HP clearing of Ride Down (fix j) applies to all three.
 
 Ninja's Vanish, in full (fix i plus the new card):
 
-- Trigger: an enemy damages Ninja and Ninja survives. **My call:** only an enemy, as the card says. Today damage from
+- Trigger: an enemy damages Ninja and Ninja survives. **Accepted by the owner:** only an enemy, as the card says. Today damage from
   an ally (Mech's Self Destruct) also triggers it.
 - While it lasts, no enemy can Focus Ninja, until the start of Ninja's next turn.
 - **The hero that hit Ninja can finish its turn attacking it** (a second basic attack, a second ability). **This
-  exception ends when that turn ends** (owner: "can finish its turn"). Today it lasts until Ninja's next turn, so the
+  exception ends when that turn ends** (owner: "can finish its turn"; accepted). Today it lasts until Ninja's next turn, so the
   attacker could also Focus Ninja on its own next turn.
 - Area abilities still hit Ninja.
 - Once per round: once Vanish triggers, it can't trigger again until Ninja's next turn starts.
@@ -139,7 +153,7 @@ None of these change the approved text:
 - Shroomguard's Poison Aura: "all heroes" includes Shroomguard.
 - Hoarder's Offer Bribe: the target can't use an ability while Focused on Hoarder. An area ability Focused on someone
   else still hits Hoarder. "Can't use its ability on Hoarder" is right.
-- Healers' "lowest-HP ally": **this one does not match**; see "Open questions for the owner".
+- Healers' "lowest-HP ally": did not match the game. Settled by fix l: the game changes, the approved text stands.
 
 ### New texts, heroes in play
 
@@ -217,7 +231,7 @@ Strike, Swordsman Critical Strikes, Pyromancer Endless Burn.
 
 ### Switched-off heroes
 
-**My call:** their rewrites go in now too, because nobody plays them, and their cards then match the style when they
+**Accepted by the owner:** their rewrites go in now too, because nobody plays them, and their cards then match the style when they
 come back. Where the audit flagged a clash between card and hero data, the text follows the data (what the game would
 do). They are not checked in play; that happens when each hero comes back.
 
@@ -301,10 +315,10 @@ brackets are filled in by the game (the taunting hero, a count).
 | Ride Down | `i-shoe` | debuff | Ride Down | Attacks against this hero have advantage. | Cavalier hits it. Goes when healed to full or Cavalier dies (fixes g, j). |
 | Health Link | `i-link` | debuff | Health Link | The next time Angel takes damage, this hero takes it too. | Health Link hit. Goes once used, or when Angel dies (fix k). |
 | Defense down (Ranger) | `i-defdown` | debuff, "-1" | Defense -1 | Piercing Shot: -1 Defense until Ranger's next turn. | Piercing Shot. Goes at Ranger's next turn or when Ranger dies (fixes d, e). |
-| Arcane mark (Arcane Archer), new | `i-mark` | debuff | Arcane mark | Arcane Archer deals +1D4 to this hero. | On each enemy Arcane Archer has damaged. Hidden while Arcane Archer is dead (my call: the bonus can't happen then). |
+| Arcane mark (Arcane Archer), new | `i-mark` | debuff | Arcane mark | Arcane Archer deals +1D4 to this hero. | On each enemy Arcane Archer has damaged. Hidden while Arcane Archer is dead (accepted by the owner: the bonus can't happen then). |
 | Inspired | none | removed | | | No hero gives it. Remove. |
 
-**My calls in the texts:** "Turrets", "Med Bots": capital and "HP" per the style; "1 more turn" becomes "2 more turns"
+**Accepted by the owner:** "Turrets", "Med Bots": capital and "HP" per the style; "1 more turn" becomes "2 more turns"
 when the count is 2. A fallen hero shows no badges (its card already shows it as fallen).
 
 ### Helper text, by screen
@@ -353,16 +367,19 @@ phone breakpoint (use the existing card-size media queries); whether "Taunt comi
 mark on the hero; how the details view lays out the badge list; how fix c is done (see below); which tests are unit
 tests and which run a whole battle.
 
-## Open questions for the owner
+## Owner decisions (22 November)
 
-1. **Who do the healers heal?** The three heal cards will all say "the lowest-HP ally", but the game picks differently:
-   - Druid's Healing Word picks the ally with the smallest **share** of its HP left, and Druid can heal itself.
-   - Medic's Emergency Heal picks the ally with the fewest HP, and Medic can heal itself.
-   - Paladin's Divine Smite picks by smallest share of HP, and **never heals Paladin** unless Paladin is alone.
+All accepted; nothing is open.
 
-   Option 1 (recommended): make all three pick the hurt ally with the fewest HP, healer included. Small rule change;
-   the approved card text then is exactly right. Option 2: keep the rules and change the cards ("the most hurt
-   ally"; Paladin "another ally"). Until he answers, the builder does everything else and leaves these three as they are.
+1. **Healers:** Option 1. Druid, Medic and Paladin all heal the hurt ally with the fewest HP, healer included (fix l).
+   The approved "lowest-HP ally" card texts stand.
+2. Vanish triggers only on damage from an enemy.
+3. The hero that hit Ninja may Focus Ninja only until the end of that turn.
+4. A revived Wizard gets no second Arcane Shield (fix h).
+5. A fallen hero shows no badges.
+6. The Arcane mark is hidden while Arcane Archer is dead.
+7. The switched-off heroes' card texts are rewritten now.
+8. The text calls in the badge table ("Turrets", "Med Bots", "1 more turn" / "2 more turns").
 
 ## For the builder
 
@@ -399,6 +416,12 @@ countdown in U ~419-437 (`statModifierDurations`) looks unused; confirm and remo
 attack); don't apply it if this hit killed the target and Angel revived it (use the `dealDamage` result or the revive
 mark). Full-heal clearing exists at GM ~3527-3735 and ~5145; add it to Healing Word (GM ~5338-5390) and Emergency Heal
 (GM ~5440-5490). Better: one small helper called after every heal.
+
+**Fix l (healers).** Druid: the end-of-turn block at GM ~5338-5390 (share-based reduce). Medic: GM
+~5440-5495 (already fewest HP among hurt allies). Paladin: `resolveEffectTarget` case `lowest_health_ally` (GM
+~4130-4148, share-based, excludes the caster). `getTargetsForEffect` has another share-based `lowest_health_ally`
+(GM ~1637); make it use the same helper. One helper (e.g. `pickHurtAllyWithFewestHP(team)` returning the hero or
+`null`) for all of them; a `null` from `resolveEffectTarget` already makes the heal effect skip (GM ~3414).
 
 **Fix h (Wizard).** The revive replaces `statusEffects` with `{ justResurrected: true }` (GM ~6811), wiping
 `arcaneShieldUsed`. Keep `arcaneShieldUsed` (and `arcaneShieldAvailable: false`) across the revive. Check the battle
