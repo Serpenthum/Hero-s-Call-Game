@@ -403,11 +403,8 @@
   }
 
   .App:has(.battle-layout) .active-hero h4,
-  .App:has(.battle-layout) .log-entries .roll-info,
-  .App:has(.battle-layout) .log-entries .damage-roll-info,
-  .App:has(.battle-layout) .log-entries .heal-roll-info,
-  .App:has(.battle-layout) .log-entry.crit::before,
-  .App:has(.battle-layout) .log-entry.killed::after {
+  .App:has(.battle-layout) .log-turn,
+  .App:has(.battle-layout) .log-fall {
     font-size: 12px;
   }
 

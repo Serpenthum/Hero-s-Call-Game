@@ -20,8 +20,12 @@ const {
   applyStatusEffect,
   hasSpecialEffect,
   processEndOfTurn,
-  calculateEffectiveDefense
+  calculateEffectiveDefense,
+  rollNote
 } = require('./utils');
+const battleLog = require('./battleLog');
+// "Cavalier's Ride Down (target debuffed)" -> "Ride Down"
+const reasonName = reasons => (reasons || []).map(r => r.replace(/\s*\(.*\)$/, '').replace(/^.*'s /, '').replace(/ effect$/, '')).filter((r, i, all) => all.indexOf(r) === i).join(', ') || null;
 const { classifyAbility, lostWithFallenFocus } = require('./abilityTargeting');
 const { noteSound } = require('./battleEvents');
 
@@ -1444,7 +1448,13 @@ class GameManager {
           target.originalDefense = target.Defense !== undefined ? target.Defense : target.AC; // Store original Defense for restoration when Dual Defender dies
         }
         // Use the Dual Defender's current modified Defense (includes buffs from other sources like Shaman)
-        const sourceDefense = sourceHero.modifiedDefense || sourceHero.Defense || sourceHero.AC;
+        // ...minus any aura the ally also gets on its own (e.g. Reaper's Aura of Dread hits both), so it isn't applied twice
+        const sameAura = (a, b) => a.sourceName === b.sourceName &&
+          (a.sourceHeroId !== undefined ? a.sourceHeroId === b.sourceHeroId : a.sourceHero === b.sourceHero);
+        const doubledAuras = (sourceHero.passiveBuffs || [])
+          .filter(b => b.stat === 'Defense' && (target.passiveBuffs || []).some(t => t.stat === 'Defense' && sameAura(b, t)))
+          .reduce((sum, b) => sum + b.value, 0);
+        const sourceDefense = (sourceHero.modifiedDefense ?? sourceHero.Defense ?? sourceHero.AC) - doubledAuras;
         if (target.Defense !== undefined) {
           target.Defense = sourceDefense; // Set as new base Defense
         } else {
@@ -1783,7 +1793,9 @@ class GameManager {
 
     // Update damage display; build on the dice string computed above so scaling and collected dice aren't lost
     const damageBuffs = hero.passiveBuffs.filter(b => b.stat === 'damage');
-    if (damageBuffs.length > 0) {
+    // Heroes with no basic attack (Assassin, Agent, Pixie...) have nothing for a damage bonus to add to
+    const hasBasicAttack = /\d/.test(hero.modifiedBasicAttack || '');
+    if (damageBuffs.length > 0 && hasBasicAttack) {
       const totalDamageBonus = damageBuffs.reduce((sum, buff) => sum + buff.value, 0);
       hero.modifiedBasicAttack = `${hero.modifiedBasicAttack} +${totalDamageBonus}`;
       debugLog(` ${hero.name} damage: ${hero.BasicAttack} → ${hero.modifiedBasicAttack} (buffs: ${damageBuffs.map(b => `+${b.value} from ${b.sourceName}`).join(', ')})`);
@@ -2009,18 +2021,21 @@ class GameManager {
 
     // Calculate net advantage/disadvantage
     const netAdvantage = advantageCount - disadvantageCount;
+    rollNote.why = null;
     
     if (netAdvantage > 0) {
       debugLog(` ${attacker.name} has advantage: ${advantageReasons.join(', ')} (${advantageCount} sources)`);
       if (disadvantageCount > 0) {
         debugLog(` Disadvantage sources cancelled: ${disadvantageReasons.join(', ')} (${disadvantageCount} sources)`);
       }
+      rollNote.why = reasonName(advantageReasons);
       return { advantage: true, disadvantage: false, advantageReasons, disadvantageReasons };
     } else if (netAdvantage < 0) {
       debugLog(` ${attacker.name} has disadvantage: ${disadvantageReasons.join(', ')} (${disadvantageCount} sources)`);
       if (advantageCount > 0) {
         debugLog(` Advantage sources cancelled: ${advantageReasons.join(', ')} (${advantageCount} sources)`);
       }
+      rollNote.why = reasonName(disadvantageReasons);
       return { advantage: false, disadvantage: true, advantageReasons, disadvantageReasons };
     } else if (advantageCount > 0 && disadvantageCount > 0) {
       debugLog(` ${attacker.name} has equal advantage and disadvantage - they cancel out (${advantageCount} vs ${disadvantageCount})`);
@@ -2466,10 +2481,10 @@ class GameManager {
         const hasExtraAttack = this.hasConditionalEffect(currentHero, 'extra_attack_per_turn');
         const hasAttackTwice = this.hasSpecialEffect(currentHero, 'attack_twice');
         
-        if (!hasExtraAttack && !hasAttackTwice) {
+        // Two attacks at most, even for heroes with an extra attack
+        if ((!hasExtraAttack && !hasAttackTwice) || (player.usedAttacks || 0) >= 2) {
           return { success: false, error: 'Cannot use basic attack' };
         }
-        // If hero has extra attack, allow the attack even if hasUsedAttack is true
       }
     }
 
@@ -3408,8 +3423,8 @@ class GameManager {
             
             // Check for conditional additional damage (like Piercer's +1D6 vs AC > 8)
             if (effect.conditional_damage && 
-                ((effect.condition === 'target_ac_gte_9' && calculateEffectiveDefense(target) >= 9) ||
-                 (effect.condition === 'target_ac_gt_8' && calculateEffectiveDefense(target) > 8))) {
+                ((['target_ac_gte_9', 'target_defense_gte_9'].includes(effect.condition) && calculateEffectiveDefense(target) >= 9) ||
+                 (['target_ac_gt_8', 'target_defense_gt_8'].includes(effect.condition) && calculateEffectiveDefense(target) > 8))) {
               const bonusDamageRoll = calculateDamage(effect.conditional_damage, attackRoll?.isCritical || false, false, caster);
               damage += bonusDamageRoll.total;
               const conditionText = effect.condition === 'target_ac_gt_8' ? 'AC > 8' : 'AC >= 9';
@@ -6265,7 +6280,8 @@ class GameManager {
       winner: game.winner,
       endReason: game.endReason || null, // 'disconnect' when the loser never came back
       draftCards: game.draftCards,
-      battleLog: game.battleLog || [] // Include battle log for spectators and reconnection
+      battleLog: game.battleLog || [], // Legacy sentences; old clients only. Include battle log for spectators and reconnection
+      log: battleLog.tail(game) // The battle log as data: newest entries; clients keep the ones they already have
     };
   }
 
@@ -9309,6 +9325,67 @@ class GameManager {
     return rewards;
   }
 }
+
+// Every action that changes a battle writes its entries to the game's log, whoever called it (a player,
+// a bot, the tutorial, a turn timer). The state is copied before the action and compared after it.
+const LOGGED = { basicAttack: 'attack', useAbility: 'ability', useTimekeeperSelectedAbility: 'ability', activateSpecial: 'special', endTurn: 'turn' };
+Object.keys(LOGGED).forEach(method => {
+  const run = GameManager.prototype[method];
+  GameManager.prototype[method] = function (...args) {
+    const game = this.games.get(this.playerGameMap.get(args[0]));
+    let before = null;
+    let meta = null;
+    let outer = false;
+    try {
+      const turn = game && game.phase === 'battle' ? this.getCurrentTurnInfo(game) : null;
+      if (turn) {
+        before = battleLog.snapshot(game);
+        const kind = LOGGED[method];
+        const slot = turn.player.team.indexOf(turn.hero);
+        const specials = Array.isArray(turn.hero.Special) ? turn.hero.Special : [turn.hero.Special];
+        const activated = specials.find(sp => sp && String(sp.category || '').startsWith('activated'));
+        meta = {
+          kind,
+          actorKey: kind === 'turn' ? null : `${turn.playerIndex}:${slot}`,
+          abilityName: method === 'useAbility' ? turn.hero.Ability?.[args[1]]?.name
+            : method === 'useTimekeeperSelectedAbility' ? 'Chrono Shift' : null,
+          specialName: activated ? activated.name : null,
+          turn: { n: game.logTurn || 0, side: turn.playerIndex, hero: turn.hero.name }
+        };
+        // An action that ends the turn itself runs endTurn inside it: the outer action only owns what
+        // happened up to that point
+        outer = !game.logRunning;
+        if (outer) game.logRunning = true;
+        else if (!game.logCut) game.logCut = before;
+      }
+    } catch (err) {
+      console.error('battle log snapshot failed:', err.message);
+      before = null;
+    }
+
+    let result;
+    try {
+      result = run.apply(this, args);
+    } finally {
+      if (game && outer) game.logRunning = false;
+    }
+
+    if (before && meta && result && result.success && !(result.results || []).some(r => r.type === 'ability_selection_required')) {
+      try {
+        if (meta.kind === 'turn') game.logTurn = (game.logTurn || 0) + 1;
+        const next = game.phase === 'battle' ? this.getCurrentTurnInfo(game) : null;
+        meta.turnAfter = next ? { n: game.logTurn || 0, side: next.playerIndex, hero: next.hero.name } : meta.turn;
+        if (outer && game.logCut) { meta.after = game.logCut; }
+        battleLog.record(game, meta.kind, before, result, meta);
+        if (result.gameState) result.gameState.log = battleLog.tail(game);
+      } catch (err) {
+        console.error('battle log failed:', err.message);
+      }
+    }
+    if (game && outer) delete game.logCut;
+    return result;
+  };
+});
 
 module.exports = GameManager;
 

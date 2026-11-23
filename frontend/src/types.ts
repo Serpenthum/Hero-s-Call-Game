@@ -188,7 +188,7 @@ export interface GameState {
     player1: string[];
     player2: string[];
   };
-  battleLog?: any[]; // Backend battle log entries
+  log?: import('./battle/log').LogEntry[]; // The battle log's newest entries (backend/battleLog.js)
 }
 
 export interface AttackResult {
