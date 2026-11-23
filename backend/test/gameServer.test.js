@@ -155,6 +155,14 @@ test('the tutorial bot focuses, acts and ends its turn', { timeout: 20000 }, asy
   assert.equal(focused.success, true);
   const acted = await waitLong('attack-result', r => r.success);
   assert.equal(acted.target, focused.selectedTarget, 'the bot acts on its focus');
+  // The battle event names the acting hero, and the ability for an ability
+  assert.equal(typeof acted.battleEvent.actor.name, 'string');
+  assert.equal('abilityName' in acted.battleEvent, false, 'an attack has no abilityName');
+  const cast = c.frames.find(x => x.t === 'ability-result' && x.d[0].success);
+  if (cast) {
+    assert.equal(cast.d[0].battleEvent.actor.name, acted.battleEvent.actor.name);
+    assert.equal(typeof cast.d[0].battleEvent.abilityName, 'string');
+  }
   c.send('tutorial-continue', { hold: 'log' });
   const ended = await waitLong('turn-ended');
   assert.equal(ended.success, true);

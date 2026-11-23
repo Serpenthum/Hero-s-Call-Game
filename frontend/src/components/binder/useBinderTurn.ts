@@ -3,6 +3,7 @@
 // which spread is showing. Taps during a turn wait in a short queue.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cardMotionOff } from '../../cards/cardMotion';
+import { playSound } from '../../sound';
 import { queueTurn, turnTarget, type TurnDir } from './binderRules';
 
 export const TURN_MS = 680;
@@ -91,6 +92,7 @@ export default function useBinderTurn(a: UseBinderTurnArgs):
     whenReady(now.artFor(to), () => {
       if (runId.current !== id) return;
       set(at('moving'));
+      playSound('binder.page');
       landTimer.current = window.setTimeout(() => landRef.current(), TURN_MS + LAND_SLACK_MS);
     });
   }, [set]);
@@ -116,6 +118,7 @@ export default function useBinderTurn(a: UseBinderTurnArgs):
     const turning = !!r && stillShowing(r, now);
     if (cardMotionOff()) {
       if (r) stop();
+      playSound('binder.page');
       now.onSpreadChange(turnTarget(now.spread, dir, now.spreads));
       return;
     }

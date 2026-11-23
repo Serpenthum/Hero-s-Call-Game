@@ -674,14 +674,19 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
   let before = null;
   let actor = null;
   let ability = null;
+  let abilityName = null;
   let cast = null;
   let variant = null;
   try {
     before = snapshotBattle(game);
     const turn = game && game.phase === 'battle' ? gameManager.getCurrentTurnInfo(game) : null;
     if (turn && kind !== 'tick') {
-      actor = { playerId: turn.player.id, playerIndex: turn.playerIndex, heroIndex: turn.player.team.indexOf(turn.hero) };
+      actor = { playerId: turn.player.id, playerIndex: turn.playerIndex, heroIndex: turn.player.team.indexOf(turn.hero), name: turn.hero.name };
       ability = abilityIndex != null ? turn.hero.Ability?.[abilityIndex] : null;
+      // The Chrono Shift pick follow-up has no ability index; the Timekeeper is still casting Chrono Shift
+      abilityName = ability?.name
+        || (kind === 'ability' && turn.hero.name === 'Timekeeper' ? turn.hero.Ability?.find(a => a.name === 'Chrono Shift')?.name : null)
+        || null;
       // Classified before the action runs, since casting changes the hero's status (e.g. beast_active).
       if (kind === 'ability') ({ cast, variant } = classifyCast(ability, turn.hero));
     }
@@ -689,7 +694,15 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
     console.error('battleEvent snapshot failed:', err.message);
   }
 
-  const result = run();
+  // Sound notes (commanded allies, turret shots, triggered specials) are collected only during run()
+  if (game && before) game.soundNotes = [];
+  let result;
+  try {
+    result = run();
+  } catch (err) {
+    if (game) delete game.soundNotes;
+    throw err;
+  }
 
   if (result && result.success && before) {
     try {
@@ -719,6 +732,8 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
         variant,
         actorPlayerId: actor?.playerId,
         actorHeroIndex: actor?.heroIndex,
+        actorName: actor?.name,
+        abilityName,
         hit: kind === 'attack' ? result.hit !== false : kind === 'tick' || abilityHit,
         crit: kind === 'attack' ? !!result.isCritical : kind === 'ability' && results.some(r => r.isCritical),
         targetName
@@ -727,6 +742,7 @@ function withBattleEvent(socketId, kind, abilityIndex, run) {
       console.error('battleEvent build failed:', err.message);
     }
   }
+  if (game) delete game.soundNotes;
   return result;
 }
 

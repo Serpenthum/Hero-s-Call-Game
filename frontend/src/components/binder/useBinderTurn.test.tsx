@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import React, { act, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+const sound = vi.hoisted(() => ({ playSound: vi.fn() }));
+vi.mock('../../sound', () => sound);
 import useBinderTurn, { TURN_MS, type TurnState } from './useBinderTurn';
 import type { TurnDir } from './binderRules';
 import { cleanup, render, stubBrowserApis } from '../../testing/dom';
@@ -151,5 +153,18 @@ describe('useBinderTurn', () => {
     tap(-1);
     expect(now.turn).toBeNull();
     expect(now.spread).toBe(SPREADS - 1);
+  });
+
+  it('a page turn plays binder.page once, when the leaf starts moving', async () => {
+    sound.playSound.mockClear();
+    const pages = () => sound.playSound.mock.calls.filter(c => c[0] === 'binder.page').length;
+    tap(1);
+    expect(pages()).toBe(0);
+    await advance(FRAMES);
+    expect(now.turn?.phase).toBe('moving');
+    expect(pages()).toBe(1);
+    await advance(LANDED);
+    expect(now.spread).toBe(1);
+    expect(pages()).toBe(1);
   });
 });

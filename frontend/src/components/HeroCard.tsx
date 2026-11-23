@@ -667,6 +667,10 @@ const HeroCard: React.FC<HeroCardProps> = ({
 
     // Heroes with damage bonuses (Hoarder's dice, Last Stand, Berserker stacks, passive buffs)
     if (statName === 'attack') {
+      // No basic attack: a damage bonus has nothing to add to, so show the plain dash
+      if (!/\d/.test(baseValue || '')) {
+        return <span>{showLabel ? `Attack: ${baseValue}` : baseValue}</span>;
+      }
       const attack = getAttackDisplay(hero);
 
       if (attack.hasExtras) {

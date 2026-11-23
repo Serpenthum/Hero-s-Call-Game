@@ -54,3 +54,6 @@ game_database.sqlite
 
 # Public URLs only, safe to commit
 !frontend/.env.production
+
+# Raw sound downloads (owner picks are processed into frontend/public/audio)
+audio-source/

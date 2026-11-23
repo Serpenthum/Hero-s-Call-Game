@@ -2,6 +2,7 @@
 // grows to lie exactly over the real book underneath, and fades away. A tap (or Enter/Space) skips straight to the book.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { cardMotionOff } from '../cards/cardMotion';
+import { loadSoundGroup, playSound } from '../sound';
 
 interface BinderOpeningProps {
   onOpened: () => void; // The real book is showing
@@ -20,11 +21,22 @@ const BinderOpening: React.FC<BinderOpeningProps> = ({ onOpened }) => {
   onOpenedRef.current = onOpened;
   // onOpened runs once, whether the opening ends by itself or a tap skips it
   const doneRef = useRef(false);
+  // The cover's sound plays once: when it starts to open, or on a tap that skips the wait
+  const soundRef = useRef(false);
+  const playOpen = useCallback(() => {
+    if (soundRef.current) return;
+    soundRef.current = true;
+    playSound('binder.open');
+  }, []);
   const finish = useCallback(() => {
     if (doneRef.current) return;
     doneRef.current = true;
+    playOpen();
     onOpenedRef.current();
-  }, []);
+  }, [playOpen]);
+
+  useEffect(() => { void loadSoundGroup('binder'); }, []);
+  useEffect(() => { if (stage === 'opening') playOpen(); }, [stage, playOpen]);
 
   useEffect(() => {
     if (still) {

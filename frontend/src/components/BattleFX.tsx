@@ -220,7 +220,6 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
     // Beast Tamer's command attack plays like a basic attack lunge toward the target.
     if (ev.kind === 'attack' || ev.variant === 'beast_attack') {
       impactDelay = (ev.kind === 'attack' ? 160 : 200) * f;
-      sfx.swing();
       if (actorEl && primaryEl && actorEl !== primaryEl) {
         const a = center(actorEl);
         const b = center(primaryEl);
@@ -248,7 +247,6 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
       impactDelay = 80 * f;
     } else {
       impactDelay = 300 * f;
-      if (cast === 'heal') sfx.heal(); else sfx.cast();
       if (actorEl) {
         glow(actorEl, hexToRgb(color), f);
         const { x, y } = center(actorEl);
@@ -266,7 +264,6 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
       const sparkCount = ev.crit ? 24 : 12;
 
       if (ev.kind !== 'tick' && !ev.hit && primaryEl) {
-        sfx.miss();
         const { x, y } = center(primaryEl);
         // Target sidesteps and briefly ghosts out of the way.
         primaryEl.animate(
@@ -317,8 +314,8 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
         }
 
         if (t.died) {
+          // The death sound plays from the battle sound listener (sound/battleSound.ts), so it sounds with animations off.
           later(() => {
-            sfx.death();
             el.animate(
               [
                 { opacity: 1, transform: 'scale(1)', filter: 'none' },
@@ -334,7 +331,6 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
       }
 
       if (anyDamage) {
-        sfx.hit(ev.crit);
         if (ev.crit) {
           // Shake .game-board, not .battle-layout: a transform on the layout would drag the fixed action bar with it.
           // Offsets stay negative so the scrollable overflow never grows (no scrollbar flash).
@@ -357,16 +353,21 @@ const BattleFX: React.FC<BattleFXProps> = ({ gameOverResult }) => {
 
   // ---- Victory / defeat cinematic ----
   useEffect(() => {
-    if (!gameOverResult || getAnimSpeed() === 'off') return;
-    const f = speedFactor(getAnimSpeed());
+    if (!gameOverResult) return;
+    // The win/lose sound plays even with animations off (fast timing then); only the visuals are skipped.
+    const speed = getAnimSpeed();
+    const animate = speed !== 'off';
+    const f = speedFactor(speed === 'off' ? 'fast' : speed);
     later(() => {
       if (gameOverResult === 'victory') {
-        sfx.win();
+        try { sfx.win(); } catch { /* ignore */ }
+        if (!animate) return;
         for (let i = 0; i < 5; i++) {
           later(() => burst(window.innerWidth * (0.15 + i * 0.175), window.innerHeight * 0.3, CONFETTI, 30, { speed: 300, gravity: 500, life: 1.6 }), i * 120);
         }
       } else if (gameOverResult === 'defeat') {
-        sfx.lose();
+        try { sfx.lose(); } catch { /* ignore */ }
+        if (!animate) return;
         burst(window.innerWidth / 2, window.innerHeight * 0.5, ['#4b5563', '#6b7280', '#1f2937'], 40, { speed: 160, gravity: 120, life: 1.6 });
       }
     }, 800 * f);

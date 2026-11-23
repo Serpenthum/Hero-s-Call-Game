@@ -71,6 +71,9 @@ function rollDiceString(diceStr, advantage = false) {
   return bestResult;
 }
 
+// Why the next roll has advantage or disadvantage; set by the engine just before it rolls, shown in the battle log
+const rollNote = { why: null };
+
 function calculateAttackRoll(accuracy, advantage = false, disadvantage = false, caster = null) {
   const accuracyBonus = parseInt(accuracy.replace('+', '')) || 0;
   
@@ -103,6 +106,8 @@ function calculateAttackRoll(accuracy, advantage = false, disadvantage = false, 
     roll = finalRoll;
   }
   // If both advantage and disadvantage, they cancel out (normal roll)
+  if (advantageInfo && rollNote.why) advantageInfo.why = rollNote.why;
+  rollNote.why = null;
   
   // Check for modified crit range (like Swordsman's Critical Strikes)
   let critThreshold = 20;
@@ -496,6 +501,7 @@ function calculateEffectiveDefense(hero) {
 
 module.exports = {
   rig,
+  rollNote,
   rollDice,
   rollMultipleDice,
   parseDiceString,

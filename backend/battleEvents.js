@@ -47,10 +47,55 @@ function classifyCast(ability, hero) {
   return { cast: castStyle(ability), variant: null };
 }
 
+// Records something the client should hear (a commanded ally, a turret shot, a triggered special).
+// Only collects while withBattleEvent has set game.soundNotes, so other callers cost nothing.
+// note: { type: 'command', hero, playerId, kind, abilityName?, hit, crit }
+//     | { type: 'trigger', hero, playerId, special }
+//     | { type: 'turret', targetHero, targetPlayerId }
+function noteSound(game, note) {
+  if (game && Array.isArray(game.soundNotes) && note) game.soundNotes.push(note);
+}
+
+function noteKey(game, playerId, hero) {
+  const player = game.players.find(p => p.id === playerId);
+  const index = player ? (player.team || []).indexOf(hero) : -1;
+  return index === -1 ? null : heroKey(playerId, index);
+}
+
+// Turns the notes into the optional event fields; empty lists are left out.
+function soundFields(game) {
+  const fields = {};
+  if (!Array.isArray(game.soundNotes)) return fields;
+  const commands = [];
+  const triggers = [];
+  const turretKeys = [];
+  game.soundNotes.forEach(note => {
+    if (note.type === 'command') {
+      const key = noteKey(game, note.playerId, note.hero);
+      if (!key) return;
+      const command = { key, name: note.hero.name, kind: note.kind };
+      if (note.abilityName) command.abilityName = note.abilityName;
+      command.hit = !!note.hit;
+      command.crit = !!note.crit;
+      commands.push(command);
+    } else if (note.type === 'trigger') {
+      const key = noteKey(game, note.playerId, note.hero);
+      if (key) triggers.push({ key, name: note.hero.name, special: note.special });
+    } else if (note.type === 'turret') {
+      const key = noteKey(game, note.targetPlayerId, note.targetHero);
+      if (key && !turretKeys.includes(key)) turretKeys.push(key);
+    }
+  });
+  if (commands.length) fields.commands = commands;
+  if (triggers.length) fields.triggers = triggers;
+  if (turretKeys.length) fields.turretKeys = turretKeys;
+  return fields;
+}
+
 /**
  * @param {object} before  result of snapshotBattle() taken before the action
  * @param {object} game    live game after the action
- * @param {object} meta    { kind: 'attack'|'ability'|'tick', actorPlayerId, actorHeroIndex, cast, hit, crit, targetName }
+ * @param {object} meta    { kind: 'attack'|'ability'|'tick', actorPlayerId, actorHeroIndex, actorName, abilityName, cast, hit, crit, targetName }
  */
 function buildBattleEvent(before, game, meta) {
   const after = snapshotBattle(game);
@@ -78,20 +123,25 @@ function buildBattleEvent(before, game, meta) {
     });
   });
 
-  return {
+  const actor = meta.actorPlayerId != null
+    ? { playerId: meta.actorPlayerId, heroIndex: meta.actorHeroIndex, key: heroKey(meta.actorPlayerId, meta.actorHeroIndex) }
+    : null;
+  if (actor && meta.actorName) actor.name = meta.actorName;
+
+  const event = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     kind: meta.kind,
     cast: meta.cast || null,
     variant: meta.variant || null,
-    actor: meta.actorPlayerId != null
-      ? { playerId: meta.actorPlayerId, heroIndex: meta.actorHeroIndex, key: heroKey(meta.actorPlayerId, meta.actorHeroIndex) }
-      : null,
+    actor,
     hit: meta.hit !== false,
     crit: !!meta.crit,
     targetName: meta.targetName || null,
     targetKey: meta.targetKey || null,
     targets
   };
+  if (meta.abilityName) event.abilityName = meta.abilityName;
+  return Object.assign(event, soundFields(game));
 }
 
-module.exports = { snapshotBattle, buildBattleEvent, classifyCast, heroKey };
+module.exports = { snapshotBattle, buildBattleEvent, classifyCast, heroKey, noteSound };
