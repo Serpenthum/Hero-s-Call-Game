@@ -6321,7 +6321,14 @@ class GameManager {
       endReason: game.endReason || null, // 'disconnect' when the loser never came back
       draftCards: game.draftCards,
       battleLog: game.battleLog || [], // Legacy sentences; old clients only. Include battle log for spectators and reconnection
-      log: battleLog.tail(game) // The battle log as data: newest entries; clients keep the ones they already have
+      log: battleLog.tail(game), // The battle log as data: newest entries; clients keep the ones they already have
+      // Paladin taunts waiting for end of turn (the site's "Taunt coming" badge); ids, not names
+      pendingTaunts: (game.pendingTaunts || []).map(t => ({
+        targetId: t.targetId,
+        targetPlayerIndex: t.targetPlayerIndex,
+        tauntTarget: t.tauntTarget,
+        appliedById: t.appliedById
+      }))
     };
   }
 

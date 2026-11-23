@@ -190,6 +190,15 @@ export interface GameState {
     player2: string[];
   };
   log?: import('./battle/log').LogEntry[]; // The battle log's newest entries (backend/battleLog.js)
+  pendingTaunts?: PendingTaunt[]; // Paladin taunts that land at end of turn; absent on older servers
+}
+
+// A Shield of Faith taunt queued for end of turn (hero ids are "<playerIndex>-<heroIndex>")
+export interface PendingTaunt {
+  targetId: string; // The hero that will be Taunted
+  targetPlayerIndex: number;
+  tauntTarget: string; // Name of the Paladin it must Focus
+  appliedById: string; // The Paladin's id
 }
 
 export interface AttackResult {
