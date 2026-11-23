@@ -2354,6 +2354,9 @@ class GameManager {
       game.pendingTaunts = game.pendingTaunts.filter(pendingTaunt => pendingTaunt.appliedById !== deadHero.id);
     }
 
+    // Debuffs that last until the dead hero's next turn (Piercing Shot) end now
+    this.expireCasterStatModifiers(game, deadHero);
+
     game.players.forEach(player => {
       player.team.forEach(hero => {
         if (hero.passiveBuffs) {
@@ -4350,7 +4353,13 @@ class GameManager {
       delete currentHero.statusEffects.untargetableDuration;
     }
 
-    // Check all heroes for stat modifiers that should expire when this caster's turn starts
+    // Stat modifiers that last until this caster's turn starts expire now
+    this.expireCasterStatModifiers(game, currentHero);
+  }
+
+  // Removes the 'caster_turn' stat modifiers (Ranger's Piercing Shot) the caster put on any hero,
+  // at the caster's next turn or when it dies, and refreshes the Defense shown and used in rolls.
+  expireCasterStatModifiers(game, casterHero) {
     game.players.forEach(player => {
       player.team.forEach(hero => {
         if (hero.statusEffects?.statModifierCasters && hero.statusEffects?.statModifierUnits) {
@@ -4361,10 +4370,9 @@ class GameManager {
             const casterId = hero.statusEffects.statModifierCasterIds?.[modifierKey];
             const durationUnit = hero.statusEffects.statModifierUnits[modifierKey];
             
-            // Check if this modifier should expire when the caster's turn starts
-            // (match the caster by id: the enemy team may have a hero with the same name)
-            const isCastersTurn = casterId ? casterId === currentHero.id : caster === currentHero.name;
-            if (isCastersTurn && durationUnit === 'caster_turn') {
+            // Match the caster by id: the enemy team may have a hero with the same name
+            const isCaster = casterId ? casterId === casterHero.id : caster === casterHero.name;
+            if (isCaster && durationUnit === 'caster_turn') {
               const [stat] = modifierKey.split('_');
               
               // Remove the stat modifier
@@ -4380,11 +4388,12 @@ class GameManager {
           
           // Remove expired modifiers from tracking
           expiredModifiers.forEach(key => {
-            delete hero.statusEffects.statModifierDurations[key];
+            delete hero.statusEffects.statModifierDurations?.[key];
             delete hero.statusEffects.statModifierCasters[key];
             if (hero.statusEffects.statModifierCasterIds) delete hero.statusEffects.statModifierCasterIds[key];
             delete hero.statusEffects.statModifierUnits[key];
           });
+          if (expiredModifiers.length) this.updateHeroDisplayStats(hero);
         }
       });
     });

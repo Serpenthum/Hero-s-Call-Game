@@ -209,3 +209,57 @@ describe('fixes g and h: a revived hero keeps no Ride Down and gets no second Ar
     assert.equal(wizard.statusEffects.arcaneShieldAvailable, false);
   });
 });
+
+describe("fixes d and e: Piercing Shot's -1 Defense ends properly", () => {
+  const { calculateEffectiveDefense } = require('../utils');
+
+  // p0's Ranger hits Wizard with Piercing Shot; returns Wizard's Defense from before the shot
+  function piercingShot(game) {
+    const wizard = hero(game, 1, 'Wizard');
+    const base = wizard.modifiedDefense;
+    gm.selectTarget('p0', 'Wizard');
+    assert.equal(gm.useAbility('p0', 0, 'Wizard').success, true);
+    assert.equal(wizard.statusEffects.statModifiers.Defense, -1, 'precondition: debuff on');
+    assert.equal(wizard.modifiedDefense, base - 1, 'precondition: Defense lowered');
+    return { wizard, base };
+  }
+
+  test("Piercing Shot's -1 ends when Ranger dies", () => {
+    const game = startBattle(gm, ['Ranger', 'Fighter', 'Cleric'], ['Fighter', 'Wizard', 'Cleric']);
+    const ranger = hero(game, 0, 'Ranger');
+    const { wizard, base } = piercingShot(game);
+    gm.endTurn('p0');
+
+    ranger.currentHP = 1;
+    assert.equal(attack('p1', 'Ranger').success, true);
+    assert.ok(ranger.currentHP <= 0, 'Ranger died');
+
+    assert.equal(wizard.statusEffects.statModifiers.Defense, undefined);
+    assert.equal(wizard.modifiedDefense, base);
+    assert.equal(calculateEffectiveDefense(wizard), base);
+  });
+
+  test("Piercing Shot's -1 ends at Ranger's next turn with no other action", () => {
+    const game = startBattle(gm, ['Ranger', 'Fighter', 'Cleric'], ['Fighter', 'Wizard', 'Cleric']);
+    const ranger = hero(game, 0, 'Ranger');
+    const { wizard, base } = piercingShot(game);
+    gm.endTurn('p0');
+    passTurnsUntil(game, ranger);
+
+    assert.equal(wizard.statusEffects.statModifiers.Defense, undefined);
+    assert.equal(wizard.modifiedDefense, base);
+    assert.equal(calculateEffectiveDefense(wizard), base);
+  });
+
+  test("mirror: an enemy Ranger's death does not end our Ranger's -1", () => {
+    const game = startBattle(gm, ['Ranger', 'Fighter', 'Cleric'], ['Fighter', 'Ranger', 'Wizard']);
+    const { wizard, base } = piercingShot(game);
+    const theirRanger = hero(game, 1, 'Ranger');
+    theirRanger.currentHP = 1;
+    gm.dealDamage(game, theirRanger, 5, hero(game, 0, 'Fighter'));
+    assert.ok(theirRanger.currentHP <= 0, 'enemy Ranger died');
+
+    assert.equal(wizard.statusEffects.statModifiers.Defense, -1);
+    assert.equal(wizard.modifiedDefense, base - 1);
+  });
+});
