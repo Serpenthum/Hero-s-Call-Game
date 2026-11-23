@@ -263,3 +263,119 @@ describe("fixes d and e: Piercing Shot's -1 Defense ends properly", () => {
     assert.equal(wizard.modifiedDefense, base - 1);
   });
 });
+
+describe('fix i: Vanish once per round, enemy damage only, the exception ends with the turn', () => {
+  // Vanish reactions recorded anywhere in the structured battle log
+  const vanishEntries = game => JSON.stringify(game.log).match(/"action":"Vanish"/g) || [];
+
+  test('Vanish triggers once per round', () => {
+    const game = startBattle(gm, ['Fighter', 'Wizard', 'Cleric'], ['Silencer', 'Ninja', 'Warden']);
+    const ninja = hero(game, 1, 'Ninja');
+    const fighter = hero(game, 0, 'Fighter');
+    const wizard = hero(game, 0, 'Wizard');
+
+    assert.equal(attack('p0', 'Ninja').success, true);
+    assert.equal(ninja.statusEffects.untargetable, true);
+    assert.equal(ninja.statusEffects.untargetableAttackerId, fighter.id);
+    assert.equal(ninja.statusEffects.untargetableAttacker, 'Fighter', 'the live site reads the name');
+    gm.endTurn('p0');
+    gm.endTurn('p1');
+
+    // The second enemy hits Ninja (Fireball reaches it) before Ninja's next turn
+    const hpBefore = ninja.currentHP;
+    gm.selectTarget('p0', 'Silencer');
+    assert.equal(gm.useAbility('p0', 0, 'Silencer').success, true);
+    assert.ok(ninja.currentHP < hpBefore, 'precondition: Fireball hit Ninja');
+    assert.notEqual(ninja.statusEffects.untargetableAttackerId, wizard.id);
+    assert.notEqual(ninja.statusEffects.untargetableAttacker, 'Wizard');
+    assert.equal(vanishEntries(game).length, 1);
+  });
+
+  test('the hitter may Focus Ninja only until its turn ends', () => {
+    // Brawler is p0's only living hero, so it acts again before Ninja (p1's third hero)
+    const game = startBattle(gm, ['Brawler', 'Fighter', 'Cleric'], ['Silencer', 'Warden', 'Ninja']);
+    hero(game, 0, 'Fighter').currentHP = 0;
+    hero(game, 0, 'Cleric').currentHP = 0;
+    const ninja = hero(game, 1, 'Ninja');
+
+    assert.equal(attack('p0', 'Ninja').success, true);
+    assert.equal(ninja.statusEffects.untargetable, true);
+    const second = gm.basicAttack('p0', 'Ninja');
+    assert.equal(second.success, true, second.error);
+    assert.ok(ninja.currentHP > 0, 'precondition: Ninja survives both hits');
+    gm.endTurn('p0');
+    assert.equal(ninja.statusEffects.untargetableAttackerId, undefined);
+    assert.equal(ninja.statusEffects.untargetableAttacker, undefined);
+    assert.equal(ninja.statusEffects.untargetable, true, 'Ninja stays hidden until its turn');
+    gm.endTurn('p1');
+
+    assert.equal(gm.getCurrentTurnInfo(game).hero, hero(game, 0, 'Brawler'));
+    assert.equal(gm.selectTarget('p0', 'Ninja').success, false);
+  });
+
+  test("Vanish can trigger again after Ninja's next turn starts", () => {
+    const game = startBattle(gm, ['Fighter', 'Wizard', 'Cleric'], ['Silencer', 'Ninja', 'Warden']);
+    const ninja = hero(game, 1, 'Ninja');
+    assert.equal(attack('p0', 'Ninja').success, true);
+    passTurnsUntil(game, ninja);
+    assert.ok(!ninja.statusEffects.untargetable, 'Vanish ended at Ninja turn start');
+    assert.ok(!ninja.statusEffects.vanishUsedThisRound);
+    gm.endTurn('p1');
+
+    assert.equal(attack('p0', 'Ninja').success, true);
+    assert.equal(ninja.statusEffects.untargetable, true);
+    assert.equal(ninja.statusEffects.untargetableAttackerId, hero(game, 0, 'Cleric').id);
+    assert.equal(vanishEntries(game).length, 2);
+  });
+
+  test('ally damage does not trigger Vanish', () => {
+    const game = startBattle(gm, ['Fighter', 'Cleric', 'Monk'], ['Mech', 'Ninja', 'Warden'], { firstPlayer: 1 });
+    const ninja = hero(game, 1, 'Ninja');
+    gm.selectTarget('p1', 'Fighter');
+    assert.equal(gm.activateSpecial('p1').success, true);
+    assert.ok(ninja.currentHP > 0 && ninja.currentHP < ninja.HP, 'precondition: Self Destruct hit Ninja');
+    assert.ok(!ninja.statusEffects.untargetable);
+    assert.ok(!ninja.statusEffects.vanishUsedThisRound);
+  });
+
+  test('area abilities still hit a Vanished Ninja', () => {
+    const game = startBattle(gm, ['Fighter', 'Wizard', 'Cleric'], ['Silencer', 'Ninja', 'Warden']);
+    const ninja = hero(game, 1, 'Ninja');
+    assert.equal(attack('p0', 'Ninja').success, true);
+    gm.endTurn('p0');
+    gm.endTurn('p1');
+    assert.equal(ninja.statusEffects.untargetable, true);
+
+    const hpBefore = ninja.currentHP;
+    gm.selectTarget('p0', 'Silencer');
+    assert.equal(gm.useAbility('p0', 0, 'Silencer').success, true);
+    assert.ok(ninja.currentHP < hpBefore);
+  });
+
+  test('mirror: both teams have Ninja; only the hit Ninja vanishes', () => {
+    const game = startBattle(gm, ['Fighter', 'Ninja', 'Cleric'], ['Wizard', 'Ninja', 'Warden']);
+    const ourNinja = hero(game, 0, 'Ninja');
+    const theirNinja = hero(game, 1, 'Ninja');
+
+    assert.equal(attack('p0', 'Ninja').success, true);
+    assert.equal(theirNinja.statusEffects.untargetable, true);
+    assert.equal(theirNinja.statusEffects.untargetableAttackerId, hero(game, 0, 'Fighter').id);
+    assert.ok(!ourNinja.statusEffects.untargetable);
+    gm.endTurn('p0');
+
+    // Their Wizard's Fireball hits our Ninja: it vanishes on its own
+    gm.selectTarget('p1', 'Fighter');
+    assert.equal(gm.useAbility('p1', 0, 'Fighter').success, true);
+    assert.equal(ourNinja.statusEffects.untargetable, true);
+    assert.equal(ourNinja.statusEffects.untargetableAttackerId, hero(game, 1, 'Wizard').id);
+    gm.endTurn('p1');
+
+    // Our Ninja's turn start ends only our Ninja's Vanish
+    assert.equal(gm.getCurrentTurnInfo(game).hero, ourNinja);
+    assert.ok(!ourNinja.statusEffects.untargetable);
+    assert.ok(!ourNinja.statusEffects.vanishUsedThisRound);
+    assert.equal(theirNinja.statusEffects.untargetable, true);
+    assert.equal(theirNinja.statusEffects.vanishUsedThisRound, true);
+    assert.equal(gm.selectTarget('p0', 'Ninja').success, false);
+  });
+});

@@ -258,6 +258,7 @@ test('the hero that triggered a Vanish can still focus it', () => {
   const warlock = hero(game, 1, 'Warlock');
   warlock.statusEffects.untargetable = true;
   warlock.statusEffects.untargetableAttacker = 'Barbarian';
+  warlock.statusEffects.untargetableAttackerId = hero(game, 0, 'Barbarian').id;
   const result = gm.selectTarget('p0', 'Warlock');
   assert.equal(result.success, true, result.error);
   assert.equal(game.players[0].selectedTarget, 'Warlock');

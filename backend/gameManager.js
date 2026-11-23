@@ -2542,7 +2542,7 @@ class GameManager {
     // Check if the target is untargetable (but allow the original attacker)
     if (target.statusEffects?.untargetable) {
       // Allow the original attacker who triggered Vanish to still target
-      if (target.statusEffects.untargetableAttacker !== currentHero.name) {
+      if (target.statusEffects.untargetableAttackerId !== currentHero.id) {
         return { success: false, error: 'Cannot target this hero - they are untargetable' };
       }
     }
@@ -2834,7 +2834,7 @@ class GameManager {
       // Check if the focus is untargetable (but allow AOE abilities and the original attacker)
       if (selectedTargetHero && selectedTargetHero.statusEffects?.untargetable && !isAOEAbility) {
         // Allow the original attacker who triggered Vanish to still target
-        if (selectedTargetHero.statusEffects.untargetableAttacker !== currentHero.name) {
+        if (selectedTargetHero.statusEffects.untargetableAttackerId !== currentHero.id) {
           return { success: false, error: 'Cannot target this hero - they are untargetable' };
         }
       }
@@ -4349,9 +4349,12 @@ class GameManager {
       console.log(`👻 ${currentHero.name}'s Vanish ends - no longer untargetable`);
       delete currentHero.statusEffects.untargetable;
       delete currentHero.statusEffects.untargetableAttacker;
+      delete currentHero.statusEffects.untargetableAttackerId;
       delete currentHero.statusEffects.untargetableUntil;
       delete currentHero.statusEffects.untargetableDuration;
     }
+    // Vanish is once per round: it can trigger again from Ninja's turn start
+    if (currentHero.statusEffects) delete currentHero.statusEffects.vanishUsedThisRound;
 
     // Stat modifiers that last until this caster's turn starts expire now
     this.expireCasterStatModifiers(game, currentHero);
@@ -4749,6 +4752,11 @@ class GameManager {
           delete hero.resurrectionLogged;
           debugLog(` Cleared resurrection logged flag for ${hero.name}`);
         }
+        // Vanish: the hero that hit Ninja may Focus it only until the end of that turn
+        if (hero.statusEffects) {
+          delete hero.statusEffects.untargetableAttacker;
+          delete hero.statusEffects.untargetableAttackerId;
+        }
       });
     });
     
@@ -4871,7 +4879,7 @@ class GameManager {
     }
 
     // Vanished heroes can't be focused, except by the attacker that triggered the Vanish
-    if (target.statusEffects?.untargetable && target.statusEffects.untargetableAttacker !== currentHero.name) {
+    if (target.statusEffects?.untargetable && target.statusEffects.untargetableAttackerId !== currentHero.id) {
       return { success: false, error: FOCUS_UNTARGETABLE };
     }
 
@@ -5301,7 +5309,7 @@ class GameManager {
       if (taunter && taunter.currentHP > 0) return true;
     }
     return opponent.team.some(h => h.currentHP > 0 &&
-      (!h.statusEffects?.untargetable || h.statusEffects.untargetableAttacker === hero.name));
+      (!h.statusEffects?.untargetable || h.statusEffects.untargetableAttackerId === hero.id));
   }
 
   canHeroAttack(player, hero) {
@@ -6482,6 +6490,12 @@ class GameManager {
     
     for (const special of specials) {
       if (special.trigger === 'on_take_damage_after') {
+        // Vanish: only enemy damage triggers it, once per round (until Ninja's next turn starts)
+        const targetTeam = this.getTeamIndex(game, target);
+        const attackerTeam = this.getTeamIndex(game, attacker);
+        if (attackerTeam === -1 || attackerTeam === targetTeam) break;
+        if (target.statusEffects?.vanishUsedThisRound) break;
+
         debugLog(` ${target.name}'s ${special.name} activated after taking ${damage} damage from ${attacker.name}`);
         debugLog(` processAfterDamageEffects - target:`, target.name, `attacker:`, attacker.name);
         
@@ -6516,7 +6530,9 @@ class GameManager {
             }
             
             target.statusEffects.untargetable = true;
-            target.statusEffects.untargetableAttacker = attacker.name; // Store who can still target
+            target.statusEffects.vanishUsedThisRound = true;
+            target.statusEffects.untargetableAttackerId = attacker.id; // Who can still target, until its turn ends
+            target.statusEffects.untargetableAttacker = attacker.name; // The live site reads the name
             target.statusEffects.untargetableUntil = target.name; // Until this hero's turn starts
             console.log(`👻 ${target.name} becomes untargetable until their next turn (Vanish) - but ${attacker.name} can still target them`);
             
