@@ -435,3 +435,102 @@ describe('fix k: Bribe, Health Link and Beast end when their source dies', () =>
     assert.equal(wizard.statusEffects.cannotTargetWithAbility, undefined);
   });
 });
+
+describe('fixes j and l: healers heal the hurt ally with the fewest HP, and every heal to full clears Ride Down', () => {
+  const FOES = ['Fighter', 'Swordsman', 'Brawler'];
+  const smite = () => { gm.selectTarget('p0', 'Fighter'); return gm.useAbility('p0', 0, 'Fighter'); };
+  // The owner's example: a full 5/5 ally and a hurt 6/20 ally; the healer itself is full
+  const ownersExample = (healer) => {
+    const game = startBattle(gm, [healer, 'Warden', 'Cleric'], FOES);
+    const warden = hero(game, 0, 'Warden');
+    warden.HP = 5; warden.currentHP = 5;
+    hero(game, 0, 'Cleric').currentHP = 6;
+    return game;
+  };
+
+  test('Healing Word: a 5/5 ally is never picked over a 6/20 ally', () => {
+    const game = ownersExample('Druid');
+    gm.endTurn('p0');
+    assert.equal(hero(game, 0, 'Cleric').currentHP, 9);
+    assert.equal(hero(game, 0, 'Warden').currentHP, 5);
+  });
+
+  test('Emergency Heal: a 5/5 ally is never picked over a 6/20 ally', () => {
+    const game = ownersExample('Medic');
+    hero(game, 0, 'Medic').statusEffects.med_bot_count = 1;
+    gm.endTurn('p0');
+    assert.equal(hero(game, 0, 'Cleric').currentHP, 9);
+    assert.equal(hero(game, 0, 'Warden').currentHP, 5);
+  });
+
+  test('Divine Smite: a 5/5 ally is never picked over a 6/20 ally', () => {
+    const game = ownersExample('Paladin');
+    assert.equal(smite().success, true);
+    assert.equal(hero(game, 0, 'Cleric').currentHP, 9);
+    assert.equal(hero(game, 0, 'Warden').currentHP, 5);
+  });
+
+  test('Healing Word heals Druid when it has the fewest HP', () => {
+    const game = startBattle(gm, ['Druid', 'Warden', 'Cleric'], FOES);
+    hero(game, 0, 'Druid').currentHP = 9;
+    hero(game, 0, 'Warden').currentHP = 10;
+    gm.endTurn('p0');
+    assert.equal(hero(game, 0, 'Druid').currentHP, 12);
+    assert.equal(hero(game, 0, 'Warden').currentHP, 10);
+  });
+
+  test('Emergency Heal heals Medic when it has the fewest HP', () => {
+    const game = startBattle(gm, ['Medic', 'Warden', 'Cleric'], FOES);
+    const medic = hero(game, 0, 'Medic');
+    medic.statusEffects.med_bot_count = 1;
+    medic.currentHP = 6;
+    hero(game, 0, 'Warden').currentHP = 7;
+    gm.endTurn('p0');
+    assert.equal(medic.currentHP, 9);
+    assert.equal(hero(game, 0, 'Warden').currentHP, 7);
+  });
+
+  test('Divine Smite heals Paladin when it has the fewest HP', () => {
+    const game = startBattle(gm, ['Paladin', 'Warden', 'Cleric'], FOES);
+    hero(game, 0, 'Paladin').currentHP = 5;
+    hero(game, 0, 'Warden').currentHP = 10;
+    assert.equal(smite().success, true);
+    assert.equal(hero(game, 0, 'Paladin').currentHP, 8);
+    assert.equal(hero(game, 0, 'Warden').currentHP, 10);
+  });
+
+  test('Divine Smite with nobody hurt heals nobody', () => {
+    const game = startBattle(gm, ['Paladin', 'Warden', 'Cleric'], FOES);
+    const fighter = hero(game, 1, 'Fighter');
+    const before = fighter.currentHP;
+    const result = smite();
+    assert.equal(result.success, true);
+    assert.equal(fighter.currentHP, before - 3, 'the enemy still takes the damage');
+    assert.ok(!result.results.some(r => r.type === 'heal'), 'no heal result');
+    const entry = game.log[game.log.length - 1];
+    assert.ok(!entry.rows.some(r => r.outcome === 'heal' || r.target.side === 0), 'no heal line in the log');
+  });
+
+  test('ties go to the hero further left', () => {
+    const game = startBattle(gm, ['Druid', 'Warden', 'Cleric'], FOES);
+    hero(game, 0, 'Warden').currentHP = 8;
+    hero(game, 0, 'Cleric').currentHP = 8;
+    gm.endTurn('p0');
+    assert.equal(hero(game, 0, 'Warden').currentHP, 11);
+    assert.equal(hero(game, 0, 'Cleric').currentHP, 8);
+  });
+
+  for (const healer of ['Druid', 'Medic']) {
+    const special = healer === 'Druid' ? 'Healing Word' : 'Emergency Heal';
+    test(`${special} to full clears Ride Down`, () => {
+      const game = startBattle(gm, [healer, 'Warden', 'Cleric'], FOES);
+      if (healer === 'Medic') hero(game, 0, 'Medic').statusEffects.med_bot_count = 1;
+      const warden = hero(game, 0, 'Warden');
+      warden.currentHP = warden.HP - 1;
+      warden.statusEffects.rideDownDebuff = { source: 'Cavalier', maxHP: warden.HP };
+      gm.endTurn('p0');
+      assert.equal(warden.currentHP, warden.HP);
+      assert.equal(warden.statusEffects.rideDownDebuff, undefined);
+    });
+  }
+});

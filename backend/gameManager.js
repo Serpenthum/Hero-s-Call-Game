@@ -1648,17 +1648,11 @@ class GameManager {
         });
         debugLog(` Lowest health enemy: ${lowestHealthEnemy.name} (${lowestHealthEnemy.currentHP} HP)`);
         return [lowestHealthEnemy];
-      case 'lowest_health_ally':
-        // Find ally with lowest current HP percentage (excluding self)
-        const aliveAllies = sourcePlayer.team.filter(h => h.currentHP > 0 && h !== sourceHero);
-        if (aliveAllies.length === 0) return [];
-        const lowestHealthAlly = aliveAllies.reduce((lowest, current) => {
-          const currentHealthPercent = current.currentHP / current.HP;
-          const lowestHealthPercent = lowest.currentHP / lowest.HP;
-          return currentHealthPercent < lowestHealthPercent ? current : lowest;
-        });
-        debugLog(` Lowest health ally: ${lowestHealthAlly.name} (${lowestHealthAlly.currentHP} HP)`);
-        return [lowestHealthAlly];
+      case 'lowest_health_ally': {
+        // The hurt ally with the fewest HP, the source included
+        const hurtAlly = this.pickHurtAllyWithFewestHP(sourcePlayer.team);
+        return hurtAlly ? [hurtAlly] : [];
+      }
       case 'all_enemies':
         // All enemies on the opposing team
         const opposingPlayerAll = game.players.find(p => !p.team.includes(sourceHero));
@@ -3561,14 +3555,8 @@ class GameManager {
             const healing = damage; // Heal for full damage amount, not half
             caster.currentHP = Math.min(caster.HP, caster.currentHP + healing);
             
-            // Remove Cavalier's Ride Down debuff if healed to full HP
-            if (caster.currentHP === caster.HP && caster.statusEffects && caster.statusEffects.rideDownDebuff) {
-              delete caster.statusEffects.rideDownDebuff;
-              debugLog(` ${caster.name} healed to full HP via lifesteal - Cavalier's Ride Down debuff removed`);
-            }
-            
-            // Check HP-based conditions after lifesteal healing
-            this.checkHPConditions(game, caster);
+            // Ride Down clears on full HP; HP-based conditions recount
+            this.afterHeal(game, caster);
             
             results.push({
               type: 'lifesteal_damage',
@@ -3612,14 +3600,8 @@ class GameManager {
             const oldHP = target.currentHP;
             target.currentHP = Math.min(target.HP, target.currentHP + healing);
             
-            // Remove Cavalier's Ride Down debuff if healed to full HP
-            if (target.currentHP === target.HP && target.statusEffects && target.statusEffects.rideDownDebuff) {
-              delete target.statusEffects.rideDownDebuff;
-              debugLog(` ${target.name} healed to full HP - Cavalier's Ride Down debuff removed`);
-            }
-            
-            // Check HP-based conditions after healing
-            this.checkHPConditions(game, target);
+            // Ride Down clears on full HP; HP-based conditions recount
+            this.afterHeal(game, target);
             
             console.log(`💚 Healing ${target.name}: ${healing} HP (${oldHP} → ${target.currentHP}) - ability ${abilityHit ? 'hit' : 'auto-success'}`);
             
@@ -3672,14 +3654,8 @@ class GameManager {
               const healing = target.HP - target.currentHP; // Calculate how much healing is needed
               target.currentHP = target.HP; // Heal to full HP
               
-              // Remove Cavalier's Ride Down debuff if healed to full HP
-              if (target.statusEffects && target.statusEffects.rideDownDebuff) {
-                delete target.statusEffects.rideDownDebuff;
-                debugLog(` ${target.name} healed to full HP - Cavalier's Ride Down debuff removed`);
-              }
-              
-              // Check HP-based conditions after healing
-              this.checkHPConditions(game, target);
+              // Ride Down clears on full HP; HP-based conditions recount
+              this.afterHeal(game, target);
               
               console.log(`💚 Heal to Full ${target.name}: ${healing} HP (${oldHP} → ${target.currentHP}) - ${effect.condition ? 'condition met' : 'ability hit'}`);
               
@@ -4155,6 +4131,25 @@ class GameManager {
     return entries;
   }
 
+  // The hurt ally (alive, below full HP) with the fewest HP left, the healer included.
+  // Raw HP, not share. Ties go to the earlier hero in team order. null when nobody is hurt.
+  pickHurtAllyWithFewestHP(team) {
+    let picked = null;
+    for (const h of team) {
+      if (h.currentHP > 0 && h.currentHP < h.HP && (!picked || h.currentHP < picked.currentHP)) picked = h;
+    }
+    return picked;
+  }
+
+  // After any heal: a hero back at full HP loses Cavalier's Ride Down, then HP-based specials recount.
+  afterHeal(game, hero) {
+    if (hero.currentHP === hero.HP && hero.statusEffects?.rideDownDebuff) {
+      delete hero.statusEffects.rideDownDebuff;
+      debugLog(` ${hero.name} healed to full HP - Cavalier's Ride Down debuff removed`);
+    }
+    this.checkHPConditions(game, hero);
+  }
+
   resolveEffectTarget(effect, primaryTarget, caster, casterPlayer, opponent, game, allyTarget = null) {
     // Determine target based on effect.target specification
     switch (effect.target) {
@@ -4165,8 +4160,11 @@ class GameManager {
       case 'self':
         return caster; // Target the caster
       
-      case 'ally':
       case 'lowest_health_ally':
+        // The hurt ally with the fewest HP, caster included; nobody hurt means no heal
+        return this.pickHurtAllyWithFewestHP(casterPlayer.team);
+
+      case 'ally':
         // For healing allies, we need to automatically select a valid ally
         // Find the ally with the lowest HP percentage (most in need of healing)
         const allies = casterPlayer.team.filter(hero => hero.currentHP > 0 && hero !== caster);
@@ -5401,47 +5399,35 @@ class GameManager {
           debugLog(` Current player index: ${currentTurnInfo.playerIndex}`);
           debugLog(` Current player team:`, currentTurnInfo.player.team.map(h => `${h.name}(${h.currentHP}/${h.HP})`));
           
-          // Find lowest health ally (including Druid)
-          const aliveAllies = currentTurnInfo.player.team.filter(hero => hero.currentHP > 0);
-          debugLog(` Alive allies:`, aliveAllies.map(h => `${h.name}(${h.currentHP}/${h.HP})`));
+          // The hurt ally with the fewest HP (Druid included)
+          const lowestHealthAlly = this.pickHurtAllyWithFewestHP(currentTurnInfo.player.team);
           
-          if (aliveAllies.length > 0) {
-            const lowestHealthAlly = aliveAllies.reduce((lowest, current) => {
-              const currentHealthPercent = current.currentHP / current.HP;
-              const lowestHealthPercent = lowest.currentHP / lowest.HP;
-              return currentHealthPercent < lowestHealthPercent ? current : lowest;
-            });
-            
+          if (lowestHealthAlly) {
             debugLog(` Lowest health ally found: ${lowestHealthAlly.name} (${lowestHealthAlly.currentHP}/${lowestHealthAlly.HP})`);
+            const { rollDiceString } = require('./utils');
+            const healingRoll = rollDiceString('1D4');
+            const healingAmount = healingRoll.total;
+            const oldHP = lowestHealthAlly.currentHP;
+            lowestHealthAlly.currentHP = Math.min(lowestHealthAlly.HP, lowestHealthAlly.currentHP + healingAmount);
+            this.afterHeal(game, lowestHealthAlly);
             
-            // Only heal if not at full health
-            if (lowestHealthAlly.currentHP < lowestHealthAlly.HP) {
-              const { rollDiceString } = require('./utils');
-              const healingRoll = rollDiceString('1D4');
-              const healingAmount = healingRoll.total;
-              const oldHP = lowestHealthAlly.currentHP;
-              lowestHealthAlly.currentHP = Math.min(lowestHealthAlly.HP, lowestHealthAlly.currentHP + healingAmount);
-              
-              debugLog(` ${currentTurnInfo.hero.name}'s Healing Word heals ${lowestHealthAlly.name} for ${healingAmount} HP (${oldHP} → ${lowestHealthAlly.currentHP})`);
-              
-              // Add comprehensive log entry for Healing Word with "used" in message
-              const healingWordLogEntry = {
-                type: 'healing_word',
-                caster: currentTurnInfo.hero.name,
-                target: lowestHealthAlly.name,
-                healing: healingAmount,
-                newHP: lowestHealthAlly.currentHP,
-                maxHP: lowestHealthAlly.HP,
-                message: `${currentTurnInfo.hero.name} used Healing Word and healed ${lowestHealthAlly.name} for ${healingAmount}`,
-                timestamp: Date.now()
-              };
-              
-              endTurnEffects.push(healingWordLogEntry);
-            } else {
-              debugLog(` ${lowestHealthAlly.name} is already at full health, no healing needed`);
-            }
+            debugLog(` ${currentTurnInfo.hero.name}'s Healing Word heals ${lowestHealthAlly.name} for ${healingAmount} HP (${oldHP} → ${lowestHealthAlly.currentHP})`);
+            
+            // Add comprehensive log entry for Healing Word with "used" in message
+            const healingWordLogEntry = {
+              type: 'healing_word',
+              caster: currentTurnInfo.hero.name,
+              target: lowestHealthAlly.name,
+              healing: healingAmount,
+              newHP: lowestHealthAlly.currentHP,
+              maxHP: lowestHealthAlly.HP,
+              message: `${currentTurnInfo.hero.name} used Healing Word and healed ${lowestHealthAlly.name} for ${healingAmount}`,
+              timestamp: Date.now()
+            };
+            
+            endTurnEffects.push(healingWordLogEntry);
           } else {
-            debugLog(` No alive allies found for healing`);
+            debugLog(` Nobody is hurt, no healing needed`);
           }
         }
       }
@@ -5498,18 +5484,10 @@ class GameManager {
         const medBotCount = currentTurnInfo.hero.statusEffects.med_bot_count;
         console.log(`💉 ${currentTurnInfo.hero.name}'s ${medBotCount} med bot(s) activate Emergency Heal at end of turn`);
         
-        // Get all damaged allies (including Medic themselves)
-        const aliveAllies = currentTurnInfo.player.team.filter(hero => hero.currentHP > 0 && hero.currentHP < hero.HP);
+        // The hurt ally with the fewest HP (Medic included)
+        const lowestHealthAlly = this.pickHurtAllyWithFewestHP(currentTurnInfo.player.team);
         
-        if (aliveAllies.length > 0) {
-          // Find lowest health ally
-          let lowestHealthAlly = aliveAllies[0];
-          for (const ally of aliveAllies) {
-            if (ally.currentHP < lowestHealthAlly.currentHP) {
-              lowestHealthAlly = ally;
-            }
-          }
-          
+        if (lowestHealthAlly) {
           // Heal 1D4 for each med bot
           const { rollDiceString } = require('./utils');
           let totalHealing = 0;
@@ -5524,6 +5502,7 @@ class GameManager {
           const oldHP = lowestHealthAlly.currentHP;
           lowestHealthAlly.currentHP = Math.min(lowestHealthAlly.currentHP + totalHealing, lowestHealthAlly.HP);
           const actualHealing = lowestHealthAlly.currentHP - oldHP;
+          this.afterHeal(game, lowestHealthAlly);
           
           console.log(`💉 ${currentTurnInfo.hero.name} used Emergency Heal: Healed ${lowestHealthAlly.name} for ${actualHealing} HP (rolled ${healRolls.join(' + ')} = ${totalHealing})`);
           
