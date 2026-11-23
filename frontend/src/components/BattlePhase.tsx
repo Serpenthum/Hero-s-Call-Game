@@ -28,6 +28,8 @@ import { DisconnectCountdown } from '../reconnect';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
 import { isHeroAlive } from '../heroHealth';
+import { getBadges } from '../battle/badges';
+import BadgeSprite from './badges/BadgeSprite';
 import useCardGrid from '../hooks/useCardGrid';
 import '../styles/BattlePhone.css';
 
@@ -428,6 +430,13 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     const marked = turnFocus(gameState);
     const isMarked = (owner: Player | null, hero: Hero) =>
       !!marked && !!owner && marked.defenderId === owner.id && marked.focus.name === hero.name;
+    // Badges see both teams (a dead taunter, a dead Arcane Archer) and the queued taunts (absent on an old server)
+    const badgesFor = (hero: Hero, allies: Hero[], enemies: Hero[]) =>
+      getBadges(hero, { allies, enemies, pendingTaunts: gameState.pendingTaunts });
+    const myTeam = currentPlayer.team;
+    const theirTeam = opponent?.team ?? [];
+    // An open badge text closes when the turn passes or the active hero changes
+    const badgeResetKey = `${gameState.currentTurn}:${activeHeroPlayerIndex}:${activeHeroIndex}`;
     const isAllySelectable = (hero: Hero) => !!selectingAllyForAbility && (hero.currentHP ?? 0) > 0 && (
       !isTimekeeperChronoShift() || (hero.name !== 'Timekeeper' && !!hero.Ability && hero.Ability.length > 0)
     );
@@ -461,6 +470,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   isEnemy={true}
                   isBlocked={isEnemyBlocked(hero)}
                   isFocused={isMarked(opponent, hero)}
+                  badges={badgesFor(hero, theirTeam, myTeam)}
+                  badgeResetKey={badgeResetKey}
                   // A tap only shows the enemy; the Focus button in the action bar selects it
                   onInspect={() => setInspected({ name: hero.name, side: 'enemy' })}
                 />
@@ -493,6 +504,8 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   isSelectable={isAllySelectable(hero)}
                   isBlocked={!!selectingAllyForAbility && !isAllySelectable(hero)}
                   isFocused={isMarked(currentPlayer, hero)}
+                  badges={badgesFor(hero, myTeam, theirTeam)}
+                  badgeResetKey={badgeResetKey}
                   onClick={() => {
                     if (selectingAllyForAbility && (hero.currentHP ?? 0) > 0) {
                       closeDetails();
@@ -1153,6 +1166,8 @@ const BattlePhase: React.FC<BattlePhaseProps> = (props) => {
 
   return (
     <>
+      {/* The badge drawings every card's tokens point at */}
+      <BadgeSprite />
       <BattlePhaseView {...props} />
       <BattleFX gameOverResult={gameOverResult} />
     </>

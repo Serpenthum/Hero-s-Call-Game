@@ -62,7 +62,7 @@ export function pickBattlePrompt(input: BattlePromptInput): Prompt | null {
         step: {
           key: 'poison',
           text: "Looks like you've been poisoned. Poison lasts forever and does its damage at the end of that hero's turn.",
-          target: [`.player-area [data-hero-name="${poisoned.name}"] .status-effect.poison`, `.player-area [data-hero-name="${poisoned.name}"]`],
+          target: [`.player-area [data-hero-name="${poisoned.name}"] .badge-token[data-badge="poison"]`, `.player-area [data-hero-name="${poisoned.name}"]`],
           showNext: true
         }
       };

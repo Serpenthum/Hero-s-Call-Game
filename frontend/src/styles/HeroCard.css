@@ -436,7 +436,7 @@
   line-height: 1.2;
 }
 
-/* Status buffs then debuffs: one column of chips down the right edge, under the favourite star. */
+/* Badge tokens, buffs then debuffs: one column down the right edge, under the favourite star (Badges.css). */
 .hero-card .card-status {
   position: absolute;
   top: 0.6em;
@@ -450,31 +450,6 @@
 
 .hero-card .card-fav-star + .card-status {
   top: 2.7em;
-}
-
-.hero-card .status-effects-buffs,
-.hero-card .status-effects-debuffs {
-  display: contents;
-}
-
-.hero-card .status-effect-tooltip {
-  display: block;
-}
-
-.hero-card .status-effect {
-  display: block;
-  padding: 0.12em 0.45em;
-  border-width: max(1px, 0.06em);
-  border-radius: 1em;
-  box-shadow: 0 0.1em 0.25em color-mix(in srgb, var(--card-black) 45%, transparent);
-  font-size: 0.95em;
-  line-height: 1.25;
-  white-space: nowrap;
-}
-
-/* The stat-change chip is red on red in the base styles; keep its text readable. */
-.hero-card .status-effect.stat-modifier.debuff {
-  color: var(--bone);
 }
 
 /* Favourite: a gold star, top right. */
@@ -896,7 +871,6 @@
     top: 3.8em;
   }
 
-  .hero-card .status-effect,
   .hero-card .companion {
     font-size: 1.45em;
   }
@@ -932,7 +906,6 @@
   top: 3.8em;
 }
 
-.hero-card.card-tiny .status-effect,
 .hero-card.card-tiny .companion {
   font-size: 1.45em;
 }

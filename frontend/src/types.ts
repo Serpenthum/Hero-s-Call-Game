@@ -96,7 +96,6 @@ export interface StatusEffects {
     target: string;
     duration: number;
   } | null;
-  inspiration: number;
   silenced: boolean | { active: boolean; duration: number; source?: string; description?: string; tooltip?: string };
   disableAttack: boolean | { active: boolean; duration: number };
   cannotTargetWithAbility?: {

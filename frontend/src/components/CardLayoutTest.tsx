@@ -32,8 +32,7 @@ const buildFaceFixtures = (find: (name: string) => Hero) => {
       taunt: { target: 'Paladin' },
       silenced: { active: true, duration: 2 },
       statModifiers: { Defense: -2 },
-      totem_count: 2,
-      inspiration: 1
+      totem_count: 2
     },
     passiveBuffs: [{ stat: 'accuracy', value: 1, sourceHero: 'Bard', sourceName: 'Song' }]
   } as unknown as Hero;

@@ -116,150 +116,6 @@ body, html {
   color: var(--brass-hi);
 }
 
-.status-effect {
-  background: color-mix(in srgb, var(--felt-deep) 80%, transparent);
-  color: var(--bone);
-  padding: clamp(2px, 0.25vw, 3px) clamp(5px, 0.5vw, 8px);
-  border-radius: clamp(10px, 1vw, 15px);
-  font-size: clamp(0.6rem, 0.8vw, 0.91rem);
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px color-mix(in srgb, var(--felt-deep) 30%, transparent);
-  border: 1px solid color-mix(in srgb, var(--bone) 20%, transparent);
-}
-
-/* Buff Effects (positive - green/blue/yellow tones) */
-.status-effect.beast-active {
-  background: linear-gradient(135deg, var(--verdigris) 0%, var(--verdigris) 100%);
-  border-color: var(--verdigris);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.totem-count {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--brass) 95%, transparent) 0%, color-mix(in srgb, var(--leather) 95%, transparent) 100%);
-  color: var(--bone);
-  border-color: var(--brass);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 50%, transparent);
-}
-
-.status-effect.inspiration {
-  background: linear-gradient(135deg, var(--brass-hi) 0%, var(--brass) 100%);
-  color: var(--felt-deep);
-  border-color: var(--brass);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.damage-stacks {
-  background: linear-gradient(135deg, var(--verdigris) 0%, var(--verdigris) 100%);
-  color: var(--bone);
-  border-color: var(--verdigris);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.untargetable {
-  background: linear-gradient(135deg, var(--brass) 0%, var(--brass) 100%);
-  border-color: var(--brass);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.buff {
-  background: linear-gradient(135deg, var(--verdigris) 0%, var(--verdigris) 100%);
-  border-color: var(--verdigris);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-/* Debuff Effects (negative - red/gray tones) */
-.status-effect.poison {
-  background: linear-gradient(135deg, var(--verdigris) 0%, var(--verdigris) 100%);
-  border-color: var(--verdigris);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-  transition: all 0.3s ease;
-}
-
-/* Poison stack increase animation - subtle green glow */
-@keyframes poisonIncrease {
-  0% {
-    box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 20px var(--felt-deep), 0 0 30px color-mix(in srgb, var(--felt-deep) 80%, transparent);
-    transform: scale(1.15);
-  }
-  100% {
-    box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-  }
-}
-
-.status-effect.poison.poison-glow-increase {
-  animation: poisonIncrease 0.8s ease-in-out;
-}
-
-/* Poison cleanse animation - blue glow as it disappears */
-@keyframes poisonCleanse {
-  0% {
-    box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-    background: linear-gradient(135deg, var(--verdigris) 0%, var(--verdigris) 100%);
-  }
-  50% {
-    box-shadow: 0 0 20px var(--felt-deep), 0 0 30px color-mix(in srgb, var(--felt-deep) 80%, transparent);
-    background: linear-gradient(135deg, var(--brass) 0%, var(--brass) 100%);
-    transform: scale(1.15);
-  }
-  100% {
-    box-shadow: 0 0 15px color-mix(in srgb, var(--felt-deep) 60%, transparent);
-    background: linear-gradient(135deg, var(--brass) 0%, var(--brass) 100%);
-    opacity: 0.7;
-  }
-}
-
-.status-effect.poison.poison-glow-cleanse {
-  animation: poisonCleanse 0.8s ease-in-out;
-}
-
-.status-effect.taunt {
-  background: linear-gradient(135deg, var(--ember) 0%, var(--ember) 100%);
-  border-color: var(--ember);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.silenced {
-  background: linear-gradient(135deg, var(--leather-hi) 0%, var(--leather-hi) 100%);
-  border-color: var(--leather-hi);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.disable-attack {
-  background: linear-gradient(135deg, var(--ember) 0%, var(--ember) 100%);
-  border-color: var(--ember);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.bribed {
-  background: linear-gradient(135deg, var(--brass-hi) 0%, var(--brass) 100%);
-  color: var(--felt-deep);
-  border-color: var(--brass);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.grant-advantage {
-  background: linear-gradient(135deg, var(--ember) 0%, var(--ember) 100%);
-  border-color: var(--ember);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.ride-down-debuff {
-  background: linear-gradient(135deg, var(--ember) 0%, var(--ember) 100%);
-  border-color: var(--ember);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
-.status-effect.debuff {
-  background: linear-gradient(135deg, var(--ember) 0%, var(--ember) 100%);
-  border-color: var(--ember);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--felt-deep) 40%, transparent);
-}
-
 /* Shaman Totems - positioned on top-left corner */
 .shaman-totems {
   position: absolute;
@@ -320,62 +176,6 @@ body, html {
   opacity: 1;
 }
 
-/* Status Effect Custom Tooltips */
-.status-effect-tooltip {
-  position: relative;
-  display: inline-block;
-}
-
-.status-effect-tooltip .status-tooltip-text {
-  visibility: hidden;
-  position: absolute;
-  top: 125%; /* Appears below the status effect */
-  right: 0;
-  background: linear-gradient(135deg, var(--leather) 0%, var(--walnut) 100%);
-  color: var(--bone);
-  padding: 12px 16px;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-  z-index: 1100; /* Higher z-index to show over action bar (1000) */
-  box-shadow: 0 8px 32px color-mix(in srgb, var(--felt-deep) 30%, transparent), 0 2px 8px color-mix(in srgb, var(--felt-deep) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--bone) 10%, transparent);
-  backdrop-filter: blur(8px);
-  opacity: 0;
-  transition: opacity 0.2s ease-out, visibility 0.2s ease-out;
-  pointer-events: none;
-  min-width: 200px;
-  max-width: 300px;
-  word-wrap: break-word;
-  white-space: normal;
-  text-align: left;
-}
-
-.status-effect-tooltip .status-tooltip-text::after {
-  content: "";
-  position: absolute;
-  bottom: 100%; /* Arrow points up from tooltip */
-  right: 20px;
-  margin-bottom: -1px;
-  border-width: 6px;
-  border-style: solid;
-  border-color: transparent transparent var(--leather) transparent; /* Arrow points up */
-}
-
-.status-effect-tooltip:hover .status-tooltip-text {
-  visibility: visible;
-  opacity: 1;
-}
-
-/* Status effect hover effects */
-.status-effect:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--felt-deep) 30%, transparent);
-  z-index: 10;
-}
-
 /* Keyword highlighting */
 .keyword {
   text-decoration: underline;
@@ -388,10 +188,6 @@ body, html {
 
 .keyword.taunt {
   color: var(--ember);
-}
-
-.keyword.inspiration {
-  color: var(--brass-hi);
 }
 
 /* Lobby Styles */
@@ -1227,13 +1023,6 @@ body, html {
   color: var(--brass-hi);
   text-shadow: 0 0 8px color-mix(in srgb, var(--felt-deep) 80%, transparent);
   font-weight: bold;
-}
-
-/* Status Effect Styles for debuffs */
-.status-effect.stat-modifier.debuff {
-  background-color: color-mix(in srgb, var(--ember-hi) 20%, transparent);
-  border: 1px solid var(--ember-hi);
-  color: var(--ember-hi);
 }
 
 /* Special ability section and instruction styles */

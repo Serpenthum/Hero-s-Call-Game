@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Hero, Ability } from '../types';
+import { getBadges, type Badge } from '../battle/badges';
+import BadgeToken from './badges/BadgeToken';
+import { useBadgeTip } from './badges/useBadgeTip';
 import config from '../config';
 import { getAttackDisplay } from '../attackDisplay';
 import { cardMotionOff } from '../cards/cardMotion';
@@ -42,6 +45,11 @@ interface HeroCardProps {
   minTextPx?: number;
   // Name, art and stats only at any width: the face a card gets at 129px and below (the binder's pocket cards).
   tiny?: boolean;
+  // Battle: the badge tokens to show (the battle passes them with both teams and the queued taunts in view);
+  // without it the card works them out from the hero alone
+  badges?: Badge[];
+  // Battle: an open badge text closes when this changes (the turn)
+  badgeResetKey?: unknown;
 }
 
 // Largest share of the card's height the name-and-rules panel may cover.
@@ -97,7 +105,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
   onInspect,
   isFocused = false,
   minTextPx,
-  tiny = false
+  tiny = false,
+  badges,
+  badgeResetKey
 }) => {
   // "Show holographic effects: off" draws a holographic card plain, everywhere.
   const holo = holoProp && getHoloEffects();
@@ -106,11 +116,8 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [isDismounted, setIsDismounted] = useState(false);
-  const [poisonGlowType, setPoisonGlowType] = useState<'increase' | 'cleanse' | null>(null);
   const previousHP = useRef<number | null>(null);
-  const previousPoison = useRef<number>(0);
   const animationRef = useRef<number | null>(null);
-  const poisonAnimationRef = useRef<number | null>(null);
   const wasDismountedRef = useRef(false);
   const resurrectionProcessedRef = useRef(false); // Track if we've processed the current resurrection
   const cardRef = useRef<HTMLDivElement>(null);
@@ -118,6 +125,13 @@ const HeroCard: React.FC<HeroCardProps> = ({
   const reader = useCardReader();
   const openReader = () => reader.open(hero, { holo, favorite });
   const pressHandlers = useLongPress(openReader);
+  const shownBadges = badges ?? getBadges(hero as Hero);
+  const badgeTip = useBadgeTip(badgeResetKey);
+  // The open text goes when its badge does (and does not come back by itself)
+  const openBadge = badgeTip.openKey && shownBadges.some(b => b.key === badgeTip.openKey) ? badgeTip.openKey : null;
+  useEffect(() => {
+    if (badgeTip.openKey && !openBadge) badgeTip.close();
+  }, [badgeTip, openBadge]);
 
   const currentHP = hero.currentHP !== undefined ? hero.currentHP : (typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP);
   const maxHP = typeof hero.HP === 'string' ? parseInt(hero.HP) : hero.HP;
@@ -153,47 +167,6 @@ const HeroCard: React.FC<HeroCardProps> = ({
       }
     }
   }, [(hero as any).permanentDisables?.abilities, hero.name]);
-
-  // Track poison stack changes and trigger glow animations
-  useEffect(() => {
-    const currentPoison = hero.statusEffects?.poison || 0;
-    const prevPoison = previousPoison.current;
-
-    if (currentPoison !== prevPoison) {
-      // Clear any existing animation
-      if (poisonAnimationRef.current) {
-        clearTimeout(poisonAnimationRef.current);
-      }
-
-      if (currentPoison > prevPoison && currentPoison > 1) {
-        // Poison increased beyond 1 - show green increase glow
-        console.log(`🍄 ${hero.name} poison increased from ${prevPoison} to ${currentPoison}`);
-        setPoisonGlowType('increase');
-        
-        // Remove glow after animation
-        poisonAnimationRef.current = setTimeout(() => {
-          setPoisonGlowType(null);
-        }, 800);
-      } else if (currentPoison === 0 && prevPoison > 0) {
-        // Poison cleansed - show blue cleanse glow
-        console.log(`✨ ${hero.name} poison cleansed from ${prevPoison} to 0`);
-        setPoisonGlowType('cleanse');
-        
-        // Remove glow after animation
-        poisonAnimationRef.current = setTimeout(() => {
-          setPoisonGlowType(null);
-        }, 800);
-      }
-
-      previousPoison.current = currentPoison;
-    }
-
-    return () => {
-      if (poisonAnimationRef.current) {
-        clearTimeout(poisonAnimationRef.current);
-      }
-    };
-  }, [hero.statusEffects?.poison, hero.name]);
 
   // Animate HP changes (only if animations are enabled)
   useEffect(() => {
@@ -318,301 +291,22 @@ const HeroCard: React.FC<HeroCardProps> = ({
     return classes;
   };
 
-  const renderStatusEffects = () => {
-    if (!hero.statusEffects || !showFullInfo) return null;
-
-    const buffs = [];
-    const debuffs = [];
-
-    // Buffs (positive effects - top left)
-    if (hero.statusEffects.beast_active) {
-      buffs.push(
-        <span key="beast-active" className="status-effect-tooltip">
-          <span className="status-effect beast-active">
-            🐾
-          </span>
-          <span className="status-tooltip-text">
-            Beast Active: Beast Tamer's pet is summoned and can attack.
-          </span>
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.totem_count && hero.statusEffects.totem_count > 0) {
-      buffs.push(
-        <span key="totem-count" className="status-effect-tooltip">
-          <span className="status-effect totem-count">
-            🗿 {hero.statusEffects.totem_count}
-          </span>
-          <span className="status-tooltip-text">
-            Totems: {hero.statusEffects.totem_count}/3 active - next ability deals {hero.statusEffects.totem_count}D4 damage
-          </span>
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.turret_count && hero.statusEffects.turret_count > 0) {
-      buffs.push(
-        <span key="turret-count" className="status-effect-tooltip">
-          <span className="status-effect turret-count">
-            ⚙️ {hero.statusEffects.turret_count}
-          </span>
-          <span className="status-tooltip-text">
-            Turrets: {hero.statusEffects.turret_count}/2 active - deal {hero.statusEffects.turret_count}D4 damage per turret at end of Engineer's turn
-          </span>
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.med_bot_count && hero.statusEffects.med_bot_count > 0) {
-      buffs.push(
-        <span key="med-bot-count" className="status-effect-tooltip">
-          <span className="status-effect med-bot-count">
-            💉 {hero.statusEffects.med_bot_count}
-          </span>
-          <span className="status-tooltip-text">
-            Med Bots: {hero.statusEffects.med_bot_count}/3 active - heal lowest HP ally {hero.statusEffects.med_bot_count}D4 at end of Medic's turn
-          </span>
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.inspiration > 0) {
-      buffs.push(
-        <span key="inspiration" className="status-effect-tooltip">
-          <span className="status-effect inspiration">
-            ✨ {hero.statusEffects.inspiration}
-          </span>
-          <span className="status-tooltip-text">
-            Inspired: +{hero.statusEffects.inspiration} to damage on next attack
-          </span>
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.damageStacks && hero.statusEffects.damageStacks > 0) {
-      buffs.push(
-        <span key="damage-stacks" className="status-effect-tooltip">
-          <span className="status-effect damage-stacks">
-            ⚔️ {hero.statusEffects.damageStacks}
-          </span>
-          <span className="status-tooltip-text">
-            Bloodbath Stacks: +{hero.statusEffects.damageStacks} damage to all attacks
-          </span>
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.untargetable) {
-      buffs.push(
-        <span key="untargetable" className="status-effect-tooltip">
-          <span className="status-effect untargetable">
-            👻
-          </span>
-          <span className="status-tooltip-text">
-            Untargetable: Cannot be targeted by attacks or abilities
-          </span>
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.arcaneShieldAvailable) {
-      buffs.push(
-        <span key="arcane-shield" className="status-effect-tooltip">
-          <span className="status-effect arcane-shield">
-            🛡️
-          </span>
-          <span className="status-tooltip-text">
-            Arcane Shield: Will negate the first damage instance greater than 6
-          </span>
-        </span>
-      );
-    }
-
-    // Debuffs (negative effects - top right)
-    if (hero.statusEffects.poison > 0) {
-      const glowClass = poisonGlowType === 'increase' ? 'poison-glow-increase' : 
-                       poisonGlowType === 'cleanse' ? 'poison-glow-cleanse' : '';
-      debuffs.push(
-        <span key="poison" className="status-effect-tooltip">
-          <span className={`status-effect poison ${glowClass}`}>
-            ☠ {hero.statusEffects.poison}
-          </span>
-          <span className="status-tooltip-text">
-            Poisoned: Takes {hero.statusEffects.poison} damage at turn end
-          </span>
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.taunt) {
-      const tauntTarget = hero.statusEffects.taunt.target || 'unknown';
-      debuffs.push(
-        <span 
-          key="taunt" 
-          className="status-effect taunt"
-          title={`Taunted by ${tauntTarget}: Must target ${tauntTarget} on next attack`}
-        >
-          😤
-        </span>
-      );
-    }
-    
-    // Handle both boolean and object formats for silenced
-    const isSilenced = hero.statusEffects.silenced === true || 
-                      (typeof hero.statusEffects.silenced === 'object' && hero.statusEffects.silenced?.active);
-    
-    if (isSilenced) {
-      const duration = typeof hero.statusEffects.silenced === 'object' ? 
-                      hero.statusEffects.silenced.duration : '';
-      const isFirstPickSilence = typeof hero.statusEffects.silenced === 'object' && 
-                                hero.statusEffects.silenced.source === "First Pick Disadvantage";
-      
-      const tooltipText = isFirstPickSilence 
-        ? "First Pick Silence - Your ability is disabled this turn" 
-        : `Silenced: Cannot use abilities${duration ? ` (${duration} turns left)` : ''}`;
-      
-      debuffs.push(
-        <span 
-          key="silenced" 
-          className="status-effect silenced"
-          title={tooltipText}
-        >
-          🔇
-        </span>
-      );
-    }
-    
-    // Handle disable_attack status effect
-    if (hero.statusEffects.disableAttack) {
-      const duration = typeof hero.statusEffects.disableAttack === 'object' ? 
-                      hero.statusEffects.disableAttack.duration : '';
-      debuffs.push(
-        <span key="disable-attack" className="status-effect-tooltip">
-          <span className="status-effect disable-attack">
-            ⚔️❌
-          </span>
-          <span className="status-tooltip-text">
-            Attack Disabled: Cannot make basic attacks{duration ? ` (${duration} turns left)` : ''}
-          </span>
-        </span>
-      );
-    }
-    
-    // Handle Hoarder's Bribe - cannot target owner with ability
-    if (hero.statusEffects.cannotTargetWithAbility) {
-      const owner = (hero.statusEffects.cannotTargetWithAbility as any).owner || 'unknown';
-      const duration = (hero.statusEffects.cannotTargetWithAbility as any).duration || '';
-      debuffs.push(
-        <span 
-          key="bribed" 
-          className="status-effect bribed"
-          title={`Bribed: Cannot use abilities against ${owner}${duration ? ` (${duration} turns left)` : ''}`}
-        >
-          💰
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.grantAdvantage) {
-      const source = hero.statusEffects.grantAdvantage.source || 'unknown';
-      debuffs.push(
-        <span 
-          key="grant-advantage" 
-          className="status-effect grant-advantage"
-          title={`Marked by ${source}: Next attack against this hero has advantage`}
-        >
-          🎯⬆️
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.rideDownDebuff) {
-      const source = hero.statusEffects.rideDownDebuff.source || 'Cavalier';
-      debuffs.push(
-        <span 
-          key="ride-down-debuff"
-          className="status-effect ride-down-debuff debuff"
-          title={`Ride Down: All attacks against this hero have advantage (applied by ${source})`}
-        >
-          🏇⬇️
-        </span>
-      );
-    }
-    
-    if (hero.statusEffects.health_link) {
-      debuffs.push(
-        <span key="health-link" className="status-effect-tooltip">
-          <span className="status-effect health-link debuff">
-            🔗
-          </span>
-          <span className="status-tooltip-text">
-            Health Link: Damage dealt to Angel will be reflected to this hero
-          </span>
-        </span>
-      );
-    }
-
-    // Show stat modifiers (positive go to buffs, negative go to debuffs)
-    if (hero.statusEffects.statModifiers) {
-      Object.entries(hero.statusEffects.statModifiers).forEach(([stat, modifier]) => {
-        if (modifier !== 0) {
-          const modifierText = modifier > 0 ? `+${modifier}` : `${modifier}`;
-          const statSymbol = stat === 'Defense' ? '🛡️' : '📊';
-          
-          // Try to find the source information
-          let tooltipText = `${stat} ${modifierText}`;
-          if (hero.statusEffects && (hero.statusEffects.statModifierCasters || hero.statusEffects.statModifierAbilities)) {
-            // Look for matching modifier key
-            const possibleKeys = Object.keys(hero.statusEffects.statModifierCasters || {})
-              .filter(key => key.startsWith(`${stat}_`));
-              
-            if (possibleKeys.length > 0) {
-              const modifierKey = possibleKeys[0]; // Use first matching key
-              const abilityName = hero.statusEffects.statModifierAbilities?.[modifierKey];
-              const casterName = hero.statusEffects.statModifierCasters?.[modifierKey];
-              
-              if (abilityName) {
-                tooltipText = `${abilityName}: ${stat} ${modifierText}`;
-              } else if (casterName) {
-                tooltipText = `${casterName}: ${stat} ${modifierText}`;
-              }
-            }
-          }
-          
-          const statusElement = (
-            <span 
-              key={`stat-modifier-${stat}`}
-              className={`status-effect stat-modifier ${modifier < 0 ? 'debuff' : 'buff'}`}
-              title={tooltipText}
-            >
-              {statSymbol} {modifierText}
-            </span>
-          );
-          
-          if (modifier > 0) {
-            buffs.push(statusElement);
-          } else {
-            debuffs.push(statusElement);
-          }
-        }
-      });
-    }
-
-    return (
-      <>
-        {buffs.length > 0 && (
-          <div className="status-effects-buffs">
-            {buffs}
-          </div>
-        )}
-        {debuffs.length > 0 && (
-          <div className="status-effects-debuffs">
-            {debuffs}
-          </div>
-        )}
-      </>
-    );
+  // Round badge tokens, straight inside .card-status (Badges.css steers each bubble by its place there)
+  const renderBadges = () => {
+    if (!showFullInfo) return null;
+    return shownBadges.map(badge => (
+      <BadgeToken
+        key={badge.key}
+        badge={badge}
+        open={openBadge === badge.key}
+        onToggle={() => badgeTip.toggle(badge.key)}
+        onHoverChange={on => badgeTip.hover(badge.key, on)}
+      />
+    ));
+  };
+  // A tap on a token only opens its text: it never reaches the card (Focus, details, choosing, the long-press reader)
+  const stopTokenEvent = (event: React.SyntheticEvent) => {
+    if ((event.target as Element | null)?.closest?.('.badge-token')) event.stopPropagation();
   };
 
   const renderCompanions = () => {
@@ -1068,7 +762,9 @@ const HeroCard: React.FC<HeroCardProps> = ({
       {isFocused && (
         <div className={`card-focus-halo${cardMotionOff() ? ' card-focus-halo--still' : ''}`} aria-hidden="true" />
       )}
-      <div className="card-status">{renderStatusEffects()}</div>
+      <div className="card-status" onClick={stopTokenEvent} onPointerDown={stopTokenEvent} onPointerUp={stopTokenEvent}>
+        {renderBadges()}
+      </div>
       {children}
     </div>
   );

@@ -12,7 +12,7 @@ function hero(name: string, effects: Partial<StatusEffects> = {}, extra: Partial
     Ability: [],
     Special: [],
     currentHP: 20,
-    statusEffects: { poison: 0, taunt: null, inspiration: 0, silenced: false, disableAttack: false, untargetable: false, ...effects },
+    statusEffects: { poison: 0, taunt: null, silenced: false, disableAttack: false, untargetable: false, ...effects },
     ...extra,
   } as Hero;
 }
@@ -187,7 +187,7 @@ describe('getBadges', () => {
   });
 
   it('no Inspired badge even if statusEffects.inspiration is set', () => {
-    expect(getBadges(hero('Fighter', { inspiration: 2 }))).toEqual([]);
+    expect(getBadges(hero('Fighter', { inspiration: 2 } as unknown as Partial<StatusEffects>))).toEqual([]);
   });
 
   it('the other badges: Beast, Bloodbath, Hidden, Guiding Bolt, Ride Down, Health Link, Defense down', () => {
