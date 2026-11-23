@@ -83,11 +83,14 @@ test does. "Ran" in the mockup means the bug was reproduced against the real rul
 | i | **Vanish is once per round.** Today it triggers on every hit, and each new hit changes who may still Focus Ninja to the newest attacker. | Two enemies hit Ninja one after another. Vanish triggers once; the first attacker keeps its exception; the second gets none. After Ninja's next turn starts, Vanish can trigger again. |
 | j | **Every heal to full HP clears Ride Down.** Druid's Healing Word and Medic's Emergency Heal miss it today. | A Ride Down hero is healed to full by Healing Word, then by Emergency Heal (two tests). Ride Down is gone. |
 | k | **Leftover badges go when their source dies.** Hoarder's Bribe (also stops saying "1 turns left"), Angel's Health Link, and the Beast paw on a dead Beast Tamer. | Hoarder bribes an enemy, then dies: no Bribe. Angel links an enemy, then dies: no Health Link. Beast Tamer with a Beast dies: no Beast. |
-| l1 | **Druid's Healing Word heals the hurt ally with the fewest HP, Druid included.** Today it picks the smallest *share* of HP left. | Druid's team: Druid 9/17, Warden 10/21, Cleric full. Druid ends its turn: Druid gains 1D4, Warden is unchanged (today Warden, 48%, is healed). |
-| l2 | **Medic's Emergency Heal: same rule.** It already picks the fewest HP, Medic included; the test pins it so the shared code can't break it. | Medic with 1 Med Bot, Medic 6/16, Warden 7/21 (33%), Cleric full. Medic ends its turn: Medic is healed, Warden unchanged. |
-| l3 | **Paladin's Divine Smite heals the hurt ally with the fewest HP, Paladin included.** Today it picks by smallest share and never heals Paladin unless Paladin is alone. | Paladin 5/19, Warden 10/21, Cleric full. Divine Smite hits: Paladin gains 1D4, Warden unchanged. Second test: everyone on Paladin's team full: the enemy still takes 1D4 damage, nobody is healed and no heal line is logged. |
+| l1 | **Druid's Healing Word heals the hurt ally with the fewest HP, Druid included.** Today it picks the smallest *share* of HP left. | Druid's team: Druid 9/17, Warden 10/21, Cleric full. Druid ends its turn: Druid gains 1D4, Warden is unchanged (today Warden, 48%, is healed). Owner's example: an ally at 5/5 and an ally at 6/20: the 6/20 ally is healed. |
+| l2 | **Medic's Emergency Heal: same rule.** It already picks the fewest HP, Medic included; the test pins it so the shared code can't break it. | Medic with 1 Med Bot, Medic 6/16, Warden 7/21 (33%), Cleric full. Medic ends its turn: Medic is healed, Warden unchanged. Owner's example: 5/5 and 6/20 allies: the 6/20 ally is healed. |
+| l3 | **Paladin's Divine Smite heals the hurt ally with the fewest HP, Paladin included.** Today it picks by smallest share and never heals Paladin unless Paladin is alone. | Paladin 5/19, Warden 10/21, Cleric full. Divine Smite hits: Paladin gains 1D4, Warden unchanged. Second test: everyone on Paladin's team full: the enemy still takes 1D4 damage, nobody is healed and no heal line is logged. Owner's example: 5/5 and 6/20 allies: the 6/20 ally is healed. |
 
-Healers after fix l (one shared rule for all three):
+Healers after fix l (one shared rule for all three). The owner's rule, word for word: **the heal goes to the DAMAGED
+ally with the lowest current HP. A hero at full HP is never picked over a damaged one.** His example: an ally at 5/5
+HP must not be chosen over an ally at 6/20 HP; the 6/20 ally gets the heal. It applies to Druid's Healing Word,
+Medic's Emergency Heal and Paladin's Divine Smite, healer included. Each of the three has this exact scenario as a test.
 
 - "Hurt" means alive and below full HP. The heal goes to the hurt ally with the fewest HP left (raw HP, not share), and
   the healer counts as an ally.
