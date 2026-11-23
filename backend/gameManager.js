@@ -2597,8 +2597,9 @@ class GameManager {
       statusEffects.push(...dealt.effects);
       this.recordArcaneArrowsTarget(currentHero, target, damage);
       
-      // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier (basic attacks and abilities)
-      if (currentHero.name === 'Cavalier' && damage > 0) {
+      // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier (basic attacks and abilities).
+      // A hero Angel revived from this hit starts clean, so it gets none.
+      if (currentHero.name === 'Cavalier' && damage > 0 && !dealt.revived) {
         if (!target.statusEffects) target.statusEffects = {};
         target.statusEffects.rideDownDebuff = {
           source: currentHero.name,
@@ -3478,8 +3479,8 @@ class GameManager {
             results.push(...dealt.effects);
             this.recordArcaneArrowsTarget(caster, target, damage);
             
-            // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier
-            if (caster.name === 'Cavalier' && damage > 0) {
+            // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier (none if Angel revived them from this hit)
+            if (caster.name === 'Cavalier' && damage > 0 && !dealt.revived) {
               if (!target.statusEffects) target.statusEffects = {};
               target.statusEffects.rideDownDebuff = {
                 source: caster.name,
@@ -6839,10 +6840,16 @@ class GameManager {
     if (!angelHero.statusEffects) angelHero.statusEffects = {};
     angelHero.statusEffects.resurrectUsed = true;
 
-    // Clear all status effects from the dying hero EXCEPT the resurrection flag
+    // Clear all status effects from the dying hero EXCEPT the resurrection flag.
+    // Arcane Shield is once per battle: a used shield stays used.
+    const shieldUsed = !!dyingHero.statusEffects?.arcaneShieldUsed;
     dyingHero.statusEffects = {
       justResurrected: true // Angel revived this hero this turn: it can't be revived again; cleared at turn end
     };
+    if (shieldUsed) {
+      dyingHero.statusEffects.arcaneShieldUsed = true;
+      dyingHero.statusEffects.arcaneShieldAvailable = false;
+    }
 
     // Resurrect at half health (rounded up)
     const halfHealth = Math.ceil(dyingHero.HP / 2);
@@ -7702,8 +7709,8 @@ class GameManager {
         
         debugLog(` ${ally.name} deals ${damage} damage to ${primaryTarget.name} (${oldHP} → ${primaryTarget.currentHP})`);
         
-        // Check for on-attack special triggers (like Cavalier's Ride Down)
-        if (ally.name === 'Cavalier' && damage > 0) {
+        // Check for on-attack special triggers (like Cavalier's Ride Down; none if Angel revived the target from this hit)
+        if (ally.name === 'Cavalier' && damage > 0 && !dealt.revived) {
           if (!primaryTarget.statusEffects) primaryTarget.statusEffects = {};
           primaryTarget.statusEffects.rideDownDebuff = {
             source: ally.name,

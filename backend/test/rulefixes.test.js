@@ -164,3 +164,48 @@ describe('fix c: a hero revived and killed again in the same turn dies properly'
     assert.ok(!again.revived);
   });
 });
+
+describe('fixes g and h: a revived hero keeps no Ride Down and gets no second Arcane Shield', () => {
+  const ability = (pid, t, index = 0) => { gm.selectTarget(pid, t); return gm.useAbility(pid, index, t); };
+
+  test("a hero revived after Cavalier's killing attack has no Ride Down", () => {
+    const game = startBattle(gm, ['Cavalier', 'Fighter', 'Cleric'], ['Wizard', 'Angel', 'Cleric']);
+    const wizard = hero(game, 1, 'Wizard');
+    wizard.currentHP = 1;
+    assert.equal(attack('p0', 'Wizard').success, true);
+    assert.ok(wizard.currentHP > 0, 'Angel revived Wizard');
+    assert.equal(wizard.statusEffects.rideDownDebuff, undefined);
+  });
+
+  test("same for Cavalier's ability", () => {
+    const game = startBattle(gm, ['Cavalier', 'Fighter', 'Cleric'], ['Wizard', 'Angel', 'Cleric']);
+    const wizard = hero(game, 1, 'Wizard');
+    wizard.currentHP = 1;
+    assert.equal(ability('p0', 'Wizard').success, true);
+    assert.ok(wizard.currentHP > 0, 'Angel revived Wizard');
+    assert.equal(wizard.statusEffects.rideDownDebuff, undefined);
+  });
+
+  test('a revived Wizard gets no second Arcane Shield', () => {
+    // Brawler's 2D4 rolls 6 and it attacks twice
+    const game = startBattle(gm, ['Brawler', 'Fighter', 'Cleric'], ['Wizard', 'Angel', 'Cleric']);
+    const wizard = hero(game, 1, 'Wizard');
+    const startHP = wizard.currentHP;
+    assert.equal(attack('p0', 'Wizard').success, true);
+    assert.equal(wizard.currentHP, startHP, 'Arcane Shield blocked the first hit');
+    assert.equal(wizard.statusEffects.arcaneShieldUsed, true);
+
+    wizard.currentHP = 1;
+    assert.equal(attack('p0', 'Wizard').success, true);
+    assert.ok(wizard.currentHP > 0, 'Angel revived Wizard');
+    const reviveEntry = game.log[game.log.length - 1];
+    assert.ok(reviveEntry.reactions.some(r => r.action === 'Resurrect'));
+    assert.ok(!reviveEntry.reactions.some(r => r.action === 'Arcane Shield'), 'no Arcane Shield on the revive');
+    assert.equal(wizard.statusEffects.arcaneShieldAvailable, false);
+
+    const hpBefore = wizard.currentHP;
+    gm.dealDamage(game, wizard, 6, hero(game, 0, 'Brawler'), { source: 'Basic Attack', isAttack: true });
+    assert.equal(wizard.currentHP, hpBefore - 6, 'the 6-damage hit is not blocked');
+    assert.equal(wizard.statusEffects.arcaneShieldAvailable, false);
+  });
+});
