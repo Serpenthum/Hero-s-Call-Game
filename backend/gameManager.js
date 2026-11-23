@@ -2357,6 +2357,21 @@ class GameManager {
     // Debuffs that last until the dead hero's next turn (Piercing Shot) end now
     this.expireCasterStatModifiers(game, deadHero);
 
+    // The dead hero's Bribe and Health Link end, and its Beast goes with it
+    game.players.forEach(player => {
+      player.team.forEach(hero => {
+        if (hero.statusEffects?.cannotTargetWithAbility?.ownerId === deadHero.id) {
+          delete hero.statusEffects.cannotTargetWithAbility;
+        }
+        if (hero.statusEffects?.health_link?.sourceId === deadHero.id) {
+          delete hero.statusEffects.health_link;
+        }
+      });
+    });
+    if (deadHero.statusEffects?.beast_active) {
+      deadHero.statusEffects.beast_active = false;
+    }
+
     game.players.forEach(player => {
       player.team.forEach(hero => {
         if (hero.passiveBuffs) {

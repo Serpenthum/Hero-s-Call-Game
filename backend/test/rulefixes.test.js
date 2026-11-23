@@ -379,3 +379,59 @@ describe('fix i: Vanish once per round, enemy damage only, the exception ends wi
     assert.equal(gm.selectTarget('p0', 'Ninja').success, false);
   });
 });
+
+describe('fix k: Bribe, Health Link and Beast end when their source dies', () => {
+  // A death hook straight after HP reaches 0, as dealDamage would call it
+  const kill = (game, h) => {
+    h.currentHP = 0;
+    gm.updatePassiveEffectsOnDeath(game, h, null, 'damage');
+  };
+
+  test("Hoarder's death clears its Bribe", () => {
+    const game = startBattle(gm, ['Hoarder', 'Fighter', 'Cleric'], ['Wizard', 'Fighter', 'Warden']);
+    const hoarder = hero(game, 0, 'Hoarder');
+    const wizard = hero(game, 1, 'Wizard');
+    gm.selectTarget('p0', 'Wizard');
+    assert.equal(gm.useAbility('p0', 0, 'Wizard').success, true);
+    assert.equal(wizard.statusEffects.cannotTargetWithAbility?.ownerId, hoarder.id, 'precondition: Bribed');
+    gm.dealDamage(game, hoarder, 99, hero(game, 1, 'Fighter'));
+    assert.ok(hoarder.currentHP <= 0, 'precondition: Hoarder died');
+    assert.equal(wizard.statusEffects.cannotTargetWithAbility, undefined);
+  });
+
+  test("Angel's death clears its Health Link", () => {
+    // Damage to Angel reflects and spends the link, so the death hook is called without damage here
+    const game = startBattle(gm, ['Angel', 'Fighter', 'Cleric'], ['Wizard', 'Fighter', 'Warden']);
+    const angel = hero(game, 0, 'Angel');
+    const wizard = hero(game, 1, 'Wizard');
+    gm.selectTarget('p0', 'Wizard');
+    assert.equal(gm.useAbility('p0', 0, 'Wizard').success, true);
+    assert.equal(wizard.statusEffects.health_link?.sourceId, angel.id, 'precondition: linked');
+    kill(game, angel);
+    assert.equal(wizard.statusEffects.health_link, undefined);
+  });
+
+  test("Beast Tamer's death clears beast_active", () => {
+    const game = startBattle(gm, ['Beast Tamer', 'Fighter', 'Cleric'], ['Wizard', 'Fighter', 'Warden']);
+    const tamer = hero(game, 0, 'Beast Tamer');
+    gm.selectTarget('p0', 'Wizard');
+    assert.equal(gm.useAbility('p0', 0, 'Wizard').success, true);
+    assert.equal(tamer.statusEffects.beast_active, true, 'precondition: Beast called');
+    gm.dealDamage(game, tamer, 99, hero(game, 1, 'Fighter'));
+    assert.ok(tamer.currentHP <= 0, 'precondition: Beast Tamer died');
+    assert.equal(tamer.statusEffects.beast_active, false);
+  });
+
+  test("mirror: an enemy Hoarder's death does not clear our Hoarder's Bribe", () => {
+    const game = startBattle(gm, ['Hoarder', 'Fighter', 'Cleric'], ['Hoarder', 'Wizard', 'Warden']);
+    const ourHoarder = hero(game, 0, 'Hoarder');
+    const wizard = hero(game, 1, 'Wizard');
+    gm.selectTarget('p0', 'Wizard');
+    assert.equal(gm.useAbility('p0', 0, 'Wizard').success, true);
+    assert.equal(wizard.statusEffects.cannotTargetWithAbility?.ownerId, ourHoarder.id, 'precondition: Bribed');
+    kill(game, hero(game, 1, 'Hoarder'));
+    assert.equal(wizard.statusEffects.cannotTargetWithAbility?.ownerId, ourHoarder.id);
+    kill(game, ourHoarder);
+    assert.equal(wizard.statusEffects.cannotTargetWithAbility, undefined);
+  });
+});
