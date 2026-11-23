@@ -81,6 +81,8 @@ export interface Hero {
   companions?: Array<{ type: string; hp: number }>; // For summoner heroes like Beast Tamer
   id?: string;
   resurrected?: boolean; // Flag for resurrection animation
+  conditionalEffects?: { [specialName: string]: boolean }; // Low-HP specials now on (Frenzy, Desperate Blows)
+  damagedEnemies?: string[]; // Arcane Archer: names of the enemies it has damaged
 }
 
 export interface StatusEffects {
@@ -88,6 +90,8 @@ export interface StatusEffects {
   beast_active?: boolean;
   totem_count?: number;
   turret_count?: number;
+  med_bot_count?: number;
+  windWallAC?: { bonus: number }; // Elementalist's Wind Wall: Defense until its next turn
   taunt: {
     target: string;
     duration: number;
@@ -132,7 +136,8 @@ export interface StatusEffects {
     maxHP: number; // Store max HP to detect full healing
   };
   arcaneShieldAvailable?: boolean;
-  health_link?: boolean; // Applied by Angel's Health Link ability
+  arcaneShieldUsed?: boolean; // Wizard's shield is spent for the battle
+  health_link?: boolean | { source?: string; sourceId?: string; duration?: number }; // Applied by Angel's Health Link ability
   resurrectUsed?: boolean; // Track if Angel has used resurrection
 }
 
