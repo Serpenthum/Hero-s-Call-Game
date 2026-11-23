@@ -762,7 +762,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       {isFocused && (
         <div className={`card-focus-halo${cardMotionOff() ? ' card-focus-halo--still' : ''}`} aria-hidden="true" />
       )}
-      <div className="card-status" onClick={stopTokenEvent} onPointerDown={stopTokenEvent} onPointerUp={stopTokenEvent}>
+      <div className="card-status" onClick={stopTokenEvent} onPointerDown={stopTokenEvent} onPointerUp={stopTokenEvent} onContextMenu={stopTokenEvent}>
         {renderBadges()}
       </div>
       {children}

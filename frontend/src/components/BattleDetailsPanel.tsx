@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import type { Hero } from '../types';
 import type { CardSide } from '../battle/focus';
+import type { Badge } from '../battle/badges';
 import HeroCard from './HeroCard';
 import '../styles/BattleDetails.css';
 
@@ -8,6 +9,8 @@ interface BattleDetailsPanelProps {
   hero: Hero;
   side: CardSide;
   isFocused: boolean;
+  // The hero's badges, worked out with both teams like the board card's (without them the card works them out alone)
+  badges?: Badge[];
   // A tap on the card closes it
   onClose?: () => void;
 }
@@ -22,7 +25,7 @@ const EDGE_GAP = 8;
 // (it closes on a tap on itself or on empty space, Escape, an action or the turn change; see BattlePhase). The card is as large as
 // the column's height allows, so its own face carries the ability and special text; on phones it grows past the
 // column over the board. A fallen hero shows as dead on the card itself, and the focused enemy wears the focus ring.
-const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isFocused, onClose }) => {
+const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isFocused, badges, onClose }) => {
   const panelRef = useRef<HTMLElement>(null);
 
   useLayoutEffect(() => {
@@ -66,7 +69,22 @@ const BattleDetailsPanel: React.FC<BattleDetailsPanelProps> = ({ hero, side, isF
       onClick={onClose}
     >
       {/* Not isFocused on the card: only the board's card carries data-focused; the ring here is CSS */}
-      <HeroCard hero={hero} isEnemy={side === 'enemy'} readable="none" disableHPAnimations />
+      <HeroCard hero={hero} isEnemy={side === 'enemy'} readable="none" disableHPAnimations badges={badges} />
+      {/* Every badge with its sentence; read-only, so a tap here closes the panel like a tap on the card */}
+      {badges && badges.length > 0 && (
+        <ul className="badge-list">
+          {badges.map(badge => (
+            <li key={badge.key} className="badge-list-item" data-badge={badge.key}>
+              <span className={`badge-token badge-${badge.rim}${badge.dashed ? ' badge-dashed' : ''}`} aria-hidden="true">
+                <svg viewBox="0 0 32 32" focusable="false"><use href={`#${badge.symbol}`} /></svg>
+                {badge.count && <span className="badge-count">{badge.count}</span>}
+              </span>
+              <strong className="badge-list-short">{badge.short}</strong>
+              <span className="badge-list-full">{badge.full}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </aside>
   );
 };

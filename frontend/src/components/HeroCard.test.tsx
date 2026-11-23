@@ -66,8 +66,9 @@ describe('HeroCard badge tokens', () => {
     const outerClick = vi.fn();
     const outerDown = vi.fn();
     const outerUp = vi.fn();
+    const outerMenu = vi.fn();
     const root = render(
-      <div onClick={outerClick} onPointerDown={outerDown} onPointerUp={outerUp}>
+      <div onClick={outerClick} onPointerDown={outerDown} onPointerUp={outerUp} onContextMenu={outerMenu}>
         <HeroCard hero={poisoned} isEnemy onInspect={onInspect} disableHPAnimations />
         <HeroCard hero={poisoned} isSelectable onClick={onClick} disableHPAnimations />
       </div>
@@ -77,6 +78,7 @@ describe('HeroCard badge tokens', () => {
       act(() => {
         b.dispatchEvent(new Event('pointerdown', { bubbles: true }));
         b.dispatchEvent(new Event('pointerup', { bubbles: true }));
+        b.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
       });
       click(b);
       expect(b.closest('.badge-token')!.querySelector('.badge-tip')).not.toBeNull();
@@ -86,6 +88,7 @@ describe('HeroCard badge tokens', () => {
     expect(outerClick).not.toHaveBeenCalled();
     expect(outerDown).not.toHaveBeenCalled();
     expect(outerUp).not.toHaveBeenCalled();
+    expect(outerMenu).not.toHaveBeenCalled();
     // A tap on the card itself still reaches it
     click(root.querySelector('.hero-card .card-art'));
     expect(onInspect).toHaveBeenCalledTimes(1);

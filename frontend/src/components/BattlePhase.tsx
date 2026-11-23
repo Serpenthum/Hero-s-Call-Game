@@ -150,6 +150,10 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     if (gameState.phase === 'ended') setInspected(null);
   }, [gameState.phase]);
 
+  // Badges see both teams (a dead taunter, a dead Arcane Archer) and the queued taunts (absent on an old server)
+  const badgesFor = (hero: Hero, allies: Hero[], enemies: Hero[]) =>
+    getBadges(hero, { allies, enemies, pendingTaunts: gameState.pendingTaunts });
+
   const renderDetailsPanel = () => {
     if (!inspected || gameState.phase === 'ended') return null;
     const owner = inspected.side === 'enemy' ? opponent : currentPlayer;
@@ -158,11 +162,14 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     if (!owner || !hero || !slot) return null;
     const focus = turnFocus(gameState);
     const isFocused = !!focus && focus.defenderId === owner.id && focus.focus.name === hero.name;
+    // The same badges as the hero's board card
+    const otherTeam = (inspected.side === 'enemy' ? currentPlayer.team : opponent?.team) ?? [];
     return createPortal(
       <BattleDetailsPanel
         hero={hero}
         side={inspected.side}
         isFocused={isFocused}
+        badges={badgesFor(hero, owner.team, otherTeam)}
         onClose={closeDetails}
       />,
       slot
@@ -430,9 +437,6 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     const marked = turnFocus(gameState);
     const isMarked = (owner: Player | null, hero: Hero) =>
       !!marked && !!owner && marked.defenderId === owner.id && marked.focus.name === hero.name;
-    // Badges see both teams (a dead taunter, a dead Arcane Archer) and the queued taunts (absent on an old server)
-    const badgesFor = (hero: Hero, allies: Hero[], enemies: Hero[]) =>
-      getBadges(hero, { allies, enemies, pendingTaunts: gameState.pendingTaunts });
     const myTeam = currentPlayer.team;
     const theirTeam = opponent?.team ?? [];
     // An open badge text closes when the turn passes or the active hero changes
