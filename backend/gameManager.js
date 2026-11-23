@@ -5250,6 +5250,9 @@ class GameManager {
       const nextTurnInfo = this.advanceToNextValidTurn(game);
       if (nextTurnInfo) {
         game.currentTurn = nextTurnInfo.playerIndex;
+
+        // Caster-specific expiry at the new hero's turn start, as endTurn does
+        this.processCasterDurationEffects(game, nextTurnInfo.hero);
       }
     } else {
       // Check for game over condition
@@ -6867,19 +6870,23 @@ class GameManager {
     angelHero.statusEffects.resurrectUsed = true;
 
     // Clear all status effects from the dying hero EXCEPT the resurrection flag.
-    // Arcane Shield is once per battle: a used shield stays used.
+    // Arcane Shield is once per battle: a used shield stays used, an unused one stays up.
     const shieldUsed = !!dyingHero.statusEffects?.arcaneShieldUsed;
+    const shieldAvailable = dyingHero.statusEffects?.arcaneShieldAvailable === true;
     dyingHero.statusEffects = {
       justResurrected: true // Angel revived this hero this turn: it can't be revived again; cleared at turn end
     };
     if (shieldUsed) {
       dyingHero.statusEffects.arcaneShieldUsed = true;
       dyingHero.statusEffects.arcaneShieldAvailable = false;
+    } else if (shieldAvailable) {
+      dyingHero.statusEffects.arcaneShieldAvailable = true;
     }
 
     // Resurrect at half health (rounded up)
     const halfHealth = Math.ceil(dyingHero.HP / 2);
     dyingHero.currentHP = halfHealth;
+    this.updateHeroDisplayStats(dyingHero); // the cleared statModifiers no longer lower its Defense
 
     debugLog(` ${dyingHero.name} resurrected at ${halfHealth} HP by Angel`);
 

@@ -208,6 +208,23 @@ describe('fixes g and h: a revived hero keeps no Ride Down and gets no second Ar
     assert.equal(wizard.currentHP, hpBefore - 6, 'the 6-damage hit is not blocked');
     assert.equal(wizard.statusEffects.arcaneShieldAvailable, false);
   });
+
+  test('a revived Wizard with an unused shield keeps it', () => {
+    const game = startBattle(gm, ['Brawler', 'Fighter', 'Cleric'], ['Wizard', 'Angel', 'Cleric']);
+    const wizard = hero(game, 1, 'Wizard');
+    const brawler = hero(game, 0, 'Brawler');
+    assert.equal(wizard.statusEffects.arcaneShieldAvailable, true, 'precondition: shield up');
+    wizard.currentHP = 1;
+    gm.dealDamage(game, wizard, 5, brawler, { source: 'Basic Attack', isAttack: true });
+    assert.ok(wizard.currentHP > 0, 'Angel revived Wizard');
+    assert.equal(wizard.statusEffects.arcaneShieldAvailable, true);
+    assert.ok(!wizard.statusEffects.arcaneShieldUsed);
+
+    const hpBefore = wizard.currentHP;
+    gm.dealDamage(game, wizard, 6, brawler, { source: 'Basic Attack', isAttack: true });
+    assert.equal(wizard.currentHP, hpBefore, 'the shield blocks the first hit of more than 5');
+    assert.equal(wizard.statusEffects.arcaneShieldAvailable, false);
+  });
 });
 
 describe("fixes d and e: Piercing Shot's -1 Defense ends properly", () => {
@@ -261,6 +278,17 @@ describe("fixes d and e: Piercing Shot's -1 Defense ends properly", () => {
 
     assert.equal(wizard.statusEffects.statModifiers.Defense, -1);
     assert.equal(wizard.modifiedDefense, base - 1);
+  });
+
+  test("a hero killed and revived loses Piercing Shot's -1 from its Defense", () => {
+    const game = startBattle(gm, ['Ranger', 'Fighter', 'Cleric'], ['Fighter', 'Wizard', 'Angel']);
+    const { wizard, base } = piercingShot(game);
+    wizard.currentHP = 1;
+    gm.dealDamage(game, wizard, 5, hero(game, 0, 'Fighter'));
+    assert.ok(wizard.currentHP > 0, 'Angel revived Wizard');
+    assert.equal(wizard.statusEffects.statModifiers, undefined);
+    assert.equal(wizard.modifiedDefense, base);
+    assert.equal(calculateEffectiveDefense(wizard), base);
   });
 });
 
@@ -335,6 +363,19 @@ describe('fix i: Vanish once per round, enemy damage only, the exception ends wi
     assert.equal(gm.activateSpecial('p1').success, true);
     assert.ok(ninja.currentHP > 0 && ninja.currentHP < ninja.HP, 'precondition: Self Destruct hit Ninja');
     assert.ok(!ninja.statusEffects.untargetable);
+    assert.ok(!ninja.statusEffects.vanishUsedThisRound);
+  });
+
+  test("after Mech's Self Destruct, the next hero's turn start still ends its Vanish", () => {
+    // Mech acts first; Self Destruct hits the enemy Ninja, which acts next
+    const game = startBattle(gm, ['Ninja', 'Cleric', 'Monk'], ['Mech', 'Fighter', 'Warden'], { firstPlayer: 1 });
+    const ninja = hero(game, 0, 'Ninja');
+    gm.selectTarget('p1', 'Ninja');
+    assert.equal(gm.activateSpecial('p1').success, true);
+    assert.ok(hero(game, 1, 'Mech').currentHP <= 0, 'precondition: Mech died');
+    assert.ok(ninja.currentHP > 0 && ninja.currentHP < ninja.HP, 'precondition: Self Destruct hit Ninja');
+    assert.equal(gm.getCurrentTurnInfo(game).hero, ninja, 'precondition: Ninja acts next');
+    assert.ok(!ninja.statusEffects.untargetable, 'Vanish ended at Ninja turn start');
     assert.ok(!ninja.statusEffects.vanishUsedThisRound);
   });
 

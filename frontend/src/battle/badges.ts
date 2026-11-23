@@ -34,11 +34,6 @@ function timed(v: boolean | { active: boolean; duration: number } | undefined): 
   return { on: false };
 }
 
-function hasSpecial(hero: Hero, name: string): boolean {
-  const specials = (Array.isArray(hero.Special) ? hero.Special : [hero.Special]) as Array<{ name?: string } | undefined>;
-  return specials.some(s => s?.name === name);
-}
-
 export function getBadges(hero: Hero, ctx: BadgeContext = {}): Badge[] {
   if (!isHeroAlive(hero)) return []; // A fallen hero shows no badges (owner decision 5)
   const se = hero.statusEffects;
@@ -99,10 +94,8 @@ export function getBadges(hero: Hero, ctx: BadgeContext = {}): Badge[] {
       full: "Can't be Focused until Ninja's next turn.",
     });
   }
-  // A revived Wizard whose shield was never used gets a fresh statusEffects without arcaneShieldAvailable
-  // until the server marks it again; the shield still works then, so it is shown.
-  const shieldUp = se.arcaneShieldAvailable === true
-    || (se.arcaneShieldAvailable === undefined && se.arcaneShieldUsed !== true && hasSpecial(hero, 'Arcane Shield'));
+  // Only a shield the server marks as up is shown (a freshly picked Wizard has no shield state yet)
+  const shieldUp = se.arcaneShieldAvailable === true;
   if (shieldUp) {
     badges.push({
       key: 'arcaneShield', symbol: 'i-ashield', rim: 'buff', short: 'Arcane Shield',

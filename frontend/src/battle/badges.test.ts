@@ -178,12 +178,10 @@ describe('getBadges', () => {
       .not.toContain('arcaneShield');
   });
 
-  it('a revived Wizard with an unused shield still shows it before the server re-marks it', () => {
+  it('a freshly picked Wizard shows no shield badge', () => {
     const special = [{ name: 'Arcane Shield', description: '', effects: [] }];
-    const revived = hero('Wizard', {}, { Special: special });
-    expect(keys(getBadges(revived))).toContain('arcaneShield');
-    const spent = hero('Wizard', { arcaneShieldUsed: true }, { Special: special });
-    expect(keys(getBadges(spent))).not.toContain('arcaneShield');
+    const picked = hero('Wizard', {}, { Special: special });
+    expect(keys(getBadges(picked))).not.toContain('arcaneShield');
   });
 
   it('no Inspired badge even if statusEffects.inspiration is set', () => {
