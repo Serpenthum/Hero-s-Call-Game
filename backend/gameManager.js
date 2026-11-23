@@ -2335,6 +2335,11 @@ class GameManager {
       });
     });
     
+    // Drop taunts the dead hero has queued but not yet applied
+    if (game.pendingTaunts?.length) {
+      game.pendingTaunts = game.pendingTaunts.filter(pendingTaunt => pendingTaunt.appliedById !== deadHero.id);
+    }
+
     game.players.forEach(player => {
       player.team.forEach(hero => {
         if (hero.passiveBuffs) {
@@ -4923,10 +4928,12 @@ class GameManager {
         
         game.pendingTaunts.push({
           target: attacker.name,
+          targetId: attacker.id,
           targetPlayerIndex: attackerPlayerIndex, // Track which team the target is on
           tauntTarget: paladin.name,
           duration: 1, // Lasts until end of attacker's NEXT turn (1 turn duration)
           appliedBy: paladin.name,
+          appliedById: paladin.id,
           source: 'Shield of Faith'
         });
         
@@ -5568,7 +5575,16 @@ class GameManager {
       for (const pendingTaunt of game.pendingTaunts) {
         // Find the hero on the correct team using targetPlayerIndex
         const targetPlayer = game.players[pendingTaunt.targetPlayerIndex];
-        const targetHero = targetPlayer ? targetPlayer.team.find(h => h.name === pendingTaunt.target) : null;
+        const targetHero = targetPlayer ? targetPlayer.team.find(h =>
+          pendingTaunt.targetId ? h.id === pendingTaunt.targetId : h.name === pendingTaunt.target) : null;
+        // The Paladin is on the opposite side from the hero being taunted
+        const paladinHero = game.players[1 - pendingTaunt.targetPlayerIndex]?.team.find(h =>
+          pendingTaunt.appliedById ? h.id === pendingTaunt.appliedById : h.name === pendingTaunt.appliedBy);
+        // A dead Paladin's taunt never lands
+        if (!paladinHero || paladinHero.currentHP <= 0) {
+          debugLog(` Skipping ${pendingTaunt.appliedBy}'s queued taunt on ${pendingTaunt.target}: the taunter is dead`);
+          continue;
+        }
         if (targetHero) {
           if (!targetHero.statusEffects) {
             targetHero.statusEffects = {};
@@ -5600,8 +5616,6 @@ class GameManager {
           
           // Add comprehensive special log entry for Shield of Faith taunt
           if (shouldLog) {
-            // The Paladin is on the opposite side from the hero being taunted
-            const paladinHero = game.players[1 - pendingTaunt.targetPlayerIndex].team.find(h => h.name === pendingTaunt.appliedBy);
             const shieldOfFaithLogEntry = this.createSpecialLogEntry(
               paladinHero,
               'Shield of Faith', 
