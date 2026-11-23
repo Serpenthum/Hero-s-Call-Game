@@ -15,6 +15,7 @@ import {
   specialTargeting,
   UNKNOWN_TARGETING,
   tauntTargetFor,
+  blockedByVanish,
   focusButtonState,
 } from '../battle/focus';
 import type { FocusButtonState } from '../battle/focus';
@@ -308,8 +309,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
     const tauntTarget = tauntTargetFor(active, opponent);
     // The server forces a taunted hero's focus onto a living taunter, even an untargetable one
     if (tauntTarget) return tauntTarget !== enemy.name;
-    const effects = enemy.statusEffects;
-    return !!effects?.untargetable && effects.untargetableAttacker !== active.name;
+    return blockedByVanish(enemy.statusEffects, active);
   };
 
   const revealFor = (isOpponentSide: boolean, heroIndex: number): 'hidden' | 'grow' | undefined => {
@@ -612,6 +612,7 @@ const BattlePhaseView: React.FC<BattlePhaseProps> = ({
                   focusLocked: !!myPlayerData.focusLocked,
                   tauntTarget,
                   activeHeroName: activeHero.hero.name,
+                  activeHeroId: activeHero.hero.id,
                 })
               : { show: false as const };
 

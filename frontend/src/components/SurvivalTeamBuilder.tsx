@@ -208,92 +208,35 @@ const SurvivalTeamBuilder: React.FC<SurvivalTeamBuilderProps> = ({
       console.error('Error fetching heroes from API, using fallback data:', error);
       
       // Fallback heroes data if API fails
-      const fallbackHeroes = [
+      // Copied from backend/heros.json (names, stats and card texts), shown only when the API fails
+      const fallbackHeroes: Hero[] = [
         {
           name: "Barbarian",
           HP: 25,
           Defense: 8,
           Accuracy: "+1",
-          BasicAttack: "2d6+2",
-          Ability: [{ 
-            name: "Rage", 
-            description: "Increase damage for 3 turns", 
-            effects: [{ type: "damage_boost", value: 5, duration: 3 }]
-          }],
-          Special: [{ 
-            name: "Berserker", 
-            description: "Continue fighting when low HP", 
-            effects: [{ type: "survival", trigger: "low_hp" }]
-          }]
+          BasicAttack: "1D6",
+          Ability: [{ name: "Reckless Swing", description: "Deal 2D6 damage. Barbarian takes 2D4 damage." }],
+          Special: [{ name: "Break the Line", description: "Barbarian's attacks and abilities ignore Taunt and deflections." }],
         },
         {
           name: "Wizard",
           HP: 15,
-          Defense: 6,
-          Accuracy: "+0",
-          BasicAttack: "1d6",
-          Ability: [{ 
-            name: "Fireball", 
-            description: "Area damage spell", 
-            effects: [{ type: "area_damage", value: "2d6" }]
-          }],
-          Special: [{ 
-            name: "Arcane Power", 
-            description: "Bonus spell damage", 
-            effects: [{ type: "spell_boost", value: 3 }]
-          }]
-        },
-        {
-          name: "Rogue",
-          HP: 18,
-          Defense: 7,
-          Accuracy: "+2",
-          BasicAttack: "1d6+3",
-          Ability: [{ 
-            name: "Sneak Attack", 
-            description: "High damage from stealth", 
-            effects: [{ type: "sneak_damage", value: "3d6" }]
-          }],
-          Special: [{ 
-            name: "Evasion", 
-            description: "Avoid some attacks", 
-            effects: [{ type: "dodge_chance", value: 25 }]
-          }]
+          Defense: 5,
+          Accuracy: "+3",
+          BasicAttack: "2D4",
+          Ability: [{ name: "Fireball", description: "Deal 1D4 damage to all enemies." }],
+          Special: [{ name: "Arcane Shield", description: "Once per game, when Wizard would take more than 5 damage, block it." }],
         },
         {
           name: "Paladin",
-          HP: 22,
-          Defense: 9,
+          HP: 19,
+          Defense: 10,
           Accuracy: "+1",
-          BasicAttack: "1d8+3",
-          Ability: [{ 
-            name: "Divine Strike", 
-            description: "Holy damage attack", 
-            effects: [{ type: "holy_damage", value: "2d8" }]
-          }],
-          Special: [{ 
-            name: "Divine Protection", 
-            description: "Damage reduction", 
-            effects: [{ type: "damage_reduction", value: 3 }]
-          }]
+          BasicAttack: "1D4",
+          Ability: [{ name: "Divine Smite", description: "Deal 1D4 damage and heal the lowest-HP ally for 1D4." }],
+          Special: [{ name: "Shield of Faith", description: "When an enemy damages an ally adjacent to Paladin, Taunt that enemy: it must Focus Paladin on its next turn." }],
         },
-        {
-          name: "Archer",
-          HP: 16,
-          Defense: 6,
-          Accuracy: "+3",
-          BasicAttack: "1d8+2",
-          Ability: [{ 
-            name: "Multi-Shot", 
-            description: "Attack multiple enemies", 
-            effects: [{ type: "multi_attack", value: 3 }]
-          }],
-          Special: [{ 
-            name: "Eagle Eye", 
-            description: "Increased accuracy", 
-            effects: [{ type: "accuracy_boost", value: 2 }]
-          }]
-        }
       ];
       
       console.log('Using fallback heroes for survival:', fallbackHeroes.length);

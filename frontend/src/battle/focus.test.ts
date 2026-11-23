@@ -199,15 +199,33 @@ describe('focusButtonState', () => {
     expect(focusButtonState({ ...base, focus: warlock })).toEqual({ show: false });
   });
 
-  it("refuses an untargetable enemy unless the active hero is its allowed attacker", () => {
+  it(`a Vanished enemy shows "Can't be Focused"`, () => {
     const hidden = hero('Warlock', { statusEffects: { untargetable: true } as Hero['statusEffects'] });
     expect(focusButtonState({ ...base, inspected: { hero: hidden, side: 'enemy' } }))
-      .toEqual({ show: true, enabled: false, label: "Can't be targeted" });
+      .toEqual({ show: true, enabled: false, label: "Can't be Focused" });
+  });
+
+  it('with untargetableAttackerId the matching active id may Focus', () => {
+    // Mirror match: both teams have a Druid, only the one that hit the Ninja (id 1-0) may Focus it
+    const marked = hero('Warlock', {
+      statusEffects: { untargetable: true, untargetableAttacker: 'Druid', untargetableAttackerId: '1-0' } as Hero['statusEffects'],
+    });
+    const inspected = { hero: marked, side: 'enemy' as const };
+    expect(focusButtonState({ ...base, inspected, activeHeroId: '1-0' }))
+      .toEqual({ show: true, enabled: true, label: 'Focus Warlock' });
+    expect(focusButtonState({ ...base, inspected, activeHeroId: '0-0' }))
+      .toEqual({ show: true, enabled: false, label: "Can't be Focused" });
+  });
+
+  it('without untargetableAttackerId the name rule still works (old server)', () => {
     const marked = hero('Warlock', {
       statusEffects: { untargetable: true, untargetableAttacker: 'Druid' } as Hero['statusEffects'],
     });
-    expect(focusButtonState({ ...base, inspected: { hero: marked, side: 'enemy' } }))
+    const inspected = { hero: marked, side: 'enemy' as const };
+    expect(focusButtonState({ ...base, inspected, activeHeroId: '0-0' }))
       .toEqual({ show: true, enabled: true, label: 'Focus Warlock' });
+    expect(focusButtonState({ ...base, inspected, activeHeroName: 'Paladin' }))
+      .toEqual({ show: true, enabled: false, label: "Can't be Focused" });
   });
 
   it('points a taunted hero at its taunter', () => {

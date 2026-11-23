@@ -103,6 +103,7 @@ export interface StatusEffects {
   };
   untargetable: boolean;
   untargetableAttacker?: string; // The one hero that may still target an untargetable hero
+  untargetableAttackerId?: string; // Its id ("<playerIndex>-<heroIndex>"); absent from an old server
   damageStacks?: number;
   defenseReduction?: number;
   grantedAdvantage?: boolean;

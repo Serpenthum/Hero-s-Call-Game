@@ -287,7 +287,7 @@ describe('BattlePhase focus', () => {
     expect(isDisabled(taunted)).toBe(true);
 
     const vanished = show({ ...base, inspected: { hero: { ...warlock, statusEffects: { untargetable: true } }, side: 'enemy' } });
-    expect(vanished).toMatch(/>Can(&#x27;|')t be targeted</);
+    expect(vanished).toMatch(/>Can(&#x27;|')t be Focused</);
     expect(isDisabled(vanished)).toBe(true);
 
     expect(focusButtonState({ ...base, focus: { name: 'Warlock', alive: true }, focusLocked: true })).toEqual({ show: false });
