@@ -2610,7 +2610,7 @@ class GameManager {
       // Process hit-confirmed triggers (like Elementalist's Wind Wall)
       this.processHitConfirmedTriggers(game, currentHero, target, 'basic_attack');
       
-      if (dealt.died && !target.statusEffects?.justResurrected) {
+      if (dealt.died) {
         statusEffects.push({ type: 'death', target: target.name });
       }
     } else if (!hit) {
@@ -3956,7 +3956,7 @@ class GameManager {
     
     // If the primary target was killed by this ability, spread to adjacent enemies (each needs its own roll to hit)
     let killSplashEntries = [];
-    if (killSplashEffect && abilityHit && primaryWasAlive && primaryTarget.currentHP <= 0 && !primaryTarget.statusEffects?.justResurrected) {
+    if (killSplashEffect && abilityHit && primaryWasAlive && primaryTarget.currentHP <= 0) {
       killSplashEntries = this.processOnKillSplash(killSplashEffect, ability, caster, primaryTarget, enemyOrderBeforeDamage, game);
     }
     
@@ -4111,7 +4111,7 @@ class GameManager {
           damage = dealt.final;
           entries.push(...dealt.effects);
           
-          died = dealt.died && !neighbor.statusEffects?.justResurrected;
+          died = dealt.died;
           if (died) queue.push(neighbor);
         }
         
@@ -4729,7 +4729,7 @@ class GameManager {
           delete hero.resurrected;
           debugLog(` Cleared resurrection animation flag for ${hero.name}`);
         }
-        // Clear the justResurrected flag that prevents infinite death loops
+        // Clear the revived-this-turn flag
         if (hero.statusEffects?.justResurrected) {
           delete hero.statusEffects.justResurrected;
           debugLog(` Cleared resurrection protection flag for ${hero.name}`);
@@ -6355,7 +6355,7 @@ class GameManager {
             results.push(counterAttackLogEntry);
             
             // Check if the attacker died from counter-attack
-            if (counter.died && !attacker.statusEffects?.justResurrected) {
+            if (counter.died) {
               debugLog(` ${attacker.name} was killed by ${defender.name}'s counter-attack!`);
               results.push({
                 type: 'death',
@@ -6672,11 +6672,12 @@ class GameManager {
    *   killer     who gets credit for a kill (Bomber explosion); defaults to the attacker
    *   cause      death cause label; defaults to source
    *
-   * Returns { dealt, final, negated, died, effects }: HP actually lost, the amount after
-   * negation, whether it was fully negated, whether the target died, and log entries.
+   * Returns { dealt, final, negated, died, revived, effects }: HP actually lost, the amount after
+   * negation, whether it was fully negated, whether the target died, whether this hit killed it
+   * and Angel revived it, and log entries.
    */
   dealDamage(game, target, amount, attacker = null, options = {}) {
-    const result = { dealt: 0, final: 0, negated: false, died: false, effects: [] };
+    const result = { dealt: 0, final: 0, negated: false, died: false, revived: false, effects: [] };
     if (!target || target.currentHP <= 0 || !(amount > 0)) return result;
 
     const { source = 'damage', reducible = true, isAttack = false, reflect = true } = options;
@@ -6717,8 +6718,11 @@ class GameManager {
         result.effects.push(...this.processOnTakeDamageEffects(game, target, attacker, finalDamage));
       }
 
-      if (target.currentHP <= 0 && !target.statusEffects?.justResurrected) {
+      // Every death is processed, also a second one in the turn Angel revived the hero.
+      // A revive handles the death that caused it: the hero is alive again, so nothing reprocesses it.
+      if (target.currentHP <= 0) {
         this.updatePassiveEffectsOnDeath(game, target, killer, options.cause || source);
+        result.revived = target.currentHP > 0;
       }
     }
 
@@ -6837,7 +6841,7 @@ class GameManager {
 
     // Clear all status effects from the dying hero EXCEPT the resurrection flag
     dyingHero.statusEffects = {
-      justResurrected: true // Flag to prevent infinite loop - persists until end of turn
+      justResurrected: true // Angel revived this hero this turn: it can't be revived again; cleared at turn end
     };
 
     // Resurrect at half health (rounded up)

@@ -111,3 +111,56 @@ describe('fix b: Dark Pact stays after Warlock dies', () => {
     assert.equal(darkPactStartLines(game).length, 1);
   });
 });
+
+describe('fix c: a hero revived and killed again in the same turn dies properly', () => {
+  const hasTotemicBond = h => (h.passiveBuffs || []).some(b => b.sourceName === 'Totemic Bond' && b.stat === 'Defense');
+  const shamanEntries = h => (h.scalingBuffs?.collectedDice || []).filter(c => c.from === 'Shaman').length;
+
+  // Brawler's first attack kills Shaman, Angel revives it
+  function killShamanOnce() {
+    const game = startBattle(gm, ['Brawler', 'Fighter', 'Hoarder'], ['Shaman', 'Angel', 'Champion']);
+    const shaman = hero(game, 1, 'Shaman');
+    shaman.currentHP = 1;
+    const first = attack('p0', 'Shaman');
+    assert.equal(first.success, true);
+    assert.ok(shaman.currentHP > 0, 'Angel revived Shaman');
+    assert.equal(hero(game, 1, 'Angel').statusEffects?.resurrectUsed, true);
+    return { game, shaman, hoarder: hero(game, 0, 'Hoarder') };
+  }
+
+  test('a revived Shaman killed again loses its aura', () => {
+    const { game, shaman, hoarder } = killShamanOnce();
+    const afterFirst = shamanEntries(hoarder);
+
+    shaman.currentHP = 1;
+    assert.equal(attack('p0', 'Shaman').success, true);
+    assert.ok(shaman.currentHP <= 0, 'Shaman died again');
+
+    assert.ok(!hasTotemicBond(hero(game, 1, 'Angel')), 'Angel lost Totemic Bond');
+    assert.ok(!hasTotemicBond(hero(game, 1, 'Champion')), 'Champion lost Totemic Bond');
+    assert.equal(shamanEntries(hoarder), afterFirst + 1, 'Hoarder collects once for the second death');
+    const champion = hero(game, 1, 'Champion');
+    assert.equal(champion.scalingBuffs?.damage, 1, 'Last Stand counts one fallen ally');
+  });
+
+  test('the death that caused the revive is not processed twice', () => {
+    const { game, hoarder } = killShamanOnce();
+    const afterFirst = shamanEntries(hoarder);
+    assert.equal(attack('p0', 'Champion').success, true);
+    assert.equal(shamanEntries(hoarder), afterFirst);
+    assert.ok(hasTotemicBond(hero(game, 1, 'Champion')), 'Shaman alive, aura kept');
+  });
+
+  test('dealDamage says the target was revived by this hit', () => {
+    const game = startBattle(gm, ['Brawler', 'Fighter', 'Hoarder'], ['Shaman', 'Angel', 'Champion']);
+    const shaman = hero(game, 1, 'Shaman');
+    shaman.currentHP = 1;
+    const result = gm.dealDamage(game, shaman, 5, hero(game, 0, 'Brawler'));
+    assert.equal(result.revived, true);
+    assert.equal(result.died, false);
+    shaman.currentHP = 1;
+    const again = gm.dealDamage(game, shaman, 5, hero(game, 0, 'Brawler'));
+    assert.equal(again.died, true);
+    assert.ok(!again.revived);
+  });
+});
