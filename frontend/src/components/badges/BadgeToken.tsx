@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Badge, BadgeKey } from '../../battle/badges';
 import '../../styles/Badges.css';
 
@@ -40,6 +40,15 @@ const BadgeToken: React.FC<BadgeTokenProps> = ({ badge, open, onToggle, onHoverC
   const hover = (hovering: boolean) => (event: React.PointerEvent) => {
     if (event.pointerType === 'mouse') onHoverChange?.(hovering);
   };
+  // The corner number by its size ("3", "+2", "-1"). When it goes up the token pulses once, as the old poison
+  // pill did; not when the token first shows. Each rise mounts a fresh ring, so two rises in a row both show.
+  const size = badge.count ? Math.abs(parseFloat(badge.count)) || 0 : 0;
+  const lastSize = useRef(size);
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    if (size > lastSize.current) setPulse(n => n + 1);
+    lastSize.current = size;
+  }, [size]);
   return (
     <span className={`badge-token badge-${badge.rim}${badge.dashed ? ' badge-dashed' : ''}`} data-badge={badge.key}>
       <button
@@ -51,6 +60,7 @@ const BadgeToken: React.FC<BadgeTokenProps> = ({ badge, open, onToggle, onHoverC
         onPointerEnter={hover(true)}
         onPointerLeave={hover(false)}
       >
+        {pulse > 0 && <span key={pulse} className="badge-pulse" aria-hidden="true" onAnimationEnd={() => setPulse(0)} />}
         <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><use href={`#${badge.symbol}`} /></svg>
         {badge.count && <span className="badge-count">{badge.count}</span>}
       </button>

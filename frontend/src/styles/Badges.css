@@ -66,8 +66,9 @@
   content: "";
 }
 
-/* The site's plain buttons lift on hover; a token stays put and brightens. */
-.badge-token-btn:hover {
+/* The site's plain buttons lift on hover; a token stays put and brightens. Two classes, so it also beats a
+   screen's own "wrapper button:hover" rule. */
+.badge-token .badge-token-btn:hover {
   box-shadow: var(--badge-shadow);
   filter: brightness(1.2);
   transform: none;
@@ -75,7 +76,7 @@
 
 /* The open token wears a soft ring in its own colour, so the bubble is seen to belong to it. */
 .badge-token-btn[aria-expanded="true"],
-.badge-token-btn[aria-expanded="true"]:hover {
+.badge-token .badge-token-btn[aria-expanded="true"]:hover {
   box-shadow: var(--badge-shadow), 0 0 0 0.22em color-mix(in srgb, var(--badge-rim) 45%, transparent);
   filter: brightness(1.2);
 }
@@ -121,6 +122,42 @@
   pointer-events: none;
 }
 
+/* The number went up (more Poison, another Turret): the token swells once and throws a ring in its own colour.
+   BadgeToken mounts .badge-pulse for the 800ms and removes it when the ring has faded. */
+.badge-pulse {
+  position: absolute;
+  inset: -0.14em;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: badge-pulse-ring 800ms ease-out both;
+}
+
+.badge-token-btn:has(> .badge-pulse) {
+  animation: badge-pulse-swell 800ms ease-in-out;
+}
+
+@keyframes badge-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--badge-rim), 0 0 0 0 var(--badge-rim);
+  }
+
+  40% {
+    box-shadow:
+      0 0 0 0.22em color-mix(in srgb, var(--badge-rim) 80%, transparent),
+      0 0 0.9em 0.3em color-mix(in srgb, var(--badge-rim) 70%, transparent);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0.75em transparent, 0 0 1.2em 0.5em transparent;
+  }
+}
+
+@keyframes badge-pulse-swell {
+  40% {
+    scale: 1.18;
+  }
+}
+
 /* ---- The helper bubble: opens to the left of its token ---- */
 .badge-tip {
   position: absolute;
@@ -141,6 +178,7 @@
   text-align: left;
   white-space: normal;
   cursor: default;
+  overflow-wrap: break-word;
   transform: translateY(calc(var(--badge-tip-shift) * -100%));
   animation: badge-tip-in var(--dur) var(--ease) both;
 }
@@ -148,7 +186,7 @@
 @keyframes badge-tip-in {
   from {
     opacity: 0;
-    translate: 0.35em 0;
+    translate: var(--badge-tip-from, 0.35em 0);
   }
 }
 
@@ -189,10 +227,11 @@
   gap: 0.4em;
 }
 
-/* The bubble is as wide as the card allows beside the token, so it never leaves the card sideways. */
+/* Large cards (wider than 215px): the bubble opens beside its token and stops short of the stat gems on the left
+   edge, so HP, Defense, Accuracy and Attack stay readable while it is open. */
 .hero-card .badge-token {
   --badge-scale: 1.15;
-  --badge-tip-max: 13em;
+  --badge-tip-max: 10.2em;
 }
 
 /* It hangs down from the first token and stands up from the sixth, so it stays on the card top and bottom too. */
@@ -203,25 +242,125 @@
 .hero-card .card-status > .badge-token:nth-child(5) { --badge-tip-shift: 0.8; }
 .hero-card .card-status > .badge-token:nth-child(n + 6) { --badge-tip-shift: 1; }
 
-/* Smaller cards have a smaller em, so the token takes more of them: about 31px at 260, 23px at 180, 22px at 129. */
+/* Board-size cards (215px and below) have no room between the gems and the tokens for words that can be read, so
+   the bubble lies along the foot of the card instead, as wide as the card: it covers the name and the small print,
+   never HP or Defense. For that the column reaches down to the card's foot and the bubble is placed in the column,
+   not on its token. Smaller cards have a smaller em, so the token takes more of them: about 31px at 260, 23px at
+   180, 22px at 129.
+   The three blocks below (215px, 129px, the tiny prop at any width) must stay in step. */
 @container (max-width: 215px) {
+  .hero-card .card-status:has(.badge-token) {
+    bottom: 0.6em;
+    pointer-events: none;
+  }
+
   .hero-card .badge-token {
     --badge-scale: 1.25;
-    --badge-tip-max: 12em;
+    --badge-tip-from: 0 0.35em;
+    position: static;
+    pointer-events: auto;
+  }
+
+  .hero-card .badge-tip {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    width: calc(100cqw - 1.1em / var(--badge-scale));
+    max-width: none;
+    transform: none;
   }
 }
 
-/* Tiny cards (129px and below, or the tiny prop at any width): keep this rule and the one below in step. */
 @container (max-width: 129px) {
   .hero-card .badge-token {
     --badge-scale: 1.65;
-    --badge-tip-max: 8.4em;
   }
+}
+
+.hero-card.card-tiny .card-status:has(.badge-token) {
+  bottom: 0.6em;
+  pointer-events: none;
 }
 
 .hero-card.card-tiny .badge-token {
   --badge-scale: 1.65;
-  --badge-tip-max: 8.4em;
+  --badge-tip-from: 0 0.35em;
+  position: static;
+  pointer-events: auto;
+}
+
+.hero-card.card-tiny .badge-tip {
+  top: auto;
+  right: 0;
+  bottom: 0;
+  width: calc(100cqw - 1.1em / var(--badge-scale));
+  max-width: none;
+  transform: none;
+}
+
+/* ---- In the hero details (BattleDetailsPanel): every badge with its sentence, on a walnut sheet ----
+   Read-only: the token here is a plain span drawn like the button. */
+.badge-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--brass-dim);
+  border-radius: 10px;
+  color: var(--bone);
+  background: var(--walnut);
+  box-shadow: 0 0.3em 0.9em color-mix(in srgb, var(--card-black) 60%, transparent);
+  font: 400 14px/1.3 var(--font-ui);
+  list-style: none;
+  text-align: left;
+}
+
+.badge-list-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.badge-list .badge-token {
+  display: grid;
+  grid-row: 1 / span 2;
+  place-items: center;
+  box-sizing: border-box;
+  border: 0.14em solid var(--badge-rim);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--badge-well-hi), var(--felt-deep) 70%);
+  box-shadow: var(--badge-shadow);
+  font-size: 13px;
+}
+
+.badge-list .badge-token.badge-dashed {
+  border-style: dashed;
+}
+
+.badge-list .badge-token > svg {
+  display: block;
+  width: 72%;
+  height: 72%;
+}
+
+.badge-list .badge-token.badge-dashed > svg {
+  opacity: 0.55;
+}
+
+.badge-list-short {
+  align-self: end;
+  color: var(--brass-hi);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.badge-list-full {
+  align-self: start;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -230,6 +369,14 @@
   }
 
   .badge-tip {
+    animation: none;
+  }
+
+  .badge-pulse {
+    display: none;
+  }
+
+  .badge-token-btn:has(> .badge-pulse) {
     animation: none;
   }
 }

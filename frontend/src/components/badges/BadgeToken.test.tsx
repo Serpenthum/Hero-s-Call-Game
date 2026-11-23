@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 
@@ -78,6 +79,48 @@ describe('BadgeToken', () => {
     expect(onHoverChange).toHaveBeenLastCalledWith(true);
     pointer('pointerout', 'mouse');
     expect(onHoverChange).toHaveBeenLastCalledWith(false);
+  });
+  // The old poison pill glowed when its number went up; the token does the same for any corner number
+  describe('pulse when the number goes up', () => {
+    const Counter = ({ start, sign = '' }: { start: number; sign?: string }) => {
+      const [n, setN] = useState(start);
+      return (
+        <>
+          <button data-step="up" onClick={() => setN(n + 1)} />
+          <button data-step="down" onClick={() => setN(n - 1)} />
+          <BadgeToken badge={{ ...poison, count: `${sign}${n}` }} open={false} onToggle={noop} />
+        </>
+      );
+    };
+
+    it('does not pulse on first render', () => {
+      expect(render(<Counter start={3} />).querySelector('.badge-pulse')).toBeNull();
+    });
+
+    it('pulses when the number goes up, and stops when the animation ends', () => {
+      const root = render(<Counter start={3} />);
+      click(root.querySelector('[data-step="up"]'));
+      expect(root.querySelector('.badge-count')!.textContent).toBe('4');
+      const pulse = root.querySelector('.badge-token-btn .badge-pulse')!;
+      expect(pulse.getAttribute('aria-hidden')).toBe('true');
+      act(() => { pulse.dispatchEvent(new Event('animationend', { bubbles: true })); });
+      expect(root.querySelector('.badge-pulse')).toBeNull();
+      click(root.querySelector('[data-step="up"]'));
+      expect(root.querySelector('.badge-pulse')).not.toBeNull();
+    });
+
+    it('does not pulse when the number goes down', () => {
+      const root = render(<Counter start={3} />);
+      click(root.querySelector('[data-step="down"]'));
+      expect(root.querySelector('.badge-count')!.textContent).toBe('2');
+      expect(root.querySelector('.badge-pulse')).toBeNull();
+    });
+
+    it('reads a signed number by its size ("+1" to "+2")', () => {
+      const root = render(<Counter start={1} sign="+" />);
+      click(root.querySelector('[data-step="up"]'));
+      expect(root.querySelector('.badge-pulse')).not.toBeNull();
+    });
   });
 });
 
