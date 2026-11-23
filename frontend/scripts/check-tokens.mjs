@@ -117,6 +117,10 @@ const MIGRATED = [
   'components/shop/HoloPack.tsx',
   'components/shop/HoloPack.test.tsx',
   'styles/HoloPack.css',
+  'components/badges/BadgeSprite.tsx',
+  'components/badges/BadgeToken.tsx',
+  'components/badges/BadgeToken.test.tsx',
+  'styles/Badges.css',
 ];
 
 const RAW_COLOUR = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;

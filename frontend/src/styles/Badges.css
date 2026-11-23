@@ -1,0 +1,235 @@
+/* Battle badges: a round token with a coloured rim, a corner number, and the helper bubble it opens.
+   Sizes are in em, so a token follows the font size of whatever holds it (a card's font size follows its width).
+   Markup: components/badges/BadgeToken.tsx. Drawings: components/badges/BadgeSprite.tsx. */
+
+.badge-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ---- The token ---- */
+.badge-token {
+  --badge-rim: var(--verdigris);
+  --badge-shadow:
+    0 0 0 0.07em var(--card-black),
+    0 0.12em 0.3em color-mix(in srgb, var(--card-black) 60%, transparent),
+    inset 0 0 0.3em color-mix(in srgb, var(--card-black) 70%, transparent);
+  /* Where the bubble sits beside its token: 0 hangs down from the token's top, 0.5 is centred, 1 stands on its bottom */
+  --badge-tip-shift: 0.5;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 2.1em;
+  height: 2.1em;
+  font-size: calc(1em * var(--badge-scale, 1));
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.badge-token.badge-debuff {
+  --badge-rim: var(--ember-hi);
+}
+
+.badge-token.badge-poison {
+  --badge-rim: var(--poison);
+}
+
+.badge-token-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0.14em solid var(--badge-rim);
+  border-radius: 50%;
+  color: var(--bone);
+  background: radial-gradient(circle at 35% 30%, var(--badge-well-hi), var(--felt-deep) 70%);
+  box-shadow: var(--badge-shadow);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+/* A little more to tap than the eye sees; it stops short of the next token. */
+.badge-token-btn::after {
+  position: absolute;
+  inset: -0.3em;
+  border-radius: 50%;
+  content: "";
+}
+
+/* The site's plain buttons lift on hover; a token stays put and brightens. */
+.badge-token-btn:hover {
+  box-shadow: var(--badge-shadow);
+  filter: brightness(1.2);
+  transform: none;
+}
+
+/* The open token wears a soft ring in its own colour, so the bubble is seen to belong to it. */
+.badge-token-btn[aria-expanded="true"],
+.badge-token-btn[aria-expanded="true"]:hover {
+  box-shadow: var(--badge-shadow), 0 0 0 0.22em color-mix(in srgb, var(--badge-rim) 45%, transparent);
+  filter: brightness(1.2);
+}
+
+.badge-token-btn:focus-visible {
+  outline: max(2px, 0.14em) solid var(--bone);
+  outline-offset: max(2px, 0.14em);
+}
+
+.badge-token-btn svg {
+  display: block;
+  width: 72%;
+  height: 72%;
+  pointer-events: none;
+}
+
+/* Taunt coming: not here yet, so a dashed rim and a faded picture. */
+.badge-token.badge-dashed .badge-token-btn {
+  border-style: dashed;
+}
+
+.badge-token.badge-dashed .badge-token-btn svg {
+  opacity: 0.55;
+}
+
+/* The corner number. Its em is its own (smaller) font size. */
+.badge-count {
+  position: absolute;
+  right: -0.42em;
+  bottom: -0.3em;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 1.25em;
+  height: 1.25em;
+  padding: 0 0.22em;
+  border-radius: 0.65em;
+  color: var(--felt-deep);
+  background: var(--badge-rim);
+  box-shadow: 0 0 0 0.1em var(--card-black);
+  font: 700 0.62em/1 var(--font-ui);
+  font-variant-numeric: lining-nums;
+  pointer-events: none;
+}
+
+/* ---- The helper bubble: opens to the left of its token ---- */
+.badge-tip {
+  position: absolute;
+  top: calc(var(--badge-tip-shift) * 100%);
+  right: calc(100% + 0.6em);
+  z-index: 5;
+  display: block;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: var(--badge-tip-max, 13em);
+  padding: 0.45em 0.6em;
+  border: max(1px, 0.07em) solid var(--brass);
+  border-radius: 0.6em;
+  color: var(--bone);
+  background: var(--walnut);
+  box-shadow: 0 0.3em 0.9em color-mix(in srgb, var(--card-black) 60%, transparent);
+  font: 400 1em/1.3 var(--font-ui);
+  text-align: left;
+  white-space: normal;
+  cursor: default;
+  transform: translateY(calc(var(--badge-tip-shift) * -100%));
+  animation: badge-tip-in var(--dur) var(--ease) both;
+}
+
+@keyframes badge-tip-in {
+  from {
+    opacity: 0;
+    translate: 0.35em 0;
+  }
+}
+
+/* The words never shrink below what can be read, however small the card. */
+.badge-tip-name,
+.badge-tip-short,
+.badge-tip-full {
+  display: block;
+  font-size: max(1em, 11.5px);
+}
+
+.badge-tip-name,
+.badge-tip-short {
+  color: var(--brass-hi);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* Where there is room: the name and the full sentence. */
+.badge-tip-short {
+  display: none;
+}
+
+/* Phone (the battle phone layout's query): the short form only. */
+@media (max-height: 500px) {
+  .badge-tip-name,
+  .badge-tip-full {
+    display: none;
+  }
+
+  .badge-tip-short {
+    display: block;
+  }
+}
+
+/* ---- On a hero card: the tokens stack in the card's top right corner (.card-status) ---- */
+.hero-card .card-status:has(.badge-token) {
+  gap: 0.4em;
+}
+
+/* The bubble is as wide as the card allows beside the token, so it never leaves the card sideways. */
+.hero-card .badge-token {
+  --badge-scale: 1.15;
+  --badge-tip-max: 13em;
+}
+
+/* It hangs down from the first token and stands up from the sixth, so it stays on the card top and bottom too. */
+.hero-card .card-status > .badge-token:nth-child(1) { --badge-tip-shift: 0; }
+.hero-card .card-status > .badge-token:nth-child(2) { --badge-tip-shift: 0.2; }
+.hero-card .card-status > .badge-token:nth-child(3) { --badge-tip-shift: 0.4; }
+.hero-card .card-status > .badge-token:nth-child(4) { --badge-tip-shift: 0.6; }
+.hero-card .card-status > .badge-token:nth-child(5) { --badge-tip-shift: 0.8; }
+.hero-card .card-status > .badge-token:nth-child(n + 6) { --badge-tip-shift: 1; }
+
+/* Smaller cards have a smaller em, so the token takes more of them: about 31px at 260, 23px at 180, 22px at 129. */
+@container (max-width: 215px) {
+  .hero-card .badge-token {
+    --badge-scale: 1.25;
+    --badge-tip-max: 12em;
+  }
+}
+
+/* Tiny cards (129px and below, or the tiny prop at any width): keep this rule and the one below in step. */
+@container (max-width: 129px) {
+  .hero-card .badge-token {
+    --badge-scale: 1.65;
+    --badge-tip-max: 8.4em;
+  }
+}
+
+.hero-card.card-tiny .badge-token {
+  --badge-scale: 1.65;
+  --badge-tip-max: 8.4em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-token-btn {
+    transition: none;
+  }
+
+  .badge-tip {
+    animation: none;
+  }
+}

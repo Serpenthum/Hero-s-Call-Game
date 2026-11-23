@@ -103,6 +103,24 @@
   --pack-back-hi: #3a2a1e;
   --pack-back-lo: #17100c;
 
+  /* Battle badges: the token's well, and the colours only the badge drawings use (golem, blood, shield, wind, mark) */
+  --badge-well-hi: #22332e;
+  --badge-stone: #9a9483;
+  --badge-stone-shade: #6b6658;
+  --badge-stone-line: #55503f;
+  --badge-iron: #4b4d52;
+  --badge-iron-hi: #5f6166;
+  --badge-rivet: #26272a;
+  --badge-socket: #1b2233;
+  --badge-moss: #6fa544;
+  --badge-core-hot: #eaf3ff;
+  --badge-core: #7fb0ff;
+  --badge-core-deep: #2f58d8;
+  --badge-blood-shine: #f0b3a3;
+  --badge-shield-shade: #5f84ab;
+  --badge-wind: #bcd3ea;
+  --badge-mark: #c9a7ff;
+
   /* Type */
   --font-display: 'Grenze Gotisch', Georgia, serif;
   --font-label: 'IM Fell English', Georgia, serif;
