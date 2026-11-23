@@ -7,7 +7,7 @@ export interface AttackDisplay {
   sources: string[];
 }
 
-// Builds e.g. "1D4 + 1D6 + 1D4 + 2": base attack plus every damage bonus, each shown separately.
+// Builds e.g. "2D4 + 1D6 + 2": base attack plus every damage bonus, matching dice added together.
 export function getAttackDisplay(hero: Pick<Hero, 'BasicAttack' | 'scalingBuffs' | 'statusEffects' | 'passiveBuffs'>): AttackDisplay {
   if (!hero.BasicAttack || hero.BasicAttack === '—' || hero.BasicAttack === '-') {
     return { text: hero.BasicAttack, hasExtras: false, sources: [] };
@@ -40,5 +40,23 @@ export function getAttackDisplay(hero: Pick<Hero, 'BasicAttack' | 'scalingBuffs'
     .reduce((sum, buff) => sum + buff.value, 0);
   if (passiveDamage > 0) parts.push(String(passiveDamage));
 
-  return { text: parts.join(' + '), hasExtras: parts.length > 1, sources };
+  return { text: combineDice(parts), hasExtras: parts.length > 1, sources };
+}
+
+// Adds matching dice together and flat bonuses together: ["1D4", "1D4 + 1D6", "2"] → "2D4 + 1D6 + 2".
+export function combineDice(parts: string[]): string {
+  const dice = new Map<number, number>();
+  let flat = 0;
+  for (const term of parts.join('+').split('+').map(t => t.trim()).filter(Boolean)) {
+    const die = term.match(/^(\d*)D(\d+)$/i);
+    if (die) {
+      const sides = Number(die[2]);
+      dice.set(sides, (dice.get(sides) || 0) + Number(die[1] || 1));
+    } else if (/^\d+$/.test(term)) {
+      flat += Number(term);
+    }
+  }
+  const terms = [...dice.entries()].sort((a, b) => a[0] - b[0]).map(([sides, count]) => `${count}D${sides}`);
+  if (flat > 0) terms.push(String(flat));
+  return terms.join(' + ');
 }
