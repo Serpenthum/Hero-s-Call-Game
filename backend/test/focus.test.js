@@ -249,7 +249,7 @@ test('a revived focus is still focused', () => {
 test('untargetable enemies cannot be focused', () => {
   const game = battle('Barbarian');
   hero(game, 1, 'Warlock').statusEffects.untargetable = true;
-  assert.deepEqual(pick(gm.selectTarget('p0', 'Warlock')), { success: false, error: "Can't be targeted" });
+  assert.deepEqual(pick(gm.selectTarget('p0', 'Warlock')), { success: false, error: "Can't be Focused" });
   assert.equal(game.players[0].selectedTarget, null);
 });
 

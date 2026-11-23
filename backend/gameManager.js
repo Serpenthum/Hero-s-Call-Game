@@ -32,7 +32,7 @@ const { noteSound } = require('./battleEvents');
 // Battle Focus refusals (exact copy shown to players)
 const FOCUS_FIRST = 'Focus an enemy first';
 const FOCUS_LOCKED = 'Focus is locked for this turn';
-const FOCUS_UNTARGETABLE = "Can't be targeted";
+const FOCUS_UNTARGETABLE = "Can't be Focused";
 const FOCUS_FALLEN = 'Your focused target has fallen';
 
 // Debug mode - set to false in production for better performance
@@ -2552,7 +2552,7 @@ class GameManager {
     if (target.statusEffects?.untargetable) {
       // Allow the original attacker who triggered Vanish to still target
       if (target.statusEffects.untargetableAttackerId !== currentHero.id) {
-        return { success: false, error: 'Cannot target this hero - they are untargetable' };
+        return { success: false, error: FOCUS_UNTARGETABLE };
       }
     }
 
@@ -2844,7 +2844,7 @@ class GameManager {
       if (selectedTargetHero && selectedTargetHero.statusEffects?.untargetable && !isAOEAbility) {
         // Allow the original attacker who triggered Vanish to still target
         if (selectedTargetHero.statusEffects.untargetableAttackerId !== currentHero.id) {
-          return { success: false, error: 'Cannot target this hero - they are untargetable' };
+          return { success: false, error: FOCUS_UNTARGETABLE };
         }
       }
     }
@@ -6503,7 +6503,7 @@ class GameManager {
             type: 'apply_buff',
             target: target.name,
             effect: 'untargetable',
-            message: `becomes untargetable until their next turn`
+            message: `can't be Focused until its next turn`
           }]
         );
         

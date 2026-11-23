@@ -375,7 +375,7 @@ function build(game, kind, before, result, meta) {
     }
     if (action === 'Protective Gear') reaction.text = 'turret sacrificed, damage blocked';
     if (action === 'Arcane Shield') reaction.text = 'damage blocked';
-    if (action === 'Vanish') reaction.text = 'cannot be targeted until its next turn';
+    if (action === 'Vanish') reaction.text = "can't be Focused until its next turn";
     if (action === 'Twin Spell') reaction.text = 'may cast again';
     if (action === 'Shield of Faith') {
       const taunted = Object.keys(A).find(k => A[k].se.taunt && A[k].se.taunt.source === 'Shield of Faith' && !(B[k].se.taunt && B[k].se.taunt.source === 'Shield of Faith'));
@@ -415,7 +415,7 @@ function build(game, kind, before, result, meta) {
       react(angel, 'Health Link', null, [makeRow(k, { outcome: 'hit', amount: taken })]);
     }
     if (!b.se.arcaneShieldUsed && a.se.arcaneShieldUsed) react(k, 'Arcane Shield', 'damage blocked');
-    if (!b.se.untargetable && a.se.untargetable) react(k, 'Vanish', 'cannot be targeted until its next turn');
+    if (!b.se.untargetable && a.se.untargetable) react(k, 'Vanish', "can't be Focused until its next turn");
     if (!(b.permanent && b.permanent.Dismount) && a.permanent && a.permanent.Dismount) react(k, 'Dismount', '−3 Defense, ability lost');
     const wallWas = (b.se.windWallAC && b.se.windWallAC.bonus) || 0;
     const wallNow = (a.se.windWallAC && a.se.windWallAC.bonus) || 0;
