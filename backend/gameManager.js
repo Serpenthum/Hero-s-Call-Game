@@ -925,7 +925,8 @@ class GameManager {
     game.firstPlayerIndex = firstPlayerIndex;
     console.log('🎲 startRandomMode - Initialized turn system: Player', firstPlayerIndex, 'goes first');
 
-    // Apply passive effects from specials
+    // Apply passive effects from specials; battle-start buffs are counted fresh for this battle
+    delete game.battleStartBuffs;
     this.applyPassiveEffects(game);
 
     // Apply first player disadvantage - disable first hero's ability
@@ -1256,7 +1257,8 @@ class GameManager {
     game.firstPlayerIndex = firstPlayerIndex;
     console.log('🎲 chooseTurnOrder - Initialized turn system: Player', firstPlayerIndex, 'goes first');
 
-    // Apply passive effects from specials
+    // Apply passive effects from specials; battle-start buffs are counted fresh for this battle
+    delete game.battleStartBuffs;
     this.applyPassiveEffects(game);
 
     // Apply first player disadvantage - disable first hero's ability
@@ -1289,6 +1291,17 @@ class GameManager {
       });
     });
 
+    // Battle-start buffs (Dark Pact) are worked out once, at battle start, and kept whatever happens to their source
+    const isBattleStart = !game.battleStartBuffs;
+    if (isBattleStart) {
+      game.battleStartBuffs = [];
+    } else {
+      game.battleStartBuffs.forEach(({ targetId, buff }) => {
+        const target = game.players.flatMap(player => player.team).find(hero => hero.id === targetId);
+        if (target) target.passiveBuffs.push({ ...buff });
+      });
+    }
+
     // Apply passive effects from each hero's special abilities
     // Process in two passes: first regular buffs/debuffs, then Defense sharing effects
     
@@ -1311,7 +1324,7 @@ class GameManager {
             if (effect.type === 'stat_modifier') {
               this.applyAuraEffect(game, sourceHero, special, effect);
             } else if (effect.type === 'apply_buff' && special.trigger === 'battle_start') {
-              this.applyBattleStartBuff(game, sourceHero, special, effect);
+              if (isBattleStart) this.applyBattleStartBuff(game, sourceHero, special, effect);
             } else if (effect.type === 'apply_buff' && effect.aura === true && effect.effect !== 'set_defense_to_self') {
               // Handle regular aura buffs (excluding Defense sharing)
               this.applyAuraEffect(game, sourceHero, special, effect);
@@ -1512,16 +1525,14 @@ class GameManager {
         }))
       );
       
-      // Add to battle log if it exists
-      if (game && game.battleLog) {
-        game.battleLog.push(battleStartLogEntry);
-      }
+      if (!game.battleLog) game.battleLog = [];
+      game.battleLog.push(battleStartLogEntry);
     }
 
     targets.forEach(target => {
       if (!target.passiveBuffs) target.passiveBuffs = [];
       
-      target.passiveBuffs.push({
+      const buff = {
         sourceHero: sourceHero.name,
 
         sourceHeroId: sourceHero.id,
@@ -1529,7 +1540,10 @@ class GameManager {
         stat: effect.effect === 'damage_modifier' ? 'damage' : effect.stat,
         value: effect.value,
         permanent: true // Battle start buffs are permanent
-      });
+      };
+      target.passiveBuffs.push(buff);
+      // Kept so every later recount can add it back
+      if (game.battleStartBuffs) game.battleStartBuffs.push({ targetId: target.id, buff: { ...buff } });
     });
   }
 

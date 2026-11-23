@@ -74,3 +74,40 @@ describe("fix a: a dead Paladin's waiting taunt is dropped", () => {
     assert.ok(!theirFighter.statusEffects?.taunt, "no taunt");
   });
 });
+
+describe('fix b: Dark Pact stays after Warlock dies', () => {
+  const hasDarkPact = h => (h.passiveBuffs || []).some(b => b.sourceName === 'Dark Pact' && b.stat === 'damage' && b.value === 1);
+  const darkPactStartLines = game => (game.battleLog || []).filter(e => JSON.stringify(e).includes('Dark Pact') && JSON.stringify(e).includes('battle start'));
+
+  // Kills Warlock, then drops its Fighter below 10 HP so the bonuses are recounted
+  function killWarlockThenRecount() {
+    const game = startBattle(gm, ['Swordsman', 'Brawler', 'Cleric'], ['Fighter', 'Warlock', 'Cleric']);
+    const fighter = hero(game, 1, 'Fighter');
+    const warlock = hero(game, 1, 'Warlock');
+    const cleric = hero(game, 1, 'Cleric');
+    assert.ok(hasDarkPact(fighter) && hasDarkPact(cleric), 'Dark Pact at battle start');
+
+    warlock.currentHP = 1;
+    assert.equal(attack('p0', 'Warlock').success, true);
+    assert.ok(warlock.currentHP <= 0, 'Warlock died');
+    gm.endTurn('p0');
+
+    passTurnsUntil(game, hero(game, 0, 'Brawler'));
+    fighter.currentHP = 10;
+    assert.equal(attack('p0', 'Fighter').success, true);
+    assert.ok(fighter.currentHP > 0 && fighter.currentHP < 10, 'Fighter below 10 HP');
+    assert.equal(fighter.conditionalEffects?.['Desperate Blows'], true, 'recount ran');
+    return { game, fighter, cleric };
+  }
+
+  test('Dark Pact survives a recount after Warlock dies', () => {
+    const { fighter, cleric } = killWarlockThenRecount();
+    assert.ok(hasDarkPact(fighter), 'Fighter keeps Dark Pact');
+    assert.ok(hasDarkPact(cleric), 'Cleric keeps Dark Pact');
+  });
+
+  test('the Dark Pact battle-start log line appears once', () => {
+    const { game } = killWarlockThenRecount();
+    assert.equal(darkPactStartLines(game).length, 1);
+  });
+});
