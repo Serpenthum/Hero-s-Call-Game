@@ -25,7 +25,8 @@ class Database {
         favorite_heroes TEXT DEFAULT '[]',
         player_id TEXT,
         tutorial_completed INTEGER DEFAULT 1,
-        holo_heroes TEXT DEFAULT '[]'
+        holo_heroes TEXT DEFAULT '[]',
+        shards INTEGER DEFAULT 0
       )
     `;
 
@@ -85,6 +86,13 @@ class Database {
     this.db.run("ALTER TABLE users ADD COLUMN holo_heroes TEXT DEFAULT '[]'", (err) => {
       if (err && !String(err.message).includes('duplicate column')) {
         console.error('Error adding holo_heroes column:', err.message);
+      }
+    });
+
+    // Databases made before shards existed lack the column; add it once (a no-op error after that).
+    this.db.run('ALTER TABLE users ADD COLUMN shards INTEGER DEFAULT 0', (err) => {
+      if (err && !String(err.message).includes('duplicate column')) {
+        console.error('Error adding shards column:', err.message);
       }
     });
 
@@ -215,7 +223,8 @@ class Database {
                 survival_losses: 0,
                 survival_used_heroes: [],
                 available_heroes: starterHeroes,
-                holo_heroes: []
+                holo_heroes: [],
+                shards: 0
               });
             });
           } catch (heroErr) {
@@ -230,7 +239,7 @@ class Database {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT id, username, password_hash, victory_points, survival_wins, 
-               survival_losses, survival_used_heroes, available_heroes, holo_heroes, tutorial_completed
+               survival_losses, survival_used_heroes, available_heroes, holo_heroes, shards, tutorial_completed
         FROM users 
         WHERE username = ?
       `;
@@ -283,6 +292,7 @@ class Database {
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
               holo_heroes: holoHeroes,
+              shards: row.shards || 0,
               tutorial_completed: row.tutorial_completed !== 0,
               xp: playerStats.xp,
               level: playerStats.level
@@ -299,6 +309,7 @@ class Database {
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
               holo_heroes: holoHeroes,
+              shards: row.shards || 0,
               tutorial_completed: row.tutorial_completed !== 0,
               xp: 0,
               level: 1
@@ -314,7 +325,7 @@ class Database {
       const query = `
         SELECT 
           u.id, u.username, u.victory_points, u.survival_wins, 
-          u.survival_losses, u.survival_used_heroes, u.available_heroes, u.holo_heroes,
+          u.survival_losses, u.survival_used_heroes, u.available_heroes, u.holo_heroes, u.shards,
           u.favorite_heroes, u.best_gauntlet_trial, u.player_id,
           ps.level, ps.xp
         FROM users u
@@ -357,6 +368,7 @@ class Database {
           survival_used_heroes: survivalUsedHeroes,
           available_heroes: availableHeroes,
           holo_heroes: holoHeroes,
+          shards: row.shards || 0,
           favorite_heroes: favoriteHeroes,
           xp: row.xp || 0,
           level: row.level || 1,
@@ -1064,33 +1076,11 @@ class Database {
     });
   }
 
-  // Spends Victory Points and adds heroes in a single guarded statement: it only applies if the player can
-  // still afford it, so two simultaneous purchases can never spend the same points twice.
-  // Resolves { success: true, newVP, available_heroes } or { success: false, error }.
-  async purchaseHeroes(userId, cost, heroNames) {
-    const user = await this.getUserById(userId);
-    if (!user) return { success: false, error: 'User not found' };
-    if (user.victory_points < cost) return { success: false, error: 'Not enough to buy this.' };
-    
-    const updatedHeroes = [...new Set([...user.available_heroes, ...heroNames])];
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'UPDATE users SET victory_points = victory_points - ?, available_heroes = ? WHERE id = ? AND victory_points >= ?',
-        [cost, JSON.stringify(updatedHeroes), userId, cost],
-        function(err) {
-          if (err) return reject(err);
-          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough to buy this.' });
-          resolve({ success: true, newVP: user.victory_points - cost, available_heroes: updatedHeroes });
-        }
-      );
-    });
-  }
-
-  // Saves an opened pack in one guarded statement: spends `cost`, pays back `refund`, and adds the new
+  // Saves an opened pack in one guarded statement: spends `cost` coins, adds `shards`, and adds the new
   // heroes and holographics. Every holographic hero is also an owned hero. Applies only if the player
-  // can still afford `cost`, so two simultaneous packs can never spend the same points twice.
-  // Resolves { success: true, newVP, available_heroes, holo_heroes } or { success: false, error }.
-  async savePack(userId, { cost = 0, refund = 0, addHeroes = [], addHolo = [] } = {}) {
+  // can still afford `cost`, so two simultaneous packs can never spend the same coins twice.
+  // Resolves { success: true, newVP, shards, available_heroes, holo_heroes } or { success: false, error }.
+  async savePack(userId, { cost = 0, shards = 0, addHeroes = [], addHolo = [] } = {}) {
     const user = await this.getUserById(userId);
     if (!user) return { success: false, error: 'User not found' };
     if (user.victory_points < cost) return { success: false, error: 'Not enough to buy this.' };
@@ -1099,12 +1089,35 @@ class Database {
     const updatedHolo = [...new Set([...user.holo_heroes, ...addHolo])];
     return new Promise((resolve, reject) => {
       this.db.run(
-        'UPDATE users SET victory_points = victory_points - ? + ?, available_heroes = ?, holo_heroes = ? WHERE id = ? AND victory_points >= ?',
-        [cost, refund, JSON.stringify(updatedHeroes), JSON.stringify(updatedHolo), userId, cost],
+        'UPDATE users SET victory_points = victory_points - ?, shards = shards + ?, available_heroes = ?, holo_heroes = ? WHERE id = ? AND victory_points >= ?',
+        [cost, shards, JSON.stringify(updatedHeroes), JSON.stringify(updatedHolo), userId, cost],
         function(err) {
           if (err) return reject(err);
           if (this.changes !== 1) return resolve({ success: false, error: 'Not enough to buy this.' });
-          resolve({ success: true, newVP: user.victory_points - cost + refund, available_heroes: updatedHeroes, holo_heroes: updatedHolo });
+          resolve({ success: true, newVP: user.victory_points - cost, shards: user.shards + shards, available_heroes: updatedHeroes, holo_heroes: updatedHolo });
+        }
+      );
+    });
+  }
+
+  // Crafts a hero in one guarded statement: spends `price` shards and adds the hero to the owned heroes
+  // (never as a holographic). Applies only if the player still has `price` shards, so two simultaneous
+  // crafts can never spend the same shards twice.
+  // Resolves { success: true, shards, available_heroes } or { success: false, error }.
+  async craftHero(userId, heroName, price) {
+    const user = await this.getUserById(userId);
+    if (!user) return { success: false, error: 'User not found' };
+    if (user.shards < price) return { success: false, error: 'Not enough shards.' };
+
+    const updatedHeroes = [...new Set([...user.available_heroes, heroName])];
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'UPDATE users SET shards = shards - ?, available_heroes = ? WHERE id = ? AND shards >= ?',
+        [price, JSON.stringify(updatedHeroes), userId, price],
+        function(err) {
+          if (err) return reject(err);
+          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough shards.' });
+          resolve({ success: true, shards: user.shards - price, available_heroes: updatedHeroes });
         }
       );
     });

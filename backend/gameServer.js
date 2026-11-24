@@ -144,7 +144,8 @@ router.post('/api/register', async (req, res) => {
         survival_wins: user.survival_wins,
         survival_losses: user.survival_losses,
         available_heroes: user.available_heroes,
-        holo_heroes: user.holo_heroes || []
+        holo_heroes: user.holo_heroes || [],
+        shards: user.shards || 0
       }
     });
   } catch (error) {
@@ -248,6 +249,7 @@ router.post('/api/login', async (req, res) => {
         survival_used_heroes: user.survival_used_heroes,
         available_heroes: user.available_heroes,
         holo_heroes: user.holo_heroes || [],
+        shards: user.shards || 0,
         favorite_heroes: favoriteHeroes,
         xp: playerStats.xp || 0,
         level: playerStats.level || 1,
@@ -479,6 +481,7 @@ router.get('/api/user/:userId', async (req, res) => {
         survival_used_heroes: user.survival_used_heroes,
         available_heroes: user.available_heroes,
         holo_heroes: user.holo_heroes || [],
+        shards: user.shards || 0,
         xp: playerStats.xp,
         level: playerStats.level,
         total_wins: playerStats.total_wins,
