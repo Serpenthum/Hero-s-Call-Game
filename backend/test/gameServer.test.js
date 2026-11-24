@@ -273,3 +273,61 @@ test('a new account that skips the tutorial lands at level 2 with 80 coins', asy
   assert.equal(user.level, 2);
   assert.equal(user.victory_points, 80);
 });
+
+test('an account with all 40 heroes, 500 coins and level 20 loads unchanged, buys a pack and gains XP', async () => {
+  const run = (sql, params) => new Promise((resolve, reject) => testDb.database.db.run(sql, params, e => (e ? reject(e) : resolve())));
+  const allHeroes = require('../heros.json').filter(h => !h.disabled).map(h => h.name);
+  assert.equal(allHeroes.length, 40);
+  const holo = allHeroes.slice(0, 3);
+  await api('POST', '/api/register', { username: 'veteran1', password: 'secret1' });
+  const id = (await testDb.database.authenticateUser('veteran1', 'secret1')).id;
+  // The row as an account from before the shards column holds it: shards left at the column default
+  await run('UPDATE users SET available_heroes = ?, holo_heroes = ?, victory_points = 500 WHERE id = ?',
+    [JSON.stringify(allHeroes), JSON.stringify(holo), id]);
+  await testDb.database.getPlayerStats(id);
+  await run('UPDATE player_stats SET level = 20, xp = 475 WHERE user_id = ?', [id]);
+
+  const login = await api('POST', '/api/login', { username: 'veteran1', password: 'secret1' });
+  assert.equal(login.json.success, true);
+  const user = login.json.user;
+  assert.deepEqual([...user.available_heroes].sort(), [...allHeroes].sort());
+  assert.deepEqual([...user.holo_heroes].sort(), [...holo].sort());
+  assert.equal(user.victory_points, 500);
+  assert.equal(user.level, 20);
+  assert.equal(user.xp, 475);
+  assert.equal(user.shards, 0);
+  assert.equal(login.json.levelUpData, undefined, 'nothing pending at login');
+
+  // A pack is random: with every hero owned it can only be a repeat (10 shards) or a holographic
+  const res = await handleFetch(router, new Request('http://t/api/shop/purchase-pack', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${login.json.token}` },
+    body: JSON.stringify({ userId: id })
+  }));
+  const pack = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(pack.coinsSpent, 20);
+  assert.equal(pack.newVP, 480);
+  assert.equal(pack.available_heroes.length, 40, 'no hero added or lost');
+  if (pack.card.kind === 'repeat') {
+    assert.equal(pack.shardsGained, 10);
+    assert.equal(pack.shards, 10);
+    assert.equal(pack.holo_heroes.length, 3);
+  } else {
+    assert.equal(pack.card.kind, 'holo_upgrade');
+    assert.equal(pack.shardsGained, 0);
+    assert.equal(pack.shards, 0);
+    assert.equal(pack.holo_heroes.length, 4);
+    assert.ok(pack.holo_heroes.includes(pack.card.name));
+  }
+
+  const xp = await testDb.database.updatePlayerXP(id, 25);
+  assert.equal(xp.level, 21);
+  assert.equal(xp.xp, 0);
+  assert.equal(xp.vpGained, 20);
+  const after = (await api('GET', `/api/user/${id}`)).json.user;
+  assert.equal(after.level, 21);
+  assert.equal(after.victory_points, 500);
+  assert.equal(after.available_heroes.length, 40);
+  assert.equal(after.shards, pack.shards);
+});
