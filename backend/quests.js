@@ -1,6 +1,7 @@
 // Daily quests: three fixed quests that reset each UTC day and reward XP + Victory Points.
 
-const QUEST_REWARD = { xp: 15, vp: 3 };
+const { QUEST_COINS } = require('./economy');
+const QUEST_REWARD = { xp: 15, vp: QUEST_COINS };
 
 const QUESTS = [
   {

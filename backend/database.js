@@ -1,4 +1,5 @@
 const { hashPassword, verifyPassword, randomPasswordHash } = require('./passwords');
+const { applyXP, xpForNextLevel } = require('./economy');
 
 class Database {
   constructor(db) {
@@ -833,26 +834,9 @@ class Database {
       // First get current stats
       this.getPlayerStats(userId)
         .then(stats => {
-          let currentXP = stats.xp + xpGain;
-          let currentLevel = stats.level;
-          let levelsGained = 0;
-          
-          // Keep leveling up while player has enough XP
-          while (currentLevel < 20) {
-            const xpRequired = this.getXPRequiredForLevel(currentLevel);
-            if (currentXP >= xpRequired) {
-              currentXP -= xpRequired;
-              currentLevel++;
-              levelsGained++;
-            } else {
-              break;
-            }
-          }
-          
-          // Cap XP at max for level 20
-          if (currentLevel >= 20) {
-            currentXP = Math.min(currentXP, this.getXPRequiredForLevel(19));
-          }
+          // Carries the leftover XP across as many levels as it covers; levels have no cap.
+          const { level: currentLevel, xp: currentXP, levelsGained, coinsGained } =
+            applyXP({ level: stats.level, xp: stats.xp }, xpGain);
 
           const query = `
             UPDATE player_stats 
@@ -866,9 +850,9 @@ class Database {
               return;
             }
 
-            // Award 12 VP per level gained
+            // Every level gained pays LEVEL_UP_COINS
             if (levelsGained > 0) {
-              const vpGained = levelsGained * 12;
+              const vpGained = coinsGained;
               this.updateUserVictoryPoints(userId, vpGained)
                 .then(() => {
                   resolve({
@@ -899,41 +883,9 @@ class Database {
     });
   }
 
-  calculateLevel(xp) {
-    // XP progression: 25, 50, 75, 100, 125, 150... (+25 per level)
-    // Level 1: 0-24 XP (need 25 to level up)
-    // Level 2: 0-49 XP (need 50 to level up)
-    // Level 3: 0-74 XP (need 75 to level up)
-    // etc.
-    // Max level is 20
-    
-    if (xp < 25) return 1;
-    if (xp < 50) return 2;
-    if (xp < 75) return 3;
-    if (xp < 100) return 4;
-    if (xp < 125) return 5;
-    if (xp < 150) return 6;
-    if (xp < 175) return 7;
-    if (xp < 200) return 8;
-    if (xp < 225) return 9;
-    if (xp < 250) return 10;
-    if (xp < 275) return 11;
-    if (xp < 300) return 12;
-    if (xp < 325) return 13;
-    if (xp < 350) return 14;
-    if (xp < 375) return 15;
-    if (xp < 400) return 16;
-    if (xp < 425) return 17;
-    if (xp < 450) return 18;
-    if (xp < 475) return 19;
-    return 20; // Max level (475+ XP)
-  }
-
   getXPRequiredForLevel(level) {
-    // Returns XP required to reach next level
-    // Level 1->2: 25, 2->3: 50, 3->4: 75, etc.
-    if (level >= 20) return 0; // Max level reached
-    return level * 25;
+    // XP needed to go from this level to the next (no level cap)
+    return xpForNextLevel(level);
   }
 
   async checkAndLevelUpPlayer(userId) {
@@ -941,34 +893,16 @@ class Database {
     return new Promise((resolve, reject) => {
       this.getPlayerStats(userId)
         .then(stats => {
-          let currentXP = stats.xp;
-          let currentLevel = stats.level;
-          let leveledUp = false;
-          let levelsGained = 0;
-          
-          // Keep leveling up until XP is below required amount
-          while (currentLevel < 20) {
-            const xpRequired = this.getXPRequiredForLevel(currentLevel);
-            if (currentXP >= xpRequired) {
-              currentXP -= xpRequired;
-              currentLevel++;
-              levelsGained++;
-              leveledUp = true;
-              console.log(`🎉 Player ${userId} leveled up to ${currentLevel}! Remaining XP: ${currentXP}`);
-            } else {
-              break;
-            }
-          }
-          
-          // Cap XP at max for level 20
-          if (currentLevel >= 20) {
-            currentXP = Math.min(currentXP, this.getXPRequiredForLevel(19));
-          }
-          
+          // Carries the leftover XP across as many levels as it covers; levels have no cap.
+          const { level: currentLevel, xp: currentXP, levelsGained, coinsGained } =
+            applyXP({ level: stats.level, xp: stats.xp }, 0);
+          const leveledUp = levelsGained > 0;
+
           if (leveledUp) {
-            // Award 12 VP per level gained
-            const vpGained = levelsGained * 12;
-            
+            console.log(`🎉 Player ${userId} leveled up to ${currentLevel}! Remaining XP: ${currentXP}`);
+            // Every level gained pays LEVEL_UP_COINS
+            const vpGained = coinsGained;
+
             // Update database with new level, remaining XP, and VP
             const updateQuery = `
               UPDATE player_stats 

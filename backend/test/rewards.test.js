@@ -32,8 +32,8 @@ describe('Survival run payouts', () => {
     const state = await gm.updateSurvivalWin(SOCK, team);
     assert.equal(state.runEnded, true);
     const s = await standing();
-    // 80 XP = two level-ups (25 + 50) which pay 12 coins each, on top of the 27-coin run prize
-    assert.deepEqual({ vp: s.vp, level: s.level, xp: s.xp, best: s.best }, { vp: 27 + 24, level: 3, xp: 5, best: 7 });
+    // 80 XP = two level-ups (25 + 50) which pay 20 coins each, on top of the 27-coin run prize
+    assert.deepEqual({ vp: s.vp, level: s.level, xp: s.xp, best: s.best }, { vp: 27 + 40, level: 3, xp: 5, best: 7 });
   });
 
   test('a loss in the middle of a run pays nothing', async () => {
