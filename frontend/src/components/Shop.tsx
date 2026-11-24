@@ -174,11 +174,14 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: sha
         const newShards = typeof data.shards === 'number' ? data.shards : undefined;
         if (newShards !== undefined) setShards(newShards);
 
-        // A repeat of a hero already owned holographic is drawn holographic too.
+        // A card is holographic when the server drew it so (its `holo` flag). An older server sends no flag:
+        // then the holo kinds are holographic, and so is a repeat of a hero the reply lists as holographic.
         const replyHoloHeroes: string[] = Array.isArray(data.holo_heroes) ? data.holo_heroes : [];
         const cards: PackCard[] = data.cards.map((card: PackCard) => ({
           ...card,
-          holo: isHoloKind(card.kind) || (card.kind === 'repeat' && replyHoloHeroes.includes(card.name)),
+          holo: typeof card.holo === 'boolean'
+            ? card.holo
+            : isHoloKind(card.kind) || (card.kind === 'repeat' && replyHoloHeroes.includes(card.name)),
         }));
         setPackResult({
           cards,

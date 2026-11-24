@@ -46,7 +46,7 @@ const DevShop: React.FC<{ query: string }> = ({ query }) => {
           balance -= 20;
           shardBalance += shardsGained;
           if (!repeat) ownedNow = [...ownedNow, hero.name];
-          const card = { name: hero.name, kind: repeat ? 'repeat' : 'new', hero };
+          const card = { name: hero.name, kind: repeat ? 'repeat' : 'new', holo: false, hero };
           return reply({
             success: true, card, cards: [card], coinsSpent: 20, coinsBack: 0, shardsGained, shards: shardBalance,
             newVP: balance, holo_heroes: [], available_heroes: ownedNow, heroCount: ownedNow.length, heroesReceived: [hero.name],

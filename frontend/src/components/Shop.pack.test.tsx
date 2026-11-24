@@ -13,8 +13,8 @@ const hero = (name: string): Hero => ({ name, HP: 18, Defense: 8, Accuracy: '+2'
 // Today's server: one card, and the shards it paid
 const packReply = (name: string, newVP: number, extra: Record<string, unknown> = {}) => ({
   success: true,
-  card: { name, kind: 'new' },
-  cards: [{ name, kind: 'new', hero: hero(name) }],
+  card: { name, kind: 'new', holo: false },
+  cards: [{ name, kind: 'new', holo: false, hero: hero(name) }],
   coinsSpent: 20,
   coinsBack: 0,
   shardsGained: 0,
@@ -152,14 +152,46 @@ describe('Shop packs', () => {
     expect(root.querySelector('.shop-meter--shards .shop-meter-label')?.textContent).toBe('Shards 60 of 100 to craft');
   });
 
-  it('a repeat of a hero the reply lists as holographic is drawn holographic', async () => {
+  // A repeat paid in shards, of Monk, whose holographic the player owns; `card` is what the server sent
+  const monkRepeat = (card: Record<string, unknown>) =>
+    ({ ...packReply('Monk', 25), cards: [{ name: 'Monk', kind: 'repeat', hero: hero('Monk'), ...card }], holo_heroes: ['Monk'], shardsGained: 10, shards: 70 });
+  const monkFace = () => document.querySelector('.pack-opening [data-name="Monk"]');
+  const resultKind = () => document.querySelector('.pack-opening__kind')?.textContent;
+
+  it('a plain repeat of a hero owned as a holographic is drawn plain and says "Already owned"', async () => {
     installFetch();
-    packReplies.push({ ...packReply('Monk', 25), cards: [{ name: 'Monk', kind: 'repeat', hero: hero('Monk') }], holo_heroes: ['Monk'], shardsGained: 10, shards: 10 });
+    packReplies.push(monkRepeat({ holo: false }));
+    const root = render(<ShopHarness start={45} owned={['Fighter', 'Monk']} shards={60} />);
+    await settle();
+    await openFirstPack(root);
+
+    expect(monkFace()).not.toBeNull();
+    expect(document.querySelector('.pack-opening .card-holo')).toBeNull();
+    expect(resultKind()).toBe('Already owned');
+    expect(document.querySelector('.pack-opening__shards')?.textContent).toBe('+10 shards');
+  });
+
+  it('a holographic repeat says "Already owned as a holographic"', async () => {
+    installFetch();
+    packReplies.push(monkRepeat({ holo: true }));
+    const root = render(<ShopHarness start={45} owned={['Fighter', 'Monk']} shards={60} />);
+    await settle();
+    await openFirstPack(root);
+
+    expect(monkFace()?.querySelector('.card-holo')).not.toBeNull();
+    expect(resultKind()).toBe('Already owned as a holographic');
+    expect(document.querySelector('.pack-opening__shards')?.textContent).toBe('+10 shards');
+  });
+
+  it('a reply without a holo flag falls back to the old rule', async () => {
+    installFetch();
+    // An older server sends no flag: a repeat of a hero the reply lists as holographic is drawn holographic
+    packReplies.push(monkRepeat({}));
     const root = render(<ShopHarness start={45} owned={['Fighter', 'Monk']} />);
     await settle();
     await openFirstPack(root);
 
-    expect(document.querySelector('.pack-opening [data-name="Monk"] .card-holo')).not.toBeNull();
+    expect(monkFace()?.querySelector('.card-holo')).not.toBeNull();
   });
 
   it('a second click while buying sends no second request', async () => {
