@@ -447,24 +447,44 @@
 
 .pack-opening__reveal--single {
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
-  align-content: center;
+  align-items: center;
   gap: var(--space-5);
 }
 
 .pack-opening__reveal--single .pack-opening__cards {
-  flex: 0 1 auto;
-  width: min(48%, 26rem);
+  flex: 0 1 26rem;
+  min-width: 0;
   height: 100%;
 }
 
 .pack-opening__panel {
+  flex: 0 1 20rem;
+  min-width: 0;
+  text-align: left;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
-  width: min(100%, 20rem);
+}
+
+/* An upright phone: the result goes under the card instead. */
+@media (orientation: portrait) and (max-width: 600px) {
+  .pack-opening__reveal--single {
+    flex-direction: column;
+  }
+
+  .pack-opening__reveal--single .pack-opening__cards {
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+  }
+
+  .pack-opening__panel {
+    flex: none;
+    width: min(100%, 20rem);
+  }
 }
 
 .pack-opening__result {
