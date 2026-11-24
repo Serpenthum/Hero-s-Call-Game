@@ -211,4 +211,81 @@ describe('useBinderData', () => {
     expect(latest.collection.owned).toEqual(['Monk', 'Ninja']);
     expect(latest.shards).toBe(140);
   });
+
+  describe('the craft time limit', () => {
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('a craft that gets no answer within 15 seconds gives up', async () => {
+      vi.useFakeTimers();
+      // A request that never answers, but stops when its signal aborts, as fetch does
+      const fetchMock = stubFetch((url, init) => url === `${API}/api/shop/craft`
+        ? new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+        })
+        : happyRoute(url, init));
+      render(<Probe userId={7} />);
+      await settle();
+
+      let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+      let pending!: Promise<void>;
+      act(() => { pending = latest.craft('Paladin').then(r => { result = r; }); });
+      await settle();
+      const signal = fetchMock.mock.calls[fetchMock.mock.calls.length - 1][1]?.signal;
+      expect(signal).toBeDefined();
+      act(() => { vi.advanceTimersByTime(14999); });
+      await settle();
+      expect(result).toBeUndefined();
+      expect(signal!.aborted).toBe(false);
+      act(() => { vi.advanceTimersByTime(1); });
+      await act(async () => { await pending; });
+      expect(signal!.aborted).toBe(true);
+      expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
+      expect(latest.collection.owned).toEqual(['Monk', 'Ninja']);
+      expect(latest.shards).toBe(140);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('a reply that comes after the limit changes nothing', async () => {
+      vi.useFakeTimers();
+      // A reply that only arrives after the abort: nothing is assumed from it
+      let answer: (r: Response) => void = () => {};
+      stubFetch((url, init) => url === `${API}/api/shop/craft`
+        ? new Promise<Response>(resolve => { answer = resolve; })
+        : happyRoute(url, init));
+      render(<Probe userId={7} />);
+      await settle();
+
+      let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+      let pending!: Promise<void>;
+      act(() => { pending = latest.craft('Paladin').then(r => { result = r; }); });
+      await settle();
+      act(() => { vi.advanceTimersByTime(20000); });
+      await act(async () => {
+        answer({ ok: true, status: 200, json: () => Promise.resolve({ success: true, shards: 40, available_heroes: ['Monk', 'Ninja', 'Paladin'] }) } as Response);
+        await pending;
+      });
+      expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
+      expect(latest.collection.owned).toEqual(['Monk', 'Ninja']);
+      expect(latest.shards).toBe(140);
+    });
+
+    it('a craft that answers in time is not aborted', async () => {
+      vi.useFakeTimers();
+      const fetchMock = stubFetch(happyRoute);
+      render(<Probe userId={7} />);
+      await settle();
+
+      let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+      await act(async () => { result = await latest.craft('Paladin'); });
+      expect(result).toEqual({ ok: true });
+      const signal = fetchMock.mock.calls[fetchMock.mock.calls.length - 1][1]?.signal;
+      expect(signal).toBeDefined();
+      // The limit is cleared once the reply is in: nothing left to fire
+      expect(vi.getTimerCount()).toBe(0);
+      act(() => { vi.advanceTimersByTime(15000); });
+      expect(signal!.aborted).toBe(false);
+      expect(latest.collection.owned).toEqual(['Monk', 'Ninja', 'Paladin']);
+      expect(latest.shards).toBe(40);
+    });
+  });
 });

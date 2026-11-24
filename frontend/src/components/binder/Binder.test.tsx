@@ -119,8 +119,8 @@ describe('the binder', () => {
     consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
   afterEach(() => {
-    // Only the data hook's failure log is expected; React warnings would show up here too.
-    for (const [first] of consoleError.mock.calls) expect(String(first)).toMatch(/^Error fetching heroes/);
+    // Only the data hook's failure logs are expected; React warnings would show up here too.
+    for (const [first] of consoleError.mock.calls) expect(String(first)).toMatch(/^Error (fetching heroes|crafting hero)/);
     cleanup();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -590,6 +590,33 @@ describe('the binder', () => {
       expect(shown(root)).toBe(140);
       expect(said(root)).toBe('140 shards');
       // Settled, so it closes again
+      pressEscape();
+      expect(large(root)).toBeNull();
+    });
+
+    it('after a craft times out the large view can be closed', async () => {
+      vi.useFakeTimers();
+      // A stalled connection: no answer until the request is aborted
+      const fetchMock = stubFetch({
+        craft: () => new Promise<Response>((_, reject) => {
+          const init = fetchMock.mock.calls[fetchMock.mock.calls.length - 1][1];
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+        }),
+      });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(large(root)!.querySelector('.binder-craft-wait')?.textContent).toBe('Crafting…');
+      pressEscape();
+      expect(large(root)).not.toBeNull();
+
+      advance(15000);
+      await settle();
+      expect(large(root)!.querySelector('[role=alert]')?.textContent).toBe("Crafting isn't available right now.");
+      expect(large(root)!.querySelector('.binder-craft-wait')).toBeNull();
+      expect(large(root)!.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(said(root)).toBe('140 shards');
       pressEscape();
       expect(large(root)).toBeNull();
     });

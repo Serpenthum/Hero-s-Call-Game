@@ -21,6 +21,8 @@ export type CraftResult = { ok: true } | { ok: false; message: string };
 const API = config.API_BASE_URL;
 // An old server has no craft route (404); no network reads the same
 export const CRAFT_UNAVAILABLE = "Crafting isn't available right now.";
+// A stalled connection must not hold the large view shut: past this the craft gives up and reads as unavailable
+export const CRAFT_TIMEOUT_MS = 15000;
 
 async function getJson(url: string): Promise<unknown> {
   const response = await fetch(url);
@@ -117,17 +119,25 @@ export default function useBinderData(
   const craft = useCallback(async (heroName: string): Promise<CraftResult> => {
     let response: Response;
     let data: { success?: boolean; message?: string; shards?: number; available_heroes?: string[] };
+    // A timer of our own, not AbortSignal.timeout, so it is cleared the moment the request settles
+    const limit = new AbortController();
+    const timer = setTimeout(() => limit.abort(), CRAFT_TIMEOUT_MS);
     try {
       response = await fetch(`${API}/api/shop/craft`, {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ heroName }),
+        signal: limit.signal,
       });
       if (response.status === 404) return { ok: false, message: CRAFT_UNAVAILABLE };
       data = await response.json();
+      // Nothing is assumed from a reply that lands after the limit: the next account load shows the truth
+      if (limit.signal.aborted) throw new Error(`no answer within ${CRAFT_TIMEOUT_MS} ms`);
     } catch (err) {
       console.error('Error crafting hero:', err);
       return { ok: false, message: CRAFT_UNAVAILABLE };
+    } finally {
+      clearTimeout(timer);
     }
     if (!response.ok || !data.success) return { ok: false, message: data.message || CRAFT_UNAVAILABLE };
     if (Array.isArray(data.available_heroes)) setOwned(data.available_heroes);
