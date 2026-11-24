@@ -1,46 +1,24 @@
-// The pack rule: 3 cards, unowned heroes first; when too few are left, owned heroes fill the pack
-// as repeats worth 2 coins back each. Then one 1 in 5 roll for a bonus holographic hero.
-// The order of random() calls is fixed so a given sequence always gives the same pack.
-const PACK_PRICE = 12;
-const PACK_SIZE = 3;
-const REPEAT_REFUND = 2;
-const HOLO_CHANCE = 0.2;
-
-// Fisher-Yates, unlike sort(() => random() - 0.5) which is biased
-function shuffle(list, random) {
-  const pool = [...list];
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool;
-}
+// The pack rule: one card, picked with equal chance from every enabled hero, owned or not. Then one
+// 1 in 10 roll makes it holographic; a holographic replaces the card rather than adding one. A hero the
+// player already has (or a holographic they already have) is a repeat worth 10 shards.
+// The order of random() calls is fixed (hero, then holographic roll) so a given sequence always gives
+// the same pack.
+const PACK_PRICE = 20;
+const REPEAT_SHARDS = 10;
+const HOLO_CHANCE = 0.1;
+const CRAFT_PRICE = 100;
 
 function rollPack({ heroes, owned, holo, random }) {
   const enabled = heroes.filter(h => !h.disabled).map(h => h.name);
+  const name = enabled[Math.floor(random() * enabled.length)];
+  const isHolo = random() < HOLO_CHANCE;
 
-  const cards = shuffle(enabled.filter(n => !owned.includes(n)), random)
-    .slice(0, PACK_SIZE)
-    .map(name => ({ name, kind: 'new' }));
-  let coinsBack = 0;
-  if (cards.length < PACK_SIZE) {
-    const repeats = shuffle(enabled.filter(n => owned.includes(n)), random)
-      .slice(0, PACK_SIZE - cards.length)
-      .map(name => ({ name, kind: 'repeat' }));
-    coinsBack = REPEAT_REFUND * repeats.length;
-    cards.push(...repeats);
-  }
+  let kind;
+  if (!isHolo) kind = owned.includes(name) ? 'repeat' : 'new';
+  else if (holo.includes(name)) kind = 'repeat';
+  else kind = owned.includes(name) ? 'holo_upgrade' : 'holo';
 
-  if (random() < HOLO_CHANCE) {
-    const base = cards.map(c => c.name);
-    const candidates = enabled.filter(n => !holo.includes(n) && !base.includes(n));
-    if (candidates.length > 0) {
-      const name = candidates[Math.floor(random() * candidates.length)];
-      cards.push({ name, kind: owned.includes(name) ? 'holo_upgrade' : 'holo' });
-    }
-  }
-
-  return { cards, coinsBack };
+  return { card: { name, kind, holo: isHolo }, shards: kind === 'repeat' ? REPEAT_SHARDS : 0 };
 }
 
-module.exports = { rollPack, PACK_PRICE, PACK_SIZE, REPEAT_REFUND, HOLO_CHANCE };
+module.exports = { rollPack, PACK_PRICE, REPEAT_SHARDS, HOLO_CHANCE, CRAFT_PRICE };
