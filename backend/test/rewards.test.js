@@ -27,13 +27,13 @@ const setRun = (wins, losses) => gm.survivalStates.set(SOCK, { wins, losses, use
 const team = [{ name: 'Fighter' }, { name: 'Cleric' }, { name: 'Monk' }];
 
 describe('Survival run payouts', () => {
-  test('a perfect 7-win run pays the top VP tier and its XP', async () => {
+  test('a perfect 7-win Survival run pays 27', async () => {
     setRun(6, 1);
     const state = await gm.updateSurvivalWin(SOCK, team);
     assert.equal(state.runEnded, true);
     const s = await standing();
-    // 80 XP = two level-ups (25 + 50) which pay 12 VP each, on top of the 16 VP run reward
-    assert.deepEqual({ vp: s.vp, level: s.level, xp: s.xp, best: s.best }, { vp: 16 + 24, level: 3, xp: 5, best: 7 });
+    // 80 XP = two level-ups (25 + 50) which pay 12 coins each, on top of the 27-coin run prize
+    assert.deepEqual({ vp: s.vp, level: s.level, xp: s.xp, best: s.best }, { vp: 27 + 24, level: 3, xp: 5, best: 7 });
   });
 
   test('a loss in the middle of a run pays nothing', async () => {
@@ -48,10 +48,10 @@ describe('Survival run payouts', () => {
     setRun(2, 2);
     const state = await gm.updateSurvivalLoss(SOCK, team);
     assert.equal(state.runEnded, true);
-    assert.deepEqual(await standing(), { vp: 2, xp: 10, level: 1, best: 2 });
+    assert.deepEqual(await standing(), { vp: 4, xp: 10, level: 1, best: 2 });
     // The next run starts fresh, so a loss in it is not paid again
     await gm.updateSurvivalLoss(SOCK, team);
-    assert.deepEqual(await standing(), { vp: 2, xp: 10, level: 1, best: 2 });
+    assert.deepEqual(await standing(), { vp: 4, xp: 10, level: 1, best: 2 });
   });
 
   test('a run that ends with no wins pays nothing', async () => {
@@ -64,16 +64,16 @@ describe('Survival run payouts', () => {
   test('abandoning a run pays for its wins once', async () => {
     setRun(3, 1);
     await gm.resetSurvivalState(SOCK);
-    assert.deepEqual(await standing(), { vp: 4, xp: 17, level: 1, best: 3 });
+    assert.deepEqual(await standing(), { vp: 7, xp: 17, level: 1, best: 3 });
     await gm.resetSurvivalState(SOCK);
-    assert.deepEqual(await standing(), { vp: 4, xp: 17, level: 1, best: 3 });
+    assert.deepEqual(await standing(), { vp: 7, xp: 17, level: 1, best: 3 });
   });
 
   test('the settlement is reported on the returned state for the client message', async () => {
     setRun(1, 2);
     const state = await gm.updateSurvivalLoss(SOCK, team);
     assert.equal(state.settlement.xpGained, 5);
-    assert.equal(state.settlement.vpAwarded, 1);
+    assert.equal(state.settlement.vpAwarded, 2);
   });
 });
 
@@ -145,14 +145,110 @@ describe('Match victory points are paid once', () => {
     game.players[1].team.forEach(h => { h.currentHP = 0; });
     for (let i = 0; i < 4; i++) gm.checkWinCondition(game);
     await sleep(300);
-    assert.equal((await standing()).vp, 3, 'one VP per surviving hero, once');
+    assert.equal((await standing()).vp, 5, '2 + 1 per surviving hero, once');
+  });
+});
+
+describe('Battle coins', () => {
+  let rivalId;
+  async function finishedGame(mode = 'random') {
+    rivalId = await createUser(database, `rival${++userCount}`);
+    gm.setUserSession('p1', rivalId);
+    gm.setUserSession('p0', userId);
+    return startBattle(gm, ['Fighter', 'Cleric', 'Monk'], ['Wizard', 'Silencer', 'Warden'], { mode });
+  }
+  const coinsOf = async id => (await database.getUserById(id)).victory_points;
+
+  test('a gauntlet-mode win pays what it paid before', async () => {
+    const game = await finishedGame('gauntlet');
+    game.players[1].team.forEach(h => { h.currentHP = 0; });
+    gm.checkWinCondition(game);
+    await sleep(300);
+    assert.equal(await coinsOf(userId), 5);
+    assert.equal(await coinsOf(rivalId), 0);
   });
 
-  test('a tie pays each player once', async () => {
-    const game = await finishedGame();
+  const winOnBoard = async (game, aliveForWinner = 3) => {
+    game.players[0].team.slice(aliveForWinner).forEach(h => { h.currentHP = 0; });
+    game.players[1].team.forEach(h => { h.currentHP = 0; });
+    gm.checkWinCondition(game);
+    return gm.getPayout(game.id).coins;
+  };
+
+  test('random win with 3 alive pays the winner 5 and the loser 2', async () => {
+    await winOnBoard(await finishedGame('random'));
+    assert.equal(await coinsOf(userId), 5);
+    assert.equal(await coinsOf(rivalId), 2);
+  });
+
+  test('random win with 1 alive pays 3', async () => {
+    await winOnBoard(await finishedGame('random'), 1);
+    assert.equal(await coinsOf(userId), 3);
+  });
+
+  test('draft win with 3 alive pays 6, loss 2', async () => {
+    await winOnBoard(await finishedGame('draft'));
+    assert.equal(await coinsOf(userId), 6);
+    assert.equal(await coinsOf(rivalId), 2);
+  });
+
+  test('random surrender after the loser lost a hero: winner 3, loser 2', async () => {
+    const game = await finishedGame('random');
+    game.players[1].team[0].currentHP = 0;
+    assert.equal(gm.surrenderGame('p1').success, true);
+    await gm.getPayout(game.id).coins;
+    assert.equal(await coinsOf(userId), 3);
+    assert.equal(await coinsOf(rivalId), 2);
+  });
+
+  test('draft surrender: winner 4', async () => {
+    const game = await finishedGame('draft');
+    gm.surrenderGame('p1');
+    await gm.getPayout(game.id).coins;
+    assert.equal(await coinsOf(userId), 4);
+  });
+
+  test('surrender with no hero down: winner 3, quitter 0', async () => {
+    const game = await finishedGame('random');
+    gm.surrenderGame('p1');
+    await gm.getPayout(game.id).coins;
+    assert.equal(await coinsOf(userId), 3);
+    assert.equal(await coinsOf(rivalId), 0);
+  });
+
+  test('disconnect forfeit with no hero down: winner 3, quitter 0', async () => {
+    const game = await finishedGame('random');
+    game.players[1].connected = false;
+    await gm.finishDisconnectedGame(game, 'p1');
+    await gm.getPayout(game.id).coins;
+    assert.equal(await coinsOf(userId), 3);
+    assert.equal(await coinsOf(rivalId), 0);
+  });
+
+  test('a tie pays 2 each, once', async () => {
+    const game = await finishedGame('random');
     game.players.forEach(p => p.team.forEach(h => { h.currentHP = 0; }));
     for (let i = 0; i < 3; i++) gm.checkWinCondition(game);
-    await sleep(300);
-    assert.equal((await standing()).vp, 1);
+    await gm.getPayout(game.id).coins;
+    await sleep(100);
+    assert.equal(await coinsOf(userId), 2);
+    assert.equal(await coinsOf(rivalId), 2);
+  });
+
+  test('a friend room pays no coins', async () => {
+    const game = await finishedGame('draft');
+    game.roomName = 'r';
+    await winOnBoard(game);
+    assert.equal(await coinsOf(userId), 0);
+    assert.equal(await coinsOf(rivalId), 0);
+  });
+
+  test("getPayout lists each player's ending", async () => {
+    const game = await finishedGame('random');
+    gm.surrenderGame('p1');
+    const payout = gm.getPayout(game.id);
+    assert.deepEqual(payout.endings, { p0: 'win_by_surrender', p1: 'quit_early' });
+    assert.deepEqual(await payout.coins, { p0: { coins: 3, total: 3 }, p1: { coins: 0, total: 0 } });
+    assert.equal(gm.getPayout('no-such-game'), null);
   });
 });

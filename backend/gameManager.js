@@ -28,6 +28,9 @@ const battleLog = require('./battleLog');
 const reasonName = reasons => (reasons || []).map(r => r.replace(/\s*\(.*\)$/, '').replace(/^.*'s /, '').replace(/ effect$/, '')).filter((r, i, all) => all.indexOf(r) === i).join(', ') || null;
 const { classifyAbility, lostWithFallenFocus } = require('./abilityTargeting');
 const { noteSound } = require('./battleEvents');
+const { endingFor, battleCoins, SURVIVAL_PRIZE } = require('./economy');
+// Battles that pay coins (and XP) by how each player's battle ended; other modes keep their own payouts
+const BATTLE_COIN_MODES = new Set(['random', 'draft']);
 
 // Battle Focus refusals (exact copy shown to players)
 const FOCUS_FIRST = 'Focus an enemy first';
@@ -8150,6 +8153,10 @@ class GameManager {
       return { success: true, message: 'Survival mode - victory points handled on run end' };
     }
 
+    if (BATTLE_COIN_MODES.has(game.mode)) {
+      return this.payBattle(game, winnerId, reason);
+    }
+
     // Friend challenges (rooms) are played for XP only
     if (game.roomName) {
       console.log(`🤝 Friend challenge - no victory points awarded`);
@@ -8222,24 +8229,61 @@ class GameManager {
     return result;
   }
 
+  // How each player's random or draft battle ended, and the coins it paid:
+  // { endings: { playerId: ending }, coins: Promise<{ playerId: { coins, total } }> }, or null.
+  getPayout(gameId) {
+    const game = this.games.get(gameId);
+    return (game && game.payout) || null;
+  }
+
+  // Works out every player's ending at once (so the server can read it straight away), then pays the
+  // coins. Friend rooms pay no coins. total is the player's coin balance after the payout, or null if
+  // it could not be read.
+  payBattle(game, winnerId, reason) {
+    const players = game.players.filter(Boolean);
+    const endings = {};
+    for (const player of players) {
+      const ownHeroesDown = player.team.filter(h => h.currentHP <= 0).length;
+      endings[player.id] = endingFor({ reason, isWinner: player.id === winnerId, ownHeroesDown });
+    }
+    const coins = (async () => {
+      const paid = {};
+      for (const player of players) {
+        const heroesAlive = player.team.filter(h => h.currentHP > 0).length;
+        const amount = game.roomName ? 0 : battleCoins(game.mode, endings[player.id], heroesAlive);
+        paid[player.id] = { coins: amount, total: await this.payBattleCoins(player, amount, `${game.mode}_mode_${reason}`) };
+      }
+      return paid;
+    })();
+    game.payout = { endings, coins };
+    console.log(`🏆 Battle endings for game ${game.id}: ${JSON.stringify(endings)}`);
+    return coins.then(paid => ({ success: true, endings, coins: paid }));
+  }
+
+  // Pays one player and returns their coin balance afterwards (null if unknown). Never throws.
+  async payBattleCoins(player, amount, reason) {
+    const userId = this.userIdForPlayer(player);
+    if (!this.database || !userId) return null;
+    try {
+      if (amount > 0) {
+        console.log(`🏆 Awarding ${amount} coins to user ${userId} (player ${player.id}) for ${reason}`);
+        await this.database.updateUserVictoryPoints(userId, amount);
+      }
+      const user = await this.database.getUserById(userId);
+      return user ? user.victory_points : null;
+    } catch (error) {
+      console.error('❌ Error paying battle coins:', error);
+      return null;
+    }
+  }
+
   async handleSurvivalRunEnd(playerId, finalWins) {
     if (finalWins <= 0) {
       debugLog(` Player ${playerId} ended survival run with 0 wins - no victory points awarded`);
       return { success: true, pointsAwarded: 0, totalVictoryPoints: 0, message: 'No wins in run' };
     }
 
-    // Victory points based on wins: 1→1, 2→2, 3→4, 4→6, 5→9, 6→12, 7→16
-    const vpTable = {
-      1: 1,
-      2: 2,
-      3: 4,
-      4: 6,
-      5: 9,
-      6: 12,
-      7: 16
-    };
-    
-    const pointsToAward = vpTable[finalWins] || 0;
+    const pointsToAward = SURVIVAL_PRIZE[finalWins] || 0;
     
     console.log(`🏆 Player ${playerId} survival run ended with ${finalWins} wins - awarding ${pointsToAward} victory points`);
     

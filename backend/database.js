@@ -1005,7 +1005,8 @@ class Database {
     });
   }
 
-  async updatePlayerStats(userId, isWin, gameMode) {
+  // Counts a win or a loss. Battle XP is paid separately (economy.battleXP).
+  async updatePlayerStats(userId, isWin) {
     return new Promise((resolve, reject) => {
       const winInc = isWin ? 1 : 0;
       const lossInc = isWin ? 0 : 1;
@@ -1021,21 +1022,7 @@ class Database {
           reject(err);
           return;
         }
-
-        // Calculate XP gain based on game mode and result
-        let xpGain = 0;
-        if (gameMode === 'draft') {
-          xpGain = isWin ? 10 : 3;
-        } else if (gameMode === 'random') {
-          xpGain = isWin ? 5 : 1;
-        }
-
-        // Update XP if there's a gain
-        if (xpGain > 0) {
-          resolve({ winsAdded: winInc, lossesAdded: lossInc, xpGain });
-        } else {
-          resolve({ winsAdded: winInc, lossesAdded: lossInc, xpGain: 0 });
-        }
+        resolve({ winsAdded: winInc, lossesAdded: lossInc });
       });
     });
   }

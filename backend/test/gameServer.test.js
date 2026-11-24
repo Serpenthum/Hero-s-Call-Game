@@ -196,3 +196,29 @@ test('toggling a favourite acts on the logged-in user, not the body\'s userId', 
   assert.equal(missing.status, 400);
   assert.equal(missing.json.message, 'Hero name is required');
 });
+
+test('a player who surrenders at once gets no XP and no coins; the winner gets 10 XP and 3 coins', async () => {
+  const quitter = await loggedInClient('quitA1');
+  const stayer = await loggedInClient('stayB1');
+  await quitter.waitFor('authentication-success');
+  await stayer.waitFor('authentication-success');
+  quitter.send('join-game', { name: 'Quinn', mode: 'random' });
+  stayer.send('join-game', { name: 'Sam', mode: 'random' });
+  // Random mode goes straight to battle
+  await quitter.waitFor('game-start', s => s.gameState && s.gameState.phase === 'battle');
+
+  quitter.send('surrender-game');
+  const won = await stayer.waitFor('victory-points-update');
+  const quit = await quitter.waitFor('victory-points-update');
+  const xp = await stayer.waitFor('xp-update');
+  await new Promise(r => setTimeout(r, 100));
+
+  assert.equal(won.victoryPointsGained, 3);
+  assert.equal(won.pointsAwarded, 3);
+  assert.equal(won.newVictoryPoints - won.oldVictoryPoints, 3);
+  assert.match(won.message, /coins/);
+  assert.equal(xp.xpGained, 10);
+  assert.equal(quit.victoryPointsGained, 0);
+  assert.equal(quit.newVictoryPoints, quit.oldVictoryPoints);
+  assert.equal(quitter.frames.some(f => f.t === 'xp-update'), false, 'no XP for quitting at once');
+});

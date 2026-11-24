@@ -388,7 +388,8 @@ describe('holo across the wire', () => {
     assert.ok(teamOf(state, 'Admin2').every(h => !('holo' in h)), "Admin2's heroes are plain");
     b.send('surrender-game');
     await b.waitFor('game-surrendered');
-    await b.waitFor('xp-update');
+    // Surrendering at once pays no XP; the +0 coins update comes once the battle is settled
+    await b.waitFor('victory-points-update');
   });
 
   test("a gauntlet battle shows the queueing player's holographics", async (t) => {
@@ -421,6 +422,7 @@ describe('holo across the wire', () => {
     assert.ok(teamOf(spectate.gameState, 'Admin2').every(h => !('holo' in h)));
     b.send('surrender-game');
     await b.waitFor('game-surrendered');
-    await b.waitFor('xp-update');
+    // Surrendering at once pays no XP; the +0 coins update comes once the battle is settled
+    await b.waitFor('victory-points-update');
   });
 });
