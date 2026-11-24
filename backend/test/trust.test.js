@@ -92,17 +92,18 @@ describe('auth tokens', () => {
 describe('shop', () => {
   const { createAuth } = require('../auth');
   const { createShopRouter } = require('../shop');
-  const NOW = Date.UTC(2026, 0, 1, 12, 0, 0);
   const enabled = heroList.filter(h => !h.disabled).map(h => h.name);
   const starters = ['Assassin', 'Barbarian', 'Cleric', 'Druid', 'Fighter', 'Monk', 'Paladin', 'Ranger', 'Sorcerer', 'Wizard'];
+  const [unowned, unowned2] = enabled.filter(n => !starters.includes(n));
+  const disabledHero = heroList.find(h => h.disabled).name;
 
-  // Packs draw from this; 0.99 never hits the bonus holographic roll
+  // Packs draw from this; 0.99 picks the last enabled hero and never hits the holographic roll
   let random = () => 0.99;
   let auth, app;
   before(async () => {
     auth = createAuth();
     app = createRouter();
-    app.use('/api/shop', createShopRouter({ database, getHeroes: () => heroList, auth, now: () => NOW, random: () => random() }));
+    app.use('/api/shop', createShopRouter({ database, getHeroes: () => heroList, auth, random: () => random() }));
   });
   beforeEach(() => { random = () => 0.99; });
 
@@ -114,126 +115,191 @@ describe('shop', () => {
     }));
     return { status: res.status, json: await res.json() };
   };
-  const newUser = async vp => {
-    const id = await createUser(database, `shopper${++userCount}`, { victoryPoints: vp });
+  const setShards = (id, shards) => new Promise((resolve, reject) => database.db.run(
+    'UPDATE users SET shards = ? WHERE id = ?', [shards, id], err => (err ? reject(err) : resolve())));
+  const newUser = async (vp, { heroes, shards } = {}) => {
+    const id = await createUser(database, `shopper${++userCount}`, { victoryPoints: vp, heroes });
+    if (shards) await setShards(id, shards);
     return { id, token: auth.issueToken(id) };
   };
-  const rotationFor = async user => (await call(`/api/shop/rotation?userId=${user.id}`, { token: user.token, method: 'GET' })).json.heroes.map(h => h.name);
+  const pack = user => call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
+  const craft = (user, body) => call('/api/shop/craft', { token: user.token, body: { userId: user.id, ...body } });
 
   test('every endpoint requires a login token', async () => {
-    const user = await newUser(50);
-    assert.equal((await call(`/api/shop/rotation?userId=${user.id}`, { method: 'GET' })).status, 401);
+    const user = await newUser(50, { shards: 100 });
     assert.equal((await call('/api/shop/purchase-pack', { body: { userId: user.id } })).status, 401);
-    assert.equal((await call('/api/shop/purchase-hero', { body: { userId: user.id, heroName: 'Bomber' } })).status, 401);
-    assert.equal((await database.getUserById(user.id)).victory_points, 50);
-  });
-
-  test("a user cannot spend another user's Victory Points", async () => {
-    const victim = await newUser(50);
-    const thief = await newUser(0);
-    const res = await call('/api/shop/purchase-pack', { token: thief.token, body: { userId: victim.id } });
-    assert.equal(res.status, 403);
-    assert.equal((await database.getUserById(victim.id)).victory_points, 50);
-  });
-
-  test('buying a pack spends 12 VP and grants 3 new heroes', async () => {
-    const user = await newUser(20);
-    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
-    assert.equal(res.status, 200);
-    assert.equal(res.json.heroesReceived.length, 3);
+    assert.equal((await call('/api/shop/craft', { body: { userId: user.id, heroName: unowned } })).status, 401);
     const after = await database.getUserById(user.id);
-    assert.equal(after.victory_points, 8);
-    assert.equal(after.available_heroes.length, 13);
-    assert.equal(new Set(after.available_heroes).size, 13, 'no duplicates');
+    assert.equal(after.victory_points, 50);
+    assert.equal(after.shards, 100);
   });
 
-  test('a pack response lists each card with its kind and full hero data', async () => {
-    const user = await newUser(20);
-    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
+  test("a user cannot spend another user's coins or shards", async () => {
+    const victim = await newUser(50, { shards: 100 });
+    const thief = await newUser(0);
+    assert.equal((await call('/api/shop/purchase-pack', { token: thief.token, body: { userId: victim.id } })).status, 403);
+    assert.equal((await call('/api/shop/craft', { token: thief.token, body: { userId: victim.id, heroName: unowned } })).status, 403);
+    const after = await database.getUserById(victim.id);
+    assert.equal(after.victory_points, 50);
+    assert.equal(after.shards, 100);
+  });
+
+  test('buying a pack spends 20 coins and gives one card', async () => {
+    const user = await newUser(25);
+    const res = await pack(user);
     assert.equal(res.status, 200);
-    assert.equal(res.json.coinsSpent, 12);
+    const name = enabled[enabled.length - 1];
+    assert.equal(res.json.card.name, name);
+    assert.equal(res.json.card.kind, 'new');
+    assert.equal(res.json.card.holo, false);
+    assert.equal(res.json.card.hero.name, name);
+    assert.notEqual(res.json.card.hero.HP, undefined);
+    assert.equal(res.json.coinsSpent, 20);
+    assert.equal(res.json.shardsGained, 0);
+    assert.equal(res.json.shards, 0);
+    assert.equal(res.json.newVP, 5);
+    const after = await database.getUserById(user.id);
+    assert.equal(after.victory_points, 5);
+    assert.equal(after.shards, 0);
+    assert.equal(after.available_heroes.length, 11);
+    assert.ok(after.available_heroes.includes(name));
+    assert.deepEqual(res.json.available_heroes, after.available_heroes);
+    assert.equal(res.json.heroCount, 11);
+  });
+
+  test('a repeat gives 10 shards and no coins back', async () => {
+    const user = await newUser(20, { heroes: enabled, shards: 5 });
+    const res = await pack(user);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.card.kind, 'repeat');
+    assert.equal(res.json.shardsGained, 10);
+    assert.equal(res.json.shards, 15);
     assert.equal(res.json.coinsBack, 0);
-    assert.equal(res.json.cards.length, 3);
-    for (const card of res.json.cards) {
-      assert.equal(card.kind, 'new');
-      assert.equal(card.hero.name, card.name);
-      assert.notEqual(card.hero.HP, undefined);
-    }
+    assert.equal(res.json.newVP, 0);
+    assert.deepEqual(res.json.heroesReceived, []);
+    const after = await database.getUserById(user.id);
+    assert.equal(after.victory_points, 0);
+    assert.equal(after.shards, 15);
+    assert.equal(after.available_heroes.length, enabled.length);
   });
 
-  test('a player who owns every hero can buy a pack', async () => {
-    const id = await createUser(database, `shopper${++userCount}`, { heroes: enabled, victoryPoints: 20 });
-    const user = { id, token: auth.issueToken(id) };
-    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
-    assert.equal(res.status, 200);
-    assert.deepEqual(res.json.cards.map(c => c.kind), ['repeat', 'repeat', 'repeat']);
-    assert.equal(res.json.coinsBack, 6);
-    assert.equal(res.json.newVP, 20 - 12 + 6);
-    assert.equal((await database.getUserById(user.id)).victory_points, 20 - 12 + 6);
-  });
-
-  test('a bonus holographic is saved', async () => {
+  test('a holographic card is saved as hero and holographic', async () => {
     random = () => 0;
     const user = await newUser(20);
-    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
+    const res = await pack(user);
     assert.equal(res.status, 200);
-    assert.equal(res.json.cards.length, 4);
-    const bonus = res.json.cards[3];
-    assert.ok(bonus.kind === 'holo' || bonus.kind === 'holo_upgrade');
+    assert.equal(res.json.card.holo, true);
+    assert.ok(res.json.card.kind === 'holo' || res.json.card.kind === 'holo_upgrade');
+    assert.equal(res.json.shardsGained, 0);
     const after = await database.getUserById(user.id);
-    assert.ok(after.holo_heroes.includes(bonus.name));
-    assert.ok(after.available_heroes.includes(bonus.name));
+    assert.ok(after.holo_heroes.includes(res.json.card.name));
+    assert.ok(after.available_heroes.includes(res.json.card.name));
     assert.deepEqual(res.json.holo_heroes, after.holo_heroes);
   });
 
-  test('heroesReceived is still sent for old pages', async () => {
-    random = () => 0;
+  test('the pack reply keeps cards, coinsBack 0 and heroesReceived for old pages', async () => {
     const user = await newUser(20);
-    const res = await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } });
-    const expected = res.json.cards.filter(c => c.kind === 'new' || c.kind === 'holo').map(c => c.name);
-    assert.ok(expected.length > 0);
-    assert.deepEqual(res.json.heroesReceived, expected);
+    const res = await pack(user);
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.json.cards, [res.json.card]);
+    assert.equal(res.json.coinsBack, 0);
+    assert.deepEqual(res.json.heroesReceived, [res.json.card.name]);
   });
 
-  test('a pack needs 12 VP', async () => {
-    const user = await newUser(11);
-    assert.equal((await call('/api/shop/purchase-pack', { token: user.token, body: { userId: user.id } })).status, 400);
-  });
-
-  test('a hero can only be bought if it is in the current rotation', async () => {
-    const user = await newUser(50);
-    const rotation = await rotationFor(user);
-    assert.equal(rotation.length, 6);
-    const outside = enabled.find(n => !starters.includes(n) && !rotation.includes(n));
-    const refused = await call('/api/shop/purchase-hero', { token: user.token, body: { userId: user.id, heroName: outside } });
-    assert.equal(refused.status, 400);
-    assert.equal((await database.getUserById(user.id)).victory_points, 50);
-
-    const ok = await call('/api/shop/purchase-hero', { token: user.token, body: { userId: user.id, heroName: rotation[0] } });
-    assert.equal(ok.status, 200);
+  test('a pack needs 20 coins', async () => {
+    const user = await newUser(19);
+    assert.equal((await pack(user)).status, 400);
     const after = await database.getUserById(user.id);
-    assert.equal(after.victory_points, 45);
-    assert.ok(after.available_heroes.includes(rotation[0]));
-  });
-
-  test('a hero already owned cannot be bought', async () => {
-    const user = await newUser(50);
-    const res = await call('/api/shop/purchase-hero', { token: user.token, body: { userId: user.id, heroName: 'Fighter' } });
-    assert.equal(res.status, 400);
+    assert.equal(after.victory_points, 19);
+    assert.equal(after.available_heroes.length, 10);
   });
 
   test('simultaneous purchases cannot overspend', async () => {
-    const user = await newUser(5);
-    const rotation = await rotationFor(user);
-    const results = await Promise.all([
-      call('/api/shop/purchase-hero', { token: user.token, body: { userId: user.id, heroName: rotation[0] } }),
-      call('/api/shop/purchase-hero', { token: user.token, body: { userId: user.id, heroName: rotation[1] } }),
-      call('/api/shop/purchase-hero', { token: user.token, body: { userId: user.id, heroName: rotation[2] } })
-    ]);
-    assert.equal(results.filter(r => r.status === 200).length, 1);
+    const user = await newUser(40);
+    const results = await Promise.all([pack(user), pack(user), pack(user)]);
+    assert.equal(results.filter(r => r.status === 200).length, 2);
+    assert.equal((await database.getUserById(user.id)).victory_points, 0);
+  });
+
+  test('crafting spends 100 shards and the hero is owned', async () => {
+    const user = await newUser(0, { shards: 130 });
+    const res = await craft(user, { heroName: unowned });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.success, true);
+    assert.equal(res.json.heroName, unowned);
+    assert.equal(res.json.hero.name, unowned);
+    assert.equal(res.json.shards, 30);
+    assert.equal(res.json.heroCount, 11);
     const after = await database.getUserById(user.id);
-    assert.equal(after.victory_points, 0);
+    assert.equal(after.shards, 30);
+    assert.ok(after.available_heroes.includes(unowned));
+    assert.deepEqual(res.json.available_heroes, after.available_heroes);
+    assert.equal(after.holo_heroes.includes(unowned), false);
+  });
+
+  test('crafting needs a hero name', async () => {
+    const user = await newUser(0, { shards: 100 });
+    const res = await craft(user, {});
+    assert.equal(res.status, 400);
+    assert.equal(res.json.message, 'Hero name is required');
+    assert.equal((await database.getUserById(user.id)).shards, 100);
+  });
+
+  test('an unknown or disabled hero cannot be crafted', async () => {
+    const user = await newUser(0, { shards: 100 });
+    for (const heroName of ['Nobody At All', disabledHero]) {
+      const res = await craft(user, { heroName });
+      assert.equal(res.status, 400);
+      assert.equal(res.json.message, 'Hero not available');
+    }
+    const after = await database.getUserById(user.id);
+    assert.equal(after.shards, 100);
+    assert.equal(after.available_heroes.includes(disabledHero), false);
+  });
+
+  test('a hero already owned cannot be crafted', async () => {
+    const user = await newUser(0, { shards: 100 });
+    const res = await craft(user, { heroName: 'Fighter' });
+    assert.equal(res.status, 400);
+    assert.equal(res.json.message, 'You already have this hero.');
+    assert.equal((await database.getUserById(user.id)).shards, 100);
+  });
+
+  test('crafting needs 100 shards', async () => {
+    const user = await newUser(500, { shards: 99 });
+    const res = await craft(user, { heroName: unowned });
+    assert.equal(res.status, 400);
+    assert.equal(res.json.message, 'Not enough shards.');
+    const after = await database.getUserById(user.id);
+    assert.equal(after.shards, 99);
+    assert.equal(after.victory_points, 500);
+    assert.equal(after.available_heroes.includes(unowned), false);
+  });
+
+  test('crafting ignores a holo flag in the body', async () => {
+    const user = await newUser(0, { shards: 100 });
+    const res = await craft(user, { heroName: unowned, holo: true });
+    assert.equal(res.status, 200);
+    const after = await database.getUserById(user.id);
+    assert.ok(after.available_heroes.includes(unowned));
+    assert.deepEqual(after.holo_heroes, []);
+  });
+
+  test('simultaneous crafts with 100 shards make exactly one hero', async () => {
+    const user = await newUser(0, { shards: 100 });
+    const results = await Promise.all([craft(user, { heroName: unowned }), craft(user, { heroName: unowned2 })]);
+    assert.equal(results.filter(r => r.status === 200).length, 1);
+    assert.equal(results.filter(r => r.status === 400).length, 1);
+    const after = await database.getUserById(user.id);
+    assert.equal(after.shards, 0);
     assert.equal(after.available_heroes.length, 11);
+  });
+
+  test('the rotation and purchase-hero routes are gone', async () => {
+    const user = await newUser(50);
+    assert.equal((await call('/api/shop/rotation', { token: user.token, method: 'GET' })).status, 404);
+    assert.equal((await call('/api/shop/purchase-hero', { token: user.token, body: { userId: user.id, heroName: unowned } })).status, 404);
+    assert.equal((await database.getUserById(user.id)).victory_points, 50);
   });
 });
 

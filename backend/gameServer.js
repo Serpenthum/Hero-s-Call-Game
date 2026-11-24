@@ -596,7 +596,7 @@ router.get('/api/favorite-heroes/:userId', async (req, res) => {
   }
 });
 
-// Shop API endpoints (see shop.js): login token required, rotation of 6 heroes, 5 VP hero / 12 VP pack
+// Shop API endpoints (see shop.js): login token required, 20 coin one-card pack, crafting for 100 shards
 router.use('/api/shop', createShopRouter({ database, getHeroes, auth }));
 
 router.get('/api/heroes', (req, res) => {
