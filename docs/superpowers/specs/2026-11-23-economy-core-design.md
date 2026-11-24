@@ -73,7 +73,7 @@ These are agreed for later projects and must not be built here:
 | Survival run prize, 1 to 7 wins | 1, 2, 4, 6, 9, 12, 16 | 2, 4, 7, 10, 15, 20, 27 |
 | XP for the next level | level × 25, stops at 20 | level × 25 up to level 20, then 500 for every level, no cap |
 
-Unchanged: Survival run XP, tie XP (10), friend-room battles (XP only, no coins), quest XP, the Gauntlet.
+Unchanged: Survival run XP, tie XP (10), quest XP, the Gauntlet.
 
 ### Packs
 
@@ -128,6 +128,12 @@ Unchanged: Survival run XP, tie XP (10), friend-room battles (XP only, no coins)
   nothing wrong. Two accounts trading wins can still farm slowly, as they can today; that is accepted here and
   left for the ranked project. (My call.)
 - The end-of-battle screen shows the coins gained, for the loser too.
+
+Friend rooms and friend challenges pay coins at Random's rates, whatever the game's mode: a win pays 2 plus 1 per
+hero alive, a win by surrender or disconnect 3, a loss 2 and a tie 2 each. They are casual games, so the gold is
+small. When a friend surrenders or disconnects before losing a hero, nobody gets anything: no coins and no XP for
+the quitter or the winner, so two friends cannot collect coins by quitting at once. Each player gets the same end
+messages as in a matched game. Friendly wins still do not count toward quests. (owner, 2026-11-24)
 
 ### Levels
 

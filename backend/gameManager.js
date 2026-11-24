@@ -8154,14 +8154,9 @@ class GameManager {
       return { success: true, message: 'Survival mode - victory points handled on run end' };
     }
 
-    if (BATTLE_COIN_MODES.has(game.mode)) {
+    // Friend rooms (and friend challenges) pay Random's amounts whatever their mode
+    if (BATTLE_COIN_MODES.has(game.mode) || game.isFriendly) {
       return this.payBattle(game, winnerId, reason);
-    }
-
-    // Friend challenges (rooms) are played for XP only
-    if (game.isFriendly) {
-      console.log(`🤝 Friend challenge - no victory points awarded`);
-      return { success: true, message: 'Friend challenge - no victory points' };
     }
 
     // Handle tie games
@@ -8238,8 +8233,8 @@ class GameManager {
   }
 
   // Works out every player's ending at once (so the server can read it straight away), then pays the
-  // coins. Friend rooms pay no coins. total is the player's coin balance after the payout, or null if
-  // it could not be read.
+  // coins. A friend room pays Random's amounts whatever its mode, and nothing to anyone when a friend
+  // quit early. total is the player's coin balance after the payout, or null if it could not be read.
   payBattle(game, winnerId, reason) {
     const players = game.players.filter(Boolean);
     const endings = {};
@@ -8247,11 +8242,13 @@ class GameManager {
       const ownHeroesDown = player.team.filter(h => h.currentHP <= 0).length;
       endings[player.id] = endingFor({ reason, isWinner: player.id === winnerId, ownHeroesDown });
     }
+    const friendQuitEarly = !!game.isFriendly && Object.values(endings).includes('quit_early');
+    const coinMode = game.isFriendly ? 'random' : game.mode;
     const coins = (async () => {
       const paid = {};
       for (const player of players) {
         const heroesAlive = player.team.filter(h => h.currentHP > 0).length;
-        const amount = game.isFriendly ? 0 : battleCoins(game.mode, endings[player.id], heroesAlive);
+        const amount = friendQuitEarly ? 0 : battleCoins(coinMode, endings[player.id], heroesAlive);
         paid[player.id] = { coins: amount, total: await this.payBattleCoins(player, amount, `${game.mode}_mode_${reason}`) };
       }
       return paid;

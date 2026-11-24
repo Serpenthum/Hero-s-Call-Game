@@ -1123,7 +1123,7 @@ async function getProfileIconForUser(userId) {
   return 'Sorcerer';
 }
 
-// Pays XP and reports the coins for a finished draft or random game (friend rooms: XP only).
+// Pays XP and reports the coins for a finished draft or random game or friend room.
 // gameManager.handleGameCompletion has already worked out each player's ending and paid the coins.
 async function handleRegularGameCompletion(result) {
   if (result.success && result.gameState && result.gameState.mode === 'tutorial') {
@@ -1187,7 +1187,7 @@ async function handleRegularGameCompletion(result) {
       }
 
       const coins = paid && paid[player.id];
-      if (coins && coins.total !== null && !gs.isFriendly) {
+      if (coins && coins.total !== null) {
         const user = await database.getUserById(userId);
         const balance = user ? user.victory_points : coins.total + levelUpCoins;
         io.to(player.id).emit('victory-points-update', {
@@ -1198,24 +1198,10 @@ async function handleRegularGameCompletion(result) {
           totalVictoryPoints: balance,
           pointsAwarded: coins.coins,
           gameMode: gs.mode,
-          message: coinMessage(ending, coins.coins)
+          message: friendQuitEarly && ending !== 'quit_early' ?
+            'No coins or XP when a friend leaves before any of their heroes fall.' :
+            coinMessage(ending, coins.coins)
         });
-      } else if (gs.isFriendly && levelUpCoins > 0) {
-        // A friend room pays no battle coins, but a level-up there still pays its coins: say so, so the end screen
-        // and the lobby balance include them
-        const user = await database.getUserById(userId);
-        if (user) {
-          io.to(player.id).emit('victory-points-update', {
-            type: isTie ? 'game_tie' : 'game_end',
-            oldVictoryPoints: user.victory_points - levelUpCoins,
-            newVictoryPoints: user.victory_points,
-            victoryPointsGained: levelUpCoins,
-            totalVictoryPoints: user.victory_points,
-            pointsAwarded: 0,
-            gameMode: gs.mode,
-            message: `Level up! You earned ${levelUpCoins} coins.`
-          });
-        }
       }
 
       if (isWinner) await awardQuestProgress(result, player);

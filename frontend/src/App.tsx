@@ -1035,7 +1035,7 @@ function App() {
         const oldXP = prev.user?.xp || 0;
         const oldLevel = prev.user?.level || 1;
         
-        // XP for this battle; its coins come from the 'victory-points-update' that follows (none in friend rooms)
+        // XP for this battle; its coins come from the 'victory-points-update' that follows
         setRewardsData(rewardsFromXPUpdate(data, { xp: oldXP, level: oldLevel, victoryPoints: prev.victoryPoints }));
         
         return {

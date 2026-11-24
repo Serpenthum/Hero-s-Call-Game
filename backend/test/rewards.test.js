@@ -235,15 +235,34 @@ describe('Battle coins', () => {
     assert.equal(await coinsOf(rivalId), 2);
   });
 
-  test('a friend room pays no coins', async () => {
-    const game = await finishedGame('draft');
+  const friendGame = async (mode = 'draft') => {
+    const game = await finishedGame(mode);
     game.isFriendly = true;
-    await winOnBoard(game);
-    assert.equal(await coinsOf(userId), 0);
-    assert.equal(await coinsOf(rivalId), 0);
+    return game;
+  };
+
+  test('a friend-room win with 3 heroes alive pays the winner 5 and the loser 2', async () => {
+    await winOnBoard(await friendGame());
+    assert.equal(await coinsOf(userId), 5);
+    assert.equal(await coinsOf(rivalId), 2);
   });
 
-  test('a game made by createFriendlyGame pays no coins even when its room name is empty', async () => {
+  test("a friend-room Draft game pays Random's amounts", async () => {
+    await winOnBoard(await friendGame('draft'), 2);
+    assert.equal(await coinsOf(userId), 4);
+    assert.equal(await coinsOf(rivalId), 2);
+  });
+
+  test('a friend-room tie pays 2 each', async () => {
+    const game = await friendGame();
+    game.players.forEach(p => p.team.forEach(h => { h.currentHP = 0; }));
+    gm.checkWinCondition(game);
+    await gm.getPayout(game.id).coins;
+    assert.equal(await coinsOf(userId), 2);
+    assert.equal(await coinsOf(rivalId), 2);
+  });
+
+  test('a friend-room surrender after losing a hero: winner 3, loser 2 (a createFriendlyGame room, empty name)', async () => {
     rivalId = await createUser(database, `rival${++userCount}`);
     gm.setUserSession('p0', userId);
     gm.setUserSession('p1', rivalId);
@@ -258,9 +277,26 @@ describe('Battle coins', () => {
     game.players[1].team[0].currentHP = 0;
     assert.equal(gm.surrenderGame('p1').success, true);
     await gm.getPayout(gameId).coins;
+    assert.equal(await coinsOf(userId), 3);
+    assert.equal(await coinsOf(rivalId), 2);
+    assert.equal(gm.getFullGameState(game).isFriendly, true);
+  });
+
+  test('a friend who quits at once by surrender: nobody gets coins', async () => {
+    const game = await friendGame();
+    gm.surrenderGame('p1');
+    assert.deepEqual(await gm.getPayout(game.id).coins, { p0: { coins: 0, total: 0 }, p1: { coins: 0, total: 0 } });
     assert.equal(await coinsOf(userId), 0);
     assert.equal(await coinsOf(rivalId), 0);
-    assert.equal(gm.getFullGameState(game).isFriendly, true);
+  });
+
+  test('a friend who quits at once by disconnect: nobody gets coins', async () => {
+    const game = await friendGame();
+    game.players[1].connected = false;
+    await gm.finishDisconnectedGame(game, 'p1');
+    await gm.getPayout(game.id).coins;
+    assert.equal(await coinsOf(userId), 0);
+    assert.equal(await coinsOf(rivalId), 0);
   });
 
   test("getPayout lists each player's ending", async () => {
