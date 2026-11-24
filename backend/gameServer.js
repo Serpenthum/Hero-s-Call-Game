@@ -5,7 +5,7 @@ const { QuestService } = require('./quests');
 const { createAuth } = require('./auth');
 const { createShopRouter } = require('./shop');
 const { rollDice, shuffleArray, rig } = require('./utils');
-const { battleXP } = require('./economy');
+const { battleXP, TUTORIAL_REWARD_COINS } = require('./economy');
 const heroes = require('./heros.json');
 
 // timing overrides the clocks for tests: { turnTimeMs, reconnectGraceMs }
@@ -921,7 +921,6 @@ function scheduleAutoEndTurn(gameId) {
 
 // ==================== TUTORIAL ====================
 const TUTORIAL_BOT_DELAY_MS = 1400;
-const TUTORIAL_REWARD_VP = 100;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Force d20s so the first hit, the assassin's poison and the player's first crit always happen.
@@ -1042,8 +1041,8 @@ async function grantTutorialRewards(userId) {
   const before = await database.getUserById(userId);
   const xpGained = Math.max(0, database.getXPRequiredForLevel(stats.level) - stats.xp);
   const xpUpdate = await database.updatePlayerXP(userId, xpGained);
-  // Level-ups already grant VP, so only top up to the fixed reward
-  const topUp = Math.max(0, TUTORIAL_REWARD_VP - (xpUpdate.vpGained || 0));
+  // Level-ups already pay coins, so only top up to the fixed reward
+  const topUp = Math.max(0, TUTORIAL_REWARD_COINS - (xpUpdate.vpGained || 0));
   if (topUp > 0) await database.updateUserVictoryPoints(userId, topUp);
   await database.markTutorialCompleted(userId);
   const after = await database.getUserById(userId);
@@ -1064,7 +1063,7 @@ async function handleTutorialCompletion(result) {
   t.completed = true;
 
   // Fake numbers for the no-account test run so the reward screen can be previewed
-  let rewards = { xpGained: 25, newXP: 0, newLevel: 2, levelsGained: 1, oldVP: 0, newVP: TUTORIAL_REWARD_VP };
+  let rewards = { xpGained: 25, newXP: 0, newLevel: 2, levelsGained: 1, oldVP: 0, newVP: TUTORIAL_REWARD_COINS };
 
   if (t.userId) {
     try {

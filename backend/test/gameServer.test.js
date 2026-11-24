@@ -259,3 +259,17 @@ test('a winner who levels up gets the XP first, then a coin update with battle a
   assert.equal(coins.newVictoryPoints, balance);
   assert.equal(coins.totalVictoryPoints, balance);
 });
+
+test('a new account that skips the tutorial lands at level 2 with 80 coins', async () => {
+  const c = await loggedInClient('skipT1');
+  const { userId } = await c.waitFor('authentication-success');
+  c.send('join-tutorial', { name: 'Skipper' });
+  await c.waitFor('join-result', r => r.gameId);
+  c.send('tutorial-skip');
+  const skipped = await c.waitFor('tutorial-skipped');
+  assert.equal(skipped.newLevel, 2);
+  assert.equal(skipped.newVictoryPoints, 80);
+  const user = (await api('GET', `/api/user/${userId}`)).json.user;
+  assert.equal(user.level, 2);
+  assert.equal(user.victory_points, 80);
+});
