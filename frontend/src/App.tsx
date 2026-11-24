@@ -44,6 +44,7 @@ import { SearchCancels } from './lobby/searchCancels';
 import { lazyWithReload } from './app/lazyWithReload';
 import AppErrorBoundary from './app/AppErrorBoundary';
 import { tutorialStageOnRestore, tutorialBattleFinished } from './app/tutorialResume';
+import { rewardsFromXPUpdate } from './app/battleRewards';
 
 // Code-split screens reload the page once if their chunk is gone after a deploy (see lazyWithReload)
 const DraftPhase = lazyWithReload(() => import('./components/DraftPhase'));
@@ -65,6 +66,7 @@ interface User {
   available_heroes: string[];
   favorite_heroes: string[];
   holo_heroes?: string[];
+  shards?: number; // missing from older servers: read as 0
   xp: number;
   level: number;
   best_gauntlet_trial: number;
@@ -1033,18 +1035,8 @@ function App() {
         const oldXP = prev.user?.xp || 0;
         const oldLevel = prev.user?.level || 1;
         
-        // Update rewards data with XP and VP information
-        setRewardsData(prevRewards => ({
-          oldXP: oldXP,
-          newXP: data.newXP,
-          xpGained: data.xpGained || 0,
-          oldLevel: oldLevel,
-          newLevel: data.newLevel,
-          oldVictoryPoints: prevRewards?.oldVictoryPoints || prev.victoryPoints,
-          newVictoryPoints: data.vpGained ? (prev.victoryPoints + data.vpGained) : (prevRewards?.newVictoryPoints || prev.victoryPoints),
-          victoryPointsGained: data.vpGained || (prevRewards?.victoryPointsGained || 0),
-          leveledUp: data.leveledUp || false
-        }));
+        // XP for this battle; its coins come from the 'victory-points-update' that follows (none in friend rooms)
+        setRewardsData(rewardsFromXPUpdate(data, { xp: oldXP, level: oldLevel, victoryPoints: prev.victoryPoints }));
         
         return {
           ...prev,

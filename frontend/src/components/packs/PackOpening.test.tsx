@@ -15,11 +15,13 @@ const card = (name: string, kind: PackCardKind): PackCard => ({ name, kind, hero
 const threeCards: PackResult = {
   cards: [card('Ninja', 'new'), card('Monk', 'repeat'), card('Pirate', 'new')],
   coinsBack: 2,
+  shardsGained: 0,
   newVP: 30,
 };
 const fourCards: PackResult = {
   cards: [card('Ninja', 'new'), card('Monk', 'repeat'), card('Pirate', 'new'), card('Samurai', 'holo')],
   coinsBack: 2,
+  shardsGained: 0,
   newVP: 30,
 };
 
@@ -81,7 +83,7 @@ describe('PackOpening', () => {
     ];
     labels.forEach(([kind, label]) => {
       it(kind, () => {
-        const root = open({ cards: [card('Ninja', kind), card('Monk', 'new'), card('Pirate', 'new')], coinsBack: 0, newVP: 5 });
+        const root = open({ cards: [card('Ninja', kind), card('Monk', 'new'), card('Pirate', 'new')], coinsBack: 0, newVP: 5, shardsGained: 0 });
         tapPack(root);
         const first = cards(root)[0];
         expect(first.dataset.kind).toBe(kind);
@@ -103,6 +105,7 @@ describe('PackOpening', () => {
     const result: PackResult = {
       cards: [card('Ninja', 'new'), card('Samurai', 'holo_upgrade'), card('Monk', 'repeat'), card('Pirate', 'new')],
       coinsBack: 2,
+      shardsGained: 0,
       newVP: 30,
     };
     const root = open(result, { onTurn: name => turns.push(name) });

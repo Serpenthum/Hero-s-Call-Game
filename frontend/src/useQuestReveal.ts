@@ -6,8 +6,8 @@ export type QuestStage = 'idle' | 'check' | 'prompt' | 'counting';
 
 interface Totals { xp: number; level: number; vp: number }
 
-// Mirrors XPBar: level N needs N * 25 XP, capped at 500.
-const xpForLevel = (level: number) => (level >= 20 ? 500 : level * 25);
+// Mirrors XPBar: level N needs min(N, 20) * 25 XP, so 500 a level from 20 on. Levels have no cap.
+export const xpForLevel = (level: number) => Math.min(level, 20) * 25;
 
 const toAbsoluteXP = (level: number, xp: number) => {
   let total = xp;
@@ -15,10 +15,10 @@ const toAbsoluteXP = (level: number, xp: number) => {
   return total;
 };
 
-const fromAbsoluteXP = (absolute: number) => {
+export const fromAbsoluteXP = (absolute: number) => {
   let level = 1;
   let xp = absolute;
-  while (level < 20 && xp >= xpForLevel(level)) {
+  while (xp >= xpForLevel(level)) {
     xp -= xpForLevel(level);
     level++;
   }

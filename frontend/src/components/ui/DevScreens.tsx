@@ -222,6 +222,7 @@ const DevScreens: React.FC = () => {
     cards: kinds.map((kind, i) => ({ name: heroes[i].name, kind, hero: heroes[i] })),
     coinsBack: kinds.filter(k => k === 'repeat').length * 2,
     newVP: 30,
+    shardsGained: 0,
   });
   const packScreen = (kinds: PackCardKind[]) =>
     heroes.length >= kinds.length

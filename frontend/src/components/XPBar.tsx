@@ -10,9 +10,9 @@ interface XPBarProps {
 }
 
 // XP target for the current level (XP resets to 0 on level up).
-// Level 1 needs 25, Level 2 needs 50, Level 3 needs 75, etc.
+// Level 1 needs 25, Level 2 needs 50, Level 3 needs 75, etc., then 500 a level from 20 on (no level cap).
 export const xpNeededForLevel = (lvl: number) => {
-  if (lvl >= 20) return 500; // Max level
+  if (lvl >= 20) return 500; // 500 per level from 20, no cap
   return lvl * 25;
 };
 

@@ -17,6 +17,7 @@ const card = (name: string, kind: PackCardKind): PackCard => ({ name, kind, hero
 const fourCards: PackResult = {
   cards: [card('Ninja', 'new'), card('Monk', 'repeat'), card('Pirate', 'new'), card('Samurai', 'holo')],
   coinsBack: 2,
+  shardsGained: 0,
   newVP: 30,
 };
 const noop = () => undefined;
@@ -67,6 +68,7 @@ describe('PackOpening with animations on', () => {
     const result: PackResult = {
       cards: [card('Ninja', 'new'), { ...card('Monk', 'repeat'), holo: true }, card('Pirate', 'new')],
       coinsBack: 2,
+      shardsGained: 0,
       newVP: 30,
     };
     const root = render(
