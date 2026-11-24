@@ -274,6 +274,116 @@ test('a new account that skips the tutorial lands at level 2 with 80 coins', asy
   assert.equal(user.victory_points, 80);
 });
 
+test('two tutorial skips for one new account at the same time pay the reward once', async () => {
+  const a = await loggedInClient('skipT2');
+  const { userId } = await a.waitFor('authentication-success');
+  const b = connect(); // a second tab, seated in a tutorial for the same account
+  a.send('join-tutorial', { name: 'Skipper' });
+  b.send('join-tutorial', { name: 'Skipper' });
+  await a.waitFor('join-result', r => r.gameId);
+  const { gameId } = await b.waitFor('join-result', r => r.gameId);
+  server.gameManager.games.get(gameId).tutorial.userId = userId;
+  a.send('tutorial-skip');
+  b.send('tutorial-skip');
+  await a.waitFor('tutorial-skipped').catch(() => b.waitFor('tutorial-skipped'));
+  await new Promise(r => setTimeout(r, 300));
+  const user = (await api('GET', `/api/user/${userId}`)).json.user;
+  assert.equal(user.level, 2);
+  assert.equal(user.victory_points, 80);
+  const skips = [...a.frames, ...b.frames].filter(f => f.t === 'tutorial-skipped');
+  assert.equal(skips.length, 1, 'only the claim that won reports a reward');
+});
+
+test('a friend room with an empty or blank name is refused', async () => {
+  const c = await loggedInClient('roomE1');
+  await c.waitFor('authentication-success');
+  for (const roomName of ['', '   ', undefined, 42]) {
+    c.frames.length = 0;
+    c.send('create-friendly-room', { roomName, playerName: 'Eve' });
+    const reply = await c.waitFor('friendly-room-created');
+    assert.equal(reply.success, false, `refuses ${JSON.stringify(roomName)}`);
+    assert.equal(typeof reply.message, 'string');
+  }
+});
+
+// Two new accounts in a friend room, put straight into battle with set teams
+async function friendBattle(tag) {
+  const host = await loggedInClient(`host${tag}`);
+  const guest = await loggedInClient(`gst${tag}`);
+  const { userId: hostId } = await host.waitFor('authentication-success');
+  const { userId: guestId } = await guest.waitFor('authentication-success');
+  host.send('create-friendly-room', { roomName: `room-${tag}`, playerName: 'Hana' });
+  await host.waitFor('friendly-room-created', r => r.success);
+  guest.send('join-friendly-room', { roomName: `room-${tag}`, playerName: 'Gus' });
+  const { gameId } = await guest.waitFor('friendly-room-joined', r => r.success);
+  const gm = server.gameManager;
+  const game = gm.games.get(gameId);
+  [['Fighter', 'Cleric', 'Monk'], ['Wizard', 'Silencer', 'Warden']].forEach((names, i) => {
+    game.players[i].team = names.map(n => gm.resetHeroToOriginalState(gm.allHeroes.find(h => h.name === n)));
+  });
+  game.phase = 'battle';
+  const guestIndex = game.players.findIndex(p => p.userId === guestId);
+  return { host, guest, hostId, guestId, game, guestIndex };
+}
+const standingOf = async id => {
+  const user = (await api('GET', `/api/user/${id}`)).json.user;
+  return { xp: user.xp, coins: user.victory_points };
+};
+
+test('friend room: a surrender with no hero down pays neither player XP or coins', async () => {
+  const { host, guest, hostId, guestId } = await friendBattle('Q1');
+  guest.send('surrender-game');
+  await host.waitFor('game-surrendered');
+  await new Promise(r => setTimeout(r, 300));
+  assert.deepEqual(await standingOf(hostId), { xp: 0, coins: 0 });
+  assert.deepEqual(await standingOf(guestId), { xp: 0, coins: 0 });
+  for (const c of [host, guest]) {
+    assert.equal(c.frames.some(f => f.t === 'xp-update'), false);
+    assert.equal(c.frames.some(f => f.t === 'victory-points-update'), false);
+  }
+});
+
+test('friend room: a surrender after losing a hero pays 10 and 5 XP, no coins', async () => {
+  const { host, guest, hostId, guestId, game, guestIndex } = await friendBattle('Q2');
+  game.players[guestIndex].team[0].currentHP = 0;
+  guest.send('surrender-game');
+  const won = await host.waitFor('xp-update');
+  const lost = await guest.waitFor('xp-update');
+  await new Promise(r => setTimeout(r, 300));
+  assert.equal(won.xpGained, 10);
+  assert.equal(lost.xpGained, 5);
+  assert.deepEqual(await standingOf(hostId), { xp: 10, coins: 0 });
+  assert.deepEqual(await standingOf(guestId), { xp: 5, coins: 0 });
+});
+
+test('a finished game whose result is handled twice pays XP once', async () => {
+  const quitter = await loggedInClient('twiceA1');
+  const winner = await loggedInClient('twiceB1');
+  await quitter.waitFor('authentication-success');
+  const { userId: winnerId } = await winner.waitFor('authentication-success');
+  quitter.send('join-game', { name: 'Quinn', mode: 'random' });
+  winner.send('join-game', { name: 'Wren', mode: 'random' });
+  await quitter.waitFor('game-start', s => s.gameState && s.gameState.phase === 'battle');
+
+  // The same finished result reaches the completion handler twice
+  const gm = server.gameManager;
+  const surrender = gm.surrenderGame;
+  let first = null;
+  gm.surrenderGame = id => first || (first = surrender.call(gm, id));
+  try {
+    quitter.send('surrender-game');
+    quitter.send('surrender-game');
+    await winner.waitFor('xp-update');
+    await new Promise(r => setTimeout(r, 300));
+  } finally {
+    gm.surrenderGame = surrender;
+  }
+  assert.equal(winner.frames.filter(f => f.t === 'xp-update').length, 1);
+  assert.equal(winner.frames.filter(f => f.t === 'victory-points-update').length, 1);
+  assert.equal(winner.frames.find(f => f.t === 'xp-update').d[0].xpGained, 10);
+  assert.equal((await testDb.database.getPlayerStats(winnerId)).total_wins, 1, 'the win is counted once');
+});
+
 test('an account with all 40 heroes, 500 coins and level 20 loads unchanged, buys a pack and gains XP', async () => {
   const run = (sql, params) => new Promise((resolve, reject) => testDb.database.db.run(sql, params, e => (e ? reject(e) : resolve())));
   const allHeroes = require('../heros.json').filter(h => !h.disabled).map(h => h.name);

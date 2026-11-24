@@ -308,6 +308,7 @@ class GameManager {
     const gameId = uuidv4();
     const game = this.createNewGame(gameId, 'draft');
     game.roomName = roomName;
+    game.isFriendly = true; // friendliness never depends on the name, which only displays and finds the room
     game.players.push({
       id: playerId,
       name: playerName,
@@ -6289,7 +6290,7 @@ class GameManager {
       id: game.id,
       mode: game.mode, // Include the game mode (survival, draft, random, etc.)
       firstPlayerIndex: game.firstPlayerIndex,
-      isFriendly: !!game.roomName,
+      isFriendly: !!game.isFriendly,
       phase: game.phase,
       players: game.players.map(p => ({
         id: p.id,
@@ -8158,7 +8159,7 @@ class GameManager {
     }
 
     // Friend challenges (rooms) are played for XP only
-    if (game.roomName) {
+    if (game.isFriendly) {
       console.log(`🤝 Friend challenge - no victory points awarded`);
       return { success: true, message: 'Friend challenge - no victory points' };
     }
@@ -8250,7 +8251,7 @@ class GameManager {
       const paid = {};
       for (const player of players) {
         const heroesAlive = player.team.filter(h => h.currentHP > 0).length;
-        const amount = game.roomName ? 0 : battleCoins(game.mode, endings[player.id], heroesAlive);
+        const amount = game.isFriendly ? 0 : battleCoins(game.mode, endings[player.id], heroesAlive);
         paid[player.id] = { coins: amount, total: await this.payBattleCoins(player, amount, `${game.mode}_mode_${reason}`) };
       }
       return paid;

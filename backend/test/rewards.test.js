@@ -237,10 +237,30 @@ describe('Battle coins', () => {
 
   test('a friend room pays no coins', async () => {
     const game = await finishedGame('draft');
-    game.roomName = 'r';
+    game.isFriendly = true;
     await winOnBoard(game);
     assert.equal(await coinsOf(userId), 0);
     assert.equal(await coinsOf(rivalId), 0);
+  });
+
+  test('a game made by createFriendlyGame pays no coins even when its room name is empty', async () => {
+    rivalId = await createUser(database, `rival${++userCount}`);
+    gm.setUserSession('p0', userId);
+    gm.setUserSession('p1', rivalId);
+    const { gameId } = gm.createFriendlyGame('p0', 'Alice', '', 'Sorcerer', userId);
+    assert.equal((await gm.addPlayerToGame(gameId, 'p1', 'Bob', 'Sorcerer', rivalId)).success, true);
+    const game = gm.games.get(gameId);
+    game.roomName = '';
+    [['Fighter', 'Cleric', 'Monk'], ['Wizard', 'Silencer', 'Warden']].forEach((names, i) => {
+      game.players[i].team = names.map(n => gm.resetHeroToOriginalState(gm.allHeroes.find(h => h.name === n)));
+    });
+    game.phase = 'battle';
+    game.players[1].team[0].currentHP = 0;
+    assert.equal(gm.surrenderGame('p1').success, true);
+    await gm.getPayout(gameId).coins;
+    assert.equal(await coinsOf(userId), 0);
+    assert.equal(await coinsOf(rivalId), 0);
+    assert.equal(gm.getFullGameState(game).isFriendly, true);
   });
 
   test("getPayout lists each player's ending", async () => {

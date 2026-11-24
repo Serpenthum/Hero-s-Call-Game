@@ -1033,10 +1033,11 @@ async function tutorialBotLoop(gameId) {
   }
 }
 
-// Levels the account up to the tutorial's fixed reward and marks the tutorial done.
-// Returns null if the tutorial was already completed.
+// Marks the tutorial done, then levels the account up to the tutorial's fixed reward.
+// Returns null if the tutorial was already completed. The claim comes first and is atomic, so two
+// requests at once (two tabs) pay once.
 async function grantTutorialRewards(userId) {
-  if (await database.isTutorialCompleted(userId)) return null;
+  if (!(await database.claimTutorialCompletion(userId))) return null;
   const stats = await database.getPlayerStats(userId);
   const before = await database.getUserById(userId);
   const xpGained = Math.max(0, database.getXPRequiredForLevel(stats.level) - stats.xp);
@@ -1044,7 +1045,6 @@ async function grantTutorialRewards(userId) {
   // Level-ups already pay coins, so only top up to the fixed reward
   const topUp = Math.max(0, TUTORIAL_REWARD_COINS - (xpUpdate.vpGained || 0));
   if (topUp > 0) await database.updateUserVictoryPoints(userId, topUp);
-  await database.markTutorialCompleted(userId);
   const after = await database.getUserById(userId);
   return {
     xpGained,
@@ -1133,6 +1133,13 @@ async function handleRegularGameCompletion(result) {
   const gs = result.gameState;
   if (!result.success || !gs || !gs.winner || gs.mode === 'survival') return;
 
+  // Settle each finished game once, even if its result is handled twice; set before any await
+  const game = gameManager.games.get(result.gameId);
+  if (game) {
+    if (game.xpSettled) return;
+    game.xpSettled = true;
+  }
+
   const isTie = gs.winner === 'TIE';
   console.log(isTie ? `🤝 TIE game (${gs.mode})! Both players eliminated!` : `🏆 Regular game (${gs.mode}) completed! Winner: ${gs.winner}`);
 
@@ -1144,6 +1151,9 @@ async function handleRegularGameCompletion(result) {
   } catch (error) {
     console.error('❌ Error paying battle coins:', error);
   }
+
+  // A friend room's opponent is chosen, so a win over a friend who quit at once pays no XP either
+  const friendQuitEarly = !!gs.isFriendly && !!payout && Object.values(payout.endings).includes('quit_early');
 
   const players = (gs.players || []).filter(p => p && !gs.spectators?.some(s => s.socketId === p.id));
   for (const player of players) {
@@ -1159,7 +1169,7 @@ async function handleRegularGameCompletion(result) {
       }
 
       // XP first, then the coins: the coin message comes last and its balance includes any level-up coins
-      const xpGain = battleXP(ending);
+      const xpGain = friendQuitEarly ? 0 : battleXP(ending);
       let levelUpCoins = 0;
       if (xpGain > 0) {
         const xpUpdate = await database.updatePlayerXP(userId, xpGain);
@@ -1931,6 +1941,14 @@ io.on('connection', (socket) => {
       }
     }
     
+    if (typeof data.roomName !== 'string' || !data.roomName.trim()) {
+      socket.emit('friendly-room-created', {
+        success: false,
+        message: 'Please choose a room name.'
+      });
+      return;
+    }
+
     // Check if room name already exists
     if (friendlyRooms.has(data.roomName)) {
       socket.emit('friendly-room-created', {

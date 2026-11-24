@@ -389,6 +389,17 @@ class Database {
     });
   }
 
+  // Marks the tutorial done only if it was not already, in one statement: resolves true for the one
+  // caller that made the change, so two requests at once can never both claim the reward.
+  async claimTutorialCompletion(userId) {
+    return new Promise((resolve, reject) => {
+      this.db.run('UPDATE users SET tutorial_completed = 1 WHERE id = ? AND tutorial_completed = 0', [userId], function(err) {
+        if (err) return reject(err);
+        resolve(this.changes === 1);
+      });
+    });
+  }
+
   async markTutorialCompleted(userId) {
     return new Promise((resolve, reject) => {
       this.db.run('UPDATE users SET tutorial_completed = 1 WHERE id = ?', [userId], function(err) {

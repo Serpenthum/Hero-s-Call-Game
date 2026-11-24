@@ -155,6 +155,23 @@ describe('craftHero', () => {
     assert.equal(user.shards, CRAFT_PRICE - 1);
     assert.deepEqual(user.available_heroes, ['Fighter']);
   });
+
+  test('two crafts at once from exactly 100 shards: one succeeds, one is refused', async () => {
+    const id = await createUser(database, 'craft3', { heroes: ['Fighter'] });
+    await setShards(database, id, CRAFT_PRICE);
+    const results = await Promise.all([
+      database.craftHero(id, 'Bard', CRAFT_PRICE),
+      database.craftHero(id, 'Wizard', CRAFT_PRICE)
+    ]);
+    const won = results.filter(r => r.success);
+    const lost = results.filter(r => !r.success);
+    assert.equal(won.length, 1);
+    assert.deepEqual(lost, [{ success: false, error: 'Not enough shards.' }]);
+    const user = await database.getUserById(id);
+    assert.equal(user.shards, 0);
+    assert.equal(user.available_heroes.length, 2, 'exactly one new hero');
+    assert.deepEqual(user.available_heroes, won[0].available_heroes);
+  });
 });
 
 describe('shards on API user objects', () => {
@@ -183,5 +200,11 @@ describe('shards on API user objects', () => {
     assert.equal(login.user.shards, 42);
     const fetched = await api('GET', `/api/user/${login.user.id}`);
     assert.equal(fetched.user.shards, 42);
+  });
+
+  test('admin-login includes shards', async () => {
+    const admin = await api('POST', '/api/admin-login', {});
+    assert.equal(admin.success, true);
+    assert.equal(admin.user.shards, 0);
   });
 });
