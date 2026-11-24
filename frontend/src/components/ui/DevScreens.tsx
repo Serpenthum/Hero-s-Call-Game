@@ -79,7 +79,8 @@ const DevShop: React.FC<{ query: string }> = ({ query }) => {
 // The binder with canned replies: /#screens/binder?owned=all&holo=2&hero=Ninja
 // signedin=0: signed out. owned: some (default: the mockup's 27 of 40), all or none. holo: how many owned heroes are
 // holographic (5). hero: open on this hero. filter: the filter to open on (all, owned, favourites, holo, not-owned,
-// disabled). fail=1: the heroes request fails.
+// disabled). fail=1: the heroes request fails. shards: the shard balance (140). craft: ok (default), refuse (the
+// server says "Not enough shards."), old (an old server: 404) or slow (the reply takes 3 seconds).
 const BINDER_NOT_OWNED = ['Assassin', 'Bomber', 'Champion', 'Cleric', 'Diplomat', 'Elementalist', 'Hoarder', 'Mech',
   'Plague Spreader', 'Shaman', 'Silencer', 'Timekeeper', 'Warden'];
 const BINDER_HOLO = ['Angel', 'Blood Hunter', 'Paladin', 'Ninja', 'Dragon Rider'];
@@ -99,7 +100,9 @@ const DevBinder: React.FC<{ query: string }> = ({ query }) => {
     realFetch(`${config.API_BASE_URL}/api/heroes?showAll=true`).then(r => r.json()).then((list: any[]) => {
       const enabled: string[] = list.filter(h => !h.disabled).map(h => h.name);
       const ownedMode = params.get('owned') ?? 'some';
-      const owned = ownedMode === 'all' ? enabled : ownedMode === 'none' ? [] : enabled.filter(n => !BINDER_NOT_OWNED.includes(n));
+      let owned = ownedMode === 'all' ? enabled : ownedMode === 'none' ? [] : enabled.filter(n => !BINDER_NOT_OWNED.includes(n));
+      let shards = Number(params.get('shards') ?? 140);
+      const craftMode = params.get('craft') ?? 'ok';
       const holoCount = Number(params.get('holo') ?? BINDER_HOLO.length);
       const holo = [...BINDER_HOLO.filter(n => owned.includes(n)), ...owned.filter(n => !BINDER_HOLO.includes(n))].slice(0, holoCount);
       window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
@@ -110,7 +113,17 @@ const DevBinder: React.FC<{ query: string }> = ({ query }) => {
           return reply(url.includes('showAll=true') ? list : list.filter(h => !h.disabled));
         }
         if (url.includes('/api/favorite-heroes/')) return reply({ favoriteHeroes: favourites });
-        if (url.includes('/api/user/')) return reply({ success: true, user: { available_heroes: owned, holo_heroes: holo } });
+        if (url.includes('/api/user/')) return reply({ success: true, user: { available_heroes: owned, holo_heroes: holo, shards } });
+        if (url.includes('/api/shop/craft')) {
+          if (craftMode === 'old') return reply({ error: 'Not found' }, 404);
+          if (craftMode === 'refuse') return reply({ success: false, message: 'Not enough shards.' }, 400);
+          const { heroName } = JSON.parse(String(init?.body)) as { heroName: string };
+          owned = [...owned, heroName];
+          shards -= 100;
+          const body = { success: true, heroName, hero: list.find(h => h.name === heroName), shards, available_heroes: owned, heroCount: owned.length };
+          if (craftMode !== 'slow') return reply(body);
+          return new Promise<Response>(resolve => { window.setTimeout(() => { void reply(body).then(resolve); }, 3000); });
+        }
         if (url.includes('/api/toggle-favorite-hero')) {
           const { heroName } = JSON.parse(String(init?.body)) as { heroName: string };
           favourites = favourites.includes(heroName) ? favourites.filter(n => n !== heroName) : [...favourites, heroName];

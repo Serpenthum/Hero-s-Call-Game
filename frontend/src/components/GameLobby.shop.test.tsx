@@ -9,6 +9,15 @@ vi.mock('./Shop', () => ({
     <button type="button" className="fake-shop" data-shards={String(shards)} onClick={onPurchaseComplete}>finish purchase</button>
   ),
 }));
+// The binder stands in as a button that finishes a craft, and one that closes it
+vi.mock('./HeroCollection', () => ({
+  default: ({ onPurchaseComplete, onClose }: { onPurchaseComplete?: () => void; onClose: () => void }) => (
+    <>
+      <button type="button" className="fake-binder-craft" onClick={onPurchaseComplete}>finish craft</button>
+      <button type="button" className="fake-binder-close" onClick={onClose}>close</button>
+    </>
+  ),
+}));
 
 import GameLobby from './GameLobby';
 import { cleanup, click, render, settle, stubBrowserApis } from '../testing/dom';
@@ -52,6 +61,24 @@ describe('GameLobby shop refresh', () => {
     await settle();
 
     expect(user.shards).toBe(70);
+    expect(root.querySelector('.fake-shop')?.getAttribute('data-shards')).toBe('70');
+  });
+
+  it('a craft in the binder brings the owned heroes and shards up to date by the time it closes', async () => {
+    const user = baseUser();
+    const root = render(
+      <GameLobby onStartGame={() => undefined} onStartSurvival={() => undefined} onStartGauntlet={() => undefined}
+        victoryPoints={45} user={user} onLogout={() => undefined} />,
+    );
+    await settle();
+    click(root.querySelector('.binder-tile'));
+    click(root.querySelector('.fake-binder-craft'));
+    await settle();
+    click(root.querySelector('.fake-binder-close'));
+
+    expect(user.available_heroes).toEqual(['Fighter', 'Monk']);
+    expect(user.shards).toBe(70);
+    click(root.querySelector('.shop-tile'));
     expect(root.querySelector('.fake-shop')?.getAttribute('data-shards')).toBe('70');
   });
 });

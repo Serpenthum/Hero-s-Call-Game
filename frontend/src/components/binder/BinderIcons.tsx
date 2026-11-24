@@ -17,6 +17,9 @@ export const NextIcon = () => <Stroke width={2.8}><path d="M9 4.5l7.5 7.5L9 19.5
 export const StarIcon = () => (
   <Fill><path d="M12 2.5l2.9 6.1 6.6.9-4.8 4.6 1.2 6.6L12 17.5l-5.9 3.2 1.2-6.6L2.5 9.5l6.6-.9z" /></Fill>
 );
+export const LockIcon = () => (
+  <Fill><path fillRule="evenodd" d="M6 10V7a6 6 0 0 1 12 0v3h1.5v11h-15V10zm3 0h6V7a3 3 0 0 0-6 0z" /></Fill>
+);
 
 export const FILTER_ICONS: Record<BinderFilter, React.ReactElement> = {
   all: (
@@ -32,6 +35,6 @@ export const FILTER_ICONS: Record<BinderFilter, React.ReactElement> = {
       <path d="M10 2.5l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" /><path d="M18.5 13.5l1 2.8 2.8 1-2.8 1-1 2.8-1-2.8-2.8-1 2.8-1z" />
     </Fill>
   ),
-  'not-owned': <Fill><path fillRule="evenodd" d="M6 10V7a6 6 0 0 1 12 0v3h1.5v11h-15V10zm3 0h6V7a3 3 0 0 0-6 0z" /></Fill>,
+  'not-owned': <LockIcon />,
   disabled: <Stroke width={2.6}><circle cx="12" cy="12" r="8.5" /><path d="M6 18L18 6" /></Stroke>,
 };

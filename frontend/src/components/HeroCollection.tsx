@@ -1,4 +1,5 @@
 // The binder: every hero in pockets, two pages at a time, with one filter button and a large view for reading a card.
+// Signed in, the shard balance sits under the filter button and a hero not owned can be crafted from its large view.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CloseButton from './CloseButton';
 import BinderOpening from './BinderOpening';
@@ -21,6 +22,7 @@ interface HeroCollectionProps {
   userId?: number; // Signed-in player; signed out shows every hero with no favourites
   victoryPoints?: number; // Passed by the lobby; the binder shows no coin amount
   onFavoritesChange?: (favoriteHeroes: string[]) => void;
+  onPurchaseComplete?: () => void; // After a craft: the lobby refreshes its user, as after a pack
   initialHero?: string; // Open on this hero's page and light its pocket
   initialView?: BinderView; // Dev screen only: the filter, sort and search to open on
 }
@@ -28,8 +30,10 @@ interface HeroCollectionProps {
 // How long the pocket of the hero the binder opened on stays lit
 const SPOTLIGHT_MS = 1600;
 
-const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavoritesChange, initialHero, initialView }) => {
-  const { heroes, collection: loaded, loading, error, retry, toggleFavourite } = useBinderData(userId, onFavoritesChange);
+const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavoritesChange, onPurchaseComplete, initialHero, initialView }) => {
+  const {
+    heroes, collection: loaded, loading, error, retry, toggleFavourite, shards, craft,
+  } = useBinderData(userId, onFavoritesChange, onPurchaseComplete);
   // The hook hands back a new object every render; the pages only re-render when a list really changes.
   const collection: Collection = useMemo(
     () => ({ owned: loaded.owned, favourites: loaded.favourites, holo: loaded.holo }),
@@ -92,6 +96,17 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
   const closeLargeView = useCallback(() => setOpenHero(null), []);
   const onToggleFavourite = useCallback((name: string) => { void toggleFavourite(name); }, [toggleFavourite]);
 
+  // A craft on its way: "Yes, craft" stays disabled until it is answered, in any large view
+  const [crafting, setCrafting] = useState(false);
+  const craftHero = useCallback(async (name: string) => {
+    setCrafting(true);
+    const result = await craft(name);
+    setCrafting(false);
+    // The one place a craft of `name` is known to have worked (result.ok): the hero is owned and its pocket shows it.
+    // The crafting animation (a later task) starts from here.
+    return result;
+  }, [craft]);
+
   const status = useMemo(() => {
     const enabled = heroes.filter(h => !h.disabled);
     return statusLine({
@@ -108,11 +123,17 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
   const largeHero = openHero ? heroes.find(h => h.name === openHero) : undefined;
 
   return (
-    <div className={`binder${cardMotionOff() ? ' binder--still' : ''}${opened ? '' : ' binder--unopened'}`}>
+    <div className={`binder${cardMotionOff() ? ' binder--still' : ''}${opened ? '' : ' binder--unopened'}${signedIn ? ' binder--shards' : ''}`}>
       <div className="binder-top">
         <BinderFilter view={view} onChange={changeView} signedIn={signedIn} />
         <CloseButton className="binder-close" onClick={onClose} />
       </div>
+      {/* Below the filter button, and over the large view, which crafting spends from */}
+      {signedIn && (
+        <div className="binder-shards" title="Your shards" aria-label={`${shards} shards`}>
+          <b>{shards}</b><span>shards</span>
+        </div>
+      )}
       <div className="binder-stage">
         {error ? (
           <div className="binder-error" role="alert">
@@ -137,11 +158,15 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
       {!error && !loading && <BinderStatus text={status} />}
       {largeHero && (
         <BinderLargeView
+          key={largeHero.name}
           hero={largeHero}
           collection={collection}
           signedIn={signedIn}
           onToggleFavourite={onToggleFavourite}
           onClose={closeLargeView}
+          shards={shards}
+          onCraft={craftHero}
+          crafting={crafting}
         />
       )}
       {/* Last, so it lies over the book until the binder has been opened */}

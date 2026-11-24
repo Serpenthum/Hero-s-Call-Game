@@ -23,11 +23,15 @@ const OWNED = NAMES.slice(0, 10);
 const HOLO = ['H01', 'H02', 'H20']; // H20 is not owned, so it doesn't count
 const FAVOURITES = ['H03', 'H25'];
 
-const reply = (body: unknown, ok = true) =>
-  Promise.resolve({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(body) } as Response);
+const reply = (body: unknown, ok = true, status = ok ? 200 : 500) =>
+  Promise.resolve({ ok, status, json: () => Promise.resolve(body) } as Response);
 
-function stubFetch(opts: { failHeroes?: boolean } = {}) {
+// shards: the player's balance (140), or null for an old server that sends none.
+// craft: answers the craft request instead of the server's success.
+function stubFetch(opts: { failHeroes?: boolean; shards?: number | null; craft?: (heroName: string) => Promise<Response> } = {}) {
   let favourites = [...FAVOURITES];
+  let owned = [...OWNED];
+  let shards = opts.shards === undefined ? 140 : opts.shards;
   let failHeroes = !!opts.failHeroes;
   const fetchMock = vi.fn((url: string, init?: RequestInit) => {
     if (url.startsWith(`${API}/api/heroes`)) {
@@ -35,7 +39,16 @@ function stubFetch(opts: { failHeroes?: boolean } = {}) {
       return reply(HEROES);
     }
     if (url === `${API}/api/favorite-heroes/7`) return reply({ favoriteHeroes: favourites });
-    if (url === `${API}/api/user/7`) return reply({ success: true, user: { available_heroes: OWNED, holo_heroes: HOLO } });
+    if (url === `${API}/api/user/7`) {
+      return reply({ success: true, user: { available_heroes: owned, holo_heroes: HOLO, ...(shards === null ? {} : { shards }) } });
+    }
+    if (url === `${API}/api/shop/craft` && init?.method === 'POST') {
+      const { heroName } = JSON.parse(String(init.body)) as { heroName: string };
+      if (opts.craft) return opts.craft(heroName);
+      owned = [...owned, heroName];
+      shards = (shards ?? 0) - 100;
+      return reply({ success: true, heroName, hero: HEROES.find(h => h.name === heroName), shards, available_heroes: owned, heroCount: owned.length });
+    }
     if (url === `${API}/api/toggle-favorite-hero` && init?.method === 'POST') {
       const { heroName } = JSON.parse(String(init.body)) as { heroName: string };
       favourites = favourites.includes(heroName) ? favourites.filter(n => n !== heroName) : [...favourites, heroName];
@@ -349,6 +362,169 @@ describe('the binder', () => {
     expect(heroCalls()).toBe(2);
     expect(root.textContent).not.toContain("Couldn't load the heroes.");
     expect(pocketNames(root)).toEqual(NAMES.slice(0, 12));
+  });
+
+  describe('shards and crafting', () => {
+    const balance = (root: ParentNode) => root.querySelector('.binder-shards');
+    const large = (root: ParentNode) => root.querySelector('.binder-large') as HTMLElement | null;
+    const craftButton = (root: ParentNode) => buttonByText(large(root)!, 'Craft');
+    const craftCalls = (fetchMock: ReturnType<typeof stubFetch>) =>
+      fetchMock.mock.calls.filter(([url]) => url === `${API}/api/shop/craft`);
+    // Opens H11 (not owned), taps Craft and, if asked, Yes, craft
+    function startCraft(root: ParentNode, confirm = true) {
+      click(pocket(root, 'H11'));
+      click(craftButton(root));
+      if (confirm) click(buttonByText(large(root)!, 'Yes, craft'));
+    }
+
+    it('the binder shows the shard balance', async () => {
+      stubFetch();
+      const root = await openBinder();
+      expect(balance(root)?.textContent).toBe('140shards');
+      expect(balance(root)?.getAttribute('aria-label')).toBe('140 shards');
+    });
+
+    it('signed out: no shard balance and no Craft button', async () => {
+      stubFetch();
+      const root = await openBinder({ userId: undefined });
+      expect(balance(root)).toBeNull();
+      click(pocket(root, 'H11'));
+      expect(craftButton(root)).toBeUndefined();
+    });
+
+    it('no shards field shows 0', async () => {
+      stubFetch({ shards: null });
+      const root = await openBinder();
+      expect(balance(root)?.getAttribute('aria-label')).toBe('0 shards');
+    });
+
+    it('a locked card\'s large view shows Craft with 100 shards', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(pocket(root, 'H11'));
+      const view = large(root)!;
+      // The picture is grey with a padlock until the card is owned
+      expect(view.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(view.querySelector('.binder-lock-tag')).not.toBeNull();
+      expect(view.textContent).toContain('Not owned');
+      const craft = craftButton(root)!;
+      expect(craft.disabled).toBe(false);
+      expect(craft.textContent).toBe('Craft100 shards');
+      expect(craft.getAttribute('aria-label')).toBe('Craft H11 for 100 shards');
+      expect(view.textContent).toContain('You have 140 shards. You will have 40 left.');
+      expect(view.textContent).not.toMatch(/VP/);
+    });
+
+    it('an owned card\'s large view has no Craft button and no padlock', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(pocket(root, 'H01'));
+      expect(craftButton(root)).toBeUndefined();
+      expect(large(root)!.querySelector('.binder-large-card')!.className).not.toMatch(/is-locked/);
+      expect(large(root)!.querySelector('.binder-lock-tag')).toBeNull();
+    });
+
+    it('with 60 shards Craft is disabled and says 40 more are needed', async () => {
+      const fetchMock = stubFetch({ shards: 60 });
+      const root = await openBinder();
+      click(pocket(root, 'H11'));
+      const craft = craftButton(root)!;
+      expect(craft.disabled).toBe(true);
+      expect(large(root)!.textContent).toContain('40 more shards needed');
+      expect(large(root)!.textContent).toContain('You have 60 of 100.');
+      click(craft);
+      expect(buttonByText(large(root)!, 'Yes, craft')).toBeUndefined();
+      expect(craftCalls(fetchMock)).toHaveLength(0);
+    });
+
+    it('tapping Craft asks first; Cancel sends nothing and returns to the large view', async () => {
+      const fetchMock = stubFetch();
+      const root = await openBinder();
+      startCraft(root, false);
+      const view = large(root)!;
+      expect(view.textContent).toContain('Craft H11 for 100 shards?');
+      expect(view.textContent).toContain('You will have 40 shards left.');
+      expect(craftButton(root)).toBeUndefined();
+      click(buttonByText(view, 'Cancel'));
+      expect(large(root)).not.toBeNull();
+      expect(buttonByText(large(root)!, 'Yes, craft')).toBeUndefined();
+      expect(craftButton(root)).toBeDefined();
+      await settle();
+      expect(craftCalls(fetchMock)).toHaveLength(0);
+    });
+
+    it('"Yes, craft" sends exactly one request, naming only the hero', async () => {
+      const fetchMock = stubFetch();
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(craftCalls(fetchMock)).toHaveLength(1);
+      expect(JSON.parse(String(craftCalls(fetchMock)[0][1]?.body))).toEqual({ heroName: 'H11' });
+    });
+
+    it('crafting makes the pocket owned and lowers the balance', async () => {
+      stubFetch();
+      const root = await openBinder();
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      startCraft(root);
+      await settle();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(balance(root)?.getAttribute('aria-label')).toBe('40 shards');
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+      // The large view stays open on the hero, now owned
+      const view = large(root)!;
+      expect(view.getAttribute('aria-label')).toBe('H11');
+      expect(view.querySelector('.binder-large-card')!.className).not.toMatch(/is-locked/);
+      expect(craftButton(root)).toBeUndefined();
+    });
+
+    it('a refusal shows the server\'s message', async () => {
+      stubFetch({ craft: () => reply({ success: false, message: 'You already have this hero.' }, false, 400) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      const view = large(root)!;
+      expect(view.querySelector('[role=alert]')?.textContent).toBe('You already have this hero.');
+      expect(buttonByText(view, 'Yes, craft')).toBeUndefined(); // back to the large view
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(balance(root)?.getAttribute('aria-label')).toBe('140 shards');
+    });
+
+    it('a 404 shows "Crafting isn\'t available right now."', async () => {
+      stubFetch({ craft: () => reply({}, false, 404) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(large(root)!.querySelector('[role=alert]')?.textContent).toBe("Crafting isn't available right now.");
+    });
+
+    it('a second tap while crafting sends nothing', async () => {
+      let answer: (r: Response) => void = () => {};
+      const fetchMock = stubFetch({ craft: () => new Promise<Response>(resolve => { answer = resolve; }) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      const yes = buttonByText(large(root)!, 'Yes, craft')!;
+      expect(yes.disabled).toBe(true);
+      // A tap the disabled button would swallow, sent straight to its handler
+      act(() => { yes.disabled = false; yes.click(); });
+      await settle();
+      expect(craftCalls(fetchMock)).toHaveLength(1);
+      await act(async () => {
+        answer({ ok: true, status: 200, json: () => Promise.resolve({ success: true, heroName: 'H11', shards: 40, available_heroes: [...OWNED, 'H11'] }) } as Response);
+      });
+      await settle();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+    });
+
+    it('a craft tells the lobby, so its user is current when the binder closes', async () => {
+      stubFetch();
+      const onPurchaseComplete = vi.fn();
+      const root = await openBinder({ onPurchaseComplete });
+      startCraft(root);
+      await settle();
+      expect(onPurchaseComplete).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('the filter fade', () => {

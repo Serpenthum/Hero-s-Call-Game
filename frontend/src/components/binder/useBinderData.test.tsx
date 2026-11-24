@@ -14,8 +14,8 @@ const hero = (name: string): BinderHero => ({
 });
 const HEROES = [hero('Monk'), hero('Ninja'), hero('Paladin')];
 
-const reply = (body: unknown, ok = true) =>
-  Promise.resolve({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(body) } as Response);
+const reply = (body: unknown, ok = true, status = ok ? 200 : 500) =>
+  Promise.resolve({ ok, status, json: () => Promise.resolve(body) } as Response);
 
 type Route = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -30,7 +30,12 @@ const happyRoute: Route = (url, init) => {
   if (url.startsWith(`${API}/api/heroes`)) return reply(HEROES);
   if (url === `${API}/api/favorite-heroes/7`) return reply({ favoriteHeroes: ['Ninja'] });
   if (url === `${API}/api/user/7`) {
-    return reply({ success: true, user: { available_heroes: ['Monk', 'Ninja'], holo_heroes: ['Monk'] } });
+    return reply({ success: true, user: { available_heroes: ['Monk', 'Ninja'], holo_heroes: ['Monk'], shards: 140 } });
+  }
+  if (url === `${API}/api/shop/craft` && init?.method === 'POST') {
+    return reply({
+      success: true, heroName: 'Paladin', hero: HEROES[2], shards: 40, available_heroes: ['Monk', 'Ninja', 'Paladin'], heroCount: 3,
+    });
   }
   if (url === `${API}/api/toggle-favorite-hero` && init?.method === 'POST') {
     return reply({ favoriteHeroes: ['Ninja', 'Paladin'] });
@@ -39,8 +44,10 @@ const happyRoute: Route = (url, init) => {
 };
 
 let latest: BinderData;
-function Probe({ userId, onFavoritesChange }: { userId: number | undefined; onFavoritesChange?: (f: string[]) => void }) {
-  latest = useBinderData(userId, onFavoritesChange);
+function Probe({ userId, onFavoritesChange, onPurchaseComplete }: {
+  userId: number | undefined; onFavoritesChange?: (f: string[]) => void; onPurchaseComplete?: () => void;
+}) {
+  latest = useBinderData(userId, onFavoritesChange, onPurchaseComplete);
   return null;
 }
 
@@ -51,7 +58,7 @@ describe('useBinderData', () => {
   });
   afterEach(() => {
     // Only the hook's own failure logs are expected; React act() warnings would show up here too.
-    for (const [first] of consoleError.mock.calls) expect(String(first)).toMatch(/^Error (fetching|toggling)/);
+    for (const [first] of consoleError.mock.calls) expect(String(first)).toMatch(/^Error (fetching|toggling|crafting)/);
     cleanup();
     setAuthToken(null);
     vi.unstubAllGlobals();
@@ -136,5 +143,72 @@ describe('useBinderData', () => {
     await settle();
     expect(latest.collection.favourites).toEqual(['Ninja']);
     expect(onFavoritesChange).not.toHaveBeenCalled();
+  });
+  it('the shard balance comes from the user; no shards field reads as 0', async () => {
+    stubFetch(happyRoute);
+    render(<Probe userId={7} />);
+    await settle();
+    expect(latest.shards).toBe(140);
+    cleanup();
+
+    stubFetch((url, init) => url === `${API}/api/user/7`
+      ? reply({ success: true, user: { available_heroes: ['Monk'], holo_heroes: [] } })
+      : happyRoute(url, init));
+    render(<Probe userId={7} />);
+    await settle();
+    expect(latest.shards).toBe(0);
+  });
+
+  it('craft posts only { heroName } with auth headers, takes owned and shards from the reply and tells the lobby', async () => {
+    setAuthToken('tok');
+    const fetchMock = stubFetch(happyRoute);
+    const onPurchaseComplete = vi.fn();
+    render(<Probe userId={7} onPurchaseComplete={onPurchaseComplete} />);
+    await settle();
+
+    let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: true });
+    const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+    expect(url).toBe(`${API}/api/shop/craft`);
+    expect(init?.method).toBe('POST');
+    expect(init?.headers).toEqual({ 'Content-Type': 'application/json', Authorization: 'Bearer tok' });
+    // Never a holographic: the request names the hero and nothing else
+    expect(JSON.parse(init?.body as string)).toEqual({ heroName: 'Paladin' });
+    expect(latest.collection.owned).toEqual(['Monk', 'Ninja', 'Paladin']);
+    expect(latest.shards).toBe(40);
+    expect(onPurchaseComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('a refusal hands back the server\'s message and changes nothing', async () => {
+    const onPurchaseComplete = vi.fn();
+    stubFetch((url, init) => url === `${API}/api/shop/craft`
+      ? reply({ success: false, message: 'Not enough shards.' }, false, 400)
+      : happyRoute(url, init));
+    render(<Probe userId={7} onPurchaseComplete={onPurchaseComplete} />);
+    await settle();
+
+    let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: false, message: 'Not enough shards.' });
+    expect(latest.collection.owned).toEqual(['Monk', 'Ninja']);
+    expect(latest.shards).toBe(140);
+    expect(onPurchaseComplete).not.toHaveBeenCalled();
+  });
+
+  it('a 404 (an old server) or no network: "Crafting isn\'t available right now."', async () => {
+    stubFetch((url, init) => url === `${API}/api/shop/craft` ? reply({}, false, 404) : happyRoute(url, init));
+    render(<Probe userId={7} />);
+    await settle();
+
+    let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
+
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))));
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
+    expect(latest.collection.owned).toEqual(['Monk', 'Ninja']);
+    expect(latest.shards).toBe(140);
   });
 });

@@ -454,6 +454,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
           userId={user.id}
           victoryPoints={victoryPoints}
           onFavoritesChange={onFavoritesChange}
+          onPurchaseComplete={handlePurchaseComplete}
           initialHero={binderHero}
         />
       )}
