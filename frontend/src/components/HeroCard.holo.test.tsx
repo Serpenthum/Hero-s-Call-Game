@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -12,10 +12,16 @@ import type { Hero } from '../types';
 
 const monk: Hero = { name: 'Monk', HP: 18, Defense: 8, Accuracy: '+2', BasicAttack: '1D6', Ability: [], Special: [] };
 
-// The card's stylesheet, read as text (vitest hands CSS imports over empty)
-const cardCss = readFileSync(resolve(__dirname, '../styles/HeroCard.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+// Every stylesheet, read as text without comments (vitest hands CSS imports over empty)
+const stylesDir = resolve(__dirname, '../styles');
+const sheets = readdirSync(stylesDir).filter(f => f.endsWith('.css'))
+  .map(file => ({ file, css: readFileSync(resolve(stylesDir, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '') }));
+const cardCss = sheets.find(s => s.file === 'HeroCard.css')!.css;
 // Every innermost rule: its selector and its declarations.
 const rules = (css: string) => Array.from(css.matchAll(/([^{}]+)\{([^{}]*)\}/g), m => ({ selector: m[1].trim(), body: m[2] }));
+// Anything that draws round a box: a frame, a line, a shadow or a glow. border-radius is a shape, not a line.
+const DRAWS_ROUND = /--card-frame|--card-glow|\bborder(?!-radius)|outline|box-shadow|drop-shadow/;
+const RAINBOW = /conic-gradient|--holo-(pink|yellow|mint|blue|violet)/;
 
 const memoryStorage = () => {
   const items = new Map<string, string>();
@@ -51,10 +57,24 @@ describe('HeroCard holo', () => {
 
     expect(cardCss).not.toContain('card-foil');
     expect(cardCss).not.toContain('conic-gradient');
-    const holoRules = rules(cardCss).filter(rule => rule.selector.includes('card-holo'));
+    const holoRules = sheets.flatMap(sheet => rules(sheet.css)
+      .filter(rule => rule.selector.includes('card-holo'))
+      .map(rule => ({ ...rule, where: `${sheet.file}: ${rule.selector}` })));
     expect(holoRules.length).toBeGreaterThan(0);
     for (const rule of holoRules) {
-      expect(rule.body, rule.selector).not.toMatch(/--card-frame|--card-glow|border|box-shadow|outline/);
+      expect(rule.body, rule.where).not.toMatch(DRAWS_ROUND);
+    }
+  });
+
+  // The draft's round portrait tokens: a holographic hero's token has a normal token's rim.
+  it('a holographic draft portrait has no rainbow rim', () => {
+    for (const sheet of sheets) {
+      expect(sheet.css, sheet.file).not.toContain('draft-rim');
+      for (const rule of rules(sheet.css).filter(r => r.selector.includes('draft-portrait--holo'))) {
+        expect(rule.body, `${sheet.file}: ${rule.selector}`).not.toMatch(DRAWS_ROUND);
+        expect(rule.body, `${sheet.file}: ${rule.selector}`).not.toMatch(RAINBOW);
+        expect(rule.body, `${sheet.file}: ${rule.selector}`).not.toMatch(/animation/);
+      }
     }
   });
 });
