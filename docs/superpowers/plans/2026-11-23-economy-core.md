@@ -282,3 +282,15 @@ Remove the sale grid, price tags, "Next sale in" dial, pager, `fetchShopRotation
 - [ ] **Step 2:** Run backend and site locally. Self-check: tutorial ends at level 2 with 80 coins, 4 packs, a repeat gives shards, craft from the binder, a loss shows +2 coins, a quick surrender shows nothing gained, the shop and binder at 844×390 and 640×360 and with animations off. Give the owner the local URL and the same list.
 - [ ] **Step 3:** **Wait for the owner's "go live".** Then, when nobody is playing: `npm run deploy:server`, poll `/api/user/1` until its user carries `shards`, then at once `npm run deploy:site`. Server first because the new site needs the craft route and shard fields, and an old page on the new server only loses its (removed) sale grid.
 - [ ] **Step 4:** After go-live, a live check on a phone: buy a pack, open the binder, finish one battle. Report to the owner.
+
+### Task 17b: Holographic cards without the rainbow border — Model: Fable
+
+Added 2026-11-24 from the owner's mockup rulings: "remove the rainbow border around holographic cards everywhere, in binder, draft and everything else, it should just be a holographic card without a rainbow border."
+
+**Files:** the holographic card styles under `frontend/src/styles/` and any component that adds the border; their tests.
+
+- [ ] **Step 1:** Find every place a holographic card gets a rainbow border or rainbow outline ring (binder pockets and large view, draft, battle, lobby featured hero, shop, pack opening, match found). List them in the report.
+- [ ] **Step 2: Write the failing tests** where a class or element carries the border: `a holographic card has no rainbow border` per component that had one.
+- [ ] **Step 3:** Remove the border everywhere. The holographic foil effect on the card face stays exactly as it is; only the border goes. A holographic card keeps the same frame as a normal card.
+- [ ] **Step 4: Run** `npm test`, `npm run check:tokens`, `npm run lint`. Expected: PASS. Remove tokens that only the border used.
+- [ ] **Step 5: Commit** `style(holo): holographic cards without the rainbow border`
