@@ -352,6 +352,10 @@
   box-shadow: 0 0.5em 1.2em var(--shade);
 }
 
+.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]):not(.is-turned) .pack-opening__back {
+  box-shadow: 0 0 16px 4px var(--holo-aura);
+}
+
 .pack-opening__back::before {
   content: "";
   position: absolute;
@@ -371,7 +375,14 @@
   filter: drop-shadow(0 2px 3px var(--card-black));
 }
 
-/* Face down, a holographic card looks like any other: no glow round it (the owner ruled out coloured rings). */
+/* A holographic card glows face down: the foil colours in turn (gold when the effects are off). */
+.pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]):not(.is-turned) .pack-opening__back {
+  animation: pack-holo-back 1.6s linear infinite;
+}
+
+.pack-opening[data-holo-light="gold"] .pack-opening__card:is([data-kind="holo"], [data-kind="holo_upgrade"]):not(.is-turned) .pack-opening__back {
+  animation: pack-gold-back 1.6s ease-in-out infinite;
+}
 
 /* Turning: the back swings away, the face swings in behind a white flash, then the label pops in. */
 .pack-opening__card.is-turned .pack-opening__back {
@@ -612,6 +623,14 @@
 
 .pack-opening__card.is-spot:not(.is-turned) .pack-opening__flip {
   animation: pack-tremble 0.9s linear forwards;
+}
+
+.pack-opening .pack-opening__card.is-spot:not(.is-turned) .pack-opening__back {
+  animation: pack-holo-rush 0.9s linear forwards;
+}
+
+.pack-opening[data-holo-light="gold"] .pack-opening__card.is-spot:not(.is-turned) .pack-opening__back {
+  animation: pack-gold-rush 0.9s linear forwards;
 }
 
 /* One card alone has the screen where it lies: only the table behind goes dark, and the light waits for its face. */
@@ -866,6 +885,46 @@
 @keyframes pack-label-pop {
   from { transform: translate(-50%, 6px) scale(0); }
   to { transform: translate(-50%, 6px) scale(1); }
+}
+
+@keyframes pack-holo-back {
+  0%, 100% { box-shadow: 0 0 14px 3px var(--pack-pink); }
+  25% { box-shadow: 0 0 18px 5px var(--pack-yellow); }
+  50% { box-shadow: 0 0 14px 3px var(--pack-mint); }
+  75% { box-shadow: 0 0 18px 5px var(--pack-blue); }
+}
+
+@keyframes pack-gold-back {
+  0%, 100% { box-shadow: 0 0 12px 2px var(--brass-hi); }
+  50% { box-shadow: 0 0 20px 6px var(--pack-glow); }
+}
+
+/* The glow speeds up as the card trembles. */
+@keyframes pack-holo-rush {
+  0% { box-shadow: 0 0 14px 3px var(--pack-pink); }
+  24% { box-shadow: 0 0 16px 4px var(--pack-yellow); }
+  43% { box-shadow: 0 0 18px 5px var(--pack-mint); }
+  58% { box-shadow: 0 0 20px 6px var(--pack-blue); }
+  70% { box-shadow: 0 0 22px 7px var(--pack-pink); }
+  79% { box-shadow: 0 0 24px 8px var(--pack-yellow); }
+  86% { box-shadow: 0 0 26px 9px var(--pack-mint); }
+  91% { box-shadow: 0 0 28px 10px var(--pack-blue); }
+  95% { box-shadow: 0 0 30px 11px var(--pack-pink); }
+  98% { box-shadow: 0 0 32px 12px var(--pack-yellow); }
+  100% { box-shadow: 0 0 36px 14px var(--card-white); }
+}
+
+@keyframes pack-gold-rush {
+  0% { box-shadow: 0 0 12px 2px var(--brass-hi); }
+  24% { box-shadow: 0 0 18px 5px var(--pack-glow); }
+  43% { box-shadow: 0 0 14px 3px var(--brass-hi); }
+  58% { box-shadow: 0 0 22px 7px var(--pack-glow); }
+  70% { box-shadow: 0 0 16px 4px var(--brass-hi); }
+  79% { box-shadow: 0 0 26px 9px var(--pack-glow); }
+  86% { box-shadow: 0 0 18px 5px var(--brass-hi); }
+  91% { box-shadow: 0 0 30px 11px var(--pack-glow); }
+  95% { box-shadow: 0 0 20px 6px var(--brass-hi); }
+  100% { box-shadow: 0 0 36px 14px var(--pack-light); }
 }
 
 @keyframes pack-result-pop {

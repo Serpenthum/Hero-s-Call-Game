@@ -66,15 +66,27 @@ describe('HeroCard holo', () => {
     }
   });
 
-  // The draft's round portrait tokens: a holographic hero's token has a normal token's rim.
-  it('a holographic draft portrait has no rainbow rim', () => {
-    for (const sheet of sheets) {
-      expect(sheet.css, sheet.file).not.toContain('draft-rim');
-      for (const rule of rules(sheet.css).filter(r => r.selector.includes('draft-portrait--holo'))) {
-        expect(rule.body, `${sheet.file}: ${rule.selector}`).not.toMatch(DRAWS_ROUND);
-        expect(rule.body, `${sheet.file}: ${rule.selector}`).not.toMatch(RAINBOW);
-        expect(rule.body, `${sheet.file}: ${rule.selector}`).not.toMatch(/animation/);
-      }
-    }
+  // Owner's ruling, 2026-11-24: the draft's round portrait tokens keep the rim, the only thing that tells a
+  // holographic hero's token from a plain one.
+  it('a holographic draft portrait has a turning rainbow rim, which stands still with animations off', () => {
+    const draftCss = sheets.find(s => s.file === 'Draft.css')!.css;
+    const holoRules = rules(draftCss).filter(r => r.selector.includes('draft-portrait--holo'));
+    const rim = holoRules.find(r => RAINBOW.test(r.body));
+    expect(rim, 'the rim rule').toBeDefined();
+    expect(rim!.selector.split(',').map(s => s.trim())).toContain('.draft-portrait--holo');
+    expect(rim!.body).toMatch(/border:[^;]*transparent/);
+    expect(rim!.body).toMatch(/conic-gradient\(\s*from var\(--draft-rim-a\)[\s\S]*border-box/);
+    expect(rim!.body).toMatch(/animation:\s*draft-rim\b[^;]*infinite/);
+    expect(draftCss).toMatch(/@property --draft-rim-a\s*\{/);
+    expect(draftCss).toMatch(/@keyframes draft-rim\s*\{\s*to\s*\{\s*--draft-rim-a:\s*360deg/);
+
+    // Animation speed "off" (the draft table carries draft--still), and the system's reduced-motion setting
+    const stops = holoRules.filter(r => /animation:\s*none/.test(r.body)).map(r => r.selector);
+    expect(stops).toContain('.draft--still .draft-portrait--holo');
+    const reduced = draftCss.slice(draftCss.lastIndexOf('@media (prefers-reduced-motion: reduce)'));
+    const reducedStop = rules(reduced).find(r => r.selector.includes('draft-portrait--holo'));
+    expect(reducedStop?.body).toMatch(/animation:\s*none/);
+    // ...which must reach every selector of the rim rule (a ban's token is the stronger one), or that rim keeps turning
+    expect(reducedStop!.selector.split(',').map(s => s.trim())).toEqual(rim!.selector.split(',').map(s => s.trim()));
   });
 });

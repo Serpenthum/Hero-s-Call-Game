@@ -335,6 +335,27 @@
 }
 .draft-portrait--enemy { border-color: var(--draft-enemy-rim); }
 
+/* Holographic: a rainbow rim that turns slowly */
+@property --draft-rim-a {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.draft-portrait--holo,
+.draft-ban-token .draft-portrait--holo {
+  border: 2.5px solid transparent;
+  background: conic-gradient(
+    from var(--draft-rim-a),
+    var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue), var(--holo-violet), var(--holo-pink)
+  ) border-box;
+  box-shadow:
+    0 3px 8px color-mix(in srgb, var(--card-black) 60%, transparent),
+    0 0 10px color-mix(in srgb, var(--holo-glow) 45%, transparent);
+  animation: draft-rim 4s linear infinite;
+}
+@keyframes draft-rim { to { --draft-rim-a: 360deg; } }
+.draft--still .draft-portrait--holo { animation: none; }
+
 /* ---- Hint and hand ---- */
 .draft-hint {
   position: relative;
@@ -779,4 +800,6 @@
     transition: none;
   }
   .draft-table[data-hand="wait"] .draft-hand :is(.draft-hand-card > .hero-card, .draft-order-card) { opacity: 1; }
+  .draft-portrait--holo,
+  .draft-ban-token .draft-portrait--holo { animation: none; }
 }

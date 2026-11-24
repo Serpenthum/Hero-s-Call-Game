@@ -74,17 +74,17 @@ describe('DraftBand', () => {
     expect(html).toContain('draft-status');
   });
 
-  it('marks the portrait of a holographic team hero in the big-card layout', () => {
+  it('draws a holographic team hero with the rainbow rim in the big-card layout', () => {
     const html = render({ layout: 'focus', me: { name: 'Ada', team: [hero('Bard', { holo: true })], status: 'done' } });
     expect(html).toContain('draft-portrait--holo');
   });
 
-  it('marks the portrait of a holographic ban', () => {
+  it('draws a holographic ban with the rainbow rim', () => {
     const html = render({ bans: { mine: 'Monk', theirs: null }, banHolo: { mine: true, theirs: false } });
     expect(html).toContain('draft-portrait--holo');
   });
 
-  it('drops the holographic mark from team and ban portraits when holo effects are off', () => {
+  it('drops the rainbow rim from team and ban portraits when holo effects are off', () => {
     const items = new Map<string, string>([['heroscall.holo', 'off']]);
     vi.stubGlobal('localStorage', { getItem: (k: string) => items.get(k) ?? null, setItem: (k: string, v: string) => { items.set(k, v); } });
     try {
