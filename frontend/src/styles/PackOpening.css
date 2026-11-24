@@ -443,6 +443,88 @@
   margin-right: 0.1em;
 }
 
+/* ---------- One card: the card on the left, what it gave beside it ---------- */
+
+.pack-opening__reveal--single {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: var(--space-5);
+}
+
+.pack-opening__reveal--single .pack-opening__cards {
+  flex: 0 1 auto;
+  width: min(48%, 26rem);
+  height: 100%;
+}
+
+.pack-opening__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: min(100%, 20rem);
+}
+
+.pack-opening__result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 7rem;
+}
+
+.pack-opening__result p {
+  margin: 0;
+  text-shadow: 0 1px 3px var(--card-black);
+}
+
+.pack-opening__turn-hint {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--bone);
+}
+
+.pack-opening__kind {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.pack-opening__kind[data-tone="new"] { color: var(--verdigris); }
+.pack-opening__kind[data-tone="repeat"] { color: var(--brass-hi); }
+
+.pack-opening__kind[data-tone="holo"] {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--text-2xl);
+  background: var(--holo-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 1px 2px var(--card-black));
+}
+
+.pack-opening__shards {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--badge-core-hot);
+}
+
+.pack-opening__sub {
+  font-size: var(--text-md);
+  line-height: 1.3;
+  color: var(--bone);
+}
+
+.pack-opening__panel .pack-opening__actions {
+  justify-content: flex-start;
+  padding-top: var(--space-2);
+}
+
 /* ---------- A holographic card takes over ---------- */
 
 .pack-opening[data-spot] .pack-opening__card:not(.is-spot) {

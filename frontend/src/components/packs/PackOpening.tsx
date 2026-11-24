@@ -65,6 +65,37 @@ const CardLabel: React.FC<{ card: PackCard }> = ({ card }) => {
   }
 };
 
+/** What a one-card pack gave, beside the card once it is face up. */
+const OneCardResult: React.FC<{ card: PackCard; shardsGained: number; shards?: number }> = ({ card, shardsGained, shards }) => {
+  const holo = isHoloCard(card);
+  let kind: string;
+  let tone: string;
+  let line: string | null = null;
+  switch (card.kind) {
+    case 'new':
+      [kind, tone, line] = ['New hero!', 'new', `${card.name} joins your binder.`];
+      break;
+    case 'repeat':
+      [kind, tone] = [holo ? 'Already owned as a holographic' : 'Already owned', 'repeat'];
+      break;
+    case 'holo':
+      [kind, tone, line] = ['Holographic!', 'holo', `A new hero. ${card.name} joins your binder as a holographic.`];
+      break;
+    case 'holo_upgrade':
+      [kind, tone, line] = ['Upgraded to holographic!', 'holo', `You already had ${card.name}. Now it is holographic.`];
+      break;
+  }
+  const paid = card.kind === 'repeat' && shardsGained > 0;
+  if (paid) line = typeof shards === 'number' ? `You now have ${shards} shards.` : null;
+  return (
+    <>
+      <p className="pack-opening__kind" data-tone={tone}>{kind}</p>
+      {paid && <p className="pack-opening__shards">+{shardsGained} shards</p>}
+      {line && <p className="pack-opening__sub">{line}</p>}
+    </>
+  );
+};
+
 const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother, buying, onBuyAnother, onDone, onTurn }) => {
   const [shown, setShown] = useState(result);
   const [stage, setStage] = useState<PackStage>('pack');
@@ -261,6 +292,28 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
 
   const allTurned = turned.every(Boolean);
   const middle = (cards.length - 1) / 2;
+  // Today's server sends one card; an older one sends three (or four with a bonus) and gets today's row.
+  const single = cards.length === 1;
+  const actions = (
+    <div className="pack-opening__actions">
+      {!single && (
+        <button type="button" className="ui-btn ui-btn--quiet pack-opening__turn-all" onClick={turnAll} disabled={allTurned}>
+          Turn all over
+        </button>
+      )}
+      <button
+        type="button"
+        className="ui-btn pack-opening__again"
+        onClick={onBuyAnother}
+        disabled={!canBuyAnother || buying}
+      >
+        Buy another<Coin />{price}
+      </button>
+      <button type="button" className="ui-btn ui-btn--primary pack-opening__done" onClick={onDone} disabled={buying}>
+        Done
+      </button>
+    </div>
+  );
 
   return (
     <div
@@ -305,8 +358,8 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
         </div>
       )}
       {stage === 'cards' && (
-        <div key="reveal" className="pack-opening__reveal">
-          <h2 className="pack-opening__heading">{cards.length === 4 ? 'A bonus fourth card!' : 'Your heroes'}</h2>
+        <div key="reveal" className={`pack-opening__reveal${single ? ' pack-opening__reveal--single' : ''}`}>
+          {!single && <h2 className="pack-opening__heading">Your heroes</h2>}
           <div className="pack-opening__cards" ref={grid.ref} style={grid.style}>
             {cards.map((card, index) => {
               const inSpot = spot?.index === index;
@@ -345,27 +398,21 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
                       </div>
                     )}
                   </div>
-                  {turned[index] && <div className="pack-opening__label"><CardLabel card={card} /></div>}
+                  {turned[index] && !single && <div className="pack-opening__label"><CardLabel card={card} /></div>}
                 </div>
               );
             })}
           </div>
-          <div className="pack-opening__actions">
-            <button type="button" className="ui-btn ui-btn--quiet pack-opening__turn-all" onClick={turnAll} disabled={allTurned}>
-              Turn all over
-            </button>
-            <button
-              type="button"
-              className="ui-btn pack-opening__again"
-              onClick={onBuyAnother}
-              disabled={!canBuyAnother || buying}
-            >
-              Buy another<Coin />{price}
-            </button>
-            <button type="button" className="ui-btn ui-btn--primary pack-opening__done" onClick={onDone} disabled={buying}>
-              Done
-            </button>
-          </div>
+          {single ? (
+            <div className="pack-opening__panel">
+              <div className="pack-opening__result">
+                {turned[0]
+                  ? <OneCardResult card={cards[0]} shardsGained={result.shardsGained} shards={result.shards} />
+                  : <p className="pack-opening__turn-hint">Tap the card to turn it over</p>}
+              </div>
+              {actions}
+            </div>
+          ) : actions}
         </div>
       )}
       {banner && <div key={banner.id} className="pack-opening__banner" aria-hidden="true">{banner.text}</div>}
