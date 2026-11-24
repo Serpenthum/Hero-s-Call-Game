@@ -262,6 +262,10 @@ describe('useBinderData', () => {
     expect(userLoads()).toBe(3);
     // Never sent again by itself
     expect(crafts()).toBe(3);
+    // Only the account is refreshed: the heroes and favourites are not loaded again, and nothing reads as loading
+    expect(fetchMock.mock.calls.filter(([url]) => url.startsWith(`${API}/api/heroes`))).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([url]) => url === `${API}/api/favorite-heroes/7`)).toHaveLength(1);
+    expect(latest.loading).toBe(false);
   });
 
   it('a 404 (an old server) or no network: "Crafting isn\'t available right now."', async () => {
@@ -273,14 +277,31 @@ describe('useBinderData', () => {
     await act(async () => { result = await latest.craft('Paladin'); });
     expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
 
-    // The craft finds no network (the reload that follows it does)
-    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) =>
-      url === `${API}/api/shop/craft` ? Promise.reject(new Error('offline')) : happyRoute(url, init)));
+    // Everything is offline, the refresh after the craft included: what is on screen stays as it was
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))));
     await act(async () => { result = await latest.craft('Paladin'); });
     expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
     await settle();
     expect(latest.collection.owned).toEqual(['Monk', 'Ninja']);
+    expect(latest.collection.holo).toEqual(['Monk']);
     expect(latest.shards).toBe(140);
+    expect(latest.heroes).toEqual(HEROES);
+    expect(latest.error).toBe(false);
+    expect(latest.loading).toBe(false);
+  });
+
+  it('a lobby refresh that throws after an accepted craft still counts as a success', async () => {
+    stubFetch(happyRoute);
+    const onPurchaseComplete = vi.fn(() => { throw new Error('lobby refresh failed'); });
+    render(<Probe userId={7} onPurchaseComplete={onPurchaseComplete} />);
+    await settle();
+
+    let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: true });
+    expect(onPurchaseComplete).toHaveBeenCalledTimes(1);
+    expect(latest.collection.owned).toEqual(['Monk', 'Ninja', 'Paladin']);
+    expect(latest.shards).toBe(40);
   });
 
   describe('the craft time limit', () => {

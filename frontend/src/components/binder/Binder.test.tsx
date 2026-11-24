@@ -621,16 +621,35 @@ describe('the binder', () => {
       expect(large(root)).toBeNull();
     });
 
-    it('a craft that throws still lets the large view close', async () => {
+    it('a lobby refresh that throws after the server said yes still crafts: the forge plays and the card is owned', async () => {
+      vi.useFakeTimers();
       stubFetch();
-      // The one step of a craft outside its own error handling: telling the lobby
       const root = await openBinder({ onPurchaseComplete: () => { throw new Error('lobby refresh failed'); } });
       startCraft(root);
       await settle();
-      expect(large(root)!.querySelector('.binder-craft-wait')).toBeNull();
-      expect(root.querySelector('[data-forge]')).toBeNull();
-      pressEscape();
+      expect(large(root)!.querySelector('[role=alert]')).toBeNull();
+      expect(large(root)!.dataset.forge).toBe('shell');
+      advance(FORGE_LAND_MS);
       expect(large(root)).toBeNull();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+      advance(FORGE_END_MS - FORGE_LAND_MS);
+    });
+
+    it('a craft that fails with everything offline keeps the binder as it was', async () => {
+      stubFetch();
+      const root = await openBinder();
+      // The connection drops: the craft and the refresh after it both fail
+      vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))));
+      startCraft(root);
+      await settle();
+      expect(root.textContent).not.toContain("Couldn't load the heroes.");
+      expect(large(root)!.querySelector('[role=alert]')?.textContent).toBe("Crafting isn't available right now.");
+      expect(large(root)!.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(pocket(root, 'H01')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(status(root)).toBe('Page 1 of 3 · 10 of 30 heroes · 2 holographic');
+      expect(said(root)).toBe('140 shards');
     });
 
     it('after "You already have this hero." the binder reloads and shows the card owned', async () => {

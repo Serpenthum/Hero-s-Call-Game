@@ -100,6 +100,25 @@ export default function useBinderData(
 
   const retry = useCallback(() => setAttempt(a => a + 1), []);
 
+  // After a craft whose outcome is unsure: reads the account again (owned, holo, shards) and applies it only when
+  // the read works. A failed read keeps everything on screen as it was; nothing reloads and nothing reads as loading.
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
+  const refreshAccount = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { success, user } = await getJson(`${API}/api/user/${userId}`) as {
+        success?: boolean; user?: { available_heroes?: string[]; holo_heroes?: string[]; shards?: number };
+      };
+      if (!success || !user || userIdRef.current !== userId) return;
+      setOwned(user.available_heroes || []);
+      setHolo(user.holo_heroes || []);
+      if (typeof user.shards === 'number') setShards(user.shards);
+    } catch (err) {
+      console.error('Error crafting hero: the account could not be refreshed:', err);
+    }
+  }, [userId]);
+
   const toggleFavourite = useCallback(async (heroName: string) => {
     if (!userId) return;
     try {
@@ -123,10 +142,10 @@ export default function useBinderData(
     let response: Response;
     // A reply may be any JSON at all, null included: only an object that says success is a craft
     let data: { success?: boolean; message?: unknown; shards?: number; available_heroes?: string[] } | null;
-    // Unsure whether it went through (no answer), or the binder was out of date (already owned): reload what the
-    // server has. The craft itself is never sent again.
+    // Unsure whether it went through (no answer), or the binder was out of date (already owned): refresh the
+    // account from the server. The craft itself is never sent again.
     const failed = (message: string): CraftResult => {
-      if (message === CRAFT_UNAVAILABLE || message === ALREADY_OWNED) retry();
+      if (message === CRAFT_UNAVAILABLE || message === ALREADY_OWNED) void refreshAccount();
       return { ok: false, message };
     };
     // A timer of our own, not AbortSignal.timeout, so it is cleared the moment the request settles
@@ -153,9 +172,14 @@ export default function useBinderData(
     if (!response.ok || !data?.success) return failed(craftErrorText(data?.message, CRAFT_UNAVAILABLE));
     if (Array.isArray(data.available_heroes)) setOwned(data.available_heroes);
     if (typeof data.shards === 'number') setShards(data.shards);
-    onPurchaseCompleteRef.current?.();
+    // The server said yes: a lobby refresh that throws does not undo the craft
+    try {
+      onPurchaseCompleteRef.current?.();
+    } catch (err) {
+      console.error('Error crafting hero: the lobby could not be told:', err);
+    }
     return { ok: true };
-  }, [retry]);
+  }, [refreshAccount]);
 
   return { heroes, collection: { owned, favourites, holo }, loading, error, retry, toggleFavourite, shards, craft };
 }
