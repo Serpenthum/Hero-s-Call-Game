@@ -31,6 +31,7 @@ interface User {
   available_heroes: string[];
   favorite_heroes: string[];
   holo_heroes?: string[];
+  shards?: number; // missing from older servers: read as 0
   xp: number;
   level: number;
   best_gauntlet_trial: number;
@@ -299,7 +300,8 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
         Object.assign(user, {
           victory_points: userData.victory_points,
           available_heroes: userData.available_heroes,
-          holo_heroes: userData.holo_heroes || []
+          holo_heroes: userData.holo_heroes || [],
+          shards: userData.shards ?? 0
         });
         setUserRefreshTrigger(prev => prev + 1);
         console.log(`✅ User data updated: ${userData.available_heroes.length} heroes`);
@@ -437,6 +439,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
           onClose={handleCloseShop}
           userId={user.id}
           victoryPoints={victoryPoints}
+          shards={user.shards ?? 0}
           availableHeroes={user.available_heroes}
           holoHeroes={user.holo_heroes}
           onPurchaseComplete={handlePurchaseComplete}

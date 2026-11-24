@@ -1,19 +1,20 @@
-/* The hero shop: direction B, "Showcase split".
-   A leather showcase on the left (title, coins, the pack, its two buttons, the sale dial and pager) and the felt
-   table of sale cards on the right. "See what's inside" lays the same two parts over the shop.
+/* The shop: the leather counter on the left (title, coins, the pack, Buy pack, "See what's inside", and how many
+   coins are still needed) and the felt table on the right, which shows what a pack can hold and how far along the
+   player is. "See what's inside" lays a leather column and the felt over the shop, with every hero a pack can give.
 
    Three sizes of screen:
-   - a sideways phone (500px tall or less): the table gets exactly the room two cards need, and the showcase takes
-     what is left. A narrow showcase (640x360) packs itself tighter than a wide one (844x390); the showcase is a
-     size container, so that follows its real width.
-   - a short window (up to 680px tall): the same wide showcase, a fixed width.
-   - anything taller: the showcase stacks, with the pack on top.
-   The card grid's own box is what useCardGrid measures, so nothing here pads the grid itself. */
+   - a sideways phone (500px tall or less): the counter is narrower; on 640x360 it is one column. "See what's
+     inside" gives the cards exactly the room two need, and its column takes what is left.
+   - a short window (up to 680px tall): the counter is two columns, the pack beside its buttons.
+   - anything taller: the counter stacks, with the pack on top.
+   The leather columns are size containers, so a narrow one follows its real width. The inside card grid's own box
+   is what useCardGrid measures, so nothing here pads that grid. */
 
-@property --shop-stamp-in {
-  syntax: '<number>';
+/* The table's cards: a length worked out where it is declared, so the cards inherit pixels, not container units */
+@property --shop-hold-w {
+  syntax: '<length>';
   inherits: true;
-  initial-value: 1;
+  initial-value: 126px;
 }
 
 .shop-overlay {
@@ -40,8 +41,13 @@
   --shop-show-pad-y: 12px;
   --shop-row-gap: 12px;
   --shop-pack-w: clamp(120px, calc((var(--shop-vh) - 490px) / 1.5), 240px);
-  --shop-dial: clamp(58px, 7vh, 72px);
-  /* The floating friends and messages icons sit in the bottom left corner; the showcase stops above them */
+  /* The table: the gap between its parts and between its three cards, the largest card, and the height its
+     words and meters take (the cards get the rest) */
+  --shop-table-gap: 14px;
+  --shop-hold-gap: 32px;
+  --shop-hold-max: 200px;
+  --shop-hold-rest: 200px;
+  /* The floating friends and messages icons sit in the bottom left corner; the leather column stops above them */
   --shop-dock: 76px;
   --shop-control: 44px;
   position: relative;
@@ -86,20 +92,11 @@
   pointer-events: none;
 }
 
-.shop--b :is(h2, h3, p) { margin: 0; }
+.shop--b :is(h2, h3, p, ul) { margin: 0; }
 .shop--b button { margin: 0; font-family: inherit; }
 /* The site's buttons lift and cast a shadow on hover; the shop's stay put */
 .shop--b button:hover { transform: none; box-shadow: var(--shop-button-shadow, none); }
 .shop--b .coin-icon { display: block; flex: none; width: 18px; height: 18px; }
-
-.shop--b .shop-loading {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--bone-dim);
-  font: italic 400 18px/1.2 var(--font-label);
-}
 
 /* The close button sits in the top right corner of the leather column, as if it were in its heading row */
 .shop--b .shop-close {
@@ -112,8 +109,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   The leather column: the showcase, and the side of "See what's inside".
-   Six rows: heading, (pack beside) the note, button, button, spare room, foot.
+   The leather columns: the counter, and the side of "See what's inside"
    --------------------------------------------------------------------------- */
 .shop--b :is(.shop-showcase, .shop-inside-side) {
   container: shop-side / inline-size;
@@ -123,7 +119,6 @@
   flex: 0 0 var(--shop-show-w);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto 1fr auto auto minmax(0, 1fr) auto;
   column-gap: 12px;
   min-height: 0;
   margin-bottom: var(--shop-dock);
@@ -137,20 +132,26 @@
   box-shadow: 0 12px 24px var(--shade);
 }
 
-/* Rows are spaced by margins, not row-gap, so the spare row costs nothing when it is empty */
+/* Rows are spaced by margins, not row-gap, so an empty row costs nothing */
 .shop--b :is(.shop-showcase, .shop-inside-side) > * { min-width: 0; margin-top: var(--shop-row-gap); }
-.shop--b :is(.shop-showcase-head, .shop-inside-title) { grid-area: 1 / 1 / 2 / -1; margin-top: 0; }
-.shop--b :is(.shop-showcase, .shop-inside-side) > .holo-pack { grid-area: 2 / 1 / 6 / 2; align-self: center; justify-self: center; }
-.shop--b :is(.shop-pack-note, .shop-inside-sub) { grid-area: 2 / 2; align-self: end; }
-.shop--b :is(.shop-buy-pack, .shop-meter) { grid-area: 3 / 2; }
-.shop--b .shop-inside-btn { grid-area: 4 / 2; }
-.shop--b :is(.shop-foot, .shop-inside-side > .shop-pager) { grid-area: 6 / 1 / 7 / -1; }
 
 /* A small pack keeps its name readable: never under 12px, on two lines when it has to be */
 .shop--b .holo-pack__name {
   font-size: max(12px, calc(var(--holo-pack-w) * 0.128));
   white-space: normal;
 }
+
+/* The counter. Six rows: heading, (pack beside) the note, Buy pack, "See what's inside", coins needed, spare room.
+   The rows above and below the buttons share the spare height, so the column sits in the middle. */
+.shop--b .shop-showcase {
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto minmax(0, 1fr);
+}
+.shop--b .shop-showcase-head { grid-area: 1 / 1 / 2 / -1; margin-top: 0; }
+.shop--b .shop-showcase > .holo-pack { grid-area: 2 / 1 / 7 / 2; align-self: center; justify-self: center; }
+.shop--b .shop-pack-note { grid-area: 2 / 2; align-self: end; }
+.shop--b .shop-buy-pack { grid-area: 3 / 2; }
+.shop--b .shop-inside-btn { grid-area: 4 / 2; }
+.shop--b .shop-short { grid-area: 5 / 2; }
 
 .shop--b .shop-showcase-head {
   display: flex;
@@ -169,7 +170,6 @@
   text-shadow: 0 2px 0 var(--card-black);
 }
 .shop--b .shop-showcase-head h2 { white-space: nowrap; }
-.shop--b .shop-inside-title { display: flex; align-items: center; min-height: 40px; margin-right: 48px; }
 
 .shop--b .shop-balance {
   flex: none;
@@ -192,8 +192,6 @@
 }
 
 .shop--b .shop-pack-note { color: var(--bone-dim); font: 400 15px/1.3 var(--font-ui); }
-.shop--b .shop-inside-sub { color: var(--bone); font: 400 15px/1.3 var(--font-ui); }
-.shop--b .shop-inside-sub .coin-icon { display: inline-block; width: 1.1em; height: 1.1em; vertical-align: -0.2em; }
 
 /* "Buy pack" (brass) and "See what's inside" (a brass line) */
 .shop--b :is(.shop-buy-pack, .shop-inside-btn) {
@@ -213,131 +211,107 @@
 .shop--b .shop-buy-pack { color: var(--felt-deep); background: var(--brass); border: 1px solid var(--brass-hi); }
 .shop--b .shop-buy-pack:hover:not(:disabled, .is-poor) { background: var(--brass-hi); }
 .shop--b .shop-buy-pack-price { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
-.shop--b .shop-inside-btn { color: var(--bone); background: transparent; border: 1px solid var(--brass); }
+.shop--b .shop-inside-btn { color: var(--bone); background: transparent; border: 1px solid var(--brass); font-size: 15px; }
 .shop--b .shop-inside-btn:hover { background: var(--leather); }
-.shop--b :is(.shop-buy-pack, .shop-inside-btn, .shop-price-tag):active:not(:disabled, .is-poor) { transform: translateY(1px); }
-/* A purchase is out for a moment only; the buttons hold their look instead of blinking dim */
-.shop--b :is(.shop-buy-pack, .shop-price-tag):disabled { opacity: 1; cursor: progress; }
+.shop--b :is(.shop-buy-pack, .shop-inside-btn):active:not(:disabled, .is-poor) { transform: translateY(1px); }
+/* A purchase is out for a moment only; the button holds its look instead of blinking dim */
+.shop--b .shop-buy-pack:disabled { opacity: 1; cursor: progress; }
 
-/* A price the player can't afford: the same button, in grey leather. It still takes the tap. */
-.shop--b :is(.shop-buy-pack, .shop-price-tag).is-poor {
-  --shop-button-shadow: 0 3px 8px var(--shade);
+/* Too few coins: the same button, in grey leather. It still takes the tap, and the line under it says how many more. */
+.shop--b .shop-buy-pack.is-poor {
   color: var(--bone-dim);
   background: var(--leather);
   border-color: var(--brass-dim);
   cursor: not-allowed;
 }
-.shop--b .shop-buy-pack.is-poor { --shop-button-shadow: none; }
 .shop--b .is-poor .coin-icon { filter: grayscale(1); opacity: 0.6; }
 
-/* The foot: the dial, the time left, the pager */
-.shop--b .shop-foot {
+.shop--b .shop-short {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--brass-dim);
-}
-
-/* The brass dial: the lit arc is the time left in this sale */
-.shop--b .shop-dial {
-  position: relative;
-  flex: none;
-  width: var(--shop-dial);
-  height: var(--shop-dial);
-  margin: 5px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle, var(--walnut) 0 54%, transparent 55%),
-    repeating-conic-gradient(color-mix(in srgb, var(--card-black) 55%, transparent) 0 1.5deg, transparent 1.5deg 24deg),
-    conic-gradient(var(--brass-hi) calc(var(--p) * 360deg), color-mix(in srgb, var(--brass-dim) 45%, var(--card-black)) 0);
-  box-shadow: 0 0 0 2px var(--brass), 0 0 0 4px var(--walnut), 0 0 0 5px var(--brass-dim), 0 4px 10px var(--shade);
-  animation: shop-dial-tick 1s ease-out infinite;
-}
-.shop--b .shop-dial::after {
-  content: "";
-  position: absolute;
-  inset: calc(50% - 4px);
-  border-radius: 50%;
-  background: var(--brass-hi);
-  box-shadow: 0 0 0 1px var(--draft-act-edge);
-}
-.shop--b .shop-dial-hand {
-  position: absolute;
-  bottom: 50%;
-  left: calc(50% - 1px);
-  width: 2px;
-  height: 44%;
-  border-radius: 1px;
-  background: var(--bone);
-  transform: rotate(calc(var(--p) * 360deg));
-  transform-origin: 50% 100%;
-  transition: transform 400ms var(--ease);
-}
-/* One tick a second: the rim catches the light */
-@keyframes shop-dial-tick {
-  9% { box-shadow: 0 0 0 2px var(--brass-hi), 0 0 0 4px var(--walnut), 0 0 0 5px var(--brass), 0 0 14px color-mix(in srgb, var(--pack-glow) 60%, transparent); }
-  30% { box-shadow: 0 0 0 2px var(--brass), 0 0 0 4px var(--walnut), 0 0 0 5px var(--brass-dim), 0 4px 10px var(--shade); }
-}
-
-.shop--b .shop-when { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.shop--b .shop-when-label { color: var(--bone-dim); font: italic 400 15px/1.1 var(--font-label); white-space: nowrap; }
-.shop--b .shop-when-time { font: 700 22px/1.1 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-.shop--b .shop-pager { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-.shop--b .shop-pips { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
-.shop--b .shop-pip { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--brass-dim); }
-.shop--b .shop-pip.is-on { background: var(--brass-hi); }
-
-.shop--b :is(.shop-pager-btn, .shop-inside-arrow) {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  color: var(--bone);
-  font: 700 20px/1 var(--font-ui);
-  background: var(--leather);
-  border: 1px solid var(--brass-dim);
-  border-radius: var(--radius-control);
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  gap: 5px;
+  color: var(--ember-hi);
+  font: 700 14px/1.2 var(--font-ui);
+  white-space: nowrap;
 }
-.shop--b :is(.shop-pager-btn, .shop-inside-arrow):hover:not(:disabled) { background: var(--leather-hi); border-color: var(--brass); }
-.shop--b :is(.shop-pager-btn, .shop-inside-arrow):disabled { opacity: 0.35; cursor: default; }
+.shop--b .shop-short .coin-icon { width: 16px; height: 16px; }
 
 /* ---------------------------------------------------------------------------
-   The felt table: the sale cards, and the cards of "See what's inside"
+   The meters: heroes owned, shards towards a craft
    --------------------------------------------------------------------------- */
-.shop--b :is(.shop-table, .shop-inside-table) {
+.shop--b .shop-meter { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.shop--b .shop-meter-label { color: var(--bone); font: 700 14px/1.2 var(--font-ui); white-space: nowrap; }
+.shop--b .shop-meter-label span { color: var(--bone-dim); font-weight: 400; }
+.shop--b .shop-meter-bar {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  background: var(--felt-deep);
+  border: 1px solid var(--brass-dim);
+  border-radius: 999px;
+}
+.shop--b .shop-meter-fill {
+  display: block;
+  width: calc(var(--p) * 100%);
+  height: 100%;
+  background: linear-gradient(90deg, var(--brass-dim), var(--brass-hi));
+}
+.shop--b .shop-meter--shards .shop-meter-fill { background: linear-gradient(90deg, var(--badge-core-deep), var(--badge-core)); }
+/* The bar in "See what's inside" fills as it opens */
+.shop--b .shop-inside .shop-meter-fill {
+  transform-origin: 0 50%;
+  animation: shop-meter-fill 900ms var(--ease) both;
+}
+@keyframes shop-meter-fill {
+  from { transform: scaleX(0); }
+}
+
+/* ---------------------------------------------------------------------------
+   The felt table: what a pack can hold, and the two meters
+   --------------------------------------------------------------------------- */
+.shop--b .shop-table {
+  container-type: size;
   position: relative;
   isolation: isolate;
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: var(--shop-table-gap);
   min-width: 0;
   min-height: 0;
 }
 
-/* useCardGrid measures this box, so it takes its size from the table and carries no padding or border */
-.shop--b :is(.shop-sale-grid, .shop-inside-grid) {
-  flex: 1;
-  align-self: stretch;
-  display: grid;
-  grid-template-columns: repeat(var(--grid-columns), var(--grid-card-width));
-  grid-auto-rows: var(--grid-card-height);
-  place-content: center;
-  gap: var(--shop-card-gap);
-  min-width: 0;
-  min-height: 0;
+.shop--b .shop-table-title {
+  color: var(--brass-hi);
+  font: italic 400 18px/1 var(--font-label);
+  text-shadow: 0 1px 2px var(--card-black);
 }
 
-.shop--b .shop-slot { position: relative; width: var(--grid-card-width); height: var(--grid-card-height); }
-.shop--b .shop-slot .hero-card.hero-layout-card { --hero-card-scale: var(--grid-card-scale); }
+/* Three cards as wide as the table allows, as tall as its height leaves once the words and meters are in */
+.shop--b .shop-holds {
+  --shop-hold-w: clamp(
+    84px,
+    min(calc((100cqw - 2 * var(--shop-hold-gap) - 12px) / 3), calc((100cqh - var(--shop-hold-rest)) * 260 / 391)),
+    var(--shop-hold-max)
+  );
+  display: flex;
+  justify-content: center;
+  gap: var(--shop-hold-gap);
+}
+.shop--b .shop-hold {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  width: var(--shop-hold-w);
+}
+.shop--b .shop-hold-card { position: relative; }
+.shop--b .shop-hold-card .hero-card.hero-layout-card { --card-w: var(--shop-hold-w); }
 /* The brass inlay in the felt where each card lies */
-.shop--b .shop-slot::before {
+.shop--b :is(.shop-hold-card, .shop-slot)::before {
   content: "";
   position: absolute;
   inset: var(--shop-inlay);
@@ -345,131 +319,41 @@
   border-radius: 12px;
   pointer-events: none;
 }
-/* A mouse lifts the card off its inlay (the inlay moves back by as much, so it stays in the felt) */
-.shop--b .shop-slot,
-.shop--b .shop-slot::before { transition: translate 200ms var(--ease); }
-@media (hover: hover) and (pointer: fine) {
-  .shop--b .shop-slot:hover { translate: 0 -4px; }
-  .shop--b .shop-slot:hover::before { translate: 0 4px; }
-}
-
-/* The brass price tag is the Buy button; it sits on the art, top right */
-.shop--b .shop-price-tag {
-  --shop-button-shadow: 0 3px 8px var(--shade), inset 0 1px 0 color-mix(in srgb, var(--card-white) 40%, transparent);
+/* A hero already owned: the card dims, and a tag says what the pack pays instead */
+.shop--b .shop-hold.is-repeat .card-art { filter: saturate(0.45) brightness(0.6); }
+.shop--b .shop-hold-shards {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 38%;
+  left: 50%;
   z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 40px;
-  padding: 0 11px 0 8px;
-  color: var(--mode-ink);
+  padding: 4px 8px;
+  color: var(--badge-core-hot);
   font: 800 15px/1 var(--font-ui);
   white-space: nowrap;
-  background: linear-gradient(var(--draft-act-top), var(--draft-act-bottom));
-  border: 1px solid var(--draft-act-edge);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shop-button-shadow);
-}
-.shop--b .shop-price-tag-amount { font-size: 16px; font-variant-numeric: tabular-nums; }
-.shop--b .shop-price-tag-buy { padding-left: 6px; border-left: 1px solid color-mix(in srgb, var(--mode-ink) 40%, transparent); }
-.shop--b .shop-price-tag:hover:not(:disabled, .is-poor) { filter: brightness(1.1); }
-.shop--b .shop-price-tag.is-poor .shop-price-tag-buy { border-left-color: var(--brass-dim); }
-
-/* A bought card dims a little and takes a stamp. The stamp drops in when the card is bought here, not when the
-   shop opens on a hero already owned: the slot counts 0 to 1 as it turns bought, and the stamp follows it. */
-.shop--b .shop-slot .card-art { transition: filter 300ms var(--ease); }
-.shop--b .shop-slot.is-bought .card-art { filter: saturate(0.45) brightness(0.7); }
-.shop--b .shop-slot { --shop-stamp-in: 0; }
-.shop--b .shop-slot.is-bought { --shop-stamp-in: 1; transition: translate 200ms var(--ease), --shop-stamp-in 420ms var(--ease); }
-.shop--b .shop-stamp {
-  position: absolute;
-  top: 22%;
-  left: 57%;
-  z-index: 20;
-  padding: 3px 10px 4px;
-  color: var(--brass-hi);
-  font: 500 23px/1 var(--font-display);
-  white-space: nowrap;
-  background: color-mix(in srgb, var(--felt-deep) 78%, transparent);
-  border: 2px solid var(--brass-hi);
+  background: color-mix(in srgb, var(--felt-deep) 82%, transparent);
+  border: 2px solid var(--badge-core);
   border-radius: 6px;
-  opacity: var(--shop-stamp-in);
-  transform:
-    translate(-50%, -50%)
-    rotate(calc(-16deg + 7deg * var(--shop-stamp-in)))
-    scale(calc(2.2 - 1.2 * var(--shop-stamp-in)));
+  box-shadow: 0 3px 8px var(--shade);
+  transform: translate(-50%, -50%) rotate(-7deg);
   pointer-events: none;
 }
 
-.shop--b .shop-owned-chip {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px 0 9px;
-  color: var(--bone);
-  font: 700 13px/1 var(--font-ui);
-  white-space: nowrap;
-  background: color-mix(in srgb, var(--felt-deep) 86%, transparent);
-  border: 1px solid var(--verdigris);
-  border-radius: 999px;
-  pointer-events: none;
-}
-/* A tick */
-.shop--b .shop-owned-chip::before {
-  content: "";
-  width: 4px;
-  height: 8px;
-  margin-top: -2px;
-  border: solid var(--verdigris);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
+.shop--b .shop-hold-cap { text-align: center; }
+.shop--b .shop-hold-cap b { display: block; color: var(--bone); font: 700 15px/1.15 var(--font-ui); white-space: nowrap; }
+.shop--b .shop-hold-cap span { display: block; margin-top: 2px; color: var(--bone-dim); font: 400 14px/1.15 var(--font-ui); white-space: nowrap; }
 
-/* The card turn: the cards on the page turn away and back like a display case changing. The stagger is 90ms
-   (out) and 120ms (in) between two cards, and shares that out when a page holds more, so every card is back
-   before .shop-turn comes off. */
-.shop--b .shop-turn .shop-slot {
-  --shop-turn-step: calc(1 / max(1, var(--grid-columns) * var(--grid-rows) - 1));
-  animation:
-    shop-turn-out 300ms ease-in both,
-    shop-turn-in 460ms var(--ease) forwards;
-  animation-delay:
-    calc(var(--i, 0) * var(--shop-turn-step) * 90ms),
-    calc(300ms + var(--i, 0) * var(--shop-turn-step) * 120ms);
+.shop--b .shop-meters {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  width: min(100%, calc(3 * var(--shop-hold-w) + 2 * var(--shop-hold-gap) + 30px));
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--brass-dim) 70%, transparent);
 }
-@keyframes shop-turn-out {
-  to { transform: perspective(900px) rotateY(88deg); filter: brightness(0.4); }
-}
-@keyframes shop-turn-in {
-  from { transform: perspective(900px) rotateY(-88deg); filter: brightness(2); }
-  to { transform: perspective(900px) rotateY(0deg); filter: brightness(1); }
-}
-
-.shop--b .shop-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px;
-  color: var(--bone-dim);
-  font-size: 16px;
-  text-align: center;
-}
-.shop--b .shop-empty .empty-icon { margin: 0; color: var(--verdigris); }
-.shop--b .shop-empty h3 { color: var(--bone); font: 500 28px/1.1 var(--font-display); }
 
 /* ---------------------------------------------------------------------------
-   Messages: a strip that slides down across the top of the sale cards
+   Messages: a strip that slides down across the top of the felt
    --------------------------------------------------------------------------- */
 /* (.error and .success are named so these win over the site's own .error text style) */
 .shop-message,
@@ -523,7 +407,8 @@
 }
 
 /* ---------------------------------------------------------------------------
-   "See what's inside": the same felt and leather, laid over the shop
+   "See what's inside": the same felt and leather, laid over the shop.
+   Five rows: title, (pack beside) the facts, (pack beside) the meter, spare room, the page count.
    --------------------------------------------------------------------------- */
 .shop--b .shop-inside {
   position: absolute;
@@ -539,35 +424,125 @@
   from { opacity: 0; }
 }
 
-.shop--b .shop-meter { display: flex; flex-direction: column; gap: 5px; }
-.shop--b .shop-meter-label { color: var(--bone); font: 700 14px/1.2 var(--font-ui); white-space: nowrap; }
-.shop--b .shop-meter-bar {
-  display: block;
-  height: 8px;
-  overflow: hidden;
-  background: var(--felt-deep);
-  border: 1px solid var(--brass-dim);
-  border-radius: 999px;
-}
-.shop--b .shop-meter-fill {
-  display: block;
-  width: calc(var(--p) * 100%);
-  height: 100%;
-  background: linear-gradient(90deg, var(--brass-dim), var(--brass-hi));
-  transform-origin: 0 50%;
-  animation: shop-meter-fill 900ms var(--ease) both;
-}
-@keyframes shop-meter-fill {
-  from { transform: scaleX(0); }
-}
+.shop--b .shop-inside-side { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+.shop--b .shop-inside-title { grid-area: 1 / 1 / 2 / -1; display: flex; align-items: center; min-height: 40px; margin: 0 48px 0 0; font-size: 24px; }
+.shop--b .shop-inside-side > .holo-pack { grid-area: 2 / 1 / 4 / 2; align-self: center; justify-self: center; }
+.shop--b .shop-inside-facts { grid-area: 2 / 2; }
+.shop--b .shop-inside-side > .shop-meter { grid-area: 3 / 2; }
+.shop--b .shop-inside-pager { grid-area: 5 / 1 / 6 / -1; }
 
-.shop--b .shop-inside-side > .shop-pager {
+.shop--b .shop-inside-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+  color: var(--bone);
+  font: 400 14.5px/1.25 var(--font-ui);
+}
+.shop--b .shop-inside-facts li { position: relative; padding-left: 12px; }
+.shop--b .shop-inside-facts li::before {
+  content: "";
+  position: absolute;
+  top: 0.5em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--brass-hi);
+}
+.shop--b .shop-inside-facts b { font-weight: 700; }
+
+.shop--b .shop-inside-pager {
+  display: flex;
+  align-items: center;
   justify-content: center;
   min-height: 40px;
-  margin-left: 0;
   padding-top: 8px;
   border-top: 1px solid var(--brass-dim);
 }
+.shop--b .shop-inside-page { color: var(--bone); font: 700 15px/1 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.shop--b .shop-inside-table {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* useCardGrid measures this box, so it takes its size from the table and carries no padding or border */
+.shop--b .shop-inside-grid {
+  flex: 1;
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), var(--grid-card-width));
+  grid-auto-rows: var(--grid-card-height);
+  place-content: center;
+  gap: var(--shop-card-gap);
+  min-width: 0;
+  min-height: 0;
+}
+
+.shop--b .shop-slot { position: relative; width: var(--grid-card-width); height: var(--grid-card-height); }
+.shop--b .shop-slot .hero-card.hero-layout-card { --hero-card-scale: var(--grid-card-scale); }
+/* A mouse lifts the card off its inlay (the inlay moves back by as much, so it stays in the felt) */
+.shop--b .shop-slot,
+.shop--b .shop-slot::before { transition: translate 200ms var(--ease); }
+@media (hover: hover) and (pointer: fine) {
+  .shop--b .shop-slot:hover { translate: 0 -4px; }
+  .shop--b .shop-slot:hover::before { translate: 0 4px; }
+}
+
+.shop--b .shop-owned-chip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px 0 9px;
+  color: var(--bone);
+  font: 700 13px/1 var(--font-ui);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--felt-deep) 86%, transparent);
+  border: 1px solid var(--verdigris);
+  border-radius: 999px;
+  pointer-events: none;
+}
+/* A tick */
+.shop--b .shop-owned-chip::before {
+  content: "";
+  width: 4px;
+  height: 8px;
+  margin-top: -2px;
+  border: solid var(--verdigris);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.shop--b .shop-inside-arrow {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--bone);
+  font: 700 20px/1 var(--font-ui);
+  background: var(--leather);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-control);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.shop--b .shop-inside-arrow:hover:not(:disabled) { background: var(--leather-hi); border-color: var(--brass); }
+.shop--b .shop-inside-arrow:disabled { opacity: 0.35; cursor: default; }
 /* With one page there is nowhere to go, so the arrows go too */
 .shop--b .shop-inside-table:not(:has(.shop-inside-arrow:enabled)) .shop-inside-arrow { display: none; }
 
@@ -576,6 +551,10 @@
   --shop-turn-step: calc(1 / max(1, var(--grid-columns) * var(--grid-rows) - 1));
   animation: shop-turn-in 460ms var(--ease) backwards;
   animation-delay: calc(var(--i, 0) * var(--shop-turn-step) * 120ms);
+}
+@keyframes shop-turn-in {
+  from { transform: perspective(900px) rotateY(-88deg); filter: brightness(2); }
+  to { transform: perspective(900px) rotateY(0deg); filter: brightness(1); }
 }
 .shop--b .shop-inside-grid .shop-slot:nth-child(2) { --i: 1; }
 .shop--b .shop-inside-grid .shop-slot:nth-child(3) { --i: 2; }
@@ -587,23 +566,47 @@
 .shop--b .shop-inside-grid .shop-slot:nth-child(n + 9) { --i: 8; }
 
 /* ---------------------------------------------------------------------------
-   A tall screen: the showcase stacks, with the pack on top
+   A tall screen: both leather columns stack, with the pack on top
    --------------------------------------------------------------------------- */
 @media (min-height: 680px) {
-  .shop--b :is(.shop-showcase, .shop-inside-side) {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto 1fr auto auto auto auto;
+  .shop-container.shop--b {
+    --shop-pack-w: clamp(120px, calc((var(--shop-vh) - 410px) / 1.5), 236px);
+    --shop-table-gap: 22px;
+    --shop-hold-gap: 40px;
+    --shop-hold-rest: 220px;
+    --shop-control: 48px;
   }
-  .shop--b :is(.shop-showcase, .shop-inside-side) > .holo-pack { grid-area: 2 / 1; }
-  .shop--b :is(.shop-pack-note, .shop-inside-sub) { grid-area: 3 / 1; text-align: center; text-wrap: balance; }
-  .shop--b :is(.shop-buy-pack, .shop-meter) { grid-area: 4 / 1; }
-  .shop--b .shop-inside-btn { grid-area: 5 / 1; }
-  .shop--b :is(.shop-foot, .shop-inside-side > .shop-pager) { grid-area: 6 / 1; }
+  .shop--b :is(.shop-showcase, .shop-inside-side) { grid-template-columns: minmax(0, 1fr); }
+  .shop--b .shop-showcase { grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr); align-content: start; }
+  .shop--b .shop-showcase > .holo-pack { grid-area: 2 / 1; }
+  .shop--b .shop-pack-note { grid-area: 3 / 1; text-align: center; text-wrap: balance; font-size: 16px; }
+  .shop--b .shop-buy-pack { grid-area: 4 / 1; font-size: 18px; }
+  .shop--b .shop-inside-btn { grid-area: 5 / 1; font-size: 17px; }
+  .shop--b .shop-short { grid-area: 6 / 1; font-size: 16px; }
+
+  .shop--b .shop-table-title { font-size: 26px; }
+  .shop--b .shop-hold { gap: 14px; }
+  .shop--b .shop-hold-cap b { font-size: 19px; }
+  .shop--b .shop-hold-cap span { font-size: 16px; }
+  .shop--b .shop-hold-shards { padding: 6px 12px; font-size: 22px; }
+  .shop--b .shop-meters { gap: 36px; padding-top: 16px; }
+  .shop--b .shop-table .shop-meter-label { font-size: 17px; }
+  .shop--b .shop-table .shop-meter-bar { height: 10px; }
+
+  .shop--b .shop-inside-side { grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; }
+  .shop--b .shop-inside-title { font-size: 30px; }
+  .shop--b .shop-inside-side > .holo-pack { --shop-pack-w: clamp(100px, calc((var(--shop-vh) - 460px) / 1.5), 200px); grid-area: 2 / 1; }
+  .shop--b .shop-inside-facts { grid-area: 3 / 1; gap: 8px; font-size: 17px; }
+  .shop--b .shop-inside-side > .shop-meter { grid-area: 4 / 1; }
+  .shop--b .shop-inside-side .shop-meter-label { font-size: 16px; }
+  .shop--b .shop-inside-pager { grid-area: 6 / 1; }
+  .shop--b .shop-inside-page { font-size: 17px; }
 }
 
 /* ---------------------------------------------------------------------------
-   A sideways phone (844x390 down to 640x360). Two cards need 2 x their width plus the 18px useCardGrid allows
-   between them; the showcase takes the rest of the screen, 150px at the least. Nothing scrolls.
+   A sideways phone (844x390 down to 640x360). Nothing scrolls.
+   The counter: 300px wide at 844, 236px at 640. "See what's inside": two cards need 2 x their width plus the 18px
+   useCardGrid allows between them, and the column takes the rest of the screen, 150px at the least.
    --------------------------------------------------------------------------- */
 @media (max-height: 500px) {
   .shop-container.shop--b {
@@ -614,30 +617,43 @@
     --shop-inlay: -3px;
     --shop-dock: 0px;
     --shop-control: 40px;
-    --shop-dial: clamp(48px, calc(var(--shop-show-w) / 5.2), 58px);
+    --shop-show-w: clamp(236px, calc(31.4vw + 35px), 300px);
+    --shop-show-pad-x: 10px;
+    --shop-show-pad-y: 9px;
+    --shop-row-gap: 8px;
+    --shop-pack-w: clamp(92px, calc(14.7vw - 2px), 122px);
+    --shop-table-gap: 10px;
+    --shop-hold-gap: clamp(17px, calc(2.5vw + 1px), 22px);
+    --shop-hold-max: 126px;
+    --shop-hold-rest: 150px;
+  }
+
+  .shop--b .shop-inside {
     --shop-fit-card: min(312px, calc((var(--shop-vh) - 2 * var(--shop-pad-y) - var(--safe-top) - var(--safe-bottom)) * 260 / 391));
     --shop-show-w: clamp(
       150px,
       calc(100vw - var(--safe-left) - var(--safe-right) - 2 * var(--shop-pad-x) - var(--shop-gap) - 2 * var(--shop-fit-card) - 18px),
       360px
     );
-    --shop-show-pad-x: clamp(8px, calc(var(--shop-show-w) / 30), 10px);
-    --shop-show-pad-y: clamp(7px, calc(var(--shop-show-w) / 34), 9px);
-    --shop-row-gap: clamp(4px, calc(var(--shop-show-w) / 38), 8px);
-    --shop-fit-h: calc(var(--shop-vh) - var(--safe-top) - var(--safe-bottom));
-    --shop-pack-w: clamp(96px, min(calc(var(--shop-show-w) - 174px), calc((var(--shop-fit-h) - 180px) / 1.5)), 136px);
+    --shop-pack-w: 96px;
   }
 
-  .shop--b :is(.shop-showcase-head h2, .shop-inside-title) { font-size: 24px; }
-  .shop--b :is(.shop-buy-pack, .shop-inside-btn) { font-size: 15px; }
-  .shop--b .shop-pack-note { font-size: 13px; }
-  .shop--b .shop-when-label { font-size: 14px; }
-  .shop--b .shop-when-time { font-size: 20px; }
+  .shop--b .shop-showcase-head h2 { font-size: 24px; }
+  .shop--b .shop-buy-pack { font-size: 15px; }
+  .shop--b .shop-pack-note { font-size: 14px; }
+  .shop--b .shop-table-title { font-size: 17px; }
+  .shop--b .shop-hold { gap: 7px; }
+  .shop--b .shop-hold-cap b { font-size: 14px; }
+  .shop--b .shop-hold-cap span { font-size: 13px; }
+  .shop--b .shop-meters { gap: 12px; padding-top: 6px; }
   .shop--b .shop-meter-label { font-size: 13px; }
   .shop--b .shop-table .shop-message { font-size: 14px; }
-  .shop--b .shop-empty h3 { font-size: 22px; }
 
-  /* No room for arrows beside two cards: they flank the page pips at the foot of the leather column */
+  .shop--b .shop-inside-facts { font-size: 13.5px; line-height: 1.2; gap: 5px; }
+  /* "3 of 20": the word "Page" makes way on a phone */
+  .shop--b .shop-inside-page-word { display: none; }
+
+  /* No room for arrows beside two cards: they flank the page count at the foot of the leather column */
   .shop--b .shop-inside-table { position: static; }
   .shop--b .shop-inside-arrow {
     position: absolute;
@@ -646,54 +662,35 @@
   }
   .shop--b .shop-inside-arrow.prev { left: calc(var(--safe-left) + var(--shop-pad-x) + var(--shop-show-pad-x) + 1px); }
   .shop--b .shop-inside-arrow.next { left: calc(var(--safe-left) + var(--shop-pad-x) + var(--shop-show-w) - var(--shop-show-pad-x) - 41px); }
-  .shop--b .shop-inside-side > .shop-pager { padding-right: 46px; padding-left: 46px; }
+  .shop--b .shop-inside-pager { padding-right: 46px; padding-left: 46px; }
 
-  /* The friends and messages dock would sit over the dial and pager */
+  /* The friends and messages dock would sit over the counter and the page count */
   body:has(.shop-overlay) :is(.friends-icon, .message-icon) { visibility: hidden; }
 }
 
 /* ---------------------------------------------------------------------------
-   A narrow leather column (640x360): the small pack beside its note, full-width buttons, the time on one line
+   A narrow leather column (640x360): one column. The counter keeps its pack and drops the note (the table says
+   the same); "See what's inside" drops the pack for its words.
    --------------------------------------------------------------------------- */
-/* (a container's width is its inside: 268px here is a showcase 290px wide over all) */
+/* (a container's width is its inside: 268px here is a column about 290px wide over all) */
 @container shop-side (max-width: 268px) {
-  .shop--b .shop-showcase-head h2 { font-size: 20px; }
-  .shop--b h2.shop-inside-title { font-size: 17px; }
-  .shop--b .shop-balance { height: 26px; }
+  .shop--b .shop-showcase-head h2 { font-size: 22px; }
+  .shop--b .shop-showcase-head { padding-right: 44px; }
+  .shop--b .shop-balance { height: 26px; padding: 0 8px 0 4px; }
+  .shop--b .shop-showcase { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto auto auto minmax(0, 1fr); }
+  .shop--b .shop-showcase > .holo-pack { grid-area: 3 / 1; }
+  .shop--b .shop-pack-note { display: none; }
+  .shop--b .shop-buy-pack { grid-area: 4 / 1; }
+  .shop--b .shop-inside-btn { grid-area: 5 / 1; }
+  .shop--b .shop-short { grid-area: 6 / 1; }
 
-  .shop--b :is(.shop-showcase, .shop-inside-side) > .holo-pack {
-    --shop-pack-w: clamp(58px, min(calc(var(--shop-show-w) * 0.39), calc((var(--shop-vh) - var(--safe-top) - var(--safe-bottom) - 273px) / 1.5)), 96px);
-    grid-area: 2 / 1 / 3 / 2;
-  }
-  .shop--b .shop-pack-note { grid-area: 2 / 2; align-self: center; font-size: 12px; line-height: 1.2; }
-  .shop--b .shop-buy-pack { grid-area: 3 / 1 / 4 / -1; }
-  .shop--b .shop-inside-btn { grid-area: 4 / 1 / 5 / -1; }
-
-  .shop--b .shop-inside-side > .holo-pack { grid-area: 2 / 1 / 3 / -1; }
-  .shop--b .shop-inside-sub { grid-area: 3 / 1 / 4 / -1; align-self: start; font-size: 12px; line-height: 1.25; }
-  .shop--b .shop-meter { grid-area: 4 / 1 / 5 / -1; }
-
-  .shop--b .shop-foot {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 4px;
-    padding-top: 6px;
-  }
-  .shop--b .shop-dial { --shop-dial: 30px; margin: 5px 2px; }
-  .shop--b .shop-when {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: center;
-    gap: 5px;
-  }
-  .shop--b .shop-when-label { font-size: 13px; }
-  .shop--b .shop-when-time { font-size: 14px; }
-  .shop--b .shop-foot .shop-pager { gap: 3px; }
-  .shop--b .shop-foot .shop-pips { flex-direction: column; }
-  .shop--b .shop-inside-side > .shop-pager { padding-top: 6px; }
+  .shop--b .shop-inside-side { grid-template-columns: minmax(0, 1fr); }
+  .shop--b h2.shop-inside-title { margin-right: 44px; font-size: 19px; }
+  .shop--b .shop-inside-side > .holo-pack { display: none; }
+  .shop--b .shop-inside-facts { grid-area: 2 / 1; font-size: 13px; }
+  .shop--b .shop-inside-side > .shop-meter { grid-area: 3 / 1; }
+  .shop--b .shop-inside-pager { padding-top: 6px; }
+  .shop--b .shop-inside-page { font-size: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

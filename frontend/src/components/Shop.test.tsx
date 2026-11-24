@@ -17,18 +17,16 @@ const hero = (name: string): Hero => ({ name, HP: 18, Defense: 8, Accuracy: '+2'
 
 const reply = (body: unknown) => Promise.resolve({ ok: true, json: () => Promise.resolve(body) } as Response);
 
-let rotation: Hero[];
-let heroReplies: unknown[];
+// Every enabled hero, starters included: a pack draws from all of them
+let enabled: Hero[];
 let packReplies: unknown[];
 let fetchMock: ReturnType<typeof vi.fn>;
 const calls = (path: string) => fetchMock.mock.calls.filter(([url]) => String(url).includes(path));
 
 function installFetch() {
   fetchMock = vi.fn((url: string) => {
-    if (url.includes('/api/shop/rotation')) return reply({ success: true, heroes: rotation.map(h => ({ ...h, owned: false })) });
-    if (url.includes('/api/shop/purchase-hero')) return reply(heroReplies.shift());
     if (url.includes('/api/shop/purchase-pack')) return reply(packReplies.shift());
-    if (url.includes('/api/heroes')) return reply([hero('Ninja'), hero('Monk'), hero('Pirate')]);
+    if (url.includes('/api/heroes')) return reply(enabled);
     return reply({});
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -46,14 +44,15 @@ function stubGridSize(width: number, height: number) {
   });
 }
 
-function ShopHarness(props: { start: number; owned?: string[]; holoHeroes?: string[] }) {
+function ShopHarness(props: { start: number; owned?: string[]; holoHeroes?: string[]; shards?: number }) {
   const [balance, setBalance] = useState(props.start);
   return (
     <Shop
       onClose={() => undefined}
       userId={7}
       victoryPoints={balance}
-      availableHeroes={props.owned ?? ['Fighter']}
+      shards={props.shards}
+      availableHeroes={props.owned ?? ['Monk']}
       holoHeroes={props.holoHeroes}
       onPurchaseComplete={() => undefined}
       onVictoryPointsChange={setBalance}
@@ -63,6 +62,8 @@ function ShopHarness(props: { start: number; owned?: string[]; holoHeroes?: stri
 
 const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 const messageText = () => document.querySelector('.shop-message')?.textContent ?? null;
+const packButton = (root: ParentNode) => root.querySelector('.shop-buy-pack') as HTMLButtonElement;
+const shortLine = (root: ParentNode) => root.querySelector('.shop-short')?.textContent ?? null;
 
 describe('Shop', () => {
   beforeEach(() => {
@@ -70,10 +71,8 @@ describe('Shop', () => {
     stubGridSize(2000, 1000);
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 10, 21, 10, 7, 30));
     localStorage.setItem('heroscall.animSpeed', 'off');
-    rotation = [hero('Ninja'), hero('Pirate')];
-    heroReplies = [];
+    enabled = [hero('Ninja'), hero('Monk'), hero('Pirate')];
     packReplies = [];
     installFetch();
   });
@@ -85,63 +84,68 @@ describe('Shop', () => {
     vi.restoreAllMocks();
   });
 
-  it('a greyed tag sends no request and shows the coins message', async () => {
-    const root = render(<ShopHarness start={3} />);
+  it('the shop asks the server only for a pack', async () => {
+    packReplies.push({ success: false, message: 'Not enough to buy this.' });
+    const root = render(<ShopHarness start={45} />);
+    await settle();
+    click(packButton(root));
     await settle();
 
-    const tag = root.querySelector('.shop-price-tag') as HTMLButtonElement;
-    expect(tag.classList.contains('is-poor')).toBe(true);
-    expect(tag.getAttribute('aria-disabled')).toBe('true');
-    expect(tag.disabled).toBe(false);
-    click(tag);
-    click(tag);
+    const shopCalls = fetchMock.mock.calls.map(([url]) => String(url)).filter(url => url.includes('/api/shop/'));
+    expect(shopCalls).toEqual(['/api/shop/purchase-pack']);
+    expect(calls('/rotation')).toHaveLength(0);
+  });
+
+  it('no sale heroes, dial or pager render', async () => {
+    const root = render(<ShopHarness start={45} />);
     await settle();
 
-    expect(calls('/api/shop/purchase-hero')).toHaveLength(0);
+    expect(root.querySelector('.shop-price-tag, .shop-stamp, .shop-sale-grid, .shop-dial, .shop-when, .shop-pager, .shop-pips')).toBeNull();
+    expect(root.textContent).not.toContain('Next sale');
+    expect(root.textContent).not.toMatch(/\bVP\b/);
+  });
+
+  it('the pack button greys below 20 coins', async () => {
+    const root = render(<ShopHarness start={12} />);
+    await settle();
+
+    const pack = packButton(root);
+    expect(pack.textContent).toContain('Buy pack');
+    expect(pack.textContent).toContain('20');
+    expect(pack.classList.contains('is-poor')).toBe(true);
+    expect(pack.getAttribute('aria-disabled')).toBe('true');
+    expect(pack.disabled).toBe(false);
+    expect(shortLine(root)).toBe('8 more coins needed');
+
+    click(pack);
+    click(pack);
+    await settle();
+    expect(calls('/api/shop/purchase-pack')).toHaveLength(0);
     expect(messageText()).toBe("You don't have enough coins.");
     expect(root.querySelector('.shop-table .shop-message[role="alert"]')).not.toBeNull();
     advance(2000);
     expect(document.querySelector('.shop-message')).toBeNull();
   });
 
-  it('the greyed pack button sends no request', async () => {
-    const root = render(<ShopHarness start={8} />);
+  it('one coin short says coin, and 20 coins can buy', async () => {
+    const short = render(<ShopHarness start={19} />);
     await settle();
+    expect(shortLine(short)).toBe('1 more coin needed');
+    cleanup();
 
-    const pack = root.querySelector('.shop-buy-pack') as HTMLButtonElement;
-    expect(pack.classList.contains('is-poor')).toBe(true);
-    expect(pack.getAttribute('aria-disabled')).toBe('true');
-    expect(pack.disabled).toBe(false);
-    click(pack);
+    const enough = render(<ShopHarness start={20} />);
     await settle();
-
-    expect(calls('/api/shop/purchase-pack')).toHaveLength(0);
-    expect(messageText()).toBe("You don't have enough coins.");
-  });
-
-  it('greys the pack tag after a hero purchase drops the balance below 12', async () => {
-    heroReplies.push({ success: true, newVP: 8, heroCount: 2 });
-    const root = render(<ShopHarness start={13} />);
-    await settle();
-    expect(root.querySelector('.shop-buy-pack.is-poor')).toBeNull();
-
-    click(root.querySelector('.shop-price-tag'));
-    await settle();
-
-    expect(calls('/api/shop/purchase-hero')).toHaveLength(1);
-    expect(root.querySelector('.shop-buy-pack.is-poor')).not.toBeNull();
-    const tags = Array.from(root.querySelectorAll('.shop-price-tag'));
-    expect(tags.length).toBeGreaterThan(0);
-    expect(tags.some(tag => tag.classList.contains('is-poor'))).toBe(false);
-    expect(root.querySelector('.shop-slot .shop-stamp')?.textContent).toBe('Purchased');
+    expect(packButton(enough).classList.contains('is-poor')).toBe(false);
+    expect(packButton(enough).getAttribute('aria-disabled')).toBeNull();
+    expect(shortLine(enough)).toBeNull();
   });
 
   it('a server error shows the fallback text for 3 seconds', async () => {
-    heroReplies.push({ success: false, message: 'boom' });
+    packReplies.push({ success: false, message: 'boom' });
     const root = render(<ShopHarness start={20} />);
     await settle();
 
-    click(root.querySelector('.shop-price-tag'));
+    click(packButton(root));
     await settle();
 
     expect(messageText()).toBe('Purchase failed. Please try again.');
@@ -152,16 +156,49 @@ describe('Shop', () => {
   });
 
   it('a not-enough reply shows the coins message for 2 seconds', async () => {
-    heroReplies.push({ success: false, message: 'Not enough to buy this.' });
+    packReplies.push({ success: false, message: 'Not enough to buy this.' });
     const root = render(<ShopHarness start={20} />);
     await settle();
 
-    click(root.querySelector('.shop-price-tag'));
+    click(packButton(root));
     await settle();
 
     expect(messageText()).toBe("You don't have enough coins.");
     advance(2000);
     expect(document.querySelector('.shop-message')).toBeNull();
+  });
+
+  it('the table shows what a pack can hold, with the hero and shard counts', async () => {
+    const root = render(<ShopHarness start={45} owned={['Monk']} shards={60} />);
+    await settle();
+
+    const table = root.querySelector('.shop-table') as HTMLElement;
+    expect(table.textContent).toContain('What a pack can hold');
+    const slots = Array.from(table.querySelectorAll('.shop-hold'));
+    expect(slots.map(s => s.querySelector('.shop-hold-cap b')?.textContent)).toEqual(['A new hero', 'A holographic', 'One you own']);
+    expect(slots[0].textContent).toContain('Any of the 3');
+    expect(slots[1].textContent).toContain('1 pack in 10');
+    expect(slots[2].textContent).toContain('10 shards instead');
+    // The new hero is one the player lacks, the repeat one they own, and only the middle card is holographic
+    const names = slots.map(s => s.querySelector('.hero-card')?.getAttribute('data-name'));
+    expect(names[0]).not.toBe('Monk');
+    expect(names[2]).toBe('Monk');
+    expect(new Set(names).size).toBe(3);
+    expect(slots.map(s => s.querySelector('.hero-card')?.getAttribute('data-holo'))).toEqual(['false', 'true', 'false']);
+
+    expect(table.querySelector('.shop-meter--heroes .shop-meter-label')?.textContent).toBe('Heroes 1 of 3');
+    expect(table.querySelector('.shop-meter--shards .shop-meter-label')?.textContent).toBe('Shards 60 of 100 to craft');
+  });
+
+  it('a missing shard balance reads as 0, and 100 or more is enough to craft', async () => {
+    const none = render(<ShopHarness start={45} />);
+    await settle();
+    expect(none.querySelector('.shop-meter--shards .shop-meter-label')?.textContent).toBe('Shards 0 of 100 to craft');
+    cleanup();
+
+    const plenty = render(<ShopHarness start={45} shards={130} />);
+    await settle();
+    expect(plenty.querySelector('.shop-meter--shards .shop-meter-label')?.textContent).toBe('Shards 130, enough to craft');
   });
 
   it('card text has a 12px floor', async () => {
@@ -176,77 +213,49 @@ describe('Shop', () => {
     expect(cards.every(card => card.getAttribute('data-min-text') === '12')).toBe(true);
   });
 
-  it('the inside window counts owned heroes and shows holo', async () => {
-    const root = render(<ShopHarness start={20} owned={['Ninja']} holoHeroes={['Ninja']} />);
+  it("what's inside lists every enabled hero, marks the owned ones and says what a pack gives", async () => {
+    const root = render(<ShopHarness start={20} owned={['Ninja', 'Monk']} holoHeroes={['Ninja']} />);
     await settle();
     click(buttonByText(root, "See what's inside"));
     await settle();
 
-    expect(document.querySelector('.shop-inside .shop-meter')?.textContent).toContain('You own 1 of 2');
-    const ninja = document.querySelector('.shop-inside .hero-card[data-name="Ninja"]') as HTMLElement;
-    expect(ninja.dataset.holo).toBe('true');
-    const slot = ninja.closest('.shop-slot') as HTMLElement;
-    expect(slot.querySelector('.shop-owned-chip')?.textContent).toBe('Owned');
-    expect(slot.querySelector('.shop-hero-purchased-overlay')).toBeNull();
-    const pirate = document.querySelector('.shop-inside .hero-card[data-name="Pirate"]') as HTMLElement;
-    expect(pirate.dataset.holo).toBe('false');
-    expect(pirate.closest('.shop-slot')?.querySelector('.shop-owned-chip')).toBeNull();
+    const inside = document.querySelector('.shop-inside') as HTMLElement;
+    expect(inside.querySelector('.shop-inside-title')?.textContent).toBe("What's inside");
+    expect(Array.from(inside.querySelectorAll('.hero-card')).map(c => c.getAttribute('data-name'))).toEqual(['Ninja', 'Monk', 'Pirate']);
+    const facts = inside.querySelector('.shop-inside-facts')?.textContent ?? '';
+    expect(facts).toContain('Every pack holds one random hero. All 3 are just as likely.');
+    expect(facts).toContain('A hero you already have gives 10 shards.');
+    expect(facts).toContain('1 pack in 10 is holographic.');
+    expect(inside.querySelector('.shop-meter')?.textContent).toContain('You own 2 of 3');
+
+    const slotOf = (name: string) => (inside.querySelector(`.hero-card[data-name="${name}"]`) as HTMLElement).closest('.shop-slot') as HTMLElement;
+    expect(slotOf('Ninja').querySelector('.shop-owned-chip')?.textContent).toBe('Owned');
+    expect(slotOf('Monk').querySelector('.shop-owned-chip')?.textContent).toBe('Owned');
+    expect(slotOf('Pirate').querySelector('.shop-owned-chip')).toBeNull();
+    expect(slotOf('Ninja').querySelector('.hero-card')?.getAttribute('data-holo')).toBe('true');
+    expect(slotOf('Pirate').querySelector('.hero-card')?.getAttribute('data-holo')).toBe('false');
+    expect(inside.textContent).not.toMatch(/\bVP\b/);
   });
 
-  it('the sale page clamps when the rotation shrinks', async () => {
-    stubGridSize(230, 350); // one card per page
-    rotation = [hero('Ninja'), hero('Pirate'), hero('Samurai')];
+  it("what's inside pages with a page count", async () => {
+    stubGridSize(230, 350); // one card a page
     const root = render(<ShopHarness start={20} />);
     await settle();
-    expect(root.querySelectorAll('.shop-pager .shop-pip')).toHaveLength(3);
-
-    click(root.querySelector('[aria-label="Next sale page"]'));
-    expect(root.querySelector('.shop-sale-grid .hero-card')?.getAttribute('data-name')).toBe('Pirate');
-
-    rotation = [hero('Viking')];
-    advance(7.5 * 60 * 1000); // the 10:15 rotation
+    click(buttonByText(root, "See what's inside"));
     await settle();
 
-    const cards = root.querySelectorAll('.shop-sale-grid .hero-card');
-    expect(cards).toHaveLength(1);
-    expect(cards[0].getAttribute('data-name')).toBe('Viking');
-  });
+    const page = () => document.querySelector('.shop-inside-page')?.textContent;
+    const shown = () => Array.from(document.querySelectorAll('.shop-inside .hero-card')).map(c => c.getAttribute('data-name'));
+    expect(page()).toBe('Page 1 of 3');
+    expect(shown()).toEqual(['Ninja']);
 
-  it('turns the cards when the page changes, not at first load', async () => {
-    stubGridSize(230, 350);
-    rotation = [hero('Ninja'), hero('Pirate')];
-    const root = render(<ShopHarness start={20} />);
-    await settle();
-    expect(root.querySelector('.shop-sale-grid.shop-turn')).toBeNull();
+    click(document.querySelector('.shop-inside [aria-label="Next page"]'));
+    expect(page()).toBe('Page 2 of 3');
+    expect(shown()).toEqual(['Monk']);
+    click(document.querySelector('.shop-inside [aria-label="Previous page"]'));
+    expect(page()).toBe('Page 1 of 3');
 
-    click(root.querySelector('[aria-label="Next sale page"]'));
-    expect(root.querySelector('.shop-sale-grid.shop-turn')).not.toBeNull();
-    advance(800);
-    expect(root.querySelector('.shop-sale-grid.shop-turn')).toBeNull();
-  });
-
-  it('shows the all-owned state and keeps the pack for sale', async () => {
-    rotation = [];
-    packReplies.push({ success: false, message: 'Not enough to buy this.' });
-    const root = render(<ShopHarness start={20} />);
-    await settle();
-
-    expect(root.querySelector('.shop-table')?.textContent).toContain('You own every hero');
-    const pack = root.querySelector('.shop-buy-pack') as HTMLButtonElement;
-    expect(pack.classList.contains('is-poor')).toBe(false);
-    click(pack);
-    await settle();
-    expect(calls('/api/shop/purchase-pack')).toHaveLength(1);
-  });
-
-  it('the dial shows the time left', async () => {
-    const root = render(<ShopHarness start={20} />);
-    await settle();
-
-    const dial = root.querySelector('.shop-showcase .shop-foot .shop-dial') as HTMLElement;
-    expect(dial.style.getPropertyValue('--p')).toBe('0.5');
-    expect(root.querySelector('.shop-when')?.textContent).toContain('7m 30s');
-    advance(1000);
-    expect(root.querySelector('.shop-when')?.textContent).toContain('7m 29s');
+    click(document.querySelector('.shop-inside .shop-close'));
+    expect(document.querySelector('.shop-inside')).toBeNull();
   });
 });

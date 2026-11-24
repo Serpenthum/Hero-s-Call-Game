@@ -15,36 +15,46 @@ import BadgeToken from '../badges/BadgeToken';
 import type { Badge } from '../../battle/badges';
 import '../../styles/HeroCard.css';
 
-// The shop with canned replies, so it can be looked at without signing in: /#screens/shop?coins=3&owned=all
-// coins: the balance (23). owned: none, some (default) or all of the pack heroes. bought: sale heroes already
-// owned, by name, comma separated. fail=1: purchases are refused with a server error. sale=none: nothing on sale.
-const SHOP_SALE = ['Engineer', 'Dragon Rider', 'Elementalist', 'Arcane Archer', 'Angel', 'Ninja'];
+// The shop with canned replies, so it can be looked at without signing in: /#screens/shop?coins=12&owned=all
+// coins: the balance (23). shards: the shard balance (60). owned: none, some (default) or all of the pack heroes.
+// fail=1: packs are refused with a server error. A pack gives one random hero; a repeat pays 10 shards.
 const DevShop: React.FC<{ query: string }> = ({ query }) => {
   const params = new URLSearchParams(query);
   const [coins, setCoins] = useState(Number(params.get('coins') ?? 23));
+  const shards = Number(params.get('shards') ?? 60);
   const [heroes, setHeroes] = useState<any[] | null>(null);
-  const bought = (params.get('bought') ?? '').split(',').filter(Boolean);
+  const [owned, setOwned] = useState<string[]>([]);
   const fail = params.get('fail') === '1';
 
   useEffect(() => {
     const realFetch = window.fetch;
     const reply = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } }));
     let balance = coins;
+    let shardBalance = shards;
     realFetch(`${config.API_BASE_URL}/api/heroes`).then(r => r.json()).then((list: any[]) => {
+      const names: string[] = list.map(h => h.name);
+      const ownedMode = params.get('owned') ?? 'some';
+      let ownedNow = ownedMode === 'all' ? names : ownedMode === 'none' ? [] : names.filter((_, i) => i % 3 === 0);
       window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input instanceof Request ? input.url : input);
-        if (url.includes('/api/shop/rotation')) {
-          const sale = params.get('sale') === 'none' ? [] : SHOP_SALE.map(name => list.find(h => h.name === name)).filter(Boolean);
-          return reply({ success: true, heroes: sale.map(h => ({ ...h, owned: bought.includes(h.name) })) });
-        }
-        if (url.includes('/api/shop/purchase-hero')) {
+        if (url.includes('/api/heroes')) return reply(list);
+        if (url.includes('/api/shop/purchase-pack')) {
           if (fail) return reply({ success: false, message: 'D1_ERROR: no such table' });
-          balance -= 5;
-          return reply({ success: true, newVP: balance, heroCount: 12 });
+          const hero = list[Math.floor(Math.random() * list.length)];
+          const repeat = ownedNow.includes(hero.name);
+          const shardsGained = repeat ? 10 : 0;
+          balance -= 20;
+          shardBalance += shardsGained;
+          if (!repeat) ownedNow = [...ownedNow, hero.name];
+          const card = { name: hero.name, kind: repeat ? 'repeat' : 'new', hero };
+          return reply({
+            success: true, card, cards: [card], coinsSpent: 20, coinsBack: 0, shardsGained, shards: shardBalance,
+            newVP: balance, holo_heroes: [], available_heroes: ownedNow, heroCount: ownedNow.length, heroesReceived: [hero.name],
+          });
         }
-        if (url.includes('/api/shop/purchase-pack')) return reply({ success: false, message: 'D1_ERROR: no such table' });
         return realFetch(input, init);
       };
+      setOwned(ownedNow);
       setHeroes(list);
     }).catch(() => undefined);
     return () => { window.fetch = realFetch; };
@@ -52,15 +62,13 @@ const DevShop: React.FC<{ query: string }> = ({ query }) => {
   }, []);
 
   if (!heroes) return null;
-  const names: string[] = heroes.map(h => h.name);
-  const ownedMode = params.get('owned') ?? 'some';
-  const owned = ownedMode === 'all' ? names : ownedMode === 'none' ? [] : names.filter((_, i) => i % 3 === 0);
   return (
     <Shop
       onClose={() => undefined}
       userId={1}
       victoryPoints={coins}
-      availableHeroes={[...owned, ...bought]}
+      shards={shards}
+      availableHeroes={owned}
       holoHeroes={owned.slice(0, 2)}
       onPurchaseComplete={() => undefined}
       onVictoryPointsChange={setCoins}
