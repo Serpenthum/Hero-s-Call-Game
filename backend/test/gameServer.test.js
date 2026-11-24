@@ -222,3 +222,40 @@ test('a player who surrenders at once gets no XP and no coins; the winner gets 1
   assert.equal(quit.newVictoryPoints, quit.oldVictoryPoints);
   assert.equal(quitter.frames.some(f => f.t === 'xp-update'), false, 'no XP for quitting at once');
 });
+
+test('a winner who levels up gets the XP first, then a coin update with battle and level-up coins', async () => {
+  const setXP = (id, xp) => new Promise((resolve, reject) => testDb.database.db.run(
+    'UPDATE player_stats SET xp = ?, level = 1 WHERE user_id = ?', [xp, id], e => (e ? reject(e) : resolve())));
+  // The level-up coins the server pays today, measured on a spare account (25 XP takes level 1 to 2)
+  await api('POST', '/api/register', { username: 'probeL1', password: 'secret1' });
+  const probe = (await api('POST', '/api/login', { username: 'probeL1', password: 'secret1' })).json.user.id;
+  const levelUpCoins = (await testDb.database.updatePlayerXP(probe, 25)).vpGained;
+  assert.ok(levelUpCoins > 0);
+
+  const quitter = await loggedInClient('quitL1');
+  const winner = await loggedInClient('winL1');
+  await quitter.waitFor('authentication-success');
+  const { userId: winnerId } = await winner.waitFor('authentication-success');
+  await setXP(winnerId, 20); // level 1 needs 25: the 10 win XP levels up
+  quitter.send('join-game', { name: 'Quinn', mode: 'random' });
+  winner.send('join-game', { name: 'Wren', mode: 'random' });
+  await quitter.waitFor('game-start', s => s.gameState && s.gameState.phase === 'battle');
+
+  quitter.send('surrender-game');
+  const coins = await winner.waitFor('victory-points-update');
+  const xp = await winner.waitFor('xp-update');
+  assert.equal(xp.leveledUp, true);
+  assert.equal(xp.newLevel, 2);
+  const order = winner.frames.map(f => f.t).filter(t => t === 'xp-update' || t === 'victory-points-update');
+  assert.deepEqual(order, ['xp-update', 'victory-points-update'], 'the coin update comes last');
+
+  assert.equal(coins.pointsAwarded, 3, 'battle coins: random win by surrender');
+  assert.equal(coins.victoryPointsGained, 3 + levelUpCoins);
+  assert.equal(coins.newVictoryPoints - coins.oldVictoryPoints, 3 + levelUpCoins);
+  // A daily quest the win completes pays after this, with its own 'quests-update'; leave those coins out
+  await new Promise(r => setTimeout(r, 300));
+  const questCoins = winner.frames.filter(f => f.t === 'quests-update').reduce((sum, f) => sum + (f.d[0].vpGained || 0), 0);
+  const balance = (await api('GET', `/api/user/${winnerId}`)).json.user.victory_points - questCoins;
+  assert.equal(coins.newVictoryPoints, balance);
+  assert.equal(coins.totalVictoryPoints, balance);
+});

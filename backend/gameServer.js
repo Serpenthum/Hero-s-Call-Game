@@ -1138,6 +1138,7 @@ async function handleRegularGameCompletion(result) {
   console.log(isTie ? `🤝 TIE game (${gs.mode})! Both players eliminated!` : `🏆 Regular game (${gs.mode}) completed! Winner: ${gs.winner}`);
 
   const payout = gameManager.getPayout(result.gameId);
+  if (!payout) console.warn(`⚠️ No payout recorded for game ${result.gameId}; paying XP by the winner only, no coin message`);
   let paid = null;
   try {
     paid = payout ? await payout.coins : null;
@@ -1158,35 +1159,37 @@ async function handleRegularGameCompletion(result) {
         await database.updateHeroUsage(userId, hero.name);
       }
 
-      // Coins first: their total does not yet include any level-up coins, which the XP update adds
-      const coins = paid && paid[player.id];
-      if (coins && coins.total !== null && !gs.isFriendly) {
-        io.to(player.id).emit('victory-points-update', {
-          type: isTie ? 'game_tie' : 'game_end',
-          oldVictoryPoints: coins.total - coins.coins,
-          newVictoryPoints: coins.total,
-          victoryPointsGained: coins.coins,
-          totalVictoryPoints: coins.total,
-          pointsAwarded: coins.coins,
-          gameMode: gs.mode,
-          message: coinMessage(ending, coins.coins)
-        });
-      }
-
+      // XP first, then the coins: the coin message comes last and its balance includes any level-up coins
       const xpGain = battleXP(ending);
+      let levelUpCoins = 0;
       if (xpGain > 0) {
         const xpUpdate = await database.updatePlayerXP(userId, xpGain);
+        levelUpCoins = xpUpdate.vpGained || 0;
         const from = isTie ? ' from tie' : '';
         io.to(player.id).emit('xp-update', {
           xpGained: xpUpdate.xpGained,
           newXP: xpUpdate.xp,
           newLevel: xpUpdate.level,
           leveledUp: xpUpdate.leveledUp,
-          levelsGained: xpUpdate.levelsGained,
-          vpGained: xpUpdate.vpGained,
           message: xpUpdate.leveledUp ?
             `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP${from})` :
             `+${xpUpdate.xpGained} XP${from}! (${xpUpdate.xp} total)`
+        });
+      }
+
+      const coins = paid && paid[player.id];
+      if (coins && coins.total !== null && !gs.isFriendly) {
+        const user = await database.getUserById(userId);
+        const balance = user ? user.victory_points : coins.total + levelUpCoins;
+        io.to(player.id).emit('victory-points-update', {
+          type: isTie ? 'game_tie' : 'game_end',
+          oldVictoryPoints: coins.total - coins.coins, // before this battle paid anything
+          newVictoryPoints: balance,
+          victoryPointsGained: coins.coins + levelUpCoins,
+          totalVictoryPoints: balance,
+          pointsAwarded: coins.coins,
+          gameMode: gs.mode,
+          message: coinMessage(ending, coins.coins)
         });
       }
 
