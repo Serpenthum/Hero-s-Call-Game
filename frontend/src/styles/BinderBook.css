@@ -212,7 +212,7 @@
 }
 
 /* ---- The shard balance, below the filter button at every size ----
-   Wide phone and computer: in the left gutter, the number over the word. Narrow phone: the gutter is too thin, so
+   Wide phone and computer: in the left gutter, the shard over the number. Narrow phone: the gutter is too thin, so
    the band above the book grows by a small pill and the balance sits in it, under the button.
    Under the filter panel when it drops over it, and over the large view, since crafting there spends from it. */
 .binder-shards {
@@ -240,10 +240,20 @@
   z-index: 45;
 }
 
-.binder-shards span {
-  color: var(--badge-core);
-  font-size: 9.5px;
-  font-weight: 700;
+.binder-shards .shard-icon {
+  width: 18px;
+  height: 18px;
+  vertical-align: 0;
+}
+
+/* "140 shards" for a screen reader, which also hears it change after a craft; the eye has the shard and the number */
+.binder-shards-said {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (max-width: 720px) {
@@ -256,13 +266,14 @@
     flex-direction: row;
     gap: 4px;
     height: 20px;
-    padding: 0 8px;
+    padding: 0 8px 0 4px;
     border-radius: 999px;
     font-size: 13px;
   }
 
-  .binder-shards span {
-    font-size: 12px;
+  .binder-shards .shard-icon {
+    width: 15px;
+    height: 15px;
   }
 }
 
@@ -276,8 +287,9 @@
     font-size: 15px;
   }
 
-  .binder-shards span {
-    font-size: 11px;
+  .binder-shards .shard-icon {
+    width: 22px;
+    height: 22px;
   }
 }
 
@@ -975,6 +987,7 @@
 .binder-craft-price {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding-left: 10px;
   border-left: 1px solid color-mix(in srgb, var(--mode-ink) 40%, transparent);
   font-variant-numeric: tabular-nums;
@@ -992,6 +1005,17 @@
   border-left-color: var(--brass-dim);
 }
 
+.binder-craft-price .shard-icon {
+  width: 22px;
+  height: 22px;
+  vertical-align: 0;
+}
+
+.binder-craft-btn:disabled .shard-icon {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
 .binder-craft-note {
   color: var(--bone);
   font-size: 15px;
@@ -1000,6 +1024,26 @@
 
 .binder-craft-note b {
   font-weight: 700;
+}
+
+.binder-craft-note .shard-icon {
+  width: 15px;
+  height: 15px;
+  margin-right: 3px;
+}
+
+/* Waiting for the server's answer: one quiet line where the sum was */
+.binder-craft-wait {
+  color: var(--bone-dim);
+  animation: binder-craft-wait 1.4s ease-in-out infinite;
+}
+
+@keyframes binder-craft-wait {
+  50% { opacity: 0.45; }
+}
+
+.binder--still .binder-craft-wait {
+  animation: none;
 }
 
 .binder-craft-fine {
@@ -1022,8 +1066,16 @@
 }
 
 .binder-craft-short b {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: var(--ember-hi);
   font: 700 16px/1.2 var(--font-ui);
+}
+
+.binder-craft-short b .shard-icon {
+  width: 17px;
+  height: 17px;
 }
 
 .binder-craft-meter {
@@ -1039,7 +1091,7 @@
   display: block;
   width: calc(min(1, var(--p)) * 100%);
   height: 100%;
-  background: linear-gradient(90deg, var(--badge-core-deep), var(--badge-core));
+  background: linear-gradient(90deg, var(--shard-deep), var(--shard));
 }
 
 .binder-craft-have {
@@ -1066,6 +1118,13 @@
 
 .binder-craft-nw {
   white-space: nowrap;
+}
+
+.binder-craft-ask .shard-icon {
+  width: 22px;
+  height: 22px;
+  margin-right: 2px;
+  vertical-align: -0.12em;
 }
 
 .binder-craft-row {
@@ -1105,6 +1164,14 @@
   .binder-craft-meter { height: 10px; }
   .binder-craft-fine { font-size: 16px; }
   .binder-craft-ask { font-size: 38px; }
+  .binder-craft-ask .shard-icon { width: 30px; height: 30px; }
+  .binder-craft-price .shard-icon { width: 28px; height: 28px; }
+  .binder-craft-note .shard-icon { width: 18px; height: 18px; }
+  .binder-craft-short b .shard-icon { width: 20px; height: 20px; }
+  .binder-craft-done h3 { font-size: 68px; }
+  .binder-craft-done p { font-size: 21px; }
+  .binder-spark { width: 8px; height: 8px; margin: -4px; }
+  .binder-fly { --fly: 28px; }
   .binder-craft-row .ui-btn { min-height: 58px; padding: 0 20px; font-size: 20px; }
 
   .binder-lock-tag {
@@ -1118,6 +1185,219 @@
     width: 24px;
     height: 24px;
   }
+}
+
+/* ---- The forge: what the crafting animation draws (craftForge.ts moves it) ----
+   Look and layers copied from docs/superpowers/specs/2026-11-23-economy-core-mockup.html, section (d). */
+.binder-large-body {
+  position: relative; /* over the dark the forge lays on the table */
+}
+
+.binder-forge-card {
+  position: relative;
+  display: grid;
+}
+
+.binder-large[data-forge] {
+  cursor: default;
+}
+
+.binder-large[data-forge] .binder-large-cardwrap {
+  z-index: 3;
+}
+
+/* Nothing closes the view while the forge plays */
+.binder-large[data-forge] .binder-large-close {
+  visibility: hidden;
+}
+
+/* The buttons step back while the shards fly, and the panel returns to say it is done */
+.binder-large:is([data-forge='shell'], [data-forge='struck']) .binder-craft {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.binder-large:is([data-forge='struck'], [data-forge='done']) .binder-lock-tag {
+  opacity: 0;
+  transform: scale(1.5);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.binder-forge-dark {
+  position: absolute;
+  inset: 0;
+  background: var(--card-black);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Over the card's face, with the card's own corners and type size (set when the forge starts) */
+.binder-forge {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.binder-forge > * {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.binder-forge > .binder-forge-shell {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  opacity: 1;
+}
+
+.binder-forge > .binder-forge-shell.is-loose {
+  overflow: visible;
+}
+
+.binder-forge-shell polygon {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  stroke: var(--shard-hot);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
+.binder-forge-shell .f0 { fill: color-mix(in srgb, var(--shard-hot) 74%, transparent); }
+.binder-forge-shell .f1 { fill: color-mix(in srgb, var(--shard) 76%, transparent); }
+.binder-forge-shell .f2 { fill: color-mix(in srgb, var(--shard-deep) 78%, transparent); }
+.binder-forge-shell .f3 { fill: color-mix(in srgb, color-mix(in srgb, var(--shard) 55%, var(--shard-deep)) 78%, transparent); }
+
+/* The crystal's gloss: light across the top left corner and a bright rim, so the facets read as one slab */
+.binder-forge-gloss {
+  z-index: 1;
+  background: linear-gradient(125deg, color-mix(in srgb, var(--card-white) 60%, transparent), transparent 30%, transparent 64%, color-mix(in srgb, var(--card-white) 22%, transparent));
+  box-shadow:
+    inset 0 0 0 0.1em var(--shard-hot),
+    inset 0 0 1.1em color-mix(in srgb, var(--shard-hot) 80%, transparent),
+    inset 0 0 3.2em var(--shard),
+    0 0 1.6em color-mix(in srgb, var(--shard) 70%, transparent);
+}
+
+.binder-forge-heat {
+  z-index: 2;
+  mix-blend-mode: screen;
+  background: radial-gradient(ellipse at 50% 55%, var(--card-white), var(--pack-light) 28%, var(--ember-glow) 58%, color-mix(in srgb, var(--ember) 80%, transparent) 100%);
+}
+
+.binder-forge-white {
+  z-index: 2;
+  background: var(--card-white);
+}
+
+.binder-forge-glint {
+  z-index: 2;
+  background: linear-gradient(105deg, transparent 40%, color-mix(in srgb, var(--card-white) 55%, transparent) 50%, transparent 60%);
+  background-size: 300% 100%;
+  background-position: 130% 0;
+}
+
+/* Where the shards and sparks fly: over the large view and the balance */
+.binder-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.binder-spark {
+  --spark: var(--card-white);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  border-radius: 50%;
+  background: var(--spark);
+  box-shadow: 0 0 8px 2px var(--spark);
+}
+
+.binder-fly {
+  --fly: 20px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--fly);
+  height: var(--fly);
+  margin: calc(var(--fly) / -2);
+  filter: drop-shadow(0 0 5px var(--shard)) drop-shadow(0 0 2px var(--shard-hot));
+}
+
+.binder-fly .shard-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.binder-forge-ring,
+.binder-forge-bloom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.binder-forge-ring {
+  border: 3px solid var(--pack-light);
+  box-shadow: 0 0 18px 4px var(--pack-glow), inset 0 0 14px 2px var(--pack-glow);
+}
+
+.binder-forge-bloom {
+  background: radial-gradient(circle, var(--card-white), color-mix(in srgb, var(--pack-glow) 80%, transparent) 35%, transparent 70%);
+}
+
+/* The pocket waits empty while its card flies home */
+.binder-pocket[data-forge] .binder-card {
+  visibility: hidden;
+}
+
+.binder-pocket[data-forge]::after {
+  display: none;
+}
+
+/* "Crafted!" stamps in beside the card */
+.binder-craft-done {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.binder-craft-done h3 {
+  margin: 0;
+  color: var(--brass-hi);
+  font: 500 44px/1 var(--font-display);
+  text-shadow: 0 2px 4px var(--card-black);
+  transform-origin: 0 60%;
+  animation: binder-crafted 0.32s ease-out both;
+}
+
+.binder-craft-done p {
+  color: var(--bone);
+  font-size: 17px;
+  line-height: 1.3;
+  animation: binder-crafted-line 0.4s 0.25s both;
+}
+
+@keyframes binder-crafted {
+  from { transform: scale(2.6); opacity: 0; }
+}
+
+@keyframes binder-crafted-line {
+  from { opacity: 0; }
 }
 
 /* Upright screens: the button goes under the card */
@@ -1139,6 +1419,10 @@
   }
 
   .binder-large-card.hero-card.hero-layout-card {
+    animation: none;
+  }
+
+  .binder-craft-wait {
     animation: none;
   }
 }

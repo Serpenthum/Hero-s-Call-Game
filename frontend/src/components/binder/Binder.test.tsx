@@ -5,6 +5,8 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroCollection from '../HeroCollection';
 import { LAND_MS, OPENING_MS } from '../BinderOpening';
+import { FORGE_DONE_MS, FORGE_END_MS, FORGE_HIT_MS, FORGE_LAND_MS, FORGE_SHARDS } from './craftForge';
+import { DEFAULT_VIEW } from './binderRules';
 import type { BinderHero } from './binderRules';
 import { buttonByText, cleanup, click, render, settle, stubBrowserApis } from '../../testing/dom';
 import config from '../../config';
@@ -366,6 +368,14 @@ describe('the binder', () => {
 
   describe('shards and crafting', () => {
     const balance = (root: ParentNode) => root.querySelector('.binder-shards');
+    const said = (root: ParentNode) => balance(root)?.querySelector('[role=status]')?.textContent;
+    const shown = (root: ParentNode) => Number(balance(root)?.querySelector('b')?.textContent);
+    const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+    const animationsOff = () => localStorage.setItem('heroscall.animSpeed', 'off');
+    afterEach(() => {
+      vi.useRealTimers();
+      localStorage.clear();
+    });
     const large = (root: ParentNode) => root.querySelector('.binder-large') as HTMLElement | null;
     const craftButton = (root: ParentNode) => buttonByText(large(root)!, 'Craft');
     const craftCalls = (fetchMock: ReturnType<typeof stubFetch>) =>
@@ -380,8 +390,11 @@ describe('the binder', () => {
     it('the binder shows the shard balance', async () => {
       stubFetch();
       const root = await openBinder();
-      expect(balance(root)?.textContent).toBe('140shards');
-      expect(balance(root)?.getAttribute('aria-label')).toBe('140 shards');
+      // The crystal and the number show; a screen reader hears "140 shards", and again when it changes
+      expect(balance(root)?.querySelector('svg.shard-icon')).not.toBeNull();
+      expect(balance(root)?.querySelector('b')?.textContent).toBe('140');
+      expect(balance(root)?.querySelector('b')?.getAttribute('aria-hidden')).toBe('true');
+      expect(said(root)).toBe('140 shards');
     });
 
     it('signed out: no shard balance and no Craft button', async () => {
@@ -395,7 +408,7 @@ describe('the binder', () => {
     it('no shards field shows 0', async () => {
       stubFetch({ shards: null });
       const root = await openBinder();
-      expect(balance(root)?.getAttribute('aria-label')).toBe('0 shards');
+      expect(said(root)).toBe('0 shards');
     });
 
     it('a locked card\'s large view shows Craft with 100 shards', async () => {
@@ -462,20 +475,123 @@ describe('the binder', () => {
       expect(JSON.parse(String(craftCalls(fetchMock)[0][1]?.body))).toEqual({ heroName: 'H11' });
     });
 
-    it('crafting makes the pocket owned and lowers the balance', async () => {
+    it('crafting plays the craft animation, then the card is owned', async () => {
+      vi.useFakeTimers();
       stubFetch();
       const root = await openBinder();
-      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
       startCraft(root);
       await settle();
-      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
-      expect(balance(root)?.getAttribute('aria-label')).toBe('40 shards');
-      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
-      // The large view stays open on the hero, now owned
+      // The server has said yes: the forge starts on the card, which is still grey in the large view and its pocket
       const view = large(root)!;
-      expect(view.getAttribute('aria-label')).toBe('H11');
-      expect(view.querySelector('.binder-large-card')!.className).not.toMatch(/is-locked/);
-      expect(craftButton(root)).toBeUndefined();
+      expect(view.dataset.forge).toBe('shell');
+      expect(view.querySelectorAll('.binder-forge-shell polygon')).toHaveLength(FORGE_SHARDS);
+      expect(view.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(status(root)).toBe('Page 1 of 3 · 10 of 30 heroes · 2 holographic');
+      // A screen reader hears the new balance once; the number on show counts down as the shards leave
+      expect(said(root)).toBe('40 shards');
+      expect(shown(root)).toBe(140);
+      advance(700);
+      expect(shown(root)).toBeLessThan(140);
+      expect(shown(root)).toBeGreaterThan(40);
+      // Nothing closes it while it plays
+      pressEscape();
+      click(large(root));
+      click(large(root)!.querySelector('.binder-large-close'));
+      expect(large(root)).not.toBeNull();
+      advance(FORGE_HIT_MS - 700 - 1);
+      expect(shown(root)).toBe(40);
+      expect(large(root)!.dataset.forge).toBe('shell');
+      // The strike: the shell is off and the card is in colour
+      advance(1);
+      expect(large(root)!.dataset.forge).toBe('struck');
+      expect(large(root)!.querySelector('.binder-large-card')!.className).not.toMatch(/is-locked/);
+      advance(FORGE_DONE_MS - FORGE_HIT_MS);
+      expect(large(root)!.dataset.forge).toBe('done');
+      expect(large(root)!.querySelector('.binder-craft-done')?.textContent).toBe('Crafted!H11 joins your binder.');
+      // Home: the card lands in its pocket, which lights for a moment
+      advance(FORGE_LAND_MS - FORGE_DONE_MS - 1);
+      expect(large(root)).not.toBeNull();
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      advance(1);
+      expect(large(root)).toBeNull();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--spotlight/);
+      expect(pocket(root, 'H11')!.dataset.forge).toBeUndefined();
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+      advance(FORGE_END_MS - FORGE_LAND_MS);
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--spotlight/);
+      expect(root.querySelector('.binder-fx')?.childElementCount).toBe(0);
+      expect(shown(root)).toBe(40);
+      // About five seconds from the tap to the pocket, as approved
+      expect(FORGE_LAND_MS).toBeGreaterThan(4500);
+      expect(FORGE_LAND_MS).toBeLessThan(5500);
+    });
+
+    it('crafting under the Not owned filter keeps the pocket there for the card to land in', async () => {
+      vi.useFakeTimers();
+      stubFetch();
+      const root = await openBinder({ initialView: { ...DEFAULT_VIEW, filter: 'not-owned' } });
+      startCraft(root);
+      await settle();
+      advance(FORGE_LAND_MS);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--spotlight/);
+      advance(FORGE_END_MS - FORGE_LAND_MS);
+      expect(pocket(root, 'H11')).toBeNull(); // owned now, so it leaves the Not owned list
+    });
+
+    it('animation off makes it owned at once', async () => {
+      vi.useFakeTimers();
+      animationsOff();
+      stubFetch();
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(large(root)).toBeNull();
+      expect(pocket(root, 'H11')!.className).toBe('binder-pocket');
+      expect(shown(root)).toBe(40);
+      expect(said(root)).toBe('40 shards');
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+      expect(root.querySelector('.binder-fx')?.childElementCount).toBe(0);
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      advance(FORGE_END_MS);
+      expect(pocket(root, 'H11')!.className).toBe('binder-pocket');
+    });
+
+    it('a failed craft plays no animation', async () => {
+      vi.useFakeTimers();
+      let answer: (r: Response) => void = () => {};
+      stubFetch({ craft: () => new Promise<Response>(resolve => { answer = resolve; }) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      // Waiting for the server: a quiet line, no forge, and the large view cannot be closed from under the answer
+      expect(large(root)!.querySelector('.binder-craft-wait')?.textContent).toBe('Crafting\u2026');
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      advance(3000);
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      expect(shown(root)).toBe(140);
+      pressEscape();
+      click(large(root));
+      click(large(root)!.querySelector('.binder-large-close'));
+      expect(large(root)).not.toBeNull();
+
+      await act(async () => {
+        answer({ ok: false, status: 400, json: () => Promise.resolve({ success: false, message: 'Not enough shards.' }) } as Response);
+      });
+      await settle();
+      expect(large(root)!.querySelector('[role=alert]')?.textContent).toBe('Not enough shards.');
+      expect(large(root)!.querySelector('.binder-craft-wait')).toBeNull();
+      advance(FORGE_END_MS);
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      expect(root.querySelector('.binder-fx')?.childElementCount).toBe(0);
+      expect(large(root)!.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(shown(root)).toBe(140);
+      expect(said(root)).toBe('140 shards');
+      // Settled, so it closes again
+      pressEscape();
+      expect(large(root)).toBeNull();
     });
 
     it('a refusal shows the server\'s message', async () => {
@@ -487,7 +603,7 @@ describe('the binder', () => {
       expect(view.querySelector('[role=alert]')?.textContent).toBe('You already have this hero.');
       expect(buttonByText(view, 'Yes, craft')).toBeUndefined(); // back to the large view
       expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
-      expect(balance(root)?.getAttribute('aria-label')).toBe('140 shards');
+      expect(said(root)).toBe('140 shards');
     });
 
     it('a 404 shows "Crafting isn\'t available right now."', async () => {
@@ -499,6 +615,7 @@ describe('the binder', () => {
     });
 
     it('a second tap while crafting sends nothing', async () => {
+      animationsOff();
       let answer: (r: Response) => void = () => {};
       const fetchMock = stubFetch({ craft: () => new Promise<Response>(resolve => { answer = resolve; }) });
       const root = await openBinder();
