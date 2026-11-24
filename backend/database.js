@@ -504,30 +504,6 @@ class Database {
     });
   }
 
-  async addHeroToUser(userId, heroName) {
-    return new Promise((resolve, reject) => {
-      this.getUserById(userId)
-        .then(user => {
-          if (!user.available_heroes.includes(heroName)) {
-            const updatedHeroes = [...user.available_heroes, heroName];
-            const heroesJson = JSON.stringify(updatedHeroes);
-            
-            const query = 'UPDATE users SET available_heroes = ? WHERE id = ?';
-            this.db.run(query, [heroesJson, userId], function(err) {
-              if (err) {
-                reject(err);
-                return;
-              }
-              resolve(updatedHeroes);
-            });
-          } else {
-            resolve(user.available_heroes);
-          }
-        })
-        .catch(reject);
-    });
-  }
-
   // Friends system methods
   async sendFriendRequest(userId, friendId) {
     return new Promise((resolve, reject) => {

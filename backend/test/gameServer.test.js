@@ -356,6 +356,34 @@ test('friend room: a surrender after losing a hero pays 10 and 5 XP, no coins', 
   assert.deepEqual(await standingOf(guestId), { xp: 5, coins: 0 });
 });
 
+test('friend room: a level-up sends its coins after the XP; no level-up, no coin message', async () => {
+  const run = (sql, params) => new Promise((resolve, reject) => testDb.database.db.run(sql, params, e => (e ? reject(e) : resolve())));
+  const { host, guest, hostId, guestId, game, guestIndex } = await friendBattle('Q3');
+  // The host is 10 XP short of level 2 (25 XP) and holds 30 coins
+  await testDb.database.getPlayerStats(hostId);
+  await run('UPDATE player_stats SET level = 1, xp = 15 WHERE user_id = ?', [hostId]);
+  await run('UPDATE users SET victory_points = 30 WHERE id = ?', [hostId]);
+  game.players[guestIndex].team[0].currentHP = 0;
+  guest.send('surrender-game');
+  const coins = await host.waitFor('victory-points-update');
+  await guest.waitFor('xp-update');
+  await new Promise(r => setTimeout(r, 300));
+
+  const sent = host.frames.map(f => f.t).filter(t => t === 'xp-update' || t === 'victory-points-update');
+  assert.deepEqual(sent, ['xp-update', 'victory-points-update']);
+  assert.equal(host.frames.find(f => f.t === 'xp-update').d[0].leveledUp, true);
+  assert.equal(coins.pointsAwarded, 0);
+  assert.equal(coins.victoryPointsGained, 20);
+  assert.equal(coins.oldVictoryPoints, 30);
+  assert.equal(coins.newVictoryPoints, 50);
+  assert.equal(coins.totalVictoryPoints, 50);
+  assert.deepEqual(await standingOf(hostId), { xp: 0, coins: 50 });
+
+  // The guest gained 5 XP and no level: no coin message, as before
+  assert.equal(guest.frames.some(f => f.t === 'victory-points-update'), false);
+  assert.deepEqual(await standingOf(guestId), { xp: 5, coins: 0 });
+});
+
 test('a finished game whose result is handled twice pays XP once', async () => {
   const quitter = await loggedInClient('twiceA1');
   const winner = await loggedInClient('twiceB1');

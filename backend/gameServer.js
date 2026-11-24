@@ -1200,6 +1200,22 @@ async function handleRegularGameCompletion(result) {
           gameMode: gs.mode,
           message: coinMessage(ending, coins.coins)
         });
+      } else if (gs.isFriendly && levelUpCoins > 0) {
+        // A friend room pays no battle coins, but a level-up there still pays its coins: say so, so the end screen
+        // and the lobby balance include them
+        const user = await database.getUserById(userId);
+        if (user) {
+          io.to(player.id).emit('victory-points-update', {
+            type: isTie ? 'game_tie' : 'game_end',
+            oldVictoryPoints: user.victory_points - levelUpCoins,
+            newVictoryPoints: user.victory_points,
+            victoryPointsGained: levelUpCoins,
+            totalVictoryPoints: user.victory_points,
+            pointsAwarded: 0,
+            gameMode: gs.mode,
+            message: `Level up! You earned ${levelUpCoins} coins.`
+          });
+        }
       }
 
       if (isWinner) await awardQuestProgress(result, player);
