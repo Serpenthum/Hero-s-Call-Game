@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import config from '../../config';
 import { authHeaders } from '../../authSession';
+import { craftErrorText } from '../shop/shopRules';
 import type { BinderHero, Collection } from './binderRules';
 
 export interface BinderData {
@@ -23,6 +24,8 @@ const API = config.API_BASE_URL;
 export const CRAFT_UNAVAILABLE = "Crafting isn't available right now.";
 // A stalled connection must not hold the large view shut: past this the craft gives up and reads as unavailable
 export const CRAFT_TIMEOUT_MS = 15000;
+// The server's refusal when the account already has the hero: the binder, which showed it locked, is out of date
+const ALREADY_OWNED = 'You already have this hero.';
 
 async function getJson(url: string): Promise<unknown> {
   const response = await fetch(url);
@@ -118,7 +121,14 @@ export default function useBinderData(
   // The request names the hero and nothing else: a craft always makes the normal card, never a holographic.
   const craft = useCallback(async (heroName: string): Promise<CraftResult> => {
     let response: Response;
-    let data: { success?: boolean; message?: string; shards?: number; available_heroes?: string[] };
+    // A reply may be any JSON at all, null included: only an object that says success is a craft
+    let data: { success?: boolean; message?: unknown; shards?: number; available_heroes?: string[] } | null;
+    // Unsure whether it went through (no answer), or the binder was out of date (already owned): reload what the
+    // server has. The craft itself is never sent again.
+    const failed = (message: string): CraftResult => {
+      if (message === CRAFT_UNAVAILABLE || message === ALREADY_OWNED) retry();
+      return { ok: false, message };
+    };
     // A timer of our own, not AbortSignal.timeout, so it is cleared the moment the request settles
     const limit = new AbortController();
     const timer = setTimeout(() => limit.abort(), CRAFT_TIMEOUT_MS);
@@ -129,22 +139,23 @@ export default function useBinderData(
         body: JSON.stringify({ heroName }),
         signal: limit.signal,
       });
-      if (response.status === 404) return { ok: false, message: CRAFT_UNAVAILABLE };
+      if (response.status === 404) return failed(CRAFT_UNAVAILABLE);
       data = await response.json();
       // Nothing is assumed from a reply that lands after the limit: the next account load shows the truth
       if (limit.signal.aborted) throw new Error(`no answer within ${CRAFT_TIMEOUT_MS} ms`);
     } catch (err) {
       console.error('Error crafting hero:', err);
-      return { ok: false, message: CRAFT_UNAVAILABLE };
+      return failed(CRAFT_UNAVAILABLE);
     } finally {
       clearTimeout(timer);
     }
-    if (!response.ok || !data.success) return { ok: false, message: data.message || CRAFT_UNAVAILABLE };
+    // Only a refusal the binder knows is shown as sent; a server error's own text never is
+    if (!response.ok || !data?.success) return failed(craftErrorText(data?.message, CRAFT_UNAVAILABLE));
     if (Array.isArray(data.available_heroes)) setOwned(data.available_heroes);
     if (typeof data.shards === 'number') setShards(data.shards);
     onPurchaseCompleteRef.current?.();
     return { ok: true };
-  }, []);
+  }, [retry]);
 
   return { heroes, collection: { owned, favourites, holo }, loading, error, retry, toggleFavourite, shards, craft };
 }

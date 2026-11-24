@@ -4,7 +4,8 @@
 // flies to its pocket, which lights for a moment. Timings and moves are the approved mockup's
 // (docs/superpowers/specs/2026-11-23-economy-core-mockup.html, section d).
 //
-// React draws the pieces (BinderLargeView, BinderForge) and holds the state; this module only moves them. Every step
+// React draws the pieces (BinderLargeView the shell and its layers, HeroCollection the balance and the effects layer)
+// and holds the state; this module only moves them. Every step
 // runs on a timer, so the phases arrive on time whether or not the browser can animate.
 
 /** One facet per shard that flies in. */

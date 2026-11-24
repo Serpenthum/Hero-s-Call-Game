@@ -621,6 +621,54 @@ describe('the binder', () => {
       expect(large(root)).toBeNull();
     });
 
+    it('a craft that throws still lets the large view close', async () => {
+      stubFetch();
+      // The one step of a craft outside its own error handling: telling the lobby
+      const root = await openBinder({ onPurchaseComplete: () => { throw new Error('lobby refresh failed'); } });
+      startCraft(root);
+      await settle();
+      expect(large(root)!.querySelector('.binder-craft-wait')).toBeNull();
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      pressEscape();
+      expect(large(root)).toBeNull();
+    });
+
+    it('after "You already have this hero." the binder reloads and shows the card owned', async () => {
+      const fetchMock = stubFetch({ craft: () => reply({ success: false, message: 'You already have this hero.' }, false, 400) });
+      const base = fetchMock.getMockImplementation()!;
+      // Crafted from another tab: the server has the hero although this binder showed it locked
+      let serverOwnsIt = false;
+      vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+        if (url === `${API}/api/shop/craft`) serverOwnsIt = true;
+        if (url === `${API}/api/user/7` && serverOwnsIt) {
+          return reply({ success: true, user: { available_heroes: [...OWNED, 'H11'], holo_heroes: HOLO, shards: 140 } });
+        }
+        return base(url, init);
+      }));
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(large(root)!.querySelector('.binder-large-card')!.className).not.toMatch(/is-locked/);
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+    });
+
+    it('focus goes to the large view\'s X while a craft is out, and to the crafted hero\'s pocket after', async () => {
+      animationsOff();
+      let answer: (r: Response) => void = () => {};
+      stubFetch({ craft: () => new Promise<Response>(resolve => { answer = resolve; }) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(document.activeElement).toBe(large(root)!.querySelector('.binder-large-close'));
+      await act(async () => {
+        answer({ ok: true, status: 200, json: () => Promise.resolve({ success: true, heroName: 'H11', shards: 40, available_heroes: [...OWNED, 'H11'] }) } as Response);
+      });
+      await settle();
+      expect(large(root)).toBeNull();
+      expect(document.activeElement).toBe(pocket(root, 'H11'));
+    });
+
     it('a refusal shows the server\'s message', async () => {
       stubFetch({ craft: () => reply({ success: false, message: 'You already have this hero.' }, false, 400) });
       const root = await openBinder();

@@ -232,7 +232,8 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
           <p>Are you sure you want to abandon your current survival run? This will reset your wins ({survivalState.wins}), losses ({survivalState.losses}), and used heroes.</p>
           {survivalState.wins > 0 && (
             <p className="survival-victory-points-info">
-              <strong>You will receive {survivalState.wins} <Coin /> for your current wins!</strong>
+              {/* No amount here: the server pays by its own table and the end screen shows what it paid */}
+              <strong>Your run's coins will be paid out.</strong>
             </p>
           )}
           <div className="survival-end-buttons">

@@ -196,6 +196,74 @@ describe('useBinderData', () => {
     expect(onPurchaseComplete).not.toHaveBeenCalled();
   });
 
+  it('a null or non-object reply is a failure: "Crafting isn\'t available right now."', async () => {
+    let body: unknown = null;
+    stubFetch((url, init) => url === `${API}/api/shop/craft` ? reply(body) : happyRoute(url, init));
+    render(<Probe userId={7} />);
+    await settle();
+
+    let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
+    body = 'yes';
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
+    await settle();
+    expect(latest.collection.owned).toEqual(['Monk', 'Ninja']);
+  });
+
+  it('a server error\'s own text is never shown; the known refusals are', async () => {
+    let body: unknown = { success: false, message: 'D1_ERROR: no such column: shards' };
+    let status = 500;
+    stubFetch((url, init) => url === `${API}/api/shop/craft` ? reply(body, false, status) : happyRoute(url, init));
+    render(<Probe userId={7} />);
+    await settle();
+
+    let result: Awaited<ReturnType<BinderData['craft']>> | undefined;
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
+
+    status = 400;
+    for (const known of ['Not enough shards.', 'You already have this hero.', 'Hero not available', 'Hero name is required']) {
+      body = { success: false, message: known };
+      await act(async () => { result = await latest.craft('Paladin'); });
+      expect(result).toEqual({ ok: false, message: known });
+    }
+    status = 401;
+    body = { success: false, message: 'Please log in again' };
+    await act(async () => { result = await latest.craft('Paladin'); });
+    expect(result).toEqual({ ok: false, message: 'Please log in again' });
+    await settle();
+  });
+
+  it('a craft that ends unavailable, or as already owned, reloads the account; a plain refusal does not', async () => {
+    let body: unknown = { success: false, message: 'Not enough shards.' };
+    let status = 400;
+    const fetchMock = stubFetch((url, init) => url === `${API}/api/shop/craft` ? reply(body, false, status) : happyRoute(url, init));
+    render(<Probe userId={7} />);
+    await settle();
+    const userLoads = () => fetchMock.mock.calls.filter(([url]) => url === `${API}/api/user/7`).length;
+    const crafts = () => fetchMock.mock.calls.filter(([url]) => url === `${API}/api/shop/craft`).length;
+    expect(userLoads()).toBe(1);
+
+    await act(async () => { await latest.craft('Paladin'); });
+    await settle();
+    expect(userLoads()).toBe(1);
+
+    body = { success: false, message: 'You already have this hero.' };
+    await act(async () => { await latest.craft('Paladin'); });
+    await settle();
+    expect(userLoads()).toBe(2);
+
+    body = { success: false, message: 'D1_ERROR: database is locked' };
+    status = 500;
+    await act(async () => { await latest.craft('Paladin'); });
+    await settle();
+    expect(userLoads()).toBe(3);
+    // Never sent again by itself
+    expect(crafts()).toBe(3);
+  });
+
   it('a 404 (an old server) or no network: "Crafting isn\'t available right now."', async () => {
     stubFetch((url, init) => url === `${API}/api/shop/craft` ? reply({}, false, 404) : happyRoute(url, init));
     render(<Probe userId={7} />);
@@ -205,9 +273,12 @@ describe('useBinderData', () => {
     await act(async () => { result = await latest.craft('Paladin'); });
     expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
 
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))));
+    // The craft finds no network (the reload that follows it does)
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) =>
+      url === `${API}/api/shop/craft` ? Promise.reject(new Error('offline')) : happyRoute(url, init)));
     await act(async () => { result = await latest.craft('Paladin'); });
     expect(result).toEqual({ ok: false, message: "Crafting isn't available right now." });
+    await settle();
     expect(latest.collection.owned).toEqual(['Monk', 'Ninja']);
     expect(latest.shards).toBe(140);
   });

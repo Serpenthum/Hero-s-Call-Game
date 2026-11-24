@@ -215,7 +215,7 @@ describe('PackOpening, one card', () => {
     expect(holo.querySelector('.pack-opening__banner')).toBeNull();
   });
 
-  it('the shard gain counts up on a repeat', () => {
+  it('a repeat shows its shard gain and new balance, and its shard sparks fly as the gain lands', () => {
     const root = openOne(one('repeat', { shardsGained: 10, shards: 70 }));
     click(cards(root)[0]);
     const gain = root.querySelector('.pack-opening__shards');

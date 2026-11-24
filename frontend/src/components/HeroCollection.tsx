@@ -120,21 +120,43 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
 
   const onToggleFavourite = useCallback((name: string) => { void toggleFavourite(name); }, [toggleFavourite]);
 
+  // A craft closes the large view itself; focus then goes to the crafted hero's pocket, or, if that pocket is not on
+  // show, to the binder's X, never to the page
+  const focusAfterClose = useRef<string | null>(null);
+  const closeToPocket = useCallback((name: string) => {
+    focusAfterClose.current = name;
+    setOpenHero(null);
+  }, []);
+  useEffect(() => {
+    const name = focusAfterClose.current;
+    if (openHero || !name || !rootEl.current) return;
+    focusAfterClose.current = null;
+    const pockets = Array.from(rootEl.current.querySelectorAll<HTMLElement>('.binder-pocket'));
+    const target = pockets.find(p => p.getAttribute('aria-label') === name)
+      ?? rootEl.current.querySelector<HTMLElement>('.binder-close');
+    target?.focus();
+  }, [openHero]);
+
   const shardsNow = useRef(shards);
   shardsNow.current = shards;
   const craftHero = useCallback(async (name: string) => {
     const before = shardsNow.current;
     setCrafting(name);
-    const result = await craft(name);
-    setCrafting(null);
+    let result: Awaited<ReturnType<typeof craft>>;
+    // However the craft ends, even by throwing, it is over: the large view can close again
+    try {
+      result = await craft(name);
+    } finally {
+      setCrafting(null);
+    }
     // The one place a craft of `name` is known to have worked (result.ok). A refused or failed craft plays nothing.
     if (result.ok) {
       // With animations off the card is simply owned in its pocket
-      if (cardMotionOff()) setOpenHero(null);
+      if (cardMotionOff()) closeToPocket(name);
       else setForge({ name, phase: 'shell', shown: before });
     }
     return result;
-  }, [craft]);
+  }, [craft, closeToPocket]);
 
   // The forge plays once per craft, over this binder's own elements
   const rootEl = useRef<HTMLDivElement>(null);
@@ -154,7 +176,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
         setForge(f => f && { ...f, phase });
         if (phase !== 'landed') return;
         // Home: the large view goes and the pocket lights
-        setOpenHero(null);
+        closeToPocket(forging);
         setSpotlight(forging);
       },
       onEnd: () => {

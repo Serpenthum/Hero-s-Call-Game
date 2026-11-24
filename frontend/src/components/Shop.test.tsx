@@ -237,6 +237,32 @@ describe('Shop', () => {
     expect(inside.textContent).not.toMatch(/\bVP\b/);
   });
 
+  it("after a holographic pull, what's inside marks that hero holographic without a lobby refresh", async () => {
+    packReplies.push({
+      success: true,
+      card: { name: 'Pirate', kind: 'holo', holo: true },
+      cards: [{ name: 'Pirate', kind: 'holo', holo: true, hero: hero('Pirate') }],
+      coinsSpent: 20, coinsBack: 0, shardsGained: 0, shards: 0, newVP: 25,
+      holo_heroes: ['Pirate'], available_heroes: ['Monk', 'Pirate'], heroCount: 2, heroesReceived: ['Pirate'],
+    });
+    // The lobby's lists stay as they were: onPurchaseComplete does nothing here
+    const root = render(<ShopHarness start={45} owned={['Monk']} holoHeroes={[]} />);
+    await settle();
+    click(packButton(root));
+    await settle();
+    click(document.querySelector('.pack-opening__pack'));
+    click(document.querySelector('.pack-opening__card'));
+    click(document.querySelector('.pack-opening__done'));
+    click(buttonByText(root, "See what's inside"));
+    await settle();
+
+    const inside = document.querySelector('.shop-inside') as HTMLElement;
+    const card = (name: string) => inside.querySelector(`.hero-card[data-name="${name}"]`) as HTMLElement;
+    expect(card('Pirate').getAttribute('data-holo')).toBe('true');
+    expect(card('Pirate').closest('.shop-slot')?.querySelector('.shop-owned-chip')?.textContent).toBe('Owned');
+    expect(card('Ninja').getAttribute('data-holo')).toBe('false');
+  });
+
   it("what's inside pages with a page count", async () => {
     stubGridSize(230, 350); // one card a page
     const root = render(<ShopHarness start={20} />);

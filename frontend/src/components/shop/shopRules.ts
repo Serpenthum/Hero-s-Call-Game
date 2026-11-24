@@ -12,13 +12,30 @@ const KNOWN_SERVER_TEXTS = new Set([
   'Hero not available',
 ]);
 
+// The craft route's refusals, and the login check's (an expired login, see backend/auth.js)
+const KNOWN_CRAFT_TEXTS = new Set([
+  'Not enough shards.',
+  'You already have this hero.',
+  'Hero not available',
+  'Hero name is required',
+  'Please log in again',
+]);
+
 const PURCHASE_FAILED = 'Purchase failed. Please try again.';
+
+/** A server message when it is one of `known`, safe for students; otherwise `fallback`. */
+function knownServerText(serverMessage: unknown, known: ReadonlySet<string>, fallback: string): string {
+  return typeof serverMessage === 'string' && known.has(serverMessage) ? serverMessage : fallback;
+}
 
 /** Shows a server message only when it is one we know is safe for students. */
 export function shopErrorText(serverMessage: unknown): string {
-  return typeof serverMessage === 'string' && KNOWN_SERVER_TEXTS.has(serverMessage)
-    ? serverMessage
-    : PURCHASE_FAILED;
+  return knownServerText(serverMessage, KNOWN_SERVER_TEXTS, PURCHASE_FAILED);
+}
+
+/** A craft refusal as the binder shows it: a known refusal as sent, anything else as `fallback`. */
+export function craftErrorText(serverMessage: unknown, fallback: string): string {
+  return knownServerText(serverMessage, KNOWN_CRAFT_TEXTS, fallback);
 }
 
 /** How many of a pack's heroes the player already owns. */

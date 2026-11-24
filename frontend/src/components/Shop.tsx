@@ -10,6 +10,7 @@ import {
 import CloseButton from './CloseButton';
 import Coin from './Coin';
 import Shard from './ui/Shard';
+import { CRAFT_PRICE } from './binder/craftRules';
 import { cardMotionOff } from '../cards/cardMotion';
 import { Hero } from '../types';
 import { READ_TEXT_MIN_PX } from '../draft/draftRules';
@@ -20,8 +21,6 @@ import useCardGrid from '../hooks/useCardGrid';
 
 // The server's reply when the balance it sees is short (the client thought it could afford)
 const SERVER_NOT_ENOUGH = 'Not enough to buy this.';
-// What crafting a hero costs (the server's packs.js)
-const CRAFT_PRICE = 100;
 
 interface ShopProps {
   onClose: () => void;
@@ -73,7 +72,7 @@ function pickHoldHeroes(heroes: Hero[], owned: string[]): [Hero, Hero, Hero] | n
   return [fresh, holo, repeat];
 }
 
-const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: shardsProp, availableHeroes, holoHeroes = [], onPurchaseComplete, onVictoryPointsChange }) => {
+const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: shardsProp, availableHeroes, holoHeroes: holoHeroesProp, onPurchaseComplete, onVictoryPointsChange }) => {
   // The purchase reply carries the new balance; show it at once (a pack's refresh waits for its opening to close)
   const applyNewBalance = (newVP: unknown) => {
     if (typeof newVP === 'number') onVictoryPointsChange?.(newVP);
@@ -87,6 +86,9 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: sha
   // Heroes owned now: the prop, plus what packs bought here since (the prop catches up when an opening closes)
   const [owned, setOwned] = useState<string[]>(availableHeroes);
   useEffect(() => { setOwned(availableHeroes); }, [availableHeroes]);
+  // Heroes owned as holographic now: the same, from the pack reply's holo_heroes
+  const [holoHeroes, setHoloHeroes] = useState<string[]>(holoHeroesProp ?? []);
+  useEffect(() => { setHoloHeroes(holoHeroesProp ?? []); }, [holoHeroesProp]);
   // The shard balance now: the prop, or the last pack reply's
   const [shards, setShards] = useState(shardsProp ?? 0);
   useEffect(() => { setShards(shardsProp ?? 0); }, [shardsProp]);
@@ -179,6 +181,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: sha
         // A card is holographic when the server drew it so (its `holo` flag). An older server sends no flag:
         // then the holo kinds are holographic, and so is a repeat of a hero the reply lists as holographic.
         const replyHoloHeroes: string[] = Array.isArray(data.holo_heroes) ? data.holo_heroes : [];
+        if (Array.isArray(data.holo_heroes)) setHoloHeroes(data.holo_heroes);
         const cards: PackCard[] = data.cards.map((card: PackCard) => ({
           ...card,
           holo: typeof card.holo === 'boolean'

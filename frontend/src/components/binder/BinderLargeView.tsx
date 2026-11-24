@@ -10,7 +10,7 @@ import type { BinderHero, Collection } from './binderRules';
 import Shard from '../ui/Shard';
 import { CRAFT_PRICE, craftState } from './craftRules';
 import { SHELL_H, SHELL_W, forgeShell, type ForgePhase } from './craftForge';
-import type { CraftResult } from './useBinderData';
+import { CRAFT_UNAVAILABLE, type CraftResult } from './useBinderData';
 import { LockIcon, StarIcon } from './BinderIcons';
 
 interface BinderLargeViewProps {
@@ -50,6 +50,7 @@ export const BinderLargeView: React.FC<BinderLargeViewProps> = ({
   const [message, setMessage] = useState<string | null>(null);
   // Set from the first "Yes, craft" until its reply: a second tap before the button shows disabled sends nothing
   const sent = useRef(false);
+  const rootEl = useRef<HTMLDivElement>(null);
 
   const askToCraft = () => {
     if (!canCraft) return;
@@ -60,8 +61,17 @@ export const BinderLargeView: React.FC<BinderLargeViewProps> = ({
   const confirmCraft = async () => {
     if (sent.current || crafting) return;
     sent.current = true;
-    const result = await onCraft(hero.name);
-    sent.current = false;
+    // "Yes, craft" is about to disable: keep focus in the view, on its X, rather than let it fall to the page
+    rootEl.current?.querySelector<HTMLElement>('.binder-large-close')?.focus();
+    let result: CraftResult;
+    try {
+      result = await onCraft(hero.name);
+    } catch (err) {
+      console.error('Error crafting hero:', err);
+      result = { ok: false, message: CRAFT_UNAVAILABLE };
+    } finally {
+      sent.current = false;
+    }
     if (result.ok) return; // the forge takes it from here (or, with animations off, the view has closed)
     setAsking(false);
     setMessage(result.message);
@@ -91,6 +101,7 @@ export const BinderLargeView: React.FC<BinderLargeViewProps> = ({
 
   return (
     <div
+      ref={rootEl}
       className="binder-large"
       role="dialog"
       aria-modal="true"
