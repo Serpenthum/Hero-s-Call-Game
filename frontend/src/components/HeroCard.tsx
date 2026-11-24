@@ -32,7 +32,7 @@ interface HeroCardProps {
   tutorialReveal?: 'hidden' | 'grow'; // Tutorial: card is invisible, or grows in from nothing
   className?: string;
   children?: React.ReactNode;
-  holo?: boolean; // Holographic foil: rainbow sheen, sparkle and a bright rim
+  holo?: boolean; // Holographic foil: rainbow sheen and sparkle on the face; the frame is a normal card's
   favorite?: boolean; // Gold star in the top-right corner
   glint?: boolean; // A light sweep across the card every few seconds
   tilt?: boolean; // The card leans toward the pointer (and the foil follows it)
@@ -748,7 +748,6 @@ const HeroCard: React.FC<HeroCardProps> = ({
         <>
           <div className="card-sheen" aria-hidden="true" />
           <div className="card-spark" aria-hidden="true" />
-          <div className="card-foil" aria-hidden="true" />
         </>
       )}
       {favorite && (

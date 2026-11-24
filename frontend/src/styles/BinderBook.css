@@ -662,7 +662,7 @@
 
 /* While a page turns nothing else moves: the foil holds still, and the cards ignore the pointer from the moment
    the leaf is laid on, so none lifts or settles under it. */
-.binder-book--turning :is(.card-sheen, .card-spark, .card-foil, .card-glint) {
+.binder-book--turning :is(.card-sheen, .card-spark, .card-glint) {
   animation-play-state: paused;
 }
 

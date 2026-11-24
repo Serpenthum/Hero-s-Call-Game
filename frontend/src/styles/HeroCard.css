@@ -487,24 +487,8 @@
   top: calc(0.55em + 26px);
 }
 
-/* Holographic: rainbow foil, sparkle points and a bright rim. The foil drifts; with tilt on it follows the pointer. */
-.hero-card.card-holo {
-  --holo-small: 0px;
-  --card-frame: var(--holo-rim);
-  --card-glow:
-    0 0 0.5em color-mix(in srgb, var(--holo-rim) 55%, transparent),
-    0 0 1.6em color-mix(in srgb, var(--holo-glow) 30%, transparent),
-    calc(var(--holo-small) * -0.3) calc(var(--holo-small) * -0.3) calc(var(--holo-small) * 1.6) calc(var(--holo-small) * 0.3) color-mix(in srgb, var(--holo-violet) 70%, transparent),
-    calc(var(--holo-small) * 0.3) calc(var(--holo-small) * 0.3) calc(var(--holo-small) * 1.6) calc(var(--holo-small) * 0.3) color-mix(in srgb, var(--holo-blue) 70%, transparent);
-}
-
-/* Small cards (battle board, draft, phones): the foil is too fine to see there, so it gets louder as the card
-   shrinks. --holo-small is 0 from 240px wide up, so a big card keeps exactly the glow above. The lobby's featured
-   card, the large view and the pack opening keep the plain foil at every size. */
-.hero-card.card-holo:not(.dead, .banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) {
-  --holo-small: max(0px, 12px - 1em);
-}
-
+/* Holographic: rainbow foil and sparkle points on the face. The foil drifts; with tilt on it follows the pointer.
+   The frame and the shadow are a normal card's: no rim, ring or glow round the card (owner's ruling, 2026-11-24). */
 .hero-card .card-sheen,
 .hero-card .card-spark,
 .hero-card .card-glint {
@@ -560,39 +544,10 @@
   animation: none;
 }
 
-/* Small holographic cards: a rainbow ring inside the frame, plus a stronger sheen and bigger sparkles.
-   The frame itself keeps its colour (team, turn, selected, blocked). */
-.hero-card .card-foil {
-  display: none;
-  animation: card-foil-shimmer 3s ease-in-out infinite;
-}
-
+/* Small cards (battle board, draft, binder pockets, phones): the foil is too fine to see there, so the sheen is
+   stronger and the sparkles bigger. The lobby's featured card, the large view and the pack opening keep the plain
+   foil at every size. */
 @container (max-width: 215px) {
-  .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-foil {
-    position: absolute;
-    inset: 0;
-    z-index: 4;
-    display: block;
-    border-radius: inherit;
-    pointer-events: none;
-  }
-
-  @supports (mask-composite: exclude) {
-    .hero-card .card-foil::before {
-      content: "";
-      position: absolute;
-      inset: max(2px, 0.1em);
-      padding: max(2px, 0.26em);
-      border-radius: inherit;
-      background: conic-gradient(
-        from 200deg,
-        var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue), var(--holo-violet),
-        var(--holo-pink), var(--holo-yellow), var(--holo-mint), var(--holo-blue), var(--holo-violet), var(--holo-pink)
-      );
-      mask: linear-gradient(var(--card-black) 0 0) content-box exclude, linear-gradient(var(--card-black) 0 0);
-    }
-  }
-
   .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-sheen {
     --foil-sheen: 23%;
     background-image: linear-gradient(
@@ -616,23 +571,12 @@
     background-size: auto, 4.7em 6.3em, 7.3em 5.9em, 8.9em 9.7em;
   }
 
-  /* The frame keeps its team or state colour, as thick as the ring beside it. */
-  .hero-card.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *)::after {
-    border-width: max(2px, 0.1em);
-  }
-
   /* The stat gems sit above the foil, so their colours stay true. A hovered rail keeps its own, higher place. */
   .hero-card.card-holo:not(.banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-stats:not(:hover) {
     z-index: 6;
   }
 
   /* Fallen or banned: the foil goes dull with the rest of the card. */
-  .hero-card.card-holo:is(.dead, .banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-foil {
-    opacity: 0.4;
-    filter: grayscale(0.85);
-    animation: none;
-  }
-
   .hero-card.card-holo:is(.dead, .banned):not(:is(.lobby-featured, .card-reader, .pack-opening) *) :is(.card-sheen, .card-spark) {
     opacity: 0.35;
   }
@@ -648,11 +592,6 @@
 
 .hero-card.card-tiny.card-holo:not(:is(.lobby-featured, .card-reader, .pack-opening) *) .card-sheen {
   --foil-sheen: 31%;
-}
-
-@keyframes card-foil-shimmer {
-  0%, 100% { opacity: 0.78; }
-  50% { opacity: 1; }
 }
 
 /* Glint: a light sweep every few seconds. Only where a screen asks for it. */
@@ -674,17 +613,15 @@
   transition: transform 0.18s ease-out;
 }
 
-/* "Battle animations: off" (card-still) and reduced motion: no glint, no tilt, no holo drift or shimmer. */
+/* "Battle animations: off" (card-still) and reduced motion: no glint, no tilt, no holo drift. */
 .hero-card.card-still .card-sheen,
-.hero-card.card-still .card-spark,
-.hero-card.card-still .card-foil {
+.hero-card.card-still .card-spark {
   animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-card .card-sheen,
-  .hero-card .card-spark,
-  .hero-card .card-foil {
+  .hero-card .card-spark {
     animation: none;
   }
 
