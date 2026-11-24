@@ -97,20 +97,15 @@ describe('PackOpening', () => {
       ...extra,
     });
     const result = (root: ParentNode) => root.querySelector('.pack-opening__result')?.textContent ?? '';
-    const turnIt = (root: ParentNode) => click(cards(root)[0]);
+    // With animations off (as here) the one card is face up as soon as the pack is open; PackOpening.motion.test.tsx
+    // covers the tap that turns it when they are on.
 
     it('one card shows one card', () => {
       const root = open(one('new', { shards: 40 }));
       tapPack(root);
       expect(cards(root)).toHaveLength(1);
-      expect(cards(root)[0].dataset.turned).toBe('false');
       expect(buttonByText(root, 'Turn all over')).toBeUndefined();
       expect(root.querySelector('.pack-opening__heading')).toBeNull();
-      expect(root.textContent).not.toContain('Your hero');
-      expect(result(root)).not.toContain('Ninja');
-
-      turnIt(root);
-
       expect(cards(root)[0].dataset.turned).toBe('true');
       expect(cards(root)[0].querySelector('.pack-opening__label')).toBeNull();
       expect(result(root)).toContain('New hero!');
@@ -124,7 +119,6 @@ describe('PackOpening', () => {
     it('a repeat says "+10 shards"', () => {
       const root = open(one('repeat', { shardsGained: 10, shards: 70 }));
       tapPack(root);
-      turnIt(root);
       expect(result(root)).toContain('Already owned');
       expect(result(root)).toContain('+10 shards');
       expect(result(root)).toContain('You now have 70 shards.');
@@ -133,7 +127,6 @@ describe('PackOpening', () => {
 
       const noBalance = open(one('repeat', { shardsGained: 10 }));
       tapPack(noBalance);
-      turnIt(noBalance);
       expect(result(noBalance)).toContain('+10 shards');
       expect(result(noBalance)).not.toContain('You now have');
     });
@@ -141,7 +134,6 @@ describe('PackOpening', () => {
     it('a holographic new hero says so', () => {
       const root = open(one('holo', { shards: 40 }, true));
       tapPack(root);
-      turnIt(root);
       expect(result(root)).toContain('Holographic!');
       expect(result(root)).toContain('A new hero. Ninja joins your binder as a holographic.');
       expect(result(root)).not.toContain('shards');
@@ -151,7 +143,6 @@ describe('PackOpening', () => {
     it('a holo upgrade says it is now holographic and shows no shards', () => {
       const root = open(one('holo_upgrade', { shards: 40 }, true));
       tapPack(root);
-      turnIt(root);
       expect(result(root)).toContain('Upgraded to holographic!');
       expect(result(root)).toContain('You already had Ninja. Now it is holographic.');
       expect(result(root)).not.toContain('shards');
@@ -161,7 +152,6 @@ describe('PackOpening', () => {
     it('a holographic repeat shows holo and "+10 shards"', () => {
       const root = open(one('repeat', { shardsGained: 10, shards: 80 }, true));
       tapPack(root);
-      turnIt(root);
       expect(cards(root)[0].querySelector('.card-holo')).not.toBeNull();
       expect(opening(root).dataset.banner).toBeUndefined();
       expect(result(root)).toContain('Already owned as a holographic');

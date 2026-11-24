@@ -121,6 +121,11 @@
   --badge-wind: #bcd3ea;
   --badge-mark: #c9a7ff;
 
+  /* Shards: the blue crystal (the Shard icon, the shard meters and tags, the sparks when a pack pays shards) */
+  --shard-hot: var(--badge-core-hot);
+  --shard: var(--badge-core);
+  --shard-deep: var(--badge-core-deep);
+
   /* Type */
   --font-display: 'Grenze Gotisch', Georgia, serif;
   --font-label: 'IM Fell English', Georgia, serif;

@@ -243,6 +243,7 @@
 .shop--b .shop-meter { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .shop--b .shop-meter-label { color: var(--bone); font: 700 14px/1.2 var(--font-ui); white-space: nowrap; }
 .shop--b .shop-meter-label span { color: var(--bone-dim); font-weight: 400; }
+.shop--b .shop-meter-label .shard-icon { width: 1.15em; height: 1.15em; margin-right: 5px; vertical-align: -0.22em; }
 .shop--b .shop-meter-bar {
   display: block;
   height: 8px;
@@ -257,7 +258,7 @@
   height: 100%;
   background: linear-gradient(90deg, var(--brass-dim), var(--brass-hi));
 }
-.shop--b .shop-meter--shards .shop-meter-fill { background: linear-gradient(90deg, var(--badge-core-deep), var(--badge-core)); }
+.shop--b .shop-meter--shards .shop-meter-fill { background: linear-gradient(90deg, var(--shard-deep), var(--shard)); }
 /* The bar in "See what's inside" fills as it opens */
 .shop--b .shop-inside .shop-meter-fill {
   transform-origin: 0 50%;
@@ -327,16 +328,18 @@
   left: 50%;
   z-index: 20;
   padding: 4px 8px;
-  color: var(--badge-core-hot);
+  color: var(--shard-hot);
   font: 800 15px/1 var(--font-ui);
   white-space: nowrap;
   background: color-mix(in srgb, var(--felt-deep) 82%, transparent);
-  border: 2px solid var(--badge-core);
+  border: 2px solid var(--shard);
   border-radius: 6px;
   box-shadow: 0 3px 8px var(--shade);
   transform: translate(-50%, -50%) rotate(-7deg);
   pointer-events: none;
 }
+.shop--b .shop-hold-shards .shard-icon { width: 1.05em; height: 1.05em; margin-right: 3px; vertical-align: -0.16em; }
+.shop--b .shop-hold-cap .shard-icon { width: 1.07em; height: 1.07em; margin-right: 4px; vertical-align: -0.18em; }
 
 .shop--b .shop-hold-cap { text-align: center; }
 .shop--b .shop-hold-cap b { display: block; color: var(--bone); font: 700 15px/1.15 var(--font-ui); white-space: nowrap; }
@@ -452,6 +455,7 @@
   background: var(--brass-hi);
 }
 .shop--b .shop-inside-facts b { font-weight: 700; }
+.shop--b .shop-inside-facts .shard-icon { width: 1.05em; height: 1.05em; margin-right: 3px; vertical-align: -0.16em; }
 
 .shop--b .shop-inside-pager {
   display: flex;
@@ -693,6 +697,8 @@
   .shop--b .shop-inside-page { font-size: 14px; }
 }
 
+/* No motion with the system's reduced-motion setting, or with the game's animations off (.shop--still, as the pack
+   opening's .pack-opening--still) */
 @media (prefers-reduced-motion: reduce) {
   .shop--b,
   .shop--b *,
@@ -702,4 +708,12 @@
     animation: none !important;
     transition: none !important;
   }
+}
+.shop--still,
+.shop--still *,
+.shop--still *::before,
+.shop--still *::after,
+.shop-message--still {
+  animation: none !important;
+  transition: none !important;
 }

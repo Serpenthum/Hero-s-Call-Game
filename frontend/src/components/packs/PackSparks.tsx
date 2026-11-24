@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type SparkTone = 'gold' | 'rainbow';
+export type SparkTone = 'gold' | 'rainbow' | 'shard';
 
 export interface SparkBurst {
   id: number;

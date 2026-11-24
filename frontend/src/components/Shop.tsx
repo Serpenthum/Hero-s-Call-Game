@@ -9,6 +9,8 @@ import {
 } from './shop/shopRules';
 import CloseButton from './CloseButton';
 import Coin from './Coin';
+import Shard from './ui/Shard';
+import { cardMotionOff } from '../cards/cardMotion';
 import { Hero } from '../types';
 import { READ_TEXT_MIN_PX } from '../draft/draftRules';
 import config from '../config';
@@ -45,11 +47,11 @@ const Meter: React.FC<{ className?: string; fraction: number; children: React.Re
 );
 
 // One of the three cards on the felt that show what a pack can hold
-const HoldSlot: React.FC<{ hero: Hero; holo?: boolean; repeat?: boolean; title: string; sub: string }> = ({ hero, holo = false, repeat = false, title, sub }) => (
+const HoldSlot: React.FC<{ hero: Hero; holo?: boolean; repeat?: boolean; title: string; sub: React.ReactNode }> = ({ hero, holo = false, repeat = false, title, sub }) => (
   <div className={`shop-hold${repeat ? ' is-repeat' : ''}`}>
     <div className="shop-hold-card">
       <HeroCard hero={hero} showFullInfo={true} disableHPAnimations={true} holo={holo} minTextPx={READ_TEXT_MIN_PX} />
-      {repeat && <span className="shop-hold-shards" aria-hidden="true">+10 shards</span>}
+      {repeat && <span className="shop-hold-shards" aria-hidden="true"><Shard />+10 shards</span>}
     </div>
     <div className="shop-hold-cap"><b>{title}</b><span>{sub}</span></div>
   </div>
@@ -228,13 +230,13 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: sha
       )}
       {/* The shop's message sits under the opening; while it is up, show it above */}
       {packResult && message && (
-        <div className={`shop-message shop-message--over-opening ${message.type}`} role="alert">
+        <div className={`shop-message shop-message--over-opening ${message.type}${cardMotionOff() ? ' shop-message--still' : ''}`} role="alert">
           {message.text}
         </div>
       )}
 
       <div className="shop-overlay" onClick={onClose}>
-      <div className="shop-container shop--b" onClick={(e) => e.stopPropagation()}>
+      <div className={`shop-container shop--b${cardMotionOff() ? ' shop--still' : ''}`} onClick={(e) => e.stopPropagation()}>
         <CloseButton className="shop-close" onClick={onClose} />
 
         {/* Left: the leather counter */}
@@ -287,14 +289,14 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: sha
               <div className="shop-holds">
                 <HoldSlot hero={holdHeroes[0]} title="A new hero" sub={ownedCount.owned >= heroTotal ? `You have all ${heroTotal}` : `Any of the ${heroTotal}`} />
                 <HoldSlot hero={holdHeroes[1]} holo title="A holographic" sub="1 pack in 10" />
-                <HoldSlot hero={holdHeroes[2]} repeat title="One you own" sub="10 shards instead" />
+                <HoldSlot hero={holdHeroes[2]} repeat title="One you own" sub={<><Shard />10 shards instead</>} />
               </div>
               <div className="shop-meters">
                 <Meter className="shop-meter--heroes" fraction={heroTotal ? ownedCount.owned / heroTotal : 0}>
                   Heroes <span>{ownedCount.owned} of {heroTotal}</span>
                 </Meter>
                 <Meter className="shop-meter--shards" fraction={shards / CRAFT_PRICE}>
-                  Shards <span>{shards >= CRAFT_PRICE ? `${shards}, enough to craft` : `${shards} of ${CRAFT_PRICE} to craft`}</span>
+                  <Shard />Shards <span>{shards >= CRAFT_PRICE ? `${shards}, enough to craft` : `${shards} of ${CRAFT_PRICE} to craft`}</span>
                 </Meter>
               </div>
             </>
@@ -310,7 +312,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: sha
               <HoloPack width="var(--shop-pack-w)" />
               <ul className="shop-inside-facts">
                 <li>Every pack holds <b>one random hero</b>. All {heroTotal} are just as likely.</li>
-                <li>A hero you already have gives <b>10 shards</b>.</li>
+                <li>A hero you already have gives <Shard /><b>10 shards</b>.</li>
                 <li><b>1 pack in 10</b> is holographic.</li>
               </ul>
               <Meter fraction={ownedCount.total ? ownedCount.owned / ownedCount.total : 0}>

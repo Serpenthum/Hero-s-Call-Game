@@ -245,6 +245,23 @@ const DevScreens: React.FC = () => {
     newVP: 30,
     shardsGained: 0,
   });
+  // Today's one-card pack, forced to an outcome: /#screens/pack-one?outcome=repeat
+  // outcome: new (default), repeat, holo, upgrade or holo-repeat (the mockup's five). hero: which sample hero (0 to 3).
+  const onePack = (): PackResult | null => {
+    const params = new URLSearchParams(query);
+    const sample = heroes[Number(params.get('hero') ?? 0)];
+    if (!sample) return null;
+    const outcome = params.get('outcome') ?? 'new';
+    const kind: PackCardKind = outcome === 'holo' ? 'holo' : outcome === 'upgrade' ? 'holo_upgrade' : outcome === 'new' ? 'new' : 'repeat';
+    const paid = kind === 'repeat';
+    return {
+      cards: [{ name: sample.name, kind, hero: sample, holo: kind !== 'new' && outcome !== 'repeat' }],
+      coinsBack: 0,
+      newVP: 30,
+      shardsGained: paid ? 10 : 0,
+      shards: paid ? 70 : 60,
+    };
+  };
   const packScreen = (kinds: PackCardKind[]) =>
     heroes.length >= kinds.length
       ? <PackOpening result={samplePack(kinds)} price={12} canBuyAnother buying={false} onBuyAnother={noop} onDone={noop} />
@@ -268,6 +285,10 @@ const DevScreens: React.FC = () => {
       return packScreen(['new', 'repeat', 'new']);
     case 'pack-opening-holo':
       return packScreen(['new', 'repeat', 'new', 'holo']);
+    case 'pack-one': {
+      const pack = onePack();
+      return pack && <PackOpening result={pack} price={20} canBuyAnother buying={false} onBuyAnother={noop} onDone={noop} />;
+    }
     case 'shop':
       return <DevShop query={query} />;
     case 'binder':
@@ -277,7 +298,7 @@ const DevScreens: React.FC = () => {
     case 'tutorial':
       return <TutorialOverlay step={{ key: 'dev', text: 'This is your Binder. Every hero you own lives here.', showNext: true, nextLabel: 'Got it', anchor: 'center' }} onNext={noop} />;
     default:
-      return <div style={{ padding: 'var(--space-7)', color: 'var(--bone)' }}>Screens: quest-reward, requirement, settings, how-to-play, pack-opening, pack-opening-holo, shop, binder, badges, tutorial</div>;
+      return <div style={{ padding: 'var(--space-7)', color: 'var(--bone)' }}>Screens: quest-reward, requirement, settings, how-to-play, pack-opening, pack-opening-holo, pack-one, shop, binder, badges, tutorial</div>;
   }
 };
 

@@ -252,7 +252,8 @@ describe('Shop packs', () => {
     expect((document.querySelector('.pack-opening') as HTMLElement).dataset.stage).toBe('pack');
     click(document.querySelector('.pack-opening__pack'));
     expect(packCardNames()).toEqual(['Pirate']);
-    expect((document.querySelector('.pack-opening [data-kind]') as HTMLElement).dataset.turned).toBe('false');
+    // Animations are off here, so the card is face up as soon as the pack is open
+    expect((document.querySelector('.pack-opening [data-kind]') as HTMLElement).dataset.turned).toBe('true');
     expect(balanceShown(root)).toBe('5');
     expect(onPurchaseComplete).toHaveBeenCalledTimes(1);
     // 5 left: a third pack is out of reach
