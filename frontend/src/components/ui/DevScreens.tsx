@@ -1,3 +1,4 @@
+import GameLobby from '../GameLobby';
 import React, { useEffect, useState } from 'react';
 import QuestRewardModal from '../QuestRewardModal';
 import RequirementModal from '../RequirementModal';
@@ -288,6 +289,18 @@ const DevScreens: React.FC = () => {
     case 'pack-one': {
       const pack = onePack();
       return pack && <PackOpening result={pack} price={20} canBuyAnother buying={false} onBuyAnother={noop} onDone={noop} />;
+    }
+    // The lobby with a sample player: /#screens/lobby or /#screens/lobby?searching=draft
+    case 'lobby': {
+      const searching = new URLSearchParams(query).get('searching') as 'draft' | 'random' | null;
+      return (
+        <GameLobby
+          onStartGame={noop} onStartSurvival={noop} onStartGauntlet={noop} onLogout={noop}
+          victoryPoints={120}
+          user={{ id: 1, username: 'Dev', level: 4, xp: 30, victory_points: 120, owned_heroes: [], favorite_heroes: [] } as any}
+          isSearching={!!searching} searchMode={searching}
+        />
+      );
     }
     case 'shop':
       return <DevShop query={query} />;

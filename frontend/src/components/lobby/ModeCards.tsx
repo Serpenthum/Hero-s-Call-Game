@@ -41,9 +41,7 @@ const ModeCards: React.FC<ModeCardsProps> = ({ modes, searchingMode, searchClock
       return (
         <div key={spec.mode} className={classes} onClick={searching ? undefined : spec.onActivate}>
           <div className="mode-card-head">
-            <span className="mode-card-icon"><ModeIcon /></span>
-            {/* Draft and Survival skip the title: their button already names the mode. */}
-            {spec.mode !== 'draft' && spec.mode !== 'survival' && <h3 className="mode-card-title">{spec.title}</h3>}
+            {/* Only the tag sits on top: the button below carries the mode's icon and name. */}
             <span className="mode-card-tag">{spec.tag}</span>
           </div>
           <p className="mode-card-text">{searching ? `Finding an opponent · ${searchClock}` : spec.text}</p>
@@ -61,7 +59,8 @@ const ModeCards: React.FC<ModeCardsProps> = ({ modes, searchingMode, searchClock
               className="mode-card-go"
               onClick={e => { e.stopPropagation(); spec.onActivate(); }}
             >
-              {spec.playLabel}
+              <span className="mode-card-icon"><ModeIcon /></span>
+              <span className="mode-card-go-label">{spec.playLabel}</span>
             </button>
           )}
         </div>
