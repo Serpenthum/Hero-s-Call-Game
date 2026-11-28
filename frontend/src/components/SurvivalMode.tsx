@@ -92,7 +92,7 @@ const SurvivalMode: React.FC<SurvivalModeProps> = ({ onReturnToLobby, onStartBat
   useEffect(() => {
     console.log('🔄 SurvivalMode: Setting up survival state listeners...');
     
-    let cleanupFunctions: (() => void)[] = [];
+    const cleanupFunctions: (() => void)[] = [];
     
     const setupSocketListeners = async () => {
       const { socketService } = await import('../socketService');

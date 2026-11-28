@@ -193,7 +193,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onStartGame, onStartSurvival, onS
   favoritesRef.current = user.favorite_heroes || [];
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [userRefreshTrigger, setUserRefreshTrigger] = useState(0);
+  const [, setUserRefreshTrigger] = useState(0);
 
   // Draft is open to every account. Survival stays hidden until unlocked; unlocking shows a
   // notification and animates the mode in.

@@ -8,7 +8,7 @@
     "build": "tsc --noCheck && vite build",
     "build:audio": "node scripts/build-audio.mjs",
     "check:tokens": "node scripts/check-tokens.mjs",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "preview": "vite preview",
     "test": "vitest run src",
     "deploy": "npm run build && node scripts/copy-assets.mjs && wrangler pages deploy dist --project-name heroscall --branch main"

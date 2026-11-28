@@ -458,7 +458,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
       
       // Build tooltip text with modifier details
       let tooltipText = `Base Defense: ${sharedDefense?.originalDefense || hero.Defense}, Modified Defense: ${modifiedDefense}`;
-      let tooltipParts: string[] = [];
+      const tooltipParts: string[] = [];
       
       // Add shared defense info (Dual Defender)
       if (isSharedDefenseBuff) {
@@ -502,7 +502,7 @@ const HeroCard: React.FC<HeroCardProps> = ({
 
     let effectiveDefense = hero.Defense;
     let defenseModifier = 0;
-    let tooltipParts: string[] = [];
+    const tooltipParts: string[] = [];
     
     // Apply stat modifiers if they exist
     if (hero.statusEffects?.statModifiers?.Defense) {
