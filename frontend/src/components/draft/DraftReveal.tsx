@@ -8,6 +8,7 @@ import {
   cardDelayMs,
   centredRowOffset,
   faceOffLineY,
+  faceOffRoom,
   hurryStage,
   revealStage,
   sameBoxes,
@@ -34,6 +35,9 @@ interface Measured {
   themDx: number;
   meDx: number;
   lineY: number;
+  /** The height between the rows on the board, and how much shrinking the rows opens it (faceOffRoom). */
+  gap: number;
+  span: number;
 }
 
 // While the reveal's copies are on screen the board's own cards and the Starting Roll box are hidden
@@ -76,6 +80,7 @@ function measureBoard(me: RevealSide, them: RevealSide): Measured | null {
     themDx: centredRowOffset(theirs, window.innerWidth),
     meDx: centredRowOffset(mine, window.innerWidth),
     lineY: faceOffLineY(theirs, mine, window.innerHeight),
+    ...faceOffRoom(theirs, mine, window.innerHeight),
   };
 }
 
@@ -249,6 +254,7 @@ const DraftReveal: React.FC<DraftRevealProps> = ({ me, them, hurry = false, onDo
       className={`draft-reveal draft-reveal--${stage}${hurry ? ' draft-reveal--passing' : ''}`}
       role="presentation"
       data-stage={stage}
+      style={measured ? { '--draft-reveal-gap': measured.gap, '--draft-reveal-span': measured.span } as React.CSSProperties : undefined}
       onClick={() => finish(false)}
     >
       {showCopies && measured && (
