@@ -58,8 +58,9 @@
   z-index: 35001;
   transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.4s;
 }
+/* The name plates wait until the gliding cards have passed them (the centred rows start over the plates) */
 :root:is([data-draft-reveal='board'], [data-draft-reveal='hurry']) .App .battle-layout .team-label-container {
-  transition: opacity 0.5s 0.15s;
+  transition: opacity 0.23s 0.55s;
 }
 :root:is([data-draft-reveal='board'], [data-draft-reveal='hurry']) .App .battle-layout :is(.opponent-area, .player-area) {
   transition: background-color 0.6s;
@@ -71,6 +72,10 @@
 :root[data-draft-reveal='hurry'] .App .battle-layout :is(.opponent-area, .player-area) {
   transition-duration: 0.26s;
   transition-delay: 0s;
+}
+:root[data-draft-reveal='hurry'] .App .battle-layout .team-label-container {
+  transition-duration: 0.1s;
+  transition-delay: 0.16s;
 }
 /* The reveal played through: the Starting Roll box fades in over the board (a skip shows it at once) */
 :root[data-draft-reveal='done'] .initiative-overlay { animation: draft-reveal-roll-in 0.35s both; }
