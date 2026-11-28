@@ -66,6 +66,6 @@ describe('SettingsModal sound', () => {
     const root = render(<SettingsModal onClose={() => {}} />);
     const text = root.textContent || '';
     expect(text).toContain('Credits');
-    expect(text).toContain('Music: Soft Mysterious Harp Loop by VWolfdog (Jordy Hake), CC-BY 3.0. Woods by TBC, CC-BY. Sound effects: Kenney, lentikula, independent.nu, WobbleBoxx, untamedpixels and OpenGameArt contributors, CC0.');
+    expect(text).toContain('Music: Soft Mysterious Harp Loop by VWolfdog (Jordy Hake), CC-BY 3.0. Woods by Axton Crolley, CC-BY 3.0. Sound effects: Kenney, lentikula, independent.nu, WobbleBoxx, untamedpixels and OpenGameArt contributors, CC0.');
   });
 });

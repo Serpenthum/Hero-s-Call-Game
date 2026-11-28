@@ -1,6 +1,6 @@
-// Credits shown in Settings. Fill WOODS_CREDIT once the Woods author and licence are confirmed.
+// Credits shown in Settings.
 
-export const WOODS_CREDIT = { author: 'TBC', licence: 'CC-BY' };
+export const WOODS_CREDIT = { author: 'Axton Crolley', licence: 'CC-BY 3.0' };
 
 export const CREDITS_TEXT =
   'Music: Soft Mysterious Harp Loop by VWolfdog (Jordy Hake), CC-BY 3.0. ' +

@@ -68,7 +68,7 @@ export const MUSIC_PICKS = [
 
 export const LICENCES = {
   harp: { title: 'Soft Mysterious Harp Loop', author: 'VWolfdog (Jordy Hake)', licence: 'CC-BY 3.0', url: 'https://opengameart.org/content/soft-mysterious-harp-loop', creditRequired: true },
-  woods: { title: 'Woods', author: 'TBC', licence: 'CC-BY (TBC)', url: 'https://opengameart.org/content/woods', creditRequired: true },
+  woods: { title: 'Woods', author: 'Axton Crolley', licence: 'CC-BY 3.0', url: 'https://opengameart.org/content/woods', creditRequired: true },
   evilAwaits: { title: 'Evil Awaits', author: 'bosslevelaudio (Glenn Loughran)', licence: 'CC0 (multi-licence, used under CC0)', url: 'https://opengameart.org/content/evil-awaits', creditRequired: false },
   battle: { title: 'Battle Sound Effects', author: 'TBC (see source page)', licence: 'CC0', url: 'https://opengameart.org/content/battle-sound-effects', creditRequired: false },
   hits: { title: '37 hits/punches', author: 'independent.nu ljudbank', licence: 'CC0', url: 'https://opengameart.org/content/37-hitspunches', creditRequired: false },
