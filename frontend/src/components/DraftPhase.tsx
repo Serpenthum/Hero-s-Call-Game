@@ -3,7 +3,15 @@ import { GameState, Player, Hero } from '../types';
 import { socketService } from '../socketService';
 import { getAnimSpeed } from '../battleAnimations';
 import { useCardReader } from '../cards/CardReader';
-import { READABLE_CARD_MIN_WIDTH, draftStep, playerStatus, draftChoice, visibleBans } from '../draft/draftRules';
+import {
+  READABLE_CARD_MIN_WIDTH,
+  draftStep,
+  playerStatus,
+  draftChoice,
+  visibleBans,
+  loadTappedOrder,
+  saveTappedOrder,
+} from '../draft/draftRules';
 import { useDraftLayout } from '../draft/useDraftLayout';
 import { BeforeUpdate, useDraftMotion } from '../draft/useDraftMotion';
 import DraftClock from './DraftClock';
@@ -70,10 +78,12 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
   const [orderSel, setOrderSel] = useState<string | null>(null);
   const [lastTapped, setLastTapped] = useState<string | null>(null);
   const [readySent, setReadySent] = useState(false);
+  // A refresh before Ready brings back the order tapped in this tab (only for this game and these heroes).
   useEffect(() => {
-    setLocalOrder(null);
+    setLocalOrder(ordering ? loadTappedOrder(gameState.id) : null);
     setOrderSel(null);
-  }, [step, teamKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, teamKey, gameState.id]);
   useEffect(() => {
     setReadySent(false);
     setLastTapped(null);
@@ -158,6 +168,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
     setLastTapped(name);
     setLocalOrder(next.order);
     setOrderSel(next.selected);
+    saveTappedOrder(gameState.id, next.order);
   };
 
   const read = (hero: Hero) => {
@@ -169,6 +180,7 @@ const DraftPhase: React.FC<DraftPhaseProps> = ({
     if (ordering) {
       if (ready || orderNames.length !== 3) return;
       socketService.setAttackOrder(orderNames);
+      saveTappedOrder(gameState.id, null);
       setReadySent(true);
       setOrderSel(null);
       return;
