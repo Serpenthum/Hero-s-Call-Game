@@ -890,6 +890,18 @@
   color: var(--fav-gold-edge);
 }
 
+/* An owned card shown large: how you own it ("Owned." / "Owned, holographic."), over the favourites button */
+.binder-owned {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.binder-owned p {
+  margin: 0;
+}
+
 /* ---- A card the player does not own, shown large: the picture is grey until it is owned, the words stay readable ---- */
 .binder-large-cardwrap {
   position: relative;
@@ -1409,6 +1421,15 @@
 
   .binder-large-card.hero-card.hero-layout-card {
     --card-w: min(var(--iw), calc(100cqw - 32px), calc((100cqh - var(--safe-top) - var(--safe-bottom) - 110px) * 260 / 391));
+  }
+
+  /* Under the card the owned line and the button share a row (wrapping on a narrow phone) */
+  .binder-owned {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 14px;
   }
 }
 

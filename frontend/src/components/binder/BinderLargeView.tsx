@@ -11,7 +11,7 @@ import Shard from '../ui/Shard';
 import { CRAFT_PRICE, craftState } from './craftRules';
 import { SHELL_H, SHELL_W, forgeShell, type ForgePhase } from './craftForge';
 import { CRAFT_UNAVAILABLE, type CraftResult } from './useBinderData';
-import { LockIcon, StarIcon } from './BinderIcons';
+import { FILTER_ICONS, LockIcon, StarIcon } from './BinderIcons';
 
 interface BinderLargeViewProps {
   hero: BinderHero;
@@ -44,7 +44,9 @@ export const BinderLargeView: React.FC<BinderLargeViewProps> = ({
 }) => {
   const favourite = collection.favourites.includes(hero.name);
   // As the pocket shows it: a disabled hero is not locked, it is out of the game
-  const locked = !hero.disabled && !collection.owned.includes(hero.name);
+  const owned = collection.owned.includes(hero.name);
+  const locked = !hero.disabled && !owned;
+  const holo = !locked && collection.holo.includes(hero.name);
   const { canCraft, shortfall } = craftState(shards, !locked);
   const [asking, setAsking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -93,7 +95,7 @@ export const BinderLargeView: React.FC<BinderLargeViewProps> = ({
       showFullInfo={false}
       disableHPAnimations
       minTextPx={READ_TEXT_MIN_PX}
-      holo={!locked && collection.holo.includes(hero.name)}
+      holo={holo}
       favorite={favourite}
       className={`binder-large-card${locked && !struck ? ' is-locked' : ''}`}
     />
@@ -113,7 +115,19 @@ export const BinderLargeView: React.FC<BinderLargeViewProps> = ({
       <CloseButton className="binder-large-close" onClick={onClose} />
       <div className="binder-large-body">
         {!locked ? (
-          <>{card}{favButton}</>
+          <>
+            {card}
+            {signedIn && (
+              <div className="binder-owned">
+                {owned && (
+                  <p className="binder-craft-state">
+                    {holo ? FILTER_ICONS.holo : FILTER_ICONS.owned} {holo ? 'Owned, holographic.' : 'Owned.'}
+                  </p>
+                )}
+                {favButton}
+              </div>
+            )}
+          </>
         ) : (
           <>
             <div className="binder-large-cardwrap">

@@ -437,6 +437,21 @@ describe('the binder', () => {
       expect(large(root)!.querySelector('.binder-lock-tag')).toBeNull();
     });
 
+    it('the large view of an owned holographic card says "Owned, holographic."', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(pocket(root, 'H01'));
+      expect(large(root)!.querySelector('.binder-owned .binder-craft-state')!.textContent!.trim()).toBe('Owned, holographic.');
+      expect(large(root)!.textContent).not.toContain('Not owned');
+    });
+
+    it('the large view of an owned normal card says "Owned."', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(pocket(root, 'H03'));
+      expect(large(root)!.querySelector('.binder-owned .binder-craft-state')!.textContent!.trim()).toBe('Owned.');
+    });
+
     it('with 60 shards Craft is disabled and says 40 more are needed', async () => {
       const fetchMock = stubFetch({ shards: 60 });
       const root = await openBinder();
