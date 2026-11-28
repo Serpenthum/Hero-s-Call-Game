@@ -31,19 +31,3 @@
   --hero-card-scale: var(--grid-card-scale);
 }
 
-.responsive-card-grid .shop-hero-card:has(.hero-layout-card) {
-  width: var(--grid-card-width);
-  min-height: var(--grid-card-height);
-  margin: 0;
-  transform: none;
-  overflow: visible;
-}
-
-.responsive-card-grid .shop-hero-wrapper {
-  width: var(--grid-card-width);
-  margin: 0;
-}
-
-.responsive-card-grid .shop-buy-btn {
-  max-width: none;
-}

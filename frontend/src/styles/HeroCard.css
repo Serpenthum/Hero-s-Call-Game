@@ -852,7 +852,6 @@
 }
 
 /* ---- Card sizes per screen ---- */
-.shop-hero-card .hero-layout-card,
 .gauntlet-hero-wrapper .hero-layout-card,
 .team-slot .hero-layout-card {
   --hero-card-scale: 0.75;
@@ -860,11 +859,6 @@
 
 .favorite-hero-display .hero-layout-card {
   --hero-card-scale: 0.75;
-}
-
-.shop-hero-card:has(.hero-layout-card) {
-  width: 195px;
-  min-height: 293.25px;
 }
 
 .survival-card-slot.survival-card-placeholder {
@@ -909,11 +903,6 @@
 
 @container hero-team (max-width: 340px) {
   .hero-layout-card { --hero-card-scale: 0.3; }
-}
-
-@media (max-width: 1200px) {
-  .shop-hero-card .hero-layout-card { --hero-card-scale: 0.6; }
-  .shop-hero-card:has(.hero-layout-card) { width: 156px; min-height: 234.6px; }
 }
 
 @media (max-height: 700px) {
