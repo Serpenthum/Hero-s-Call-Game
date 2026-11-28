@@ -81,6 +81,8 @@ export interface Hero {
   companions?: Array<{ type: string; hp: number }>; // For summoner heroes like Beast Tamer
   id?: string;
   resurrected?: boolean; // Flag for resurrection animation
+  conditionalEffects?: { [specialName: string]: boolean }; // Low-HP specials now on (Frenzy, Desperate Blows)
+  damagedEnemies?: string[]; // Arcane Archer: names of the enemies it has damaged
 }
 
 export interface StatusEffects {
@@ -88,11 +90,12 @@ export interface StatusEffects {
   beast_active?: boolean;
   totem_count?: number;
   turret_count?: number;
+  med_bot_count?: number;
+  windWallAC?: { bonus: number }; // Elementalist's Wind Wall: Defense until its next turn
   taunt: {
     target: string;
     duration: number;
   } | null;
-  inspiration: number;
   silenced: boolean | { active: boolean; duration: number; source?: string; description?: string; tooltip?: string };
   disableAttack: boolean | { active: boolean; duration: number };
   cannotTargetWithAbility?: {
@@ -103,6 +106,7 @@ export interface StatusEffects {
   };
   untargetable: boolean;
   untargetableAttacker?: string; // The one hero that may still target an untargetable hero
+  untargetableAttackerId?: string; // Its id ("<playerIndex>-<heroIndex>"); absent from an old server
   damageStacks?: number;
   defenseReduction?: number;
   grantedAdvantage?: boolean;
@@ -131,7 +135,8 @@ export interface StatusEffects {
     maxHP: number; // Store max HP to detect full healing
   };
   arcaneShieldAvailable?: boolean;
-  health_link?: boolean; // Applied by Angel's Health Link ability
+  arcaneShieldUsed?: boolean; // Wizard's shield is spent for the battle
+  health_link?: boolean | { source?: string; sourceId?: string; duration?: number }; // Applied by Angel's Health Link ability
   resurrectUsed?: boolean; // Track if Angel has used resurrection
 }
 
@@ -189,6 +194,15 @@ export interface GameState {
     player2: string[];
   };
   log?: import('./battle/log').LogEntry[]; // The battle log's newest entries (backend/battleLog.js)
+  pendingTaunts?: PendingTaunt[]; // Paladin taunts that land at end of turn; absent on older servers
+}
+
+// A Shield of Faith taunt queued for end of turn (hero ids are "<playerIndex>-<heroIndex>")
+export interface PendingTaunt {
+  targetId: string; // The hero that will be Taunted
+  targetPlayerIndex: number;
+  tauntTarget: string; // Name of the Paladin it must Focus
+  appliedById: string; // The Paladin's id
 }
 
 export interface AttackResult {

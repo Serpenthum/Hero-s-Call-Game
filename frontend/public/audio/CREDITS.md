@@ -6,14 +6,14 @@ All files were trimmed, loudness-matched and re-encoded for the game.
 ## Attribution required
 
 - "Soft Mysterious Harp Loop" by VWolfdog (Jordy Hake), CC-BY 3.0, https://opengameart.org/content/soft-mysterious-harp-loop
-- "Woods" by TBC, CC-BY (TBC), https://opengameart.org/content/woods
+- "Woods" by Axton Crolley, CC-BY 3.0, https://opengameart.org/content/woods
 
 ## Every file
 
 | File | Title | Author | Source | Licence |
 |---|---|---|---|---|
 | music/harp.m4a | Soft Mysterious Harp Loop | VWolfdog (Jordy Hake) | https://opengameart.org/content/soft-mysterious-harp-loop | CC-BY 3.0 |
-| music/woods.m4a | Woods | TBC | https://opengameart.org/content/woods | CC-BY (TBC) |
+| music/woods.m4a | Woods | Axton Crolley | https://opengameart.org/content/woods | CC-BY 3.0 |
 | music/evil-awaits.m4a | Evil Awaits | bosslevelaudio (Glenn Loughran) | https://opengameart.org/content/evil-awaits | CC0 (multi-licence, used under CC0) |
 | sfx/weapon-hit.mp3 | Battle Sound Effects | TBC (see source page) | https://opengameart.org/content/battle-sound-effects | CC0 |
 | sfx/weapon-crit.mp3 | 37 hits/punches | independent.nu ljudbank | https://opengameart.org/content/37-hitspunches | CC0 |

@@ -65,7 +65,7 @@ const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ onClose }) => (
           </div>
           <div className="rule-item">
             <span className="rule-label">Poison:</span>
-            <span className="rule-value">Takes damage at start of each turn</span>
+            <span className="rule-value">Takes damage at the end of its turn.</span>
           </div>
           <div className="rule-item">
             <span className="rule-label">Silence:</span>

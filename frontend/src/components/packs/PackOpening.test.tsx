@@ -15,11 +15,13 @@ const card = (name: string, kind: PackCardKind): PackCard => ({ name, kind, hero
 const threeCards: PackResult = {
   cards: [card('Ninja', 'new'), card('Monk', 'repeat'), card('Pirate', 'new')],
   coinsBack: 2,
+  shardsGained: 0,
   newVP: 30,
 };
 const fourCards: PackResult = {
   cards: [card('Ninja', 'new'), card('Monk', 'repeat'), card('Pirate', 'new'), card('Samurai', 'holo')],
   coinsBack: 2,
+  shardsGained: 0,
   newVP: 30,
 };
 
@@ -64,12 +66,98 @@ describe('PackOpening', () => {
     expect(root.textContent).not.toContain('Ninja');
   });
 
-  it('a pack with a bonus shows four cards and the bonus heading', () => {
+  it('a pack with a bonus from an old server shows four cards and no bonus heading', () => {
     const root = open(fourCards);
     tapPack(root);
     expect(cards(root)).toHaveLength(4);
-    expect(root.textContent).toContain('A bonus fourth card!');
-    expect(root.textContent).not.toContain('Your heroes');
+    expect(root.textContent).not.toContain('A bonus fourth card!');
+    expect(root.textContent).toContain('Your heroes');
+  });
+
+  it('a three-card reply from an old server still shows all three', () => {
+    const root = open(threeCards);
+    tapPack(root);
+    expect(cards(root)).toHaveLength(3);
+    expect(buttonByText(root, 'Turn all over')).toBeDefined();
+
+    click(buttonByText(root, 'Turn all over'));
+
+    expect(cards(root).map(c => c.dataset.turned)).toEqual(['true', 'true', 'true']);
+    expect(cards(root).map(c => c.querySelector('.pack-opening__label')?.textContent)).toEqual(['New hero', 'Already owned · +2', 'New hero']);
+    expect(cards(root)[1].querySelector('.pack-opening__label .coin-icon')).not.toBeNull();
+    expect(root.querySelector('.pack-opening__result')).toBeNull();
+  });
+
+  describe('one card', () => {
+    const one = (kind: PackCardKind, extra: Partial<PackResult> = {}, holo?: boolean): PackResult => ({
+      cards: [{ ...card('Ninja', kind), ...(holo === undefined ? null : { holo }) }],
+      coinsBack: 0,
+      newVP: 30,
+      shardsGained: 0,
+      ...extra,
+    });
+    const result = (root: ParentNode) => root.querySelector('.pack-opening__result')?.textContent ?? '';
+    // With animations off (as here) the one card is face up as soon as the pack is open; PackOpening.motion.test.tsx
+    // covers the tap that turns it when they are on.
+
+    it('one card shows one card', () => {
+      const root = open(one('new', { shards: 40 }));
+      tapPack(root);
+      expect(cards(root)).toHaveLength(1);
+      expect(buttonByText(root, 'Turn all over')).toBeUndefined();
+      expect(root.querySelector('.pack-opening__heading')).toBeNull();
+      expect(cards(root)[0].dataset.turned).toBe('true');
+      expect(cards(root)[0].querySelector('.pack-opening__label')).toBeNull();
+      expect(result(root)).toContain('New hero!');
+      expect(result(root)).toContain('Ninja joins your binder.');
+      expect(result(root)).not.toContain('shards');
+      expect(buttonByText(root, 'Buy another')?.textContent).toBe('Buy another12');
+      expect(buttonByText(root, 'Done')).toBeDefined();
+      expect(root.textContent).not.toContain('Your hero');
+    });
+
+    it('a repeat says "+10 shards"', () => {
+      const root = open(one('repeat', { shardsGained: 10, shards: 70 }));
+      tapPack(root);
+      expect(result(root)).toContain('Already owned');
+      expect(result(root)).toContain('+10 shards');
+      expect(result(root)).toContain('You now have 70 shards.');
+      expect(result(root)).not.toContain('holographic');
+      cleanup();
+
+      const noBalance = open(one('repeat', { shardsGained: 10 }));
+      tapPack(noBalance);
+      expect(result(noBalance)).toContain('+10 shards');
+      expect(result(noBalance)).not.toContain('You now have');
+    });
+
+    it('a holographic new hero says so', () => {
+      const root = open(one('holo', { shards: 40 }, true));
+      tapPack(root);
+      expect(result(root)).toContain('Holographic!');
+      expect(result(root)).toContain('A new hero. Ninja joins your binder as a holographic.');
+      expect(result(root)).not.toContain('shards');
+      expect(cards(root)[0].querySelector('.card-holo')).not.toBeNull();
+    });
+
+    it('a holo upgrade says it is now holographic and shows no shards', () => {
+      const root = open(one('holo_upgrade', { shards: 40 }, true));
+      tapPack(root);
+      expect(result(root)).toContain('Upgraded to holographic!');
+      expect(result(root)).toContain('You already had Ninja. Now it is holographic.');
+      expect(result(root)).not.toContain('shards');
+      expect(cards(root)[0].querySelector('.card-holo')).not.toBeNull();
+    });
+
+    it('a holographic repeat shows holo and "+10 shards"', () => {
+      const root = open(one('repeat', { shardsGained: 10, shards: 80 }, true));
+      tapPack(root);
+      expect(cards(root)[0].querySelector('.card-holo')).not.toBeNull();
+      expect(opening(root).dataset.banner).toBeUndefined();
+      expect(result(root)).toContain('Already owned as a holographic');
+      expect(result(root)).toContain('+10 shards');
+      expect(result(root)).toContain('You now have 80 shards.');
+    });
   });
 
   describe('tapping a card turns it and shows its label', () => {
@@ -81,7 +169,7 @@ describe('PackOpening', () => {
     ];
     labels.forEach(([kind, label]) => {
       it(kind, () => {
-        const root = open({ cards: [card('Ninja', kind), card('Monk', 'new'), card('Pirate', 'new')], coinsBack: 0, newVP: 5 });
+        const root = open({ cards: [card('Ninja', kind), card('Monk', 'new'), card('Pirate', 'new')], coinsBack: 0, newVP: 5, shardsGained: 0 });
         tapPack(root);
         const first = cards(root)[0];
         expect(first.dataset.kind).toBe(kind);
@@ -103,6 +191,7 @@ describe('PackOpening', () => {
     const result: PackResult = {
       cards: [card('Ninja', 'new'), card('Samurai', 'holo_upgrade'), card('Monk', 'repeat'), card('Pirate', 'new')],
       coinsBack: 2,
+      shardsGained: 0,
       newVP: 30,
     };
     const root = open(result, { onTurn: name => turns.push(name) });

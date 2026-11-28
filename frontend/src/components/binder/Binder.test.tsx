@@ -5,6 +5,8 @@ import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HeroCollection from '../HeroCollection';
 import { LAND_MS, OPENING_MS } from '../BinderOpening';
+import { FORGE_DONE_MS, FORGE_END_MS, FORGE_HIT_MS, FORGE_LAND_MS, FORGE_SHARDS } from './craftForge';
+import { DEFAULT_VIEW } from './binderRules';
 import type { BinderHero } from './binderRules';
 import { buttonByText, cleanup, click, render, settle, stubBrowserApis } from '../../testing/dom';
 import config from '../../config';
@@ -23,11 +25,15 @@ const OWNED = NAMES.slice(0, 10);
 const HOLO = ['H01', 'H02', 'H20']; // H20 is not owned, so it doesn't count
 const FAVOURITES = ['H03', 'H25'];
 
-const reply = (body: unknown, ok = true) =>
-  Promise.resolve({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(body) } as Response);
+const reply = (body: unknown, ok = true, status = ok ? 200 : 500) =>
+  Promise.resolve({ ok, status, json: () => Promise.resolve(body) } as Response);
 
-function stubFetch(opts: { failHeroes?: boolean } = {}) {
+// shards: the player's balance (140), or null for an old server that sends none.
+// craft: answers the craft request instead of the server's success.
+function stubFetch(opts: { failHeroes?: boolean; shards?: number | null; craft?: (heroName: string) => Promise<Response> } = {}) {
   let favourites = [...FAVOURITES];
+  let owned = [...OWNED];
+  let shards = opts.shards === undefined ? 140 : opts.shards;
   let failHeroes = !!opts.failHeroes;
   const fetchMock = vi.fn((url: string, init?: RequestInit) => {
     if (url.startsWith(`${API}/api/heroes`)) {
@@ -35,7 +41,16 @@ function stubFetch(opts: { failHeroes?: boolean } = {}) {
       return reply(HEROES);
     }
     if (url === `${API}/api/favorite-heroes/7`) return reply({ favoriteHeroes: favourites });
-    if (url === `${API}/api/user/7`) return reply({ success: true, user: { available_heroes: OWNED, holo_heroes: HOLO } });
+    if (url === `${API}/api/user/7`) {
+      return reply({ success: true, user: { available_heroes: owned, holo_heroes: HOLO, ...(shards === null ? {} : { shards }) } });
+    }
+    if (url === `${API}/api/shop/craft` && init?.method === 'POST') {
+      const { heroName } = JSON.parse(String(init.body)) as { heroName: string };
+      if (opts.craft) return opts.craft(heroName);
+      owned = [...owned, heroName];
+      shards = (shards ?? 0) - 100;
+      return reply({ success: true, heroName, hero: HEROES.find(h => h.name === heroName), shards, available_heroes: owned, heroCount: owned.length });
+    }
     if (url === `${API}/api/toggle-favorite-hero` && init?.method === 'POST') {
       const { heroName } = JSON.parse(String(init.body)) as { heroName: string };
       favourites = favourites.includes(heroName) ? favourites.filter(n => n !== heroName) : [...favourites, heroName];
@@ -104,8 +119,8 @@ describe('the binder', () => {
     consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
   afterEach(() => {
-    // Only the data hook's failure log is expected; React warnings would show up here too.
-    for (const [first] of consoleError.mock.calls) expect(String(first)).toMatch(/^Error fetching heroes/);
+    // Only the data hook's failure logs are expected; React warnings would show up here too.
+    for (const [first] of consoleError.mock.calls) expect(String(first)).toMatch(/^Error (fetching heroes|crafting hero)/);
     cleanup();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -349,6 +364,393 @@ describe('the binder', () => {
     expect(heroCalls()).toBe(2);
     expect(root.textContent).not.toContain("Couldn't load the heroes.");
     expect(pocketNames(root)).toEqual(NAMES.slice(0, 12));
+  });
+
+  describe('shards and crafting', () => {
+    const balance = (root: ParentNode) => root.querySelector('.binder-shards');
+    const said = (root: ParentNode) => balance(root)?.querySelector('[role=status]')?.textContent;
+    const shown = (root: ParentNode) => Number(balance(root)?.querySelector('b')?.textContent);
+    const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+    const animationsOff = () => localStorage.setItem('heroscall.animSpeed', 'off');
+    afterEach(() => {
+      vi.useRealTimers();
+      localStorage.clear();
+    });
+    const large = (root: ParentNode) => root.querySelector('.binder-large') as HTMLElement | null;
+    const craftButton = (root: ParentNode) => buttonByText(large(root)!, 'Craft');
+    const craftCalls = (fetchMock: ReturnType<typeof stubFetch>) =>
+      fetchMock.mock.calls.filter(([url]) => url === `${API}/api/shop/craft`);
+    // Opens H11 (not owned), taps Craft and, if asked, Yes, craft
+    function startCraft(root: ParentNode, confirm = true) {
+      click(pocket(root, 'H11'));
+      click(craftButton(root));
+      if (confirm) click(buttonByText(large(root)!, 'Yes, craft'));
+    }
+
+    it('the binder shows the shard balance', async () => {
+      stubFetch();
+      const root = await openBinder();
+      // The crystal and the number show; a screen reader hears "140 shards", and again when it changes
+      expect(balance(root)?.querySelector('svg.shard-icon')).not.toBeNull();
+      expect(balance(root)?.querySelector('b')?.textContent).toBe('140');
+      expect(balance(root)?.querySelector('b')?.getAttribute('aria-hidden')).toBe('true');
+      expect(said(root)).toBe('140 shards');
+    });
+
+    it('signed out: no shard balance and no Craft button', async () => {
+      stubFetch();
+      const root = await openBinder({ userId: undefined });
+      expect(balance(root)).toBeNull();
+      click(pocket(root, 'H11'));
+      expect(craftButton(root)).toBeUndefined();
+    });
+
+    it('no shards field shows 0', async () => {
+      stubFetch({ shards: null });
+      const root = await openBinder();
+      expect(said(root)).toBe('0 shards');
+    });
+
+    it('a locked card\'s large view shows Craft with 100 shards', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(pocket(root, 'H11'));
+      const view = large(root)!;
+      // The picture is grey with a padlock until the card is owned
+      expect(view.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(view.querySelector('.binder-lock-tag')).not.toBeNull();
+      expect(view.textContent).toContain('Not owned');
+      const craft = craftButton(root)!;
+      expect(craft.disabled).toBe(false);
+      expect(craft.textContent).toBe('Craft100 shards');
+      expect(craft.getAttribute('aria-label')).toBe('Craft H11 for 100 shards');
+      expect(view.textContent).toContain('You have 140 shards. You will have 40 left.');
+      expect(view.textContent).not.toMatch(/VP/);
+    });
+
+    it('an owned card\'s large view has no Craft button and no padlock', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(pocket(root, 'H01'));
+      expect(craftButton(root)).toBeUndefined();
+      expect(large(root)!.querySelector('.binder-large-card')!.className).not.toMatch(/is-locked/);
+      expect(large(root)!.querySelector('.binder-lock-tag')).toBeNull();
+    });
+
+    it('the large view of an owned holographic card says "Owned, holographic."', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(pocket(root, 'H01'));
+      expect(large(root)!.querySelector('.binder-owned .binder-craft-state')!.textContent!.trim()).toBe('Owned, holographic.');
+      expect(large(root)!.textContent).not.toContain('Not owned');
+    });
+
+    it('the large view of an owned normal card says "Owned."', async () => {
+      stubFetch();
+      const root = await openBinder();
+      click(pocket(root, 'H03'));
+      expect(large(root)!.querySelector('.binder-owned .binder-craft-state')!.textContent!.trim()).toBe('Owned.');
+    });
+
+    it('with 60 shards Craft is disabled and says 40 more are needed', async () => {
+      const fetchMock = stubFetch({ shards: 60 });
+      const root = await openBinder();
+      click(pocket(root, 'H11'));
+      const craft = craftButton(root)!;
+      expect(craft.disabled).toBe(true);
+      expect(large(root)!.textContent).toContain('40 more shards needed');
+      expect(large(root)!.textContent).toContain('You have 60 of 100.');
+      click(craft);
+      expect(buttonByText(large(root)!, 'Yes, craft')).toBeUndefined();
+      expect(craftCalls(fetchMock)).toHaveLength(0);
+    });
+
+    it('tapping Craft asks first; Cancel sends nothing and returns to the large view', async () => {
+      const fetchMock = stubFetch();
+      const root = await openBinder();
+      startCraft(root, false);
+      const view = large(root)!;
+      expect(view.textContent).toContain('Craft H11 for 100 shards?');
+      expect(view.textContent).toContain('You will have 40 shards left.');
+      expect(craftButton(root)).toBeUndefined();
+      click(buttonByText(view, 'Cancel'));
+      expect(large(root)).not.toBeNull();
+      expect(buttonByText(large(root)!, 'Yes, craft')).toBeUndefined();
+      expect(craftButton(root)).toBeDefined();
+      await settle();
+      expect(craftCalls(fetchMock)).toHaveLength(0);
+    });
+
+    it('"Yes, craft" sends exactly one request, naming only the hero', async () => {
+      const fetchMock = stubFetch();
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(craftCalls(fetchMock)).toHaveLength(1);
+      expect(JSON.parse(String(craftCalls(fetchMock)[0][1]?.body))).toEqual({ heroName: 'H11' });
+    });
+
+    it('crafting plays the craft animation, then the card is owned', async () => {
+      vi.useFakeTimers();
+      stubFetch();
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      // The server has said yes: the forge starts on the card, which is still grey in the large view and its pocket
+      const view = large(root)!;
+      expect(view.dataset.forge).toBe('shell');
+      expect(view.querySelectorAll('.binder-forge-shell polygon')).toHaveLength(FORGE_SHARDS);
+      expect(view.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(status(root)).toBe('Page 1 of 3 · 10 of 30 heroes · 2 holographic');
+      // A screen reader hears the new balance once; the number on show counts down as the shards leave
+      expect(said(root)).toBe('40 shards');
+      expect(shown(root)).toBe(140);
+      advance(700);
+      expect(shown(root)).toBeLessThan(140);
+      expect(shown(root)).toBeGreaterThan(40);
+      // Nothing closes it while it plays
+      pressEscape();
+      click(large(root));
+      click(large(root)!.querySelector('.binder-large-close'));
+      expect(large(root)).not.toBeNull();
+      advance(FORGE_HIT_MS - 700 - 1);
+      expect(shown(root)).toBe(40);
+      expect(large(root)!.dataset.forge).toBe('shell');
+      // The strike: the shell is off and the card is in colour
+      advance(1);
+      expect(large(root)!.dataset.forge).toBe('struck');
+      expect(large(root)!.querySelector('.binder-large-card')!.className).not.toMatch(/is-locked/);
+      advance(FORGE_DONE_MS - FORGE_HIT_MS);
+      expect(large(root)!.dataset.forge).toBe('done');
+      expect(large(root)!.querySelector('.binder-craft-done')?.textContent).toBe('Crafted!H11 joins your binder.');
+      // Home: the card lands in its pocket, which lights for a moment
+      advance(FORGE_LAND_MS - FORGE_DONE_MS - 1);
+      expect(large(root)).not.toBeNull();
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      advance(1);
+      expect(large(root)).toBeNull();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--spotlight/);
+      expect(pocket(root, 'H11')!.dataset.forge).toBeUndefined();
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+      advance(FORGE_END_MS - FORGE_LAND_MS);
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--spotlight/);
+      expect(root.querySelector('.binder-fx')?.childElementCount).toBe(0);
+      expect(shown(root)).toBe(40);
+      // About five seconds from the tap to the pocket, as approved
+      expect(FORGE_LAND_MS).toBeGreaterThan(4500);
+      expect(FORGE_LAND_MS).toBeLessThan(5500);
+    });
+
+    it('crafting under the Not owned filter keeps the pocket there for the card to land in', async () => {
+      vi.useFakeTimers();
+      stubFetch();
+      const root = await openBinder({ initialView: { ...DEFAULT_VIEW, filter: 'not-owned' } });
+      startCraft(root);
+      await settle();
+      advance(FORGE_LAND_MS);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--spotlight/);
+      advance(FORGE_END_MS - FORGE_LAND_MS);
+      expect(pocket(root, 'H11')).toBeNull(); // owned now, so it leaves the Not owned list
+    });
+
+    it('animation off makes it owned at once', async () => {
+      vi.useFakeTimers();
+      animationsOff();
+      stubFetch();
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(large(root)).toBeNull();
+      expect(pocket(root, 'H11')!.className).toBe('binder-pocket');
+      expect(shown(root)).toBe(40);
+      expect(said(root)).toBe('40 shards');
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+      expect(root.querySelector('.binder-fx')?.childElementCount).toBe(0);
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      advance(FORGE_END_MS);
+      expect(pocket(root, 'H11')!.className).toBe('binder-pocket');
+    });
+
+    it('a failed craft plays no animation', async () => {
+      vi.useFakeTimers();
+      let answer: (r: Response) => void = () => {};
+      stubFetch({ craft: () => new Promise<Response>(resolve => { answer = resolve; }) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      // Waiting for the server: a quiet line, no forge, and the large view cannot be closed from under the answer
+      expect(large(root)!.querySelector('.binder-craft-wait')?.textContent).toBe('Crafting\u2026');
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      advance(3000);
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      expect(shown(root)).toBe(140);
+      pressEscape();
+      click(large(root));
+      click(large(root)!.querySelector('.binder-large-close'));
+      expect(large(root)).not.toBeNull();
+
+      await act(async () => {
+        answer({ ok: false, status: 400, json: () => Promise.resolve({ success: false, message: 'Not enough shards.' }) } as Response);
+      });
+      await settle();
+      expect(large(root)!.querySelector('[role=alert]')?.textContent).toBe('Not enough shards.');
+      expect(large(root)!.querySelector('.binder-craft-wait')).toBeNull();
+      advance(FORGE_END_MS);
+      expect(root.querySelector('[data-forge]')).toBeNull();
+      expect(root.querySelector('.binder-fx')?.childElementCount).toBe(0);
+      expect(large(root)!.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(shown(root)).toBe(140);
+      expect(said(root)).toBe('140 shards');
+      // Settled, so it closes again
+      pressEscape();
+      expect(large(root)).toBeNull();
+    });
+
+    it('after a craft times out the large view can be closed', async () => {
+      vi.useFakeTimers();
+      // A stalled connection: no answer until the request is aborted
+      const fetchMock = stubFetch({
+        craft: () => new Promise<Response>((_, reject) => {
+          const init = fetchMock.mock.calls[fetchMock.mock.calls.length - 1][1];
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+        }),
+      });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(large(root)!.querySelector('.binder-craft-wait')?.textContent).toBe('Crafting…');
+      pressEscape();
+      expect(large(root)).not.toBeNull();
+
+      advance(15000);
+      await settle();
+      expect(large(root)!.querySelector('[role=alert]')?.textContent).toBe("Crafting isn't available right now.");
+      expect(large(root)!.querySelector('.binder-craft-wait')).toBeNull();
+      expect(large(root)!.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(said(root)).toBe('140 shards');
+      pressEscape();
+      expect(large(root)).toBeNull();
+    });
+
+    it('a lobby refresh that throws after the server said yes still crafts: the forge plays and the card is owned', async () => {
+      vi.useFakeTimers();
+      stubFetch();
+      const root = await openBinder({ onPurchaseComplete: () => { throw new Error('lobby refresh failed'); } });
+      startCraft(root);
+      await settle();
+      expect(large(root)!.querySelector('[role=alert]')).toBeNull();
+      expect(large(root)!.dataset.forge).toBe('shell');
+      advance(FORGE_LAND_MS);
+      expect(large(root)).toBeNull();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+      advance(FORGE_END_MS - FORGE_LAND_MS);
+    });
+
+    it('a craft that fails with everything offline keeps the binder as it was', async () => {
+      stubFetch();
+      const root = await openBinder();
+      // The connection drops: the craft and the refresh after it both fail
+      vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))));
+      startCraft(root);
+      await settle();
+      expect(root.textContent).not.toContain("Couldn't load the heroes.");
+      expect(large(root)!.querySelector('[role=alert]')?.textContent).toBe("Crafting isn't available right now.");
+      expect(large(root)!.querySelector('.binder-large-card')!.className).toMatch(/is-locked/);
+      expect(pocket(root, 'H01')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(status(root)).toBe('Page 1 of 3 · 10 of 30 heroes · 2 holographic');
+      expect(said(root)).toBe('140 shards');
+    });
+
+    it('after "You already have this hero." the binder reloads and shows the card owned', async () => {
+      const fetchMock = stubFetch({ craft: () => reply({ success: false, message: 'You already have this hero.' }, false, 400) });
+      const base = fetchMock.getMockImplementation()!;
+      // Crafted from another tab: the server has the hero although this binder showed it locked
+      let serverOwnsIt = false;
+      vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+        if (url === `${API}/api/shop/craft`) serverOwnsIt = true;
+        if (url === `${API}/api/user/7` && serverOwnsIt) {
+          return reply({ success: true, user: { available_heroes: [...OWNED, 'H11'], holo_heroes: HOLO, shards: 140 } });
+        }
+        return base(url, init);
+      }));
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+      expect(large(root)!.querySelector('.binder-large-card')!.className).not.toMatch(/is-locked/);
+      expect(status(root)).toBe('Page 1 of 3 · 11 of 30 heroes · 2 holographic');
+    });
+
+    it('focus goes to the large view\'s X while a craft is out, and to the crafted hero\'s pocket after', async () => {
+      animationsOff();
+      let answer: (r: Response) => void = () => {};
+      stubFetch({ craft: () => new Promise<Response>(resolve => { answer = resolve; }) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(document.activeElement).toBe(large(root)!.querySelector('.binder-large-close'));
+      await act(async () => {
+        answer({ ok: true, status: 200, json: () => Promise.resolve({ success: true, heroName: 'H11', shards: 40, available_heroes: [...OWNED, 'H11'] }) } as Response);
+      });
+      await settle();
+      expect(large(root)).toBeNull();
+      expect(document.activeElement).toBe(pocket(root, 'H11'));
+    });
+
+    it('a refusal shows the server\'s message', async () => {
+      stubFetch({ craft: () => reply({ success: false, message: 'You already have this hero.' }, false, 400) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      const view = large(root)!;
+      expect(view.querySelector('[role=alert]')?.textContent).toBe('You already have this hero.');
+      expect(buttonByText(view, 'Yes, craft')).toBeUndefined(); // back to the large view
+      expect(pocket(root, 'H11')!.className).toMatch(/binder-pocket--locked/);
+      expect(said(root)).toBe('140 shards');
+    });
+
+    it('a 404 shows "Crafting isn\'t available right now."', async () => {
+      stubFetch({ craft: () => reply({}, false, 404) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      expect(large(root)!.querySelector('[role=alert]')?.textContent).toBe("Crafting isn't available right now.");
+    });
+
+    it('a second tap while crafting sends nothing', async () => {
+      animationsOff();
+      let answer: (r: Response) => void = () => {};
+      const fetchMock = stubFetch({ craft: () => new Promise<Response>(resolve => { answer = resolve; }) });
+      const root = await openBinder();
+      startCraft(root);
+      await settle();
+      const yes = buttonByText(large(root)!, 'Yes, craft')!;
+      expect(yes.disabled).toBe(true);
+      // A tap the disabled button would swallow, sent straight to its handler
+      act(() => { yes.disabled = false; yes.click(); });
+      await settle();
+      expect(craftCalls(fetchMock)).toHaveLength(1);
+      await act(async () => {
+        answer({ ok: true, status: 200, json: () => Promise.resolve({ success: true, heroName: 'H11', shards: 40, available_heroes: [...OWNED, 'H11'] }) } as Response);
+      });
+      await settle();
+      expect(pocket(root, 'H11')!.className).not.toMatch(/binder-pocket--locked/);
+    });
+
+    it('a craft tells the lobby, so its user is current when the binder closes', async () => {
+      stubFetch();
+      const onPurchaseComplete = vi.fn();
+      const root = await openBinder({ onPurchaseComplete });
+      startCraft(root);
+      await settle();
+      expect(onPurchaseComplete).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('the filter fade', () => {

@@ -287,7 +287,7 @@ describe('BattlePhase focus', () => {
     expect(isDisabled(taunted)).toBe(true);
 
     const vanished = show({ ...base, inspected: { hero: { ...warlock, statusEffects: { untargetable: true } }, side: 'enemy' } });
-    expect(vanished).toMatch(/>Can(&#x27;|')t be targeted</);
+    expect(vanished).toMatch(/>Can(&#x27;|')t be Focused</);
     expect(isDisabled(vanished)).toBe(true);
 
     expect(focusButtonState({ ...base, focus: { name: 'Warlock', alive: true }, focusLocked: true })).toEqual({ show: false });
@@ -312,5 +312,55 @@ describe('BattlePhase holo', () => {
     expect(boardCard(html, 'Barbarian')).toContain('card-holo');
     expect(boardCard(html, 'Shroomguard')).toContain('card-holo');
     expect(boardCard(html, 'Warlock')).not.toContain('card-holo');
+  });
+});
+
+describe('BattlePhase badges', () => {
+  // One board card's markup, found by its animation key ("<player id>:<hero index>")
+  const card = (html: string, key: string) => {
+    const at = html.indexOf(`data-anim-key="${key}"`);
+    expect(at).toBeGreaterThan(-1);
+    const next = html.indexOf('data-anim-key="', at + 1);
+    return html.slice(at, next === -1 ? undefined : next);
+  };
+  const withIds = (s: ReturnType<typeof state>) => {
+    // The server sends every hero its id and a statusEffects object
+    s.me.team.forEach((h, i) => { h.id = `0-${i}`; h.statusEffects = { poison: 0, taunt: null } as any; });
+    s.them.team.forEach((h, i) => { h.id = `1-${i}`; h.statusEffects = { poison: 0, taunt: null } as any; });
+    return s;
+  };
+  const show = (s: ReturnType<typeof state>) => renderToStaticMarkup(
+    <BattlePhase gameState={s.gameState} currentPlayer={s.me} opponent={s.them} playerId="me" />
+  );
+
+  it("BattlePhase passes Taunt coming to the taunted hero's card from pendingTaunts", () => {
+    // Shroomguard on both teams: only the one the taunt is queued for (by id) gets it
+    const s = withIds(state({ active: 'Barbarian' }));
+    s.gameState.pendingTaunts = [{ targetId: '0-1', targetPlayerIndex: 0, tauntTarget: 'Paladin', appliedById: '1-0' }];
+    const html = show(s);
+    expect(card(html, 'me:1')).toContain('data-badge="tauntComing"');
+    expect(card(html, 'them:1')).not.toContain('data-badge="tauntComing"');
+    expect(html.match(/data-badge="tauntComing"/g)).toHaveLength(1);
+  });
+
+  it('an old server without pendingTaunts shows no Taunt coming and still renders', () => {
+    const html = show(withIds(state({ active: 'Barbarian' })));
+    expect(html).not.toContain('data-badge="tauntComing"');
+  });
+
+  it('Taunted shows only while the taunter on the other team is alive', () => {
+    const s = withIds(state({ active: 'Barbarian' }));
+    s.me.team[1].statusEffects = { poison: 0, taunt: { target: 'Warlock', duration: 1 } } as any;
+    expect(card(show(s), 'me:1')).toContain('data-badge="taunted"');
+    s.them.team[0].currentHP = 0;
+    expect(card(show(s), 'me:1')).not.toContain('data-badge="taunted"');
+  });
+
+  it('mounts the badge drawings once for every card', () => {
+    const s = withIds(state({ active: 'Barbarian' }));
+    s.me.team[1].statusEffects = { poison: 2, taunt: null } as any;
+    const html = show(s);
+    expect(html.match(/class="badge-sprite"/g)).toHaveLength(1);
+    expect(card(html, 'me:1')).toContain('href="#i-poison"');
   });
 });

@@ -800,5 +800,6 @@
     transition: none;
   }
   .draft-table[data-hand="wait"] .draft-hand :is(.draft-hand-card > .hero-card, .draft-order-card) { opacity: 1; }
-  .draft-portrait--holo { animation: none; }
+  .draft-portrait--holo,
+  .draft-ban-token .draft-portrait--holo { animation: none; }
 }

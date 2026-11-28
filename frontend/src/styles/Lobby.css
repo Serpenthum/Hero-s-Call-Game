@@ -420,11 +420,10 @@
 .mode-card--main { border-color: var(--brass); }
 .mode-card:hover { border-color: var(--acc); }
 
-.mode-card-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.mode-card-icon { display: block; flex: none; width: 38px; height: 38px; color: var(--acc); }
+.mode-card-head { display: flex; align-items: center; min-width: 0; }
+.mode-card-icon { display: block; flex: none; width: 30px; height: 30px; color: var(--acc); }
 .mode-card-icon svg { display: block; }
 .mode-card-icon .flame-core { fill: var(--mode-flame-core); }
-.mode-card-title { flex: 1; min-width: 0; margin: 0; font: 500 25px / 1 var(--font-display); }
 .mode-card-tag {
   flex: none;
   margin-left: auto;
@@ -439,9 +438,13 @@
 .mode-card-go,
 .mode-card-go:hover { transform: none; box-shadow: none; }
 .mode-card-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin-top: auto;
   min-height: 40px;
-  padding: 8px;
+  padding: 6px 8px;
   font: 700 15px / 1.1 var(--font-ui);
   color: var(--bone);
   background: transparent;
@@ -451,6 +454,8 @@
 .mode-card-go:focus-visible { outline: var(--focus-outline); outline-offset: 2px; }
 .mode-card:hover .mode-card-go,
 .mode-card--main .mode-card-go { background: var(--acc); color: var(--mode-ink); }
+.mode-card:hover .mode-card-go .mode-card-icon,
+.mode-card--main .mode-card-go .mode-card-icon { color: inherit; }
 
 /* Searching: the card's own clock, and Leave queue in ember */
 .mode-card--searching { border-color: var(--acc); cursor: default; }
@@ -556,9 +561,8 @@
   .mode-card { gap: 4px; padding: 8px 9px; }
   .mode-card-text { display: none; }
   .mode-cards .mode-card--searching .mode-card-text { display: block; min-height: 0; font-size: 13px; }
-  .mode-card-icon { width: 26px; height: 26px; }
-  .mode-card-title { font-size: 19px; }
-  .mode-card-go { padding: 5px; }
+  .mode-card-icon { width: 24px; height: 24px; }
+  .mode-card-go { gap: 6px; padding: 5px; }
 
   .lobby-panel { grid-column: 3; grid-row: 1; gap: 6px; padding: 9px; }
   .lobby-portrait { width: 34px; height: 34px; }
@@ -604,10 +608,9 @@
   .mode-cards,
   .mode-cards[data-count] { gap: 6px; }
   .mode-card { gap: 5px; padding: 7px; }
-  .mode-card-tag { display: none; }
-  .mode-card-icon { width: 22px; height: 22px; }
-  .mode-card-title { font-size: 18px; }
-  .mode-card-go { padding: 5px 4px; font-size: 14px; white-space: nowrap; }
+  .mode-card-head { display: none; }
+  .mode-card-icon { width: 20px; height: 20px; }
+  .mode-card-go { gap: 5px; padding: 5px 4px; font-size: 14px; white-space: nowrap; }
 
   .lobby-panel { gap: 4px; padding: 7px; }
   .lobby-portrait { width: 28px; height: 28px; }

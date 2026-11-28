@@ -87,6 +87,42 @@
   --card-glow: 0 0 0 max(4px, 0.4em) color-mix(in srgb, var(--focus-c) 35%, transparent);
 }
 
+/* With badges: the list (Badges.css draws it) sits under the card, as wide as the card. The card is as wide as
+   the column here, so the rest of the column's height is free for the list; if a hero ever has more badges than
+   fit above the friends button (the sidebar keeps 88px for it), the list scrolls. */
+.battle-details:has(.badge-list) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-height: calc(var(--app-height) - var(--details-top, 0px) - 88px - var(--safe-bottom));
+}
+
+.battle-details .hero-card.hero-layout-card {
+  flex: none;
+}
+
+.battle-details .badge-list {
+  flex: 0 1 auto;
+  width: var(--details-card-w, 200px);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--brass-dim) transparent;
+}
+
+/* Four badges or more: set a little tighter, so they still fit under the card without scrolling. */
+.battle-details .badge-list:has(> :nth-child(4)) {
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.battle-details .badge-list:has(> :nth-child(4)) .badge-list-item {
+  column-gap: 8px;
+}
+
 @keyframes battle-details-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -103,5 +139,24 @@
 @media (max-width: 1000px) and (max-height: 600px), (max-width: 1400px) and (max-height: 720px) {
   .battle-details {
     --details-side: 1;
+  }
+
+  /* The card fills the column's height there, so the list stands beside it, over the board, no taller than the
+     card and no wider than the screen allows (8px kept clear at the screen's edge, as for the card). */
+  .battle-details:has(.badge-list) {
+    flex-direction: row;
+    gap: 10px;
+    max-height: none;
+  }
+
+  .battle-details .badge-list {
+    width: max-content;
+    max-width: min(300px, calc(100vw - var(--details-left, 0px) - var(--details-card-w, 200px) - 18px));
+    max-height: calc(var(--details-card-w, 200px) * 391 / 260);
+  }
+
+  .battle-details .badge-list,
+  .battle-details .badge-list:has(> :nth-child(4)) {
+    font-size: 13px;
   }
 }

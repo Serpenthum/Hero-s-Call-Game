@@ -5,6 +5,7 @@ const { QuestService } = require('./quests');
 const { createAuth } = require('./auth');
 const { createShopRouter } = require('./shop');
 const { rollDice, shuffleArray, rig } = require('./utils');
+const { battleXP, TUTORIAL_REWARD_COINS } = require('./economy');
 const heroes = require('./heros.json');
 
 // timing overrides the clocks for tests: { turnTimeMs, reconnectGraceMs }
@@ -144,7 +145,8 @@ router.post('/api/register', async (req, res) => {
         survival_wins: user.survival_wins,
         survival_losses: user.survival_losses,
         available_heroes: user.available_heroes,
-        holo_heroes: user.holo_heroes || []
+        holo_heroes: user.holo_heroes || [],
+        shards: user.shards || 0
       }
     });
   } catch (error) {
@@ -248,6 +250,7 @@ router.post('/api/login', async (req, res) => {
         survival_used_heroes: user.survival_used_heroes,
         available_heroes: user.available_heroes,
         holo_heroes: user.holo_heroes || [],
+        shards: user.shards || 0,
         favorite_heroes: favoriteHeroes,
         xp: playerStats.xp || 0,
         level: playerStats.level || 1,
@@ -479,6 +482,7 @@ router.get('/api/user/:userId', async (req, res) => {
         survival_used_heroes: user.survival_used_heroes,
         available_heroes: user.available_heroes,
         holo_heroes: user.holo_heroes || [],
+        shards: user.shards || 0,
         xp: playerStats.xp,
         level: playerStats.level,
         total_wins: playerStats.total_wins,
@@ -593,7 +597,7 @@ router.get('/api/favorite-heroes/:userId', async (req, res) => {
   }
 });
 
-// Shop API endpoints (see shop.js): login token required, rotation of 6 heroes, 5 VP hero / 12 VP pack
+// Shop API endpoints (see shop.js): login token required, 20 coin one-card pack, crafting for 100 shards
 router.use('/api/shop', createShopRouter({ database, getHeroes, auth }));
 
 router.get('/api/heroes', (req, res) => {
@@ -917,7 +921,6 @@ function scheduleAutoEndTurn(gameId) {
 
 // ==================== TUTORIAL ====================
 const TUTORIAL_BOT_DELAY_MS = 1400;
-const TUTORIAL_REWARD_VP = 100;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Force d20s so the first hit, the assassin's poison and the player's first crit always happen.
@@ -1030,18 +1033,18 @@ async function tutorialBotLoop(gameId) {
   }
 }
 
-// Levels the account up to the tutorial's fixed reward and marks the tutorial done.
-// Returns null if the tutorial was already completed.
+// Marks the tutorial done, then levels the account up to the tutorial's fixed reward.
+// Returns null if the tutorial was already completed. The claim comes first and is atomic, so two
+// requests at once (two tabs) pay once.
 async function grantTutorialRewards(userId) {
-  if (await database.isTutorialCompleted(userId)) return null;
+  if (!(await database.claimTutorialCompletion(userId))) return null;
   const stats = await database.getPlayerStats(userId);
   const before = await database.getUserById(userId);
   const xpGained = Math.max(0, database.getXPRequiredForLevel(stats.level) - stats.xp);
   const xpUpdate = await database.updatePlayerXP(userId, xpGained);
-  // Level-ups already grant VP, so only top up to the fixed reward
-  const topUp = Math.max(0, TUTORIAL_REWARD_VP - (xpUpdate.vpGained || 0));
+  // Level-ups already pay coins, so only top up to the fixed reward
+  const topUp = Math.max(0, TUTORIAL_REWARD_COINS - (xpUpdate.vpGained || 0));
   if (topUp > 0) await database.updateUserVictoryPoints(userId, topUp);
-  await database.markTutorialCompleted(userId);
   const after = await database.getUserById(userId);
   return {
     xpGained,
@@ -1060,7 +1063,7 @@ async function handleTutorialCompletion(result) {
   t.completed = true;
 
   // Fake numbers for the no-account test run so the reward screen can be previewed
-  let rewards = { xpGained: 25, newXP: 0, newLevel: 2, levelsGained: 1, oldVP: 0, newVP: TUTORIAL_REWARD_VP };
+  let rewards = { xpGained: 25, newXP: 0, newLevel: 2, levelsGained: 1, oldVP: 0, newVP: TUTORIAL_REWARD_COINS };
 
   if (t.userId) {
     try {
@@ -1120,192 +1123,103 @@ async function getProfileIconForUser(userId) {
   return 'Sorcerer';
 }
 
-// Helper function to check and handle regular game completion (draft/random modes)
+// Pays XP and reports the coins for a finished draft or random game or friend room.
+// gameManager.handleGameCompletion has already worked out each player's ending and paid the coins.
 async function handleRegularGameCompletion(result) {
-  // Friend challenges grant XP but never victory points
-  const emitVictoryPoints = (to, payload) => {
-    if (!result.gameState?.isFriendly) io.to(to).emit('victory-points-update', payload);
-  };
-
   if (result.success && result.gameState && result.gameState.mode === 'tutorial') {
     return handleTutorialCompletion(result);
   }
 
-  // Handle tie games
-  if (result.success && result.gameState && result.gameState.winner === 'TIE' && result.gameState.mode !== 'survival') {
-    console.log(`🤝 TIE game (${result.gameState.mode})! Both players eliminated!`);
-    
-    try {
-      const player1 = result.gameState.players[0];
-      const player2 = result.gameState.players[1];
-      
-      const player1UserId = userIdOf(player1.id);
-      const player2UserId = userIdOf(player2.id);
-      
-      // Ensure these are actual players, not spectators
-      const player1IsSpectator = result.gameState.spectators?.some(s => s.socketId === player1.id);
-      const player2IsSpectator = result.gameState.spectators?.some(s => s.socketId === player2.id);
-      
-      // Update stats for both players (no win/loss, just XP)
-      if (player1UserId && !player1IsSpectator) {
-        // Award small XP for tie
-        const xpGain = 10; // Small XP for tie
-        const player1XPUpdate = await database.updatePlayerXP(player1UserId, xpGain);
-        
-        // Track hero usage
-        for (const hero of player1.team) {
-          await database.updateHeroUsage(player1UserId, hero.name);
-        }
-        
-        // Get updated user data
-        const player1User = await database.getUserById(player1UserId);
-        
-        // Emit victory points update (1 point for tie)
-        emitVictoryPoints(player1.id, {
-          type: 'game_tie',
-          pointsAwarded: 1,
-          totalVictoryPoints: player1User.victory_points,
-          gameMode: result.gameState.mode,
-          message: `Tie game! You earned 1 victory point. Total: ${player1User.victory_points}`
-        });
-        
-        // Emit XP update
-        io.to(player1.id).emit('xp-update', {
-          xpGained: player1XPUpdate.xpGained,
-          newXP: player1XPUpdate.xp,
-          newLevel: player1XPUpdate.level,
-          leveledUp: player1XPUpdate.leveledUp,
-          message: player1XPUpdate.leveledUp ? 
-            `Level up! You're now level ${player1XPUpdate.level}! (+${player1XPUpdate.xpGained} XP from tie)` :
-            `+${player1XPUpdate.xpGained} XP from tie! (${player1XPUpdate.xp} total)`
-        });
-      }
-      
-      if (player2UserId && !player2IsSpectator) {
-        // Award small XP for tie
-        const xpGain = 10; // Small XP for tie
-        const player2XPUpdate = await database.updatePlayerXP(player2UserId, xpGain);
-        
-        // Track hero usage
-        for (const hero of player2.team) {
-          await database.updateHeroUsage(player2UserId, hero.name);
-        }
-        
-        // Get updated user data
-        const player2User = await database.getUserById(player2UserId);
-        
-        // Emit victory points update (1 point for tie)
-        emitVictoryPoints(player2.id, {
-          type: 'game_tie',
-          pointsAwarded: 1,
-          totalVictoryPoints: player2User.victory_points,
-          gameMode: result.gameState.mode,
-          message: `Tie game! You earned 1 victory point. Total: ${player2User.victory_points}`
-        });
-        
-        // Emit XP update
-        io.to(player2.id).emit('xp-update', {
-          xpGained: player2XPUpdate.xpGained,
-          newXP: player2XPUpdate.xp,
-          newLevel: player2XPUpdate.level,
-          leveledUp: player2XPUpdate.leveledUp,
-          message: player2XPUpdate.leveledUp ? 
-            `Level up! You're now level ${player2XPUpdate.level}! (+${player2XPUpdate.xpGained} XP from tie)` :
-            `+${player2XPUpdate.xpGained} XP from tie! (${player2XPUpdate.xp} total)`
-        });
-      }
-      
-      console.log(`📡 Processed tie game for both players`);
-    } catch (error) {
-      console.error('❌ Error handling tie game:', error);
-    }
-    return;
-  }
-  
-  if (result.success && result.gameState && result.gameState.winner && result.gameState.mode !== 'survival') {
-    console.log(`🏆 Regular game (${result.gameState.mode}) completed! Winner: ${result.gameState.winner}`);
-    
-    try {
-      // Find winner and loser players
-      const winnerPlayer = result.gameState.players.find(p => p.id === result.gameState.winner);
-      const loserPlayer = result.gameState.players.find(p => p.id !== result.gameState.winner);
-      
-      if (winnerPlayer && loserPlayer) {
-        // Update stats for both players
-        const winnerUserId = userIdOf(winnerPlayer.id);
-        const loserUserId = userIdOf(loserPlayer.id);
-        
-        // Ensure these are actual players, not spectators
-        const winnerIsSpectator = result.gameState.spectators?.some(s => s.socketId === winnerPlayer.id);
-        const loserIsSpectator = result.gameState.spectators?.some(s => s.socketId === loserPlayer.id);
-        
-        if (winnerUserId && !winnerIsSpectator) {
-          // Update winner stats and XP
-          const winnerStatsUpdate = await database.updatePlayerStats(winnerUserId, true, result.gameState.mode);
-          const winnerXPUpdate = await database.updatePlayerXP(winnerUserId, winnerStatsUpdate.xpGain);
-          
-          // Track hero usage for winner's team
-          for (const hero of winnerPlayer.team) {
-            await database.updateHeroUsage(winnerUserId, hero.name);
-          }
-          
-          // Get updated victory points and user data
-          const winnerUser = await database.getUserById(winnerUserId);
-          const oldVictoryPoints = winnerUser.victory_points - 1; // Subtract the point we just added
-          
-          // Emit victory points update to the winner
-          emitVictoryPoints(result.gameState.winner, {
-            oldVictoryPoints: oldVictoryPoints,
-            newVictoryPoints: winnerUser.victory_points,
-            victoryPointsGained: 1,
-            message: `Victory! You earned 1 victory point. Total: ${winnerUser.victory_points}`
-          });
-          
-          // Emit XP update to winner
-          io.to(result.gameState.winner).emit('xp-update', {
-            xpGained: winnerXPUpdate.xpGained,
-            newXP: winnerXPUpdate.xp,
-            newLevel: winnerXPUpdate.level,
-            leveledUp: winnerXPUpdate.leveledUp,
-            message: winnerXPUpdate.leveledUp ? 
-              `Level up! You're now level ${winnerXPUpdate.level}! (+${winnerXPUpdate.xpGained} XP)` :
-              `+${winnerXPUpdate.xpGained} XP! (${winnerXPUpdate.xp} total)`
-          });
-          
-          console.log(`📡 Updated winner stats: +${winnerStatsUpdate.xpGain} XP, level ${winnerXPUpdate.level}`);
+  const gs = result.gameState;
+  if (!result.success || !gs || !gs.winner || gs.mode === 'survival') return;
 
-          await awardQuestProgress(result, winnerPlayer);
-        }
-        
-        if (loserUserId && !loserIsSpectator) {
-          // Update loser stats and XP
-          const loserStatsUpdate = await database.updatePlayerStats(loserUserId, false, result.gameState.mode);
-          const loserXPUpdate = await database.updatePlayerXP(loserUserId, loserStatsUpdate.xpGain);
-          
-          // Track hero usage for loser's team
-          for (const hero of loserPlayer.team) {
-            await database.updateHeroUsage(loserUserId, hero.name);
-          }
-          
-          // Emit XP update to loser
-          if (loserStatsUpdate.xpGain > 0) {
-            io.to(loserPlayer.id).emit('xp-update', {
-              xpGained: loserXPUpdate.xpGained,
-              newXP: loserXPUpdate.xp,
-              newLevel: loserXPUpdate.level,
-              leveledUp: loserXPUpdate.leveledUp,
-              message: loserXPUpdate.leveledUp ? 
-                `Level up! You're now level ${loserXPUpdate.level}! (+${loserXPUpdate.xpGained} XP)` :
-                `+${loserXPUpdate.xpGained} XP! (${loserXPUpdate.xp} total)`
-            });
-          }
-          
-          console.log(`📡 Updated loser stats: +${loserStatsUpdate.xpGain} XP, level ${loserXPUpdate.level}`);
-        }
+  // Settle each finished game once, even if its result is handled twice; set before any await
+  const game = gameManager.games.get(result.gameId);
+  if (game) {
+    if (game.xpSettled) return;
+    game.xpSettled = true;
+  }
+
+  const isTie = gs.winner === 'TIE';
+  console.log(isTie ? `🤝 TIE game (${gs.mode})! Both players eliminated!` : `🏆 Regular game (${gs.mode}) completed! Winner: ${gs.winner}`);
+
+  const payout = gameManager.getPayout(result.gameId);
+  if (!payout) console.warn(`⚠️ No payout recorded for game ${result.gameId}; paying XP by the winner only, no coin message`);
+  let paid = null;
+  try {
+    paid = payout ? await payout.coins : null;
+  } catch (error) {
+    console.error('❌ Error paying battle coins:', error);
+  }
+
+  // A friend room's opponent is chosen, so a win over a friend who quit at once pays no XP either
+  const friendQuitEarly = !!gs.isFriendly && !!payout && Object.values(payout.endings).includes('quit_early');
+
+  const players = (gs.players || []).filter(p => p && !gs.spectators?.some(s => s.socketId === p.id));
+  for (const player of players) {
+    const userId = userIdOf(player.id);
+    if (!userId) continue;
+    const isWinner = !isTie && player.id === gs.winner;
+    const ending = (payout && payout.endings[player.id]) || (isTie ? 'tie' : isWinner ? 'win' : 'loss');
+
+    try {
+      if (!isTie) await database.updatePlayerStats(userId, isWinner);
+      for (const hero of player.team) {
+        await database.updateHeroUsage(userId, hero.name);
       }
+
+      // XP first, then the coins: the coin message comes last and its balance includes any level-up coins
+      const xpGain = friendQuitEarly ? 0 : battleXP(ending);
+      let levelUpCoins = 0;
+      if (xpGain > 0) {
+        const xpUpdate = await database.updatePlayerXP(userId, xpGain);
+        levelUpCoins = xpUpdate.vpGained || 0;
+        const from = isTie ? ' from tie' : '';
+        io.to(player.id).emit('xp-update', {
+          xpGained: xpUpdate.xpGained,
+          newXP: xpUpdate.xp,
+          newLevel: xpUpdate.level,
+          leveledUp: xpUpdate.leveledUp,
+          message: xpUpdate.leveledUp ?
+            `Level up! You're now level ${xpUpdate.level}! (+${xpUpdate.xpGained} XP${from})` :
+            `+${xpUpdate.xpGained} XP${from}! (${xpUpdate.xp} total)`
+        });
+      }
+
+      const coins = paid && paid[player.id];
+      if (coins && coins.total !== null) {
+        const user = await database.getUserById(userId);
+        const balance = user ? user.victory_points : coins.total + levelUpCoins;
+        io.to(player.id).emit('victory-points-update', {
+          type: isTie ? 'game_tie' : 'game_end',
+          oldVictoryPoints: coins.total - coins.coins, // before this battle paid anything
+          newVictoryPoints: balance,
+          victoryPointsGained: coins.coins + levelUpCoins,
+          totalVictoryPoints: balance,
+          pointsAwarded: coins.coins,
+          gameMode: gs.mode,
+          message: friendQuitEarly && ending !== 'quit_early' ?
+            'No coins or XP when a friend leaves before any of their heroes fall.' :
+            coinMessage(ending, coins.coins)
+        });
+      }
+
+      if (isWinner) await awardQuestProgress(result, player);
+      console.log(`📡 ${player.name}: ${ending}, +${coins ? coins.coins : 0} coins, +${xpGain} XP`);
     } catch (error) {
       console.error('❌ Error updating player stats for regular game:', error);
     }
+  }
+}
+
+function coinMessage(ending, coins) {
+  const earned = `${coins} coin${coins === 1 ? '' : 's'}`;
+  switch (ending) {
+    case 'win':
+    case 'win_by_surrender': return `Victory! You earned ${earned}.`;
+    case 'tie': return `Tie game! You earned ${earned}.`;
+    case 'quit_early': return 'No coins for leaving before any of your heroes fell.';
+    default: return `Good fight! You earned ${earned}.`;
   }
 }
 
@@ -2029,6 +1943,14 @@ io.on('connection', (socket) => {
       }
     }
     
+    if (typeof data.roomName !== 'string' || !data.roomName.trim()) {
+      socket.emit('friendly-room-created', {
+        success: false,
+        message: 'Please choose a room name.'
+      });
+      return;
+    }
+
     // Check if room name already exists
     if (friendlyRooms.has(data.roomName)) {
       socket.emit('friendly-room-created', {

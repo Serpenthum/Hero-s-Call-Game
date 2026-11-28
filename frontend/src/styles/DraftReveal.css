@@ -58,8 +58,9 @@
   z-index: 35001;
   transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.4s;
 }
+/* The name plates wait until the gliding cards have passed them (the centred rows start over the plates) */
 :root:is([data-draft-reveal='board'], [data-draft-reveal='hurry']) .App .battle-layout .team-label-container {
-  transition: opacity 0.5s 0.15s;
+  transition: opacity 0.23s 0.55s;
 }
 :root:is([data-draft-reveal='board'], [data-draft-reveal='hurry']) .App .battle-layout :is(.opponent-area, .player-area) {
   transition: background-color 0.6s;
@@ -72,18 +73,32 @@
   transition-duration: 0.26s;
   transition-delay: 0s;
 }
+:root[data-draft-reveal='hurry'] .App .battle-layout .team-label-container {
+  transition-duration: 0.1s;
+  transition-delay: 0.16s;
+}
 /* The reveal played through: the Starting Roll box fades in over the board (a skip shows it at once) */
 :root[data-draft-reveal='done'] .initiative-overlay { animation: draft-reveal-roll-in 0.35s both; }
 
 /* A row of copies. Each copy sits on its battle card; the row is shifted sideways so it starts centred on
-   the whole screen, and glides back to no shift. */
+   the whole screen, and glides back to no shift.
+   VS must never lie over a hero's name. Where the board's rows stand closer than VS is tall (sideways phones:
+   8 to 14px apart), the face-off shrinks each row a little towards its own edge of the screen, which opens
+   --draft-reveal-vs-room px between them; the glide brings them back to full size. --draft-reveal-gap and
+   --draft-reveal-span come from the measured board (faceOffRoom in draft/revealRules.ts). */
+.draft-reveal {
+  --draft-reveal-vs-room: 60;
+  --draft-reveal-scale: calc(1 - max(0, var(--draft-reveal-vs-room) - var(--draft-reveal-gap, 9999)) / var(--draft-reveal-span, 1));
+}
 .draft-reveal-row {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  transform: translateX(var(--draft-reveal-dx, 0px));
+  transform: scale(var(--draft-reveal-scale)) translateX(var(--draft-reveal-dx, 0px));
   transition: transform 0.75s cubic-bezier(0.45, 0, 0.2, 1);
 }
+.draft-reveal-row--them { transform-origin: 50% 0; }
+.draft-reveal-row--me { transform-origin: 50% 100%; }
 .draft-reveal--board .draft-reveal-row,
 .draft-reveal--hurry .draft-reveal-row { transform: none; }
 
@@ -137,6 +152,7 @@
 
 /* Sideways phones */
 @media (max-height: 500px) {
+  .draft-reveal { --draft-reveal-vs-room: 46; }
   .draft-reveal-vs { font-size: 48px; }
 }
 

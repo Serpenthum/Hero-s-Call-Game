@@ -1,5 +1,6 @@
 // The binder: every hero in pockets, two pages at a time, with one filter button and a large view for reading a card.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+// Signed in, the shard balance sits under the filter button and a hero not owned can be crafted from its large view.
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CloseButton from './CloseButton';
 import BinderOpening from './BinderOpening';
 import useBinderData from './binder/useBinderData';
@@ -7,6 +8,9 @@ import { BinderBook } from './binder/BinderBook';
 import { BinderFilter } from './binder/BinderFilter';
 import { BinderStatus } from './binder/BinderStatus';
 import { BinderLargeView } from './binder/BinderLargeView';
+import Shard from './ui/Shard';
+import { CRAFT_PRICE } from './binder/craftRules';
+import { playForge, type ForgePhase } from './binder/craftForge';
 import { cardMotionOff } from '../cards/cardMotion';
 import {
   DEFAULT_VIEW, binderList, clampSpread, filterForHero, matchesFilter, spreadCount, spreadOfHero, statusLine,
@@ -21,6 +25,7 @@ interface HeroCollectionProps {
   userId?: number; // Signed-in player; signed out shows every hero with no favourites
   victoryPoints?: number; // Passed by the lobby; the binder shows no coin amount
   onFavoritesChange?: (favoriteHeroes: string[]) => void;
+  onPurchaseComplete?: () => void; // After a craft: the lobby refreshes its user, as after a pack
   initialHero?: string; // Open on this hero's page and light its pocket
   initialView?: BinderView; // Dev screen only: the filter, sort and search to open on
 }
@@ -28,14 +33,32 @@ interface HeroCollectionProps {
 // How long the pocket of the hero the binder opened on stays lit
 const SPOTLIGHT_MS = 1600;
 
-const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavoritesChange, initialHero, initialView }) => {
-  const { heroes, collection: loaded, loading, error, retry, toggleFavourite } = useBinderData(userId, onFavoritesChange);
+// The crafting animation in play: whose card, how far it has got, and the balance on show as the shards leave
+interface Forge { name: string; phase: ForgePhase; shown: number }
+
+const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavoritesChange, onPurchaseComplete, initialHero, initialView }) => {
+  const {
+    heroes, collection: loaded, loading, error, retry, toggleFavourite, shards, craft,
+  } = useBinderData(userId, onFavoritesChange, onPurchaseComplete);
+  const signedIn = !!userId;
+
+  // A craft on its way (the hero's name): "Yes, craft" stays disabled until it is answered, in any large view
+  const [crafting, setCrafting] = useState<string | null>(null);
+  const [forge, setForge] = useState<Forge | null>(null);
+  // The server owns the hero the moment it says yes, but the binder shows it owned only when the forge has struck
+  // and the card is home. Until the forge is over the hero also keeps its place in the list, so its pocket is there
+  // to land in whatever the filter.
+  const unlanded = crafting ?? (forge && forge.phase !== 'landed' ? forge.name : null);
+  const unlisted = crafting ?? forge?.name ?? null;
   // The hook hands back a new object every render; the pages only re-render when a list really changes.
   const collection: Collection = useMemo(
-    () => ({ owned: loaded.owned, favourites: loaded.favourites, holo: loaded.holo }),
-    [loaded.owned, loaded.favourites, loaded.holo],
+    () => ({ owned: unlanded ? loaded.owned.filter(n => n !== unlanded) : loaded.owned, favourites: loaded.favourites, holo: loaded.holo }),
+    [loaded.owned, loaded.favourites, loaded.holo, unlanded],
   );
-  const signedIn = !!userId;
+  const listCollection: Collection = useMemo(
+    () => (unlisted === unlanded ? collection : { ...collection, owned: collection.owned.filter(n => n !== unlisted) }),
+    [collection, unlisted, unlanded],
+  );
 
   const [view, setView] = useState<BinderView>(initialView ?? DEFAULT_VIEW);
   const [spread, setSpread] = useState(0);
@@ -45,7 +68,7 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
   // The hero to open on, until the heroes have loaded and its spread is known
   const [pendingHero, setPendingHero] = useState<string | null>(initialHero ?? null);
 
-  const list = useMemo(() => binderList(heroes, view, collection), [heroes, view, collection]);
+  const list = useMemo(() => binderList(heroes, view, listCollection), [heroes, view, listCollection]);
   // A list can shrink with no view change (unfavouriting under Favourites): never show a spread past the end.
   const shownSpread = clampSpread(spread, list.length);
 
@@ -82,15 +105,86 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
     return () => window.removeEventListener('keydown', onKey);
   }, [opened, onClose]);
 
+  // The large view stays put while a craft is being answered or its animation plays, so the outcome is never lost:
+  // Escape, a tap outside and the X do nothing until it has settled.
+  const busy = useRef(false);
+  busy.current = !!crafting || (!!forge && forge.phase !== 'landed');
+  const closeLargeView = useCallback(() => { if (!busy.current) setOpenHero(null); }, []);
+
   useEffect(() => {
     if (!openHero) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenHero(null); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeLargeView(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [openHero, closeLargeView]);
+
+  const onToggleFavourite = useCallback((name: string) => { void toggleFavourite(name); }, [toggleFavourite]);
+
+  // A craft closes the large view itself; focus then goes to the crafted hero's pocket, or, if that pocket is not on
+  // show, to the binder's X, never to the page
+  const focusAfterClose = useRef<string | null>(null);
+  const closeToPocket = useCallback((name: string) => {
+    focusAfterClose.current = name;
+    setOpenHero(null);
+  }, []);
+  useEffect(() => {
+    const name = focusAfterClose.current;
+    if (openHero || !name || !rootEl.current) return;
+    focusAfterClose.current = null;
+    const pockets = Array.from(rootEl.current.querySelectorAll<HTMLElement>('.binder-pocket'));
+    const target = pockets.find(p => p.getAttribute('aria-label') === name)
+      ?? rootEl.current.querySelector<HTMLElement>('.binder-close');
+    target?.focus();
   }, [openHero]);
 
-  const closeLargeView = useCallback(() => setOpenHero(null), []);
-  const onToggleFavourite = useCallback((name: string) => { void toggleFavourite(name); }, [toggleFavourite]);
+  const shardsNow = useRef(shards);
+  shardsNow.current = shards;
+  const craftHero = useCallback(async (name: string) => {
+    const before = shardsNow.current;
+    setCrafting(name);
+    let result: Awaited<ReturnType<typeof craft>>;
+    // However the craft ends, even by throwing, it is over: the large view can close again
+    try {
+      result = await craft(name);
+    } finally {
+      setCrafting(null);
+    }
+    // The one place a craft of `name` is known to have worked (result.ok). A refused or failed craft plays nothing.
+    if (result.ok) {
+      // With animations off the card is simply owned in its pocket
+      if (cardMotionOff()) closeToPocket(name);
+      else setForge({ name, phase: 'shell', shown: before });
+    }
+    return result;
+  }, [craft, closeToPocket]);
+
+  // The forge plays once per craft, over this binder's own elements
+  const rootEl = useRef<HTMLDivElement>(null);
+  const forgeNow = useRef(forge);
+  forgeNow.current = forge;
+  const forging = forge?.name;
+  useEffect(() => {
+    const start = forgeNow.current;
+    if (!forging || !start || !rootEl.current) return;
+    return playForge({
+      root: rootEl.current,
+      hero: forging,
+      from: start.shown,
+      cost: CRAFT_PRICE,
+      onShards: shown => setForge(f => f && { ...f, shown }),
+      onPhase: phase => {
+        setForge(f => f && { ...f, phase });
+        if (phase !== 'landed') return;
+        // Home: the large view goes and the pocket lights
+        closeToPocket(forging);
+        setSpotlight(forging);
+      },
+      onEnd: () => {
+        setSpotlight(null);
+        setForge(null);
+      },
+    });
+  }, [forging]);
 
   const status = useMemo(() => {
     const enabled = heroes.filter(h => !h.disabled);
@@ -108,11 +202,20 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
   const largeHero = openHero ? heroes.find(h => h.name === openHero) : undefined;
 
   return (
-    <div className={`binder${cardMotionOff() ? ' binder--still' : ''}${opened ? '' : ' binder--unopened'}`}>
+    <div ref={rootEl} className={`binder${cardMotionOff() ? ' binder--still' : ''}${opened ? '' : ' binder--unopened'}${signedIn ? ' binder--shards' : ''}`}>
       <div className="binder-top">
         <BinderFilter view={view} onChange={changeView} signedIn={signedIn} />
         <CloseButton className="binder-close" onClick={onClose} />
       </div>
+      {/* Below the filter button, and over the large view, which crafting spends from */}
+      {signedIn && (
+        <div className="binder-shards" title="Your shards">
+          <Shard />
+          {/* The number on show counts down while the forge takes the shards; a screen reader hears the balance itself */}
+          <b aria-hidden="true">{forge ? forge.shown : shards}</b>
+          <span className="binder-shards-said" role="status">{shards} shards</span>
+        </div>
+      )}
       <div className="binder-stage">
         {error ? (
           <div className="binder-error" role="alert">
@@ -137,13 +240,20 @@ const HeroCollection: React.FC<HeroCollectionProps> = ({ onClose, userId, onFavo
       {!error && !loading && <BinderStatus text={status} />}
       {largeHero && (
         <BinderLargeView
+          key={largeHero.name}
           hero={largeHero}
           collection={collection}
           signedIn={signedIn}
           onToggleFavourite={onToggleFavourite}
           onClose={closeLargeView}
+          shards={shards}
+          onCraft={craftHero}
+          crafting={!!crafting}
+          forge={forge && forge.phase !== 'landed' && forge.name === largeHero.name ? forge.phase : undefined}
         />
       )}
+      {/* Where the forge's shards and sparks fly, over everything */}
+      <div className="binder-fx" aria-hidden="true" />
       {/* Last, so it lies over the book until the binder has been opened */}
       {!opened && <BinderOpening onOpened={() => setOpened(true)} />}
     </div>

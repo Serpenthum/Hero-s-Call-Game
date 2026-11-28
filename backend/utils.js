@@ -416,26 +416,7 @@ function processEndOfTurn(hero, dealPoisonDamage = null) {
   // Cavalier's Ride Down debuff persists until healed to full HP (handled elsewhere)
   // No automatic expiration needed here
 
-  // Handle stat modifier durations
-  if (effects.statModifierDurations) {
-    Object.keys(effects.statModifierDurations).forEach(stat => {
-      if (effects.statModifierDurations[stat] > 0) {
-        effects.statModifierDurations[stat]--;
-        if (effects.statModifierDurations[stat] <= 0) {
-          // Remove the stat modifier when duration expires
-          if (effects.statModifiers && effects.statModifiers[stat]) {
-            delete effects.statModifiers[stat];
-            results.push({ 
-              type: 'stat_modifier_expired',
-              stat: stat,
-              hero: hero.name
-            });
-          }
-          delete effects.statModifierDurations[stat];
-        }
-      }
-    });
-  }
+  // Stat modifiers with a caster ('caster_turn') expire in GameManager.expireCasterStatModifiers
 
   return results;
 }

@@ -90,6 +90,14 @@ export function tauntTargetFor(active: Hero, opponent: Player | null): string | 
   return isHeroAlive(taunter) ? name : null;
 }
 
+// Whether the active hero may Focus this enemy despite Vanish. The server names the hero that hit the Ninja by id
+// (untargetableAttackerId, safe in mirror matches); an old server sends only its name.
+export function blockedByVanish(effects: Hero['statusEffects'] | undefined, active: { id?: string; name: string }): boolean {
+  if (!effects?.untargetable) return false;
+  if (effects.untargetableAttackerId) return effects.untargetableAttackerId !== active.id;
+  return effects.untargetableAttacker !== active.name;
+}
+
 export interface FocusButtonInput {
   isMyTurn: boolean;
   isSpectating: boolean;
@@ -98,12 +106,13 @@ export interface FocusButtonInput {
   focusLocked: boolean;
   tauntTarget: string | null;
   activeHeroName: string;
+  activeHeroId?: string;
 }
 
 export type FocusButtonState = { show: false } | { show: true; enabled: boolean; label: string };
 
 export function focusButtonState(input: FocusButtonInput): FocusButtonState {
-  const { isMyTurn, isSpectating, inspected, focus, focusLocked, tauntTarget, activeHeroName } = input;
+  const { isMyTurn, isSpectating, inspected, focus, focusLocked, tauntTarget, activeHeroName, activeHeroId } = input;
   const target = inspected.hero;
   if (!isMyTurn || isSpectating || inspected.side !== 'enemy' || !isHeroAlive(target)) return { show: false };
   // The focus is final once chosen, so the button goes away with it
@@ -112,6 +121,6 @@ export function focusButtonState(input: FocusButtonInput): FocusButtonState {
   if (tauntTarget && tauntTarget !== target.name) return disabled(`Taunted: focus ${tauntTarget}`);
   // The server forces a taunted hero's focus onto a living taunter, even an untargetable one
   const effects = tauntTarget ? undefined : target.statusEffects;
-  if (effects?.untargetable && effects.untargetableAttacker !== activeHeroName) return disabled("Can't be targeted");
+  if (blockedByVanish(effects, { id: activeHeroId, name: activeHeroName })) return disabled("Can't be Focused");
   return { show: true, enabled: true, label: `Focus ${target.name}` };
 }

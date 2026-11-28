@@ -28,11 +28,14 @@ const battleLog = require('./battleLog');
 const reasonName = reasons => (reasons || []).map(r => r.replace(/\s*\(.*\)$/, '').replace(/^.*'s /, '').replace(/ effect$/, '')).filter((r, i, all) => all.indexOf(r) === i).join(', ') || null;
 const { classifyAbility, lostWithFallenFocus } = require('./abilityTargeting');
 const { noteSound } = require('./battleEvents');
+const { endingFor, battleCoins, SURVIVAL_PRIZE } = require('./economy');
+// Battles that pay coins (and XP) by how each player's battle ended; other modes keep their own payouts
+const BATTLE_COIN_MODES = new Set(['random', 'draft']);
 
 // Battle Focus refusals (exact copy shown to players)
 const FOCUS_FIRST = 'Focus an enemy first';
 const FOCUS_LOCKED = 'Focus is locked for this turn';
-const FOCUS_UNTARGETABLE = "Can't be targeted";
+const FOCUS_UNTARGETABLE = "Can't be Focused";
 const FOCUS_FALLEN = 'Your focused target has fallen';
 
 // Debug mode - set to false in production for better performance
@@ -305,6 +308,7 @@ class GameManager {
     const gameId = uuidv4();
     const game = this.createNewGame(gameId, 'draft');
     game.roomName = roomName;
+    game.isFriendly = true; // friendliness never depends on the name, which only displays and finds the room
     game.players.push({
       id: playerId,
       name: playerName,
@@ -925,7 +929,8 @@ class GameManager {
     game.firstPlayerIndex = firstPlayerIndex;
     console.log('🎲 startRandomMode - Initialized turn system: Player', firstPlayerIndex, 'goes first');
 
-    // Apply passive effects from specials
+    // Apply passive effects from specials; battle-start buffs are counted fresh for this battle
+    delete game.battleStartBuffs;
     this.applyPassiveEffects(game);
 
     // Apply first player disadvantage - disable first hero's ability
@@ -1256,7 +1261,8 @@ class GameManager {
     game.firstPlayerIndex = firstPlayerIndex;
     console.log('🎲 chooseTurnOrder - Initialized turn system: Player', firstPlayerIndex, 'goes first');
 
-    // Apply passive effects from specials
+    // Apply passive effects from specials; battle-start buffs are counted fresh for this battle
+    delete game.battleStartBuffs;
     this.applyPassiveEffects(game);
 
     // Apply first player disadvantage - disable first hero's ability
@@ -1289,6 +1295,17 @@ class GameManager {
       });
     });
 
+    // Battle-start buffs (Dark Pact) are worked out once, at battle start, and kept whatever happens to their source
+    const isBattleStart = !game.battleStartBuffs;
+    if (isBattleStart) {
+      game.battleStartBuffs = [];
+    } else {
+      game.battleStartBuffs.forEach(({ targetId, buff }) => {
+        const target = game.players.flatMap(player => player.team).find(hero => hero.id === targetId);
+        if (target) target.passiveBuffs.push({ ...buff });
+      });
+    }
+
     // Apply passive effects from each hero's special abilities
     // Process in two passes: first regular buffs/debuffs, then Defense sharing effects
     
@@ -1311,7 +1328,7 @@ class GameManager {
             if (effect.type === 'stat_modifier') {
               this.applyAuraEffect(game, sourceHero, special, effect);
             } else if (effect.type === 'apply_buff' && special.trigger === 'battle_start') {
-              this.applyBattleStartBuff(game, sourceHero, special, effect);
+              if (isBattleStart) this.applyBattleStartBuff(game, sourceHero, special, effect);
             } else if (effect.type === 'apply_buff' && effect.aura === true && effect.effect !== 'set_defense_to_self') {
               // Handle regular aura buffs (excluding Defense sharing)
               this.applyAuraEffect(game, sourceHero, special, effect);
@@ -1512,16 +1529,14 @@ class GameManager {
         }))
       );
       
-      // Add to battle log if it exists
-      if (game && game.battleLog) {
-        game.battleLog.push(battleStartLogEntry);
-      }
+      if (!game.battleLog) game.battleLog = [];
+      game.battleLog.push(battleStartLogEntry);
     }
 
     targets.forEach(target => {
       if (!target.passiveBuffs) target.passiveBuffs = [];
       
-      target.passiveBuffs.push({
+      const buff = {
         sourceHero: sourceHero.name,
 
         sourceHeroId: sourceHero.id,
@@ -1529,7 +1544,10 @@ class GameManager {
         stat: effect.effect === 'damage_modifier' ? 'damage' : effect.stat,
         value: effect.value,
         permanent: true // Battle start buffs are permanent
-      });
+      };
+      target.passiveBuffs.push(buff);
+      // Kept so every later recount can add it back
+      if (game.battleStartBuffs) game.battleStartBuffs.push({ targetId: target.id, buff: { ...buff } });
     });
   }
 
@@ -1634,17 +1652,11 @@ class GameManager {
         });
         debugLog(` Lowest health enemy: ${lowestHealthEnemy.name} (${lowestHealthEnemy.currentHP} HP)`);
         return [lowestHealthEnemy];
-      case 'lowest_health_ally':
-        // Find ally with lowest current HP percentage (excluding self)
-        const aliveAllies = sourcePlayer.team.filter(h => h.currentHP > 0 && h !== sourceHero);
-        if (aliveAllies.length === 0) return [];
-        const lowestHealthAlly = aliveAllies.reduce((lowest, current) => {
-          const currentHealthPercent = current.currentHP / current.HP;
-          const lowestHealthPercent = lowest.currentHP / lowest.HP;
-          return currentHealthPercent < lowestHealthPercent ? current : lowest;
-        });
-        debugLog(` Lowest health ally: ${lowestHealthAlly.name} (${lowestHealthAlly.currentHP} HP)`);
-        return [lowestHealthAlly];
+      case 'lowest_health_ally': {
+        // The hurt ally with the fewest HP, the source included
+        const hurtAlly = this.pickHurtAllyWithFewestHP(sourcePlayer.team);
+        return hurtAlly ? [hurtAlly] : [];
+      }
       case 'all_enemies':
         // All enemies on the opposing team
         const opposingPlayerAll = game.players.find(p => !p.team.includes(sourceHero));
@@ -2335,6 +2347,29 @@ class GameManager {
       });
     });
     
+    // Drop taunts the dead hero has queued but not yet applied
+    if (game.pendingTaunts?.length) {
+      game.pendingTaunts = game.pendingTaunts.filter(pendingTaunt => pendingTaunt.appliedById !== deadHero.id);
+    }
+
+    // Debuffs that last until the dead hero's next turn (Piercing Shot) end now
+    this.expireCasterStatModifiers(game, deadHero);
+
+    // The dead hero's Bribe and Health Link end, and its Beast goes with it
+    game.players.forEach(player => {
+      player.team.forEach(hero => {
+        if (hero.statusEffects?.cannotTargetWithAbility?.ownerId === deadHero.id) {
+          delete hero.statusEffects.cannotTargetWithAbility;
+        }
+        if (hero.statusEffects?.health_link?.sourceId === deadHero.id) {
+          delete hero.statusEffects.health_link;
+        }
+      });
+    });
+    if (deadHero.statusEffects?.beast_active) {
+      deadHero.statusEffects.beast_active = false;
+    }
+
     game.players.forEach(player => {
       player.team.forEach(hero => {
         if (hero.passiveBuffs) {
@@ -2520,8 +2555,8 @@ class GameManager {
     // Check if the target is untargetable (but allow the original attacker)
     if (target.statusEffects?.untargetable) {
       // Allow the original attacker who triggered Vanish to still target
-      if (target.statusEffects.untargetableAttacker !== currentHero.name) {
-        return { success: false, error: 'Cannot target this hero - they are untargetable' };
+      if (target.statusEffects.untargetableAttackerId !== currentHero.id) {
+        return { success: false, error: FOCUS_UNTARGETABLE };
       }
     }
 
@@ -2578,8 +2613,9 @@ class GameManager {
       statusEffects.push(...dealt.effects);
       this.recordArcaneArrowsTarget(currentHero, target, damage);
       
-      // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier (basic attacks and abilities)
-      if (currentHero.name === 'Cavalier' && damage > 0) {
+      // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier (basic attacks and abilities).
+      // A hero Angel revived from this hit starts clean, so it gets none.
+      if (currentHero.name === 'Cavalier' && damage > 0 && !dealt.revived) {
         if (!target.statusEffects) target.statusEffects = {};
         target.statusEffects.rideDownDebuff = {
           source: currentHero.name,
@@ -2591,7 +2627,7 @@ class GameManager {
       // Process hit-confirmed triggers (like Elementalist's Wind Wall)
       this.processHitConfirmedTriggers(game, currentHero, target, 'basic_attack');
       
-      if (dealt.died && !target.statusEffects?.justResurrected) {
+      if (dealt.died) {
         statusEffects.push({ type: 'death', target: target.name });
       }
     } else if (!hit) {
@@ -2811,8 +2847,8 @@ class GameManager {
       // Check if the focus is untargetable (but allow AOE abilities and the original attacker)
       if (selectedTargetHero && selectedTargetHero.statusEffects?.untargetable && !isAOEAbility) {
         // Allow the original attacker who triggered Vanish to still target
-        if (selectedTargetHero.statusEffects.untargetableAttacker !== currentHero.name) {
-          return { success: false, error: 'Cannot target this hero - they are untargetable' };
+        if (selectedTargetHero.statusEffects.untargetableAttackerId !== currentHero.id) {
+          return { success: false, error: FOCUS_UNTARGETABLE };
         }
       }
     }
@@ -3459,8 +3495,8 @@ class GameManager {
             results.push(...dealt.effects);
             this.recordArcaneArrowsTarget(caster, target, damage);
             
-            // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier
-            if (caster.name === 'Cavalier' && damage > 0) {
+            // Cavalier's Ride Down: Apply debuff to enemies hit by Cavalier (none if Angel revived them from this hit)
+            if (caster.name === 'Cavalier' && damage > 0 && !dealt.revived) {
               if (!target.statusEffects) target.statusEffects = {};
               target.statusEffects.rideDownDebuff = {
                 source: caster.name,
@@ -3523,14 +3559,8 @@ class GameManager {
             const healing = damage; // Heal for full damage amount, not half
             caster.currentHP = Math.min(caster.HP, caster.currentHP + healing);
             
-            // Remove Cavalier's Ride Down debuff if healed to full HP
-            if (caster.currentHP === caster.HP && caster.statusEffects && caster.statusEffects.rideDownDebuff) {
-              delete caster.statusEffects.rideDownDebuff;
-              debugLog(` ${caster.name} healed to full HP via lifesteal - Cavalier's Ride Down debuff removed`);
-            }
-            
-            // Check HP-based conditions after lifesteal healing
-            this.checkHPConditions(game, caster);
+            // Ride Down clears on full HP; HP-based conditions recount
+            this.afterHeal(game, caster);
             
             results.push({
               type: 'lifesteal_damage',
@@ -3574,14 +3604,8 @@ class GameManager {
             const oldHP = target.currentHP;
             target.currentHP = Math.min(target.HP, target.currentHP + healing);
             
-            // Remove Cavalier's Ride Down debuff if healed to full HP
-            if (target.currentHP === target.HP && target.statusEffects && target.statusEffects.rideDownDebuff) {
-              delete target.statusEffects.rideDownDebuff;
-              debugLog(` ${target.name} healed to full HP - Cavalier's Ride Down debuff removed`);
-            }
-            
-            // Check HP-based conditions after healing
-            this.checkHPConditions(game, target);
+            // Ride Down clears on full HP; HP-based conditions recount
+            this.afterHeal(game, target);
             
             console.log(`💚 Healing ${target.name}: ${healing} HP (${oldHP} → ${target.currentHP}) - ability ${abilityHit ? 'hit' : 'auto-success'}`);
             
@@ -3634,14 +3658,8 @@ class GameManager {
               const healing = target.HP - target.currentHP; // Calculate how much healing is needed
               target.currentHP = target.HP; // Heal to full HP
               
-              // Remove Cavalier's Ride Down debuff if healed to full HP
-              if (target.statusEffects && target.statusEffects.rideDownDebuff) {
-                delete target.statusEffects.rideDownDebuff;
-                debugLog(` ${target.name} healed to full HP - Cavalier's Ride Down debuff removed`);
-              }
-              
-              // Check HP-based conditions after healing
-              this.checkHPConditions(game, target);
+              // Ride Down clears on full HP; HP-based conditions recount
+              this.afterHeal(game, target);
               
               console.log(`💚 Heal to Full ${target.name}: ${healing} HP (${oldHP} → ${target.currentHP}) - ${effect.condition ? 'condition met' : 'ability hit'}`);
               
@@ -3937,7 +3955,7 @@ class GameManager {
     
     // If the primary target was killed by this ability, spread to adjacent enemies (each needs its own roll to hit)
     let killSplashEntries = [];
-    if (killSplashEffect && abilityHit && primaryWasAlive && primaryTarget.currentHP <= 0 && !primaryTarget.statusEffects?.justResurrected) {
+    if (killSplashEffect && abilityHit && primaryWasAlive && primaryTarget.currentHP <= 0) {
       killSplashEntries = this.processOnKillSplash(killSplashEffect, ability, caster, primaryTarget, enemyOrderBeforeDamage, game);
     }
     
@@ -4092,7 +4110,7 @@ class GameManager {
           damage = dealt.final;
           entries.push(...dealt.effects);
           
-          died = dealt.died && !neighbor.statusEffects?.justResurrected;
+          died = dealt.died;
           if (died) queue.push(neighbor);
         }
         
@@ -4117,6 +4135,25 @@ class GameManager {
     return entries;
   }
 
+  // The hurt ally (alive, below full HP) with the fewest HP left, the healer included.
+  // Raw HP, not share. Ties go to the earlier hero in team order. null when nobody is hurt.
+  pickHurtAllyWithFewestHP(team) {
+    let picked = null;
+    for (const h of team) {
+      if (h.currentHP > 0 && h.currentHP < h.HP && (!picked || h.currentHP < picked.currentHP)) picked = h;
+    }
+    return picked;
+  }
+
+  // After any heal: a hero back at full HP loses Cavalier's Ride Down, then HP-based specials recount.
+  afterHeal(game, hero) {
+    if (hero.currentHP === hero.HP && hero.statusEffects?.rideDownDebuff) {
+      delete hero.statusEffects.rideDownDebuff;
+      debugLog(` ${hero.name} healed to full HP - Cavalier's Ride Down debuff removed`);
+    }
+    this.checkHPConditions(game, hero);
+  }
+
   resolveEffectTarget(effect, primaryTarget, caster, casterPlayer, opponent, game, allyTarget = null) {
     // Determine target based on effect.target specification
     switch (effect.target) {
@@ -4127,8 +4164,11 @@ class GameManager {
       case 'self':
         return caster; // Target the caster
       
-      case 'ally':
       case 'lowest_health_ally':
+        // The hurt ally with the fewest HP, caster included; nobody hurt means no heal
+        return this.pickHurtAllyWithFewestHP(casterPlayer.team);
+
+      case 'ally':
         // For healing allies, we need to automatically select a valid ally
         // Find the ally with the lowest HP percentage (most in need of healing)
         const allies = casterPlayer.team.filter(hero => hero.currentHP > 0 && hero !== caster);
@@ -4326,11 +4366,20 @@ class GameManager {
       console.log(`👻 ${currentHero.name}'s Vanish ends - no longer untargetable`);
       delete currentHero.statusEffects.untargetable;
       delete currentHero.statusEffects.untargetableAttacker;
+      delete currentHero.statusEffects.untargetableAttackerId;
       delete currentHero.statusEffects.untargetableUntil;
       delete currentHero.statusEffects.untargetableDuration;
     }
+    // Vanish is once per round: it can trigger again from Ninja's turn start
+    if (currentHero.statusEffects) delete currentHero.statusEffects.vanishUsedThisRound;
 
-    // Check all heroes for stat modifiers that should expire when this caster's turn starts
+    // Stat modifiers that last until this caster's turn starts expire now
+    this.expireCasterStatModifiers(game, currentHero);
+  }
+
+  // Removes the 'caster_turn' stat modifiers (Ranger's Piercing Shot) the caster put on any hero,
+  // at the caster's next turn or when it dies, and refreshes the Defense shown and used in rolls.
+  expireCasterStatModifiers(game, casterHero) {
     game.players.forEach(player => {
       player.team.forEach(hero => {
         if (hero.statusEffects?.statModifierCasters && hero.statusEffects?.statModifierUnits) {
@@ -4341,10 +4390,9 @@ class GameManager {
             const casterId = hero.statusEffects.statModifierCasterIds?.[modifierKey];
             const durationUnit = hero.statusEffects.statModifierUnits[modifierKey];
             
-            // Check if this modifier should expire when the caster's turn starts
-            // (match the caster by id: the enemy team may have a hero with the same name)
-            const isCastersTurn = casterId ? casterId === currentHero.id : caster === currentHero.name;
-            if (isCastersTurn && durationUnit === 'caster_turn') {
+            // Match the caster by id: the enemy team may have a hero with the same name
+            const isCaster = casterId ? casterId === casterHero.id : caster === casterHero.name;
+            if (isCaster && durationUnit === 'caster_turn') {
               const [stat] = modifierKey.split('_');
               
               // Remove the stat modifier
@@ -4360,11 +4408,12 @@ class GameManager {
           
           // Remove expired modifiers from tracking
           expiredModifiers.forEach(key => {
-            delete hero.statusEffects.statModifierDurations[key];
+            delete hero.statusEffects.statModifierDurations?.[key];
             delete hero.statusEffects.statModifierCasters[key];
             if (hero.statusEffects.statModifierCasterIds) delete hero.statusEffects.statModifierCasterIds[key];
             delete hero.statusEffects.statModifierUnits[key];
           });
+          if (expiredModifiers.length) this.updateHeroDisplayStats(hero);
         }
       });
     });
@@ -4710,7 +4759,7 @@ class GameManager {
           delete hero.resurrected;
           debugLog(` Cleared resurrection animation flag for ${hero.name}`);
         }
-        // Clear the justResurrected flag that prevents infinite death loops
+        // Clear the revived-this-turn flag
         if (hero.statusEffects?.justResurrected) {
           delete hero.statusEffects.justResurrected;
           debugLog(` Cleared resurrection protection flag for ${hero.name}`);
@@ -4719,6 +4768,11 @@ class GameManager {
         if (hero.resurrectionLogged) {
           delete hero.resurrectionLogged;
           debugLog(` Cleared resurrection logged flag for ${hero.name}`);
+        }
+        // Vanish: the hero that hit Ninja may Focus it only until the end of that turn
+        if (hero.statusEffects) {
+          delete hero.statusEffects.untargetableAttacker;
+          delete hero.statusEffects.untargetableAttackerId;
         }
       });
     });
@@ -4842,7 +4896,7 @@ class GameManager {
     }
 
     // Vanished heroes can't be focused, except by the attacker that triggered the Vanish
-    if (target.statusEffects?.untargetable && target.statusEffects.untargetableAttacker !== currentHero.name) {
+    if (target.statusEffects?.untargetable && target.statusEffects.untargetableAttackerId !== currentHero.id) {
       return { success: false, error: FOCUS_UNTARGETABLE };
     }
 
@@ -4923,10 +4977,12 @@ class GameManager {
         
         game.pendingTaunts.push({
           target: attacker.name,
+          targetId: attacker.id,
           targetPlayerIndex: attackerPlayerIndex, // Track which team the target is on
           tauntTarget: paladin.name,
           duration: 1, // Lasts until end of attacker's NEXT turn (1 turn duration)
           appliedBy: paladin.name,
+          appliedById: paladin.id,
           source: 'Shield of Faith'
         });
         
@@ -5198,6 +5254,9 @@ class GameManager {
       const nextTurnInfo = this.advanceToNextValidTurn(game);
       if (nextTurnInfo) {
         game.currentTurn = nextTurnInfo.playerIndex;
+
+        // Caster-specific expiry at the new hero's turn start, as endTurn does
+        this.processCasterDurationEffects(game, nextTurnInfo.hero);
       }
     } else {
       // Check for game over condition
@@ -5270,7 +5329,7 @@ class GameManager {
       if (taunter && taunter.currentHP > 0) return true;
     }
     return opponent.team.some(h => h.currentHP > 0 &&
-      (!h.statusEffects?.untargetable || h.statusEffects.untargetableAttacker === hero.name));
+      (!h.statusEffects?.untargetable || h.statusEffects.untargetableAttackerId === hero.id));
   }
 
   canHeroAttack(player, hero) {
@@ -5347,47 +5406,35 @@ class GameManager {
           debugLog(` Current player index: ${currentTurnInfo.playerIndex}`);
           debugLog(` Current player team:`, currentTurnInfo.player.team.map(h => `${h.name}(${h.currentHP}/${h.HP})`));
           
-          // Find lowest health ally (including Druid)
-          const aliveAllies = currentTurnInfo.player.team.filter(hero => hero.currentHP > 0);
-          debugLog(` Alive allies:`, aliveAllies.map(h => `${h.name}(${h.currentHP}/${h.HP})`));
+          // The hurt ally with the fewest HP (Druid included)
+          const lowestHealthAlly = this.pickHurtAllyWithFewestHP(currentTurnInfo.player.team);
           
-          if (aliveAllies.length > 0) {
-            const lowestHealthAlly = aliveAllies.reduce((lowest, current) => {
-              const currentHealthPercent = current.currentHP / current.HP;
-              const lowestHealthPercent = lowest.currentHP / lowest.HP;
-              return currentHealthPercent < lowestHealthPercent ? current : lowest;
-            });
-            
+          if (lowestHealthAlly) {
             debugLog(` Lowest health ally found: ${lowestHealthAlly.name} (${lowestHealthAlly.currentHP}/${lowestHealthAlly.HP})`);
+            const { rollDiceString } = require('./utils');
+            const healingRoll = rollDiceString('1D4');
+            const healingAmount = healingRoll.total;
+            const oldHP = lowestHealthAlly.currentHP;
+            lowestHealthAlly.currentHP = Math.min(lowestHealthAlly.HP, lowestHealthAlly.currentHP + healingAmount);
+            this.afterHeal(game, lowestHealthAlly);
             
-            // Only heal if not at full health
-            if (lowestHealthAlly.currentHP < lowestHealthAlly.HP) {
-              const { rollDiceString } = require('./utils');
-              const healingRoll = rollDiceString('1D4');
-              const healingAmount = healingRoll.total;
-              const oldHP = lowestHealthAlly.currentHP;
-              lowestHealthAlly.currentHP = Math.min(lowestHealthAlly.HP, lowestHealthAlly.currentHP + healingAmount);
-              
-              debugLog(` ${currentTurnInfo.hero.name}'s Healing Word heals ${lowestHealthAlly.name} for ${healingAmount} HP (${oldHP} → ${lowestHealthAlly.currentHP})`);
-              
-              // Add comprehensive log entry for Healing Word with "used" in message
-              const healingWordLogEntry = {
-                type: 'healing_word',
-                caster: currentTurnInfo.hero.name,
-                target: lowestHealthAlly.name,
-                healing: healingAmount,
-                newHP: lowestHealthAlly.currentHP,
-                maxHP: lowestHealthAlly.HP,
-                message: `${currentTurnInfo.hero.name} used Healing Word and healed ${lowestHealthAlly.name} for ${healingAmount}`,
-                timestamp: Date.now()
-              };
-              
-              endTurnEffects.push(healingWordLogEntry);
-            } else {
-              debugLog(` ${lowestHealthAlly.name} is already at full health, no healing needed`);
-            }
+            debugLog(` ${currentTurnInfo.hero.name}'s Healing Word heals ${lowestHealthAlly.name} for ${healingAmount} HP (${oldHP} → ${lowestHealthAlly.currentHP})`);
+            
+            // Add comprehensive log entry for Healing Word with "used" in message
+            const healingWordLogEntry = {
+              type: 'healing_word',
+              caster: currentTurnInfo.hero.name,
+              target: lowestHealthAlly.name,
+              healing: healingAmount,
+              newHP: lowestHealthAlly.currentHP,
+              maxHP: lowestHealthAlly.HP,
+              message: `${currentTurnInfo.hero.name} used Healing Word and healed ${lowestHealthAlly.name} for ${healingAmount}`,
+              timestamp: Date.now()
+            };
+            
+            endTurnEffects.push(healingWordLogEntry);
           } else {
-            debugLog(` No alive allies found for healing`);
+            debugLog(` Nobody is hurt, no healing needed`);
           }
         }
       }
@@ -5444,18 +5491,10 @@ class GameManager {
         const medBotCount = currentTurnInfo.hero.statusEffects.med_bot_count;
         console.log(`💉 ${currentTurnInfo.hero.name}'s ${medBotCount} med bot(s) activate Emergency Heal at end of turn`);
         
-        // Get all damaged allies (including Medic themselves)
-        const aliveAllies = currentTurnInfo.player.team.filter(hero => hero.currentHP > 0 && hero.currentHP < hero.HP);
+        // The hurt ally with the fewest HP (Medic included)
+        const lowestHealthAlly = this.pickHurtAllyWithFewestHP(currentTurnInfo.player.team);
         
-        if (aliveAllies.length > 0) {
-          // Find lowest health ally
-          let lowestHealthAlly = aliveAllies[0];
-          for (const ally of aliveAllies) {
-            if (ally.currentHP < lowestHealthAlly.currentHP) {
-              lowestHealthAlly = ally;
-            }
-          }
-          
+        if (lowestHealthAlly) {
           // Heal 1D4 for each med bot
           const { rollDiceString } = require('./utils');
           let totalHealing = 0;
@@ -5470,6 +5509,7 @@ class GameManager {
           const oldHP = lowestHealthAlly.currentHP;
           lowestHealthAlly.currentHP = Math.min(lowestHealthAlly.currentHP + totalHealing, lowestHealthAlly.HP);
           const actualHealing = lowestHealthAlly.currentHP - oldHP;
+          this.afterHeal(game, lowestHealthAlly);
           
           console.log(`💉 ${currentTurnInfo.hero.name} used Emergency Heal: Healed ${lowestHealthAlly.name} for ${actualHealing} HP (rolled ${healRolls.join(' + ')} = ${totalHealing})`);
           
@@ -5568,7 +5608,16 @@ class GameManager {
       for (const pendingTaunt of game.pendingTaunts) {
         // Find the hero on the correct team using targetPlayerIndex
         const targetPlayer = game.players[pendingTaunt.targetPlayerIndex];
-        const targetHero = targetPlayer ? targetPlayer.team.find(h => h.name === pendingTaunt.target) : null;
+        const targetHero = targetPlayer ? targetPlayer.team.find(h =>
+          pendingTaunt.targetId ? h.id === pendingTaunt.targetId : h.name === pendingTaunt.target) : null;
+        // The Paladin is on the opposite side from the hero being taunted
+        const paladinHero = game.players[1 - pendingTaunt.targetPlayerIndex]?.team.find(h =>
+          pendingTaunt.appliedById ? h.id === pendingTaunt.appliedById : h.name === pendingTaunt.appliedBy);
+        // A dead Paladin's taunt never lands
+        if (!paladinHero || paladinHero.currentHP <= 0) {
+          debugLog(` Skipping ${pendingTaunt.appliedBy}'s queued taunt on ${pendingTaunt.target}: the taunter is dead`);
+          continue;
+        }
         if (targetHero) {
           if (!targetHero.statusEffects) {
             targetHero.statusEffects = {};
@@ -5600,8 +5649,6 @@ class GameManager {
           
           // Add comprehensive special log entry for Shield of Faith taunt
           if (shouldLog) {
-            // The Paladin is on the opposite side from the hero being taunted
-            const paladinHero = game.players[1 - pendingTaunt.targetPlayerIndex].team.find(h => h.name === pendingTaunt.appliedBy);
             const shieldOfFaithLogEntry = this.createSpecialLogEntry(
               paladinHero,
               'Shield of Faith', 
@@ -6243,7 +6290,7 @@ class GameManager {
       id: game.id,
       mode: game.mode, // Include the game mode (survival, draft, random, etc.)
       firstPlayerIndex: game.firstPlayerIndex,
-      isFriendly: !!game.roomName,
+      isFriendly: !!game.isFriendly,
       phase: game.phase,
       players: game.players.map(p => ({
         id: p.id,
@@ -6281,7 +6328,14 @@ class GameManager {
       endReason: game.endReason || null, // 'disconnect' when the loser never came back
       draftCards: game.draftCards,
       battleLog: game.battleLog || [], // Legacy sentences; old clients only. Include battle log for spectators and reconnection
-      log: battleLog.tail(game) // The battle log as data: newest entries; clients keep the ones they already have
+      log: battleLog.tail(game), // The battle log as data: newest entries; clients keep the ones they already have
+      // Paladin taunts waiting for end of turn (the site's "Taunt coming" badge); ids, not names
+      pendingTaunts: (game.pendingTaunts || []).map(t => ({
+        targetId: t.targetId,
+        targetPlayerIndex: t.targetPlayerIndex,
+        tauntTarget: t.tauntTarget,
+        appliedById: t.appliedById
+      }))
     };
   }
 
@@ -6327,7 +6381,7 @@ class GameManager {
             results.push(counterAttackLogEntry);
             
             // Check if the attacker died from counter-attack
-            if (counter.died && !attacker.statusEffects?.justResurrected) {
+            if (counter.died) {
               debugLog(` ${attacker.name} was killed by ${defender.name}'s counter-attack!`);
               results.push({
                 type: 'death',
@@ -6444,6 +6498,12 @@ class GameManager {
     
     for (const special of specials) {
       if (special.trigger === 'on_take_damage_after') {
+        // Vanish: only enemy damage triggers it, once per round (until Ninja's next turn starts)
+        const targetTeam = this.getTeamIndex(game, target);
+        const attackerTeam = this.getTeamIndex(game, attacker);
+        if (attackerTeam === -1 || attackerTeam === targetTeam) break;
+        if (target.statusEffects?.vanishUsedThisRound) break;
+
         debugLog(` ${target.name}'s ${special.name} activated after taking ${damage} damage from ${attacker.name}`);
         debugLog(` processAfterDamageEffects - target:`, target.name, `attacker:`, attacker.name);
         
@@ -6457,7 +6517,7 @@ class GameManager {
             type: 'apply_buff',
             target: target.name,
             effect: 'untargetable',
-            message: `becomes untargetable until their next turn`
+            message: `can't be Focused until its next turn`
           }]
         );
         
@@ -6478,7 +6538,9 @@ class GameManager {
             }
             
             target.statusEffects.untargetable = true;
-            target.statusEffects.untargetableAttacker = attacker.name; // Store who can still target
+            target.statusEffects.vanishUsedThisRound = true;
+            target.statusEffects.untargetableAttackerId = attacker.id; // Who can still target, until its turn ends
+            target.statusEffects.untargetableAttacker = attacker.name; // The live site reads the name
             target.statusEffects.untargetableUntil = target.name; // Until this hero's turn starts
             console.log(`👻 ${target.name} becomes untargetable until their next turn (Vanish) - but ${attacker.name} can still target them`);
             
@@ -6644,11 +6706,12 @@ class GameManager {
    *   killer     who gets credit for a kill (Bomber explosion); defaults to the attacker
    *   cause      death cause label; defaults to source
    *
-   * Returns { dealt, final, negated, died, effects }: HP actually lost, the amount after
-   * negation, whether it was fully negated, whether the target died, and log entries.
+   * Returns { dealt, final, negated, died, revived, effects }: HP actually lost, the amount after
+   * negation, whether it was fully negated, whether the target died, whether this hit killed it
+   * and Angel revived it, and log entries.
    */
   dealDamage(game, target, amount, attacker = null, options = {}) {
-    const result = { dealt: 0, final: 0, negated: false, died: false, effects: [] };
+    const result = { dealt: 0, final: 0, negated: false, died: false, revived: false, effects: [] };
     if (!target || target.currentHP <= 0 || !(amount > 0)) return result;
 
     const { source = 'damage', reducible = true, isAttack = false, reflect = true } = options;
@@ -6689,8 +6752,11 @@ class GameManager {
         result.effects.push(...this.processOnTakeDamageEffects(game, target, attacker, finalDamage));
       }
 
-      if (target.currentHP <= 0 && !target.statusEffects?.justResurrected) {
+      // Every death is processed, also a second one in the turn Angel revived the hero.
+      // A revive handles the death that caused it: the hero is alive again, so nothing reprocesses it.
+      if (target.currentHP <= 0) {
         this.updatePassiveEffectsOnDeath(game, target, killer, options.cause || source);
+        result.revived = target.currentHP > 0;
       }
     }
 
@@ -6807,14 +6873,24 @@ class GameManager {
     if (!angelHero.statusEffects) angelHero.statusEffects = {};
     angelHero.statusEffects.resurrectUsed = true;
 
-    // Clear all status effects from the dying hero EXCEPT the resurrection flag
+    // Clear all status effects from the dying hero EXCEPT the resurrection flag.
+    // Arcane Shield is once per battle: a used shield stays used, an unused one stays up.
+    const shieldUsed = !!dyingHero.statusEffects?.arcaneShieldUsed;
+    const shieldAvailable = dyingHero.statusEffects?.arcaneShieldAvailable === true;
     dyingHero.statusEffects = {
-      justResurrected: true // Flag to prevent infinite loop - persists until end of turn
+      justResurrected: true // Angel revived this hero this turn: it can't be revived again; cleared at turn end
     };
+    if (shieldUsed) {
+      dyingHero.statusEffects.arcaneShieldUsed = true;
+      dyingHero.statusEffects.arcaneShieldAvailable = false;
+    } else if (shieldAvailable) {
+      dyingHero.statusEffects.arcaneShieldAvailable = true;
+    }
 
     // Resurrect at half health (rounded up)
     const halfHealth = Math.ceil(dyingHero.HP / 2);
     dyingHero.currentHP = halfHealth;
+    this.updateHeroDisplayStats(dyingHero); // the cleared statModifiers no longer lower its Defense
 
     debugLog(` ${dyingHero.name} resurrected at ${halfHealth} HP by Angel`);
 
@@ -7670,8 +7746,8 @@ class GameManager {
         
         debugLog(` ${ally.name} deals ${damage} damage to ${primaryTarget.name} (${oldHP} → ${primaryTarget.currentHP})`);
         
-        // Check for on-attack special triggers (like Cavalier's Ride Down)
-        if (ally.name === 'Cavalier' && damage > 0) {
+        // Check for on-attack special triggers (like Cavalier's Ride Down; none if Angel revived the target from this hit)
+        if (ally.name === 'Cavalier' && damage > 0 && !dealt.revived) {
           if (!primaryTarget.statusEffects) primaryTarget.statusEffects = {};
           primaryTarget.statusEffects.rideDownDebuff = {
             source: ally.name,
@@ -8078,10 +8154,9 @@ class GameManager {
       return { success: true, message: 'Survival mode - victory points handled on run end' };
     }
 
-    // Friend challenges (rooms) are played for XP only
-    if (game.roomName) {
-      console.log(`🤝 Friend challenge - no victory points awarded`);
-      return { success: true, message: 'Friend challenge - no victory points' };
+    // Friend rooms (and friend challenges) pay Random's amounts whatever their mode
+    if (BATTLE_COIN_MODES.has(game.mode) || game.isFriendly) {
+      return this.payBattle(game, winnerId, reason);
     }
 
     // Handle tie games
@@ -8150,24 +8225,63 @@ class GameManager {
     return result;
   }
 
+  // How each player's random or draft battle ended, and the coins it paid:
+  // { endings: { playerId: ending }, coins: Promise<{ playerId: { coins, total } }> }, or null.
+  getPayout(gameId) {
+    const game = this.games.get(gameId);
+    return (game && game.payout) || null;
+  }
+
+  // Works out every player's ending at once (so the server can read it straight away), then pays the
+  // coins. A friend room pays Random's amounts whatever its mode, and nothing to anyone when a friend
+  // quit early. total is the player's coin balance after the payout, or null if it could not be read.
+  payBattle(game, winnerId, reason) {
+    const players = game.players.filter(Boolean);
+    const endings = {};
+    for (const player of players) {
+      const ownHeroesDown = player.team.filter(h => h.currentHP <= 0).length;
+      endings[player.id] = endingFor({ reason, isWinner: player.id === winnerId, ownHeroesDown });
+    }
+    const friendQuitEarly = !!game.isFriendly && Object.values(endings).includes('quit_early');
+    const coinMode = game.isFriendly ? 'random' : game.mode;
+    const coins = (async () => {
+      const paid = {};
+      for (const player of players) {
+        const heroesAlive = player.team.filter(h => h.currentHP > 0).length;
+        const amount = friendQuitEarly ? 0 : battleCoins(coinMode, endings[player.id], heroesAlive);
+        paid[player.id] = { coins: amount, total: await this.payBattleCoins(player, amount, `${game.mode}_mode_${reason}`) };
+      }
+      return paid;
+    })();
+    game.payout = { endings, coins };
+    console.log(`🏆 Battle endings for game ${game.id}: ${JSON.stringify(endings)}`);
+    return coins.then(paid => ({ success: true, endings, coins: paid }));
+  }
+
+  // Pays one player and returns their coin balance afterwards (null if unknown). Never throws.
+  async payBattleCoins(player, amount, reason) {
+    const userId = this.userIdForPlayer(player);
+    if (!this.database || !userId) return null;
+    try {
+      if (amount > 0) {
+        console.log(`🏆 Awarding ${amount} coins to user ${userId} (player ${player.id}) for ${reason}`);
+        await this.database.updateUserVictoryPoints(userId, amount);
+      }
+      const user = await this.database.getUserById(userId);
+      return user ? user.victory_points : null;
+    } catch (error) {
+      console.error('❌ Error paying battle coins:', error);
+      return null;
+    }
+  }
+
   async handleSurvivalRunEnd(playerId, finalWins) {
     if (finalWins <= 0) {
       debugLog(` Player ${playerId} ended survival run with 0 wins - no victory points awarded`);
       return { success: true, pointsAwarded: 0, totalVictoryPoints: 0, message: 'No wins in run' };
     }
 
-    // Victory points based on wins: 1→1, 2→2, 3→4, 4→6, 5→9, 6→12, 7→16
-    const vpTable = {
-      1: 1,
-      2: 2,
-      3: 4,
-      4: 6,
-      5: 9,
-      6: 12,
-      7: 16
-    };
-    
-    const pointsToAward = vpTable[finalWins] || 0;
+    const pointsToAward = SURVIVAL_PRIZE[finalWins] || 0;
     
     console.log(`🏆 Player ${playerId} survival run ended with ${finalWins} wins - awarding ${pointsToAward} victory points`);
     

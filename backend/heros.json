@@ -9,7 +9,7 @@
       {
         "category": "single_target_damage",
         "name": "Reckless Swing",
-        "description": "Deal 2D6 damage; Barbarian takes 2D4 recoil damage.",
+        "description": "Deal 2D6 damage. Barbarian takes 2D4 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -31,7 +31,7 @@
     "Special": [
       {
         "name": "Break the Line",
-        "description": "Attacks and abilities ignore taunts and deflections.",
+        "description": "Barbarian's attacks and abilities ignore Taunt and deflections.",
         "effects": [
           {
             "type": "passive_modifier",
@@ -55,7 +55,7 @@
       {
         "category": "summon",
         "name": "Call Turret",
-        "description": "Summon a Mechanical Turret (max 2). At the end of Engineer's turn, deal 1D4 damage to a random enemy for each active turret.",
+        "description": "Summon a Turret (max 2). At the end of Engineer's turn, deal 1D4 damage to a random enemy per Turret.",
         "target_type": "self_only",
         "primary_effects": [
           {
@@ -75,7 +75,7 @@
     "Special": {
       "category": "reaction",
       "name": "Protective Gear",
-      "description": "When taking damage, sacrifice a Turret to negate the damage.",
+      "description": "When Engineer takes damage, sacrifice a Turret to block it.",
       "trigger": "on_take_damage",
       "trigger_timing": "before_damage_applied",
       "effects": [
@@ -101,7 +101,7 @@
       {
         "category": "single_target_damage",
         "name": "Song of Valor",
-        "description": "Deal 1D4 damage and give your right ally advantage on their next ability.",
+        "description": "Deal 1D4 damage. The ally to Bard's right has advantage on its next ability.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -124,7 +124,7 @@
     "Special": {
       "category": "reaction",
       "name": "Encore",
-      "description": "When an ally misses an attack or ability, they reroll. This resets at the start of the Bard's turn.",
+      "description": "Once per round, when an ally misses with an attack or ability, it rerolls.",
       "trigger": "on_ally_miss",
       "frequency": "once_per_round",
       "effects": [
@@ -168,7 +168,7 @@
     "Special": {
       "category": "permanent",
       "name": "Twin Daggers",
-      "description": "No basic attack; may trigger ability twice per turn.",
+      "description": "No basic attack. Can use its ability twice per turn.",
       "effects": [
         {
           "type": "disable_basic_attack"
@@ -190,7 +190,7 @@
       {
         "category": "single_target_damage",
         "name": "Divine Smite",
-        "description": "Deal 1D4 damage and heal the lowest health ally 1D4.",
+        "description": "Deal 1D4 damage and heal the lowest-HP ally for 1D4.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -212,7 +212,7 @@
     "Special": {
       "category": "reactive",
       "name": "Shield of Faith",
-      "description": "When an opponent attacks an ally adjacent to the Paladin, taunt it.",
+      "description": "When an enemy damages an ally adjacent to Paladin, Taunt that enemy: it must Focus Paladin on its next turn.",
       "trigger": "ally_attacked_adjacent",
       "effects": [
         {
@@ -250,7 +250,7 @@
     "Special": {
       "category": "reaction",
       "name": "Twin Spell",
-      "description": "When Sorcerer hits with it's ability, roll to cast it again.",
+      "description": "Once per round, when Sorcerer's ability hits, it can use its ability again.",
       "trigger": "on_ability_hit",
       "frequency": "once_per_round",
       "effects": [
@@ -285,7 +285,7 @@
     "Special": {
       "category": "passive",
       "name": "Healing Word",
-      "description": "At the end of the Druid's turn, heal the lowest health ally 1D4.",
+      "description": "At the end of Druid's turn, heal the lowest-HP ally for 1D4.",
       "trigger": "end_of_turn",
       "effects": [
         {
@@ -306,7 +306,7 @@
       {
         "category": "single_target_damage",
         "name": "Guiding Bolt",
-        "description": "Deal 1D4 damage and grant advantage on the next attack or ability roll against the target.",
+        "description": "Deal 1D4 damage. The next attack or ability against the target has advantage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -331,7 +331,7 @@
     "Special": {
       "category": "team_aura",
       "name": "Bless",
-      "description": "While Cleric is alive, all allies gain +1 to hit.",
+      "description": "While Cleric is alive, all allies gain +1 Accuracy.",
       "effects": [
         {
           "type": "stat_modifier",
@@ -352,7 +352,7 @@
       {
         "category": "single_target_damage",
         "name": "One-Two Punch",
-        "description": "Deal 1D6 damage and attack again.",
+        "description": "Deal 1D6 damage, then make a basic attack.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -373,7 +373,7 @@
     "Special": {
       "category": "counter_attack",
       "name": "Deflect",
-      "description": "Once per round, when an ally would be hit by an attack or ability with a roll lower than monk's defense, negate the damage and deal 1D4 to the attacker. Resets at the start of Monk's turn.",
+      "description": "Once per round, when an enemy hits an ally with a roll lower than Monk's Defense, block the damage and deal 1D4 damage to the attacker.",
       "trigger": "on_ally_hit_by_low_roll",
       "frequency": "once_per_round",
       "effects": [
@@ -412,7 +412,7 @@
     "Special": {
       "category": "conditional_debuff",
       "name": "Ride Down",
-      "description": "All attacks against enemies hit by Cavalier have advantage",
+      "description": "Attacks against enemies hit by Cavalier have advantage.",
       "condition": "after_hitting_target",
       "effects": [
         {
@@ -433,7 +433,7 @@
       {
         "category": "conditional",
         "name": "Piercing Strike",
-        "description": "Deal 1D4 damage. Deal an additional 1D6 damage if the target has more than 8 defense.",
+        "description": "Deal 1D4 damage. If the target has more than 8 Defense, deal an extra 1D6 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -449,7 +449,7 @@
     "Special": {
       "category": "conditional",
       "name": "Armor Breaker",
-      "description": "Gain advantage against enemies with more than 8 defense.",
+      "description": "Piercer has advantage against enemies with more than 8 Defense.",
       "condition": "target_defense_gt_8",
       "effects": [
         {
@@ -468,7 +468,7 @@
       {
         "category": "single_target_damage",
         "name": "Silence",
-        "description": "Deal 1D6 and Silence target until next turn.",
+        "description": "Deal 1D6 damage and Silence the target on its next turn.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -492,7 +492,7 @@
     "Special": {
       "category": "reaction",
       "name": "Anti-Magic Field",
-      "description": "Enemies attacking Silencer have disadvantage on their ability rolls.",
+      "description": "Enemy abilities against Silencer have disadvantage.",
       "trigger": "on_targeted_by_ability",
       "effects": [
         {
@@ -513,7 +513,7 @@
       {
         "category": "apply_buff",
         "name": "Bloodbath",
-        "description": "Gain a bloodbath stack (max 2); each stack gives +1 damage to attacks.",
+        "description": "Gain 1 Bloodbath stack (max 2). Each stack gives Berserker's attacks +1 damage.",
         "target_type": "self_only",
         "primary_effects": [
           {
@@ -563,7 +563,7 @@
     "Special": {
       "category": "reaction",
       "name": "Arcane Shield",
-      "description": "The first time Wizard would take damage more than 5 damage, reduce it to 0",
+      "description": "Once per game, when Wizard would take more than 5 damage, block it.",
       "trigger": "on_take_damage_gt_5",
       "frequency": "once_per_battle",
       "effects": [
@@ -584,7 +584,7 @@
       {
         "category": "multi_target_damage",
         "name": "Cleave",
-        "description": "Deal 1D6 to your target and 1D6 to the enemy to the left of them.",
+        "description": "Deal 1D6 damage to the target and 1D6 damage to the enemy on its left.",
         "target_type": "multi_target",
         "primary_effects": [
           {
@@ -623,7 +623,7 @@
       {
         "category": "lifesteal",
         "name": "Vitality Drain",
-        "description": "Lifesteal 1D6.",
+        "description": "Deal 1D6 damage and heal Warlock for that amount.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -637,7 +637,7 @@
     "Special": {
       "category": "start_of_game",
       "name": "Dark Pact",
-      "description": "Increase the damage of all attacks and abilities of adjacent allies by +1.",
+      "description": "Adjacent allies permanently deal +1 damage with attacks and abilities.",
       "trigger": "battle_start",
       "effects": [
         {
@@ -659,7 +659,7 @@
       {
         "category": "single_target_damage",
         "name": "Compel Duel",
-        "description": "Deal 1D4 damage and Taunt the target to attack Warden next turn.",
+        "description": "Deal 1D4 damage and Taunt the target: it must Focus Warden on its next turn.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -684,7 +684,7 @@
     "Special": {
       "category": "counter_attack",
       "name": "Shield Bash",
-      "description": "Whenever an attack misses Warden, the attacker takes 1D6 damage.",
+      "description": "When an attack misses Warden, the attacker takes 1D6 damage.",
       "trigger": "on_miss_by_ac",
       "effects": [
         {
@@ -728,7 +728,7 @@
     "Special": {
       "category": "turn_based",
       "name": "Voodoo Ritual",
-      "description": "At the end of the Witch Doctor's turn, deal 1D4 damage to the lowest health enemy.",
+      "description": "At the end of Witch Doctor's turn, deal 1D4 damage to the lowest-HP enemy.",
       "trigger": "end_of_turn",
       "effects": [
         {
@@ -749,7 +749,7 @@
       {
         "category": "conditional",
         "name": "Inspiring Crowd",
-        "description": "Heal Champion for 1D4 HP (1D6 if below 11 HP).",
+        "description": "Heal Champion for 1D4 (1D6 if below 11 HP).",
         "target_type": "self_only",
         "primary_effects": [
           {
@@ -765,7 +765,7 @@
     "Special": {
       "category": "scaling",
       "name": "Last Stand",
-      "description": "For each fallen ally, Champion gains +1 Defense and +1D6 damage.",
+      "description": "For each fallen ally, Champion gains +1 Defense and deals an extra 1D6 damage.",
       "scale_with": "fallen_allies",
       "effects": [
         {
@@ -790,7 +790,7 @@
       {
         "category": "single_target_damage",
         "name": "Piercing Shot",
-        "description": "Deal 1D6 damage and reduce the target's defense by 1 until Ranger's next turn.",
+        "description": "Deal 1D6 damage. The target has -1 Defense until Ranger's next turn.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -816,7 +816,7 @@
     "Special": {
       "category": "persistent",
       "name": "Eagle Eye",
-      "description": "Ranger rolls attacks and abilities with advantage.",
+      "description": "Ranger's attacks and abilities have advantage.",
       "effects": [
         {
           "type": "grant_advantage"
@@ -834,7 +834,7 @@
       {
         "category": "single_target_damage",
         "name": "Crimson Rite",
-        "description": "Deal 3D4 damage and take 2D4 damage.",
+        "description": "Deal 3D4 damage. Blood Hunter takes 2D4 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -869,7 +869,7 @@
     "Special": {
       "category": "permanent",
       "name": "Blood Price",
-      "description": "No basic attack; may trigger each ability once per turn.",
+      "description": "No basic attack. Can use each ability once per turn.",
       "effects": [
         {
           "type": "disable_basic_attack"
@@ -891,7 +891,7 @@
       {
         "category": "summon_and_damage",
         "name": "Elemental Strike",
-        "description": "Summon a totem (max 3), then deal 1D4 damage for each totem.",
+        "description": "Summon a Totem (max 3), then deal 1D4 damage per Totem.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -934,7 +934,7 @@
       {
         "category": "utility",
         "name": "Chrono Shift",
-        "description": "Trigger an ally's ability.",
+        "description": "Choose an ally to use its ability on the target.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -949,7 +949,7 @@
     "Special": {
       "category": "team_aura",
       "name": "Haste",
-      "description": "Adjacent allies gain advantage on their ability rolls.",
+      "description": "Adjacent allies' abilities have advantage.",
       "effects": [
         {
           "type": "grant_advantage",
@@ -983,7 +983,7 @@
     "Special": {
       "category": "reaction",
       "name": "Vanish",
-      "description": "Once per round after being hit, become untargetable by other heroes until Ninja's next turn.",
+      "description": "Once per round, after an enemy damages Ninja, it can't be Focused until its next turn.",
       "trigger": "on_take_damage_after",
       "frequency": "once_per_round",
       "effects": [
@@ -1021,7 +1021,7 @@
     "Special": {
       "category": "conditional_permanent",
       "name": "Dismount",
-      "description": "When Dragon Rider is reduced below 9 HP, it loses 3 Defense and cannot use its Ability; this cannot be restored by healing.",
+      "description": "When Dragon Rider drops below 9 HP, it permanently loses 3 Defense and can't use its ability.",
       "condition": "self_hp_lt_9",
       "effects": [
         {
@@ -1060,7 +1060,7 @@
     "Special": {
       "category": "death",
       "name": "Explosion",
-      "description": "On death, deal 1D6 damage to Bomber's killer.",
+      "description": "When Bomber dies, deal 1D6 damage to its killer.",
       "trigger": "on_death",
       "effects": [
         {
@@ -1081,7 +1081,7 @@
       {
         "category": "conditional",
         "name": "Call Beast / Command Attack",
-        "description": "Summon beast; if beast is already summoned, command it to deal 2D8 damage.",
+        "description": "Summon the Beast. If the Beast is already summoned, it deals 2D8 damage to the target instead.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1107,7 +1107,7 @@
     "Special": {
       "category": "conditional",
       "name": "Pack Tactics",
-      "description": "Beast Tamer's attacks have advantage while the beast is summoned.",
+      "description": "While the Beast is summoned, Beast Tamer's attacks have advantage.",
       "condition": "beast_active",
       "effects": [
         {
@@ -1126,7 +1126,7 @@
     "Special": {
       "category": "permanent",
       "name": "Iron Fists",
-      "description": "Brawler makes two basic attacks per turn. Has no abilities.",
+      "description": "Brawler makes 2 basic attacks per turn. No ability.",
       "effects": [
         {
           "type": "modify_attack_frequency",
@@ -1145,7 +1145,7 @@
       {
         "category": "single_target_damage",
         "name": "Soul Harvest",
-        "description": "Deal 1D8 damage. If the target dies, heal Reaper to full health.",
+        "description": "Deal 1D8 damage. If this kills the target, heal Reaper to full HP.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1167,7 +1167,7 @@
     "Special": {
       "category": "team_aura",
       "name": "Aura of Dread",
-      "description": "All enemies lose 1 Defense while Reaper is alive.",
+      "description": "While Reaper is alive, all enemies have -1 Defense.",
       "effects": [
         {
           "type": "apply_debuff",
@@ -1189,7 +1189,7 @@
       {
         "category": "single_target_damage",
         "name": "Poison Touch",
-        "description": "Deal 1D4 damage and apply that many Poison stacks.",
+        "description": "Deal 1D4 damage and give the target that many Poison stacks.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1233,7 +1233,7 @@
       {
         "category": "single_target_damage",
         "name": "Stun",
-        "description": "Deal 1D4 damage. The target cannot make an attack on its next turn.",
+        "description": "Deal 1D4 damage. The target can't attack on its next turn.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1257,7 +1257,7 @@
     "Special": {
       "category": "team_aura",
       "name": "Defend",
-      "description": "While Dual Defender is alive, the ally to the right uses Dual Defender's Defense.",
+      "description": "While Dual Defender is alive, the ally to its right uses Dual Defender's Defense.",
       "effects": [
         {
           "type": "apply_buff",
@@ -1311,7 +1311,7 @@
       {
         "category": "single_target_damage",
         "name": "Stacked Deck",
-        "description": "Deal 2D4 damage. If you crit, deal an additional 1D4 damage.",
+        "description": "Deal 2D4 damage. On a crit, deal an extra 1D4 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1330,7 +1330,7 @@
     "Special": {
       "category": "reaction",
       "name": "Ace Up The Sleeve",
-      "description": "When Ace rolls 1 on an attack or ability, it automatically hits and crits.",
+      "description": "When Ace rolls a 1 on an attack or ability, it automatically hits and crits.",
       "trigger": "on_roll_natural_1",
       "effects": [
         {
@@ -1352,7 +1352,7 @@
       {
         "category": "multi_target_damage",
         "name": "Thunderclap",
-        "description": "Deal 1D4 to your target and 1D4 to the enemy to the right of them.",
+        "description": "Deal 1D4 damage to the target and 1D4 damage to the enemy on its right.",
         "target_type": "multi_target",
         "primary_effects": [
           {
@@ -1371,7 +1371,7 @@
     "Special": {
       "category": "turn_based",
       "name": "Wind Wall",
-      "description": "Each time Elementalist lands an attack or ability, she gains +1 Defense until the start of her next turn.",
+      "description": "Each time Elementalist hits with an attack or ability, it gains +1 Defense until its next turn.",
       "trigger": "on_self_hit_confirmed",
       "effects": [
         {
@@ -1395,7 +1395,7 @@
       {
         "category": "apply_buff",
         "name": "Wish",
-        "description": "Target an ally, They gain +1 accuracy and +1 defense and are healed for 1d4.",
+        "description": "Choose an ally. It gains +1 Accuracy and +1 Defense, and heals for 1D4.",
         "target_type": "single_ally",
         "primary_effects": [
           {
@@ -1421,7 +1421,7 @@
     "Special": {
       "category": "conditional",
       "name": "Fey Magic",
-      "description": "Pixie gains +6 Defense while an ally is alive.",
+      "description": "While Pixie has a living ally, it gains +6 Defense.",
       "condition": "has_ally_alive",
       "effects": [
         {
@@ -1444,7 +1444,7 @@
       {
         "category": "single_target_damage",
         "name": "Charged Fist",
-        "description": "Deal 1D6 damage and taunt the target to attack Mech next turn.",
+        "description": "Deal 1D6 damage and Taunt the target: it must Focus Mech on its next turn.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1469,7 +1469,7 @@
     "Special": {
       "category": "activated_aoe",
       "name": "Self Destruct",
-      "description": "Mech can choose to Self Destruct and deal 2D6 damage to ALL heroes.",
+      "description": "Mech can destroy itself to deal 2D6 damage to all heroes, including allies.",
       "effects": [
         {
           "type": "damage",
@@ -1495,7 +1495,7 @@
       {
         "category": "single_target_damage",
         "name": "Poison Strike",
-        "description": "Deal 1D6 damage and Poison the target by the same amount.",
+        "description": "Deal 1D6 damage and give the target that many Poison stacks.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1518,7 +1518,7 @@
     "Special": {
       "category": "activated",
       "name": "Absorb Venom",
-      "description": "Once per turn, Serpent can absorb Poison for ALL characters. Serpent heals HP equal to how many stacks of poison were absorbed.",
+      "description": "Once per round, Serpent can remove all Poison from all heroes and heal 1 HP per stack removed.",
       "frequency": "once_per_round",
       "effects": [
         {
@@ -1550,7 +1550,7 @@
       {
         "category": "utility",
         "name": "Declare War",
-        "description": "Make adjacent allies attack the target.",
+        "description": "Adjacent allies make a basic attack on the target.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1564,7 +1564,7 @@
     "Special": {
       "category": "activated_aoe_heal",
       "name": "Peace Treaty",
-      "description": "Once: The Diplomat can heal ALL heroes 2D6.",
+      "description": "Once per game: Diplomat can heal all heroes for 2D6, including enemies.",
       "frequency": "once",
       "effects": [
         {
@@ -1586,7 +1586,7 @@
       {
         "category": "summon_and_damage",
         "name": "Plant Growth",
-        "description": "Deal 1D4 damage. Summon 1 poisonous plant (Max 2).",
+        "description": "Deal 1D4 damage and summon a Poisonous Plant (max 2).",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1607,7 +1607,7 @@
     "Special": {
       "category": "turn_based",
       "name": "System Failure",
-      "description": "At the start of Venom\u2019s turn give 1D4 poison stacks to an enemy for each poisonous plant Venom has summoned.",
+      "description": "At the start of Venom's turn, give a random enemy 1D4 Poison stacks per Poisonous Plant.",
       "trigger": "owner_turn_start",
       "effects": [
         {
@@ -1636,7 +1636,7 @@
       {
         "category": "single_target_damage",
         "name": "Iron Will",
-        "description": "Deal 1D6 damage. If all other allies are dead, deal an additional 1D6 damage.",
+        "description": "Deal 1D6 damage. If all of Knight's allies have fallen, deal an extra 1D6 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1658,7 +1658,7 @@
     "Special": {
       "category": "conditional",
       "name": "Tank Buster",
-      "description": "When battling an enemy with more Defense than Knight, gain advantage.",
+      "description": "Knight's attacks have advantage against enemies with more Defense than Knight.",
       "effects": [
         {
           "type": "grant_advantage",
@@ -1679,7 +1679,7 @@
       {
         "category": "utility",
         "name": "Hack",
-        "description": "Target an enemy. Take another turn as if you were that enemy. It cannot attack itself.",
+        "description": "Choose an enemy and take an extra turn as that enemy. It can't attack itself.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1695,7 +1695,7 @@
     "Special": {
       "category": "death_trigger",
       "name": "System Failure",
-      "description": "If hacker dies, disable the killer's special.",
+      "description": "When Hacker dies, its killer loses its special.",
       "trigger": "on_death",
       "effects": [
         {
@@ -1716,7 +1716,7 @@
       {
         "category": "single_target_damage",
         "name": "Surprise Attack",
-        "description": "Deal 1D4 damage. Deal an extra 1D4 if Shadow has never attacked that target.",
+        "description": "Deal 1D4 damage. If Shadow has never hit this target, deal an extra 1D4 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1738,7 +1738,7 @@
     "Special": {
       "category": "conditional_defense",
       "name": "Shadow Form",
-      "description": "Enemies who haven\u2019t taken damage from Shadow have disadvantage on attacks and abilities that target her.",
+      "description": "Enemies Shadow hasn't damaged have disadvantage on attacks and abilities against Shadow.",
       "effects": [
         {
           "type": "grant_disadvantage",
@@ -1761,7 +1761,7 @@
       {
         "category": "single_target_damage",
         "name": "Revenge",
-        "description": "Deal 1D4 damage. If that enemy attacked Guardian this round, deal an additional 1D6 damage.",
+        "description": "Deal 1D4 damage. If the target attacked Guardian this round, deal an extra 1D6 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1783,7 +1783,7 @@
     "Special": {
       "category": "reaction",
       "name": "Protect",
-      "description": "When an opponent attacks an ally adjacent to the Guardian, taunt it.",
+      "description": "When an enemy attacks an ally adjacent to Guardian, Taunt that enemy: it must Focus Guardian on its next turn.",
       "trigger": "on_enemy_targets_adjacent_ally",
       "trigger_timing": "before_attack_resolves",
       "effects": [
@@ -1824,7 +1824,7 @@
     "Special": {
       "category": "death_trigger",
       "name": "Rebirth",
-      "description": "Once: When Phoenix dies, resurrect it at half health.",
+      "description": "Once per game: when Phoenix dies, revive it at half HP.",
       "trigger": "on_death",
       "frequency": "once",
       "effects": [
@@ -1848,7 +1848,7 @@
       {
         "category": "apply_buff",
         "name": "Sharpen",
-        "description": "Target an ally they gain +1D8 damage on their next attack.",
+        "description": "Choose an ally. Its next attack deals an extra 1D8 damage.",
         "target_type": "single_ally",
         "primary_effects": [
           {
@@ -1862,7 +1862,7 @@
       {
         "category": "apply_buff",
         "name": "Reinforce",
-        "description": "Target one ally to gain +2 Defense.",
+        "description": "Choose an ally. It gains +2 Defense.",
         "target_type": "single_ally",
         "primary_effects": [
           {
@@ -1892,7 +1892,7 @@
       {
         "category": "single_target_damage",
         "name": "Far Shot",
-        "description": "Deal 1D4 damage. If Arcane Archer has full hp, deal an additional 1D8 damage.",
+        "description": "Deal 1D4 damage. If Arcane Archer is at full HP, deal an extra 1D8 damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1914,7 +1914,7 @@
     "Special": {
       "category": "conditional",
       "name": "Arcane Arrows",
-      "description": "When attacking or using an ability against an enemy Arcane Archer already damaged, add 1D4 to the damage.",
+      "description": "Arcane Archer's attacks and abilities deal an extra 1D4 damage to enemies it has already damaged.",
       "condition": "target_previously_damaged_by_owner",
       "effects": [
         {
@@ -1935,7 +1935,7 @@
       {
         "category": "heal_ally",
         "name": "Heal",
-        "description": "Target an ally, Heal them for 2D4 health.",
+        "description": "Heal an ally for 2D4.",
         "target_type": "single_ally",
         "primary_effects": [
           {
@@ -1949,7 +1949,7 @@
     "Special": {
       "category": "activated",
       "name": "Cleanse",
-      "description": "Once per round, target an ally and cleanse all debuffs on them.",
+      "description": "Once per round, remove all debuffs from an ally.",
       "frequency": "once_per_round",
       "effects": [
         {
@@ -1971,7 +1971,7 @@
       {
         "category": "single_target_damage",
         "name": "Cleansing Spores",
-        "description": "Deal 1D4 damage and cleanse a random ally of all poison stacks.",
+        "description": "Deal 1D4 damage and remove all Poison from a random Poisoned ally.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -1993,7 +1993,7 @@
     "Special": {
       "category": "reaction",
       "name": "Poison Aura",
-      "description": "When Shroomguard takes damage, give ALL heroes 1 Poison Stack.",
+      "description": "When Shroomguard takes damage, give all heroes 1 Poison stack.",
       "trigger": "on_take_damage",
       "effects": [
         {
@@ -2016,7 +2016,7 @@
       {
         "category": "single_target_damage",
         "name": "Health Link",
-        "description": "Deal 1D4 damage and link the target to the Angel. The next time Angel takes damage, it is also dealt to the target.",
+        "description": "Deal 1D4 damage and link the target to Angel. The next time Angel takes damage, the target takes the same damage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2039,7 +2039,7 @@
     "Special": {
       "category": "reaction",
       "name": "Resurrect",
-      "description": "Once: When an ally dies, resurrect them at half health.",
+      "description": "Once per game: when an ally dies, revive it at half HP.",
       "trigger": "on_ally_death",
       "frequency": "once",
       "effects": [
@@ -2061,7 +2061,7 @@
       {
         "category": "single_target_damage",
         "name": "Smoke Shot",
-        "description": "Deal 1D4 damage and give Sniper +5 Defense until the start of his turn.",
+        "description": "Deal 1D4 damage. Sniper gains +5 Defense until its next turn.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2084,7 +2084,7 @@
     "Special": {
       "category": "activated",
       "name": "Lock In",
-      "description": "Sniper can choose to skip his attack to have his next attack deal +3D6 damage.",
+      "description": "Sniper can skip its attack. If it does, its next attack deals an extra 3D6 damage.",
       "effects": [
         {
           "type": "next_attack_bonus",
@@ -2108,7 +2108,7 @@
       {
         "category": "summon_and_damage",
         "name": "Plan Ahead",
-        "description": "Deal 1D4 damage and Summon a Spy.",
+        "description": "Deal 1D4 damage and summon a Spy.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2128,7 +2128,7 @@
     "Special": {
       "category": "activated",
       "name": "Master Plan",
-      "description": "Target an enemy hero and dismiss 2 spies. Their Defense becomes 0.",
+      "description": "Remove 2 Spies to set an enemy's Defense to 0.",
       "effects": [
         {
           "type": "set_stat",
@@ -2155,7 +2155,7 @@
       {
         "category": "single_target_damage",
         "name": "Incinerate",
-        "description": "Deal 1d6 damage. If that kills the target, deal 1d6 to adjacent enemies.",
+        "description": "Deal 1D6 damage. If this kills the target, deal 1D6 damage to enemies adjacent to it.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2202,7 +2202,7 @@
       {
         "category": "summon",
         "name": "Med Bots",
-        "description": "Summon 1 Med Bot (Max 3).",
+        "description": "Summon a Med Bot (max 3).",
         "target_type": "self_only",
         "primary_effects": [
           {
@@ -2216,7 +2216,7 @@
     "Special": {
       "category": "turn_based",
       "name": "Emergency Heal",
-      "description": "At the end of the Medic's turn, heal the lowest health ally 1D4 for each summoned Med Bot.",
+      "description": "At the end of Medic's turn, heal the lowest-HP ally for 1D4 per Med Bot.",
       "trigger": "owner_turn_end",
       "effects": [
         {
@@ -2239,7 +2239,7 @@
       {
         "category": "utility",
         "name": "Copy",
-        "description": "Trigger the enemy champion\u2019s ability as if it were your own.",
+        "description": "Choose an enemy and use its ability as Mime's own.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2253,7 +2253,7 @@
     "Special": {
       "category": "match_start",
       "name": "Unique Duplicate",
-      "description": "At the start of the match, choose an enemy and copy their champion\u2019s Special.",
+      "description": "At the start of the battle, choose an enemy and copy its special.",
       "trigger": "match_start",
       "effects": [
         {
@@ -2274,7 +2274,7 @@
       {
         "category": "single_target_damage",
         "name": "Offer Bribe",
-        "description": "Deal 1D4 damage. The target cannot use its ability against Hoarder until the start of his next turn.",
+        "description": "Deal 1D4 damage. The target can't use its ability on Hoarder until Hoarder's next turn.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2299,7 +2299,7 @@
     "Special": {
       "category": "scaling",
       "name": "Collect Weapons",
-      "description": "When any hero dies, gain their basic attack dice.",
+      "description": "When any hero dies, Hoarder adds its basic attack dice to its own.",
       "trigger": "on_any_death",
       "scale_with": "fallen_heroes",
       "effects": [
@@ -2320,7 +2320,7 @@
       {
         "category": "single_target_damage",
         "name": "Luck of the Dice",
-        "description": "Deal 1D6 damage. If you rolled above 14, Gambler gains advantage on their next attack.",
+        "description": "Deal 1D6 damage. If the roll was above 14, Gambler's next attack has advantage.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2342,7 +2342,7 @@
     "Special": {
       "category": "persistent",
       "name": "Rigged Dice",
-      "description": "Gambler has advantage on Abilities.",
+      "description": "Gambler's abilities have advantage.",
       "effects": [
         {
           "type": "grant_advantage",
@@ -2362,7 +2362,7 @@
       {
         "category": "apply_buff",
         "name": "Enhance Ability",
-        "description": "Deal 1D4 damage and give the left ally advantage on their next ability.",
+        "description": "Deal 1D4 damage. The ally to Arcanist's left has advantage on its next ability.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2382,7 +2382,7 @@
       {
         "category": "apply_buff",
         "name": "Enhance Attack",
-        "description": "Deal 1D4 damage and give the right ally advantage on their next attack.",
+        "description": "Deal 1D4 damage. The ally to Arcanist's right has advantage on its next attack.",
         "target_type": "single_target",
         "primary_effects": [
           {
@@ -2403,7 +2403,7 @@
     "Special": {
       "category": "reaction",
       "name": "Tether Ally",
-      "description": "Once per round, when an ally lands an attack or ability, Arcanist also attacks that target.",
+      "description": "Once per round, when an ally hits with an attack or ability, Arcanist makes a basic attack on the same target.",
       "trigger": "on_ally_hit",
       "frequency": "once_per_round",
       "effects": [

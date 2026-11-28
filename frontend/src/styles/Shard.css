@@ -1,0 +1,8 @@
+/* The shard icon (components/ui/Shard.tsx): sized by the surrounding font size, as the coin is. */
+.shard-icon {
+  display: inline-block;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+}

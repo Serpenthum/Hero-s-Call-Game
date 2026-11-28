@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,11 +19,32 @@ const card = (name: string, kind: PackCardKind): PackCard => ({ name, kind, hero
 const fourCards: PackResult = {
   cards: [card('Ninja', 'new'), card('Monk', 'repeat'), card('Pirate', 'new'), card('Samurai', 'holo')],
   coinsBack: 2,
+  shardsGained: 0,
   newVP: 30,
 };
 const noop = () => undefined;
 const cards = (root: ParentNode) => Array.from(root.querySelectorAll('[data-kind]')) as HTMLElement[];
 const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+
+// The glow round a face-down holographic card is drawn by the stylesheet, which vitest hands over empty: read its
+// rules as text and ask the page which card backs they reach.
+const packCss = readFileSync(resolve(__dirname, '../../styles/PackOpening.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const backRules = Array.from(packCss.matchAll(/([^{}]+)\{([^{}]*)\}/g), m => ({ selector: m[1].trim(), body: m[2] }))
+  .filter(rule => rule.selector.endsWith('.pack-opening__back'));
+const GLOWS = {
+  any: /--holo-aura|pack-(holo|gold)-(back|rush)/,
+  steady: /box-shadow:[^;]*--holo-aura/,
+  cycle: /pack-(holo|gold)-back/,
+  rush: /pack-(holo|gold)-rush/,
+};
+/** The names of the cards whose backs glow: steadily, in the foil colours in turn, or racing through them. */
+const glowing = (root: ParentNode, glow: keyof typeof GLOWS = 'any') => {
+  const backs = Array.from(root.querySelectorAll('.pack-opening__back')) as HTMLElement[];
+  const names = backRules.filter(rule => GLOWS[glow].test(rule.body))
+    .flatMap(rule => backs.filter(back => back.matches(rule.selector)))
+    .map(back => (back.closest('[data-kind]') as HTMLElement).dataset.name);
+  return [...new Set(names)];
+};
 
 // Animations on (the default): cards turn on timers, and a holographic card trembles before it turns.
 describe('PackOpening with animations on', () => {
@@ -67,6 +90,7 @@ describe('PackOpening with animations on', () => {
     const result: PackResult = {
       cards: [card('Ninja', 'new'), { ...card('Monk', 'repeat'), holo: true }, card('Pirate', 'new')],
       coinsBack: 2,
+      shardsGained: 0,
       newVP: 30,
     };
     const root = render(
@@ -85,6 +109,24 @@ describe('PackOpening with animations on', () => {
     expect(monk.querySelector('.card-holo')).not.toBeNull();
     expect(monk.querySelector('.pack-opening__label')?.textContent).toBe('Already owned · +2');
     expect(cards(root)[0].querySelector('.card-holo')).toBeNull();
+  });
+
+  it('in an old server\'s pack only the face-down holographic card glows, and the glow races while it trembles', () => {
+    const root = openPack([]);
+    expect(glowing(root, 'steady')).toEqual(['Samurai']);
+    expect(glowing(root, 'cycle')).toEqual(['Samurai']);
+    expect(glowing(root, 'rush')).toEqual([]);
+
+    click(cards(root)[0]); // a plain card turning changes nothing
+    expect(glowing(root)).toEqual(['Samurai']);
+
+    click(cards(root)[3]);
+    expect(glowing(root, 'rush')).toEqual(['Samurai']);
+    advance(900);
+    expect(cards(root)[3].dataset.turned).toBe('true');
+    expect(glowing(root)).toEqual([]);
+    act(() => { vi.runAllTimers(); });
+    expect(glowing(root)).toEqual([]);
   });
 
   it('tapping a plain card during turn all over does not turn it twice', () => {
@@ -131,5 +173,205 @@ describe('PackOpening with animations on', () => {
     click(cards(root)[0]);
     act(() => { vi.runAllTimers(); });
     expect(sound.playSound).not.toHaveBeenCalledWith('pack.holo');
+  });
+});
+
+// Today's server: one card, its result beside it. Times are the approved mockup's (section b).
+describe('PackOpening, one card', () => {
+  beforeEach(() => {
+    stubBrowserApis();
+    vi.useFakeTimers();
+    sound.playSound.mockClear();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  const one = (kind: PackCardKind, extra: Partial<PackResult> = {}, holo?: boolean): PackResult => ({
+    cards: [{ ...card('Ninja', kind), ...(holo === undefined ? null : { holo }) }],
+    coinsBack: 0,
+    newVP: 30,
+    shardsGained: 0,
+    ...extra,
+  });
+  const mount = (result: PackResult) => render(
+    <CardReaderProvider>
+      <PackOpening result={result} price={20} canBuyAnother buying={false} onBuyAnother={noop} onDone={noop} />
+    </CardReaderProvider>
+  );
+  // The pack is open and the one card lies face down
+  const openOne = (result: PackResult) => {
+    const root = mount(result);
+    click(root.querySelector('.pack-opening__pack'));
+    advance(3000);
+    expect(cards(root).map(c => c.dataset.turned)).toEqual(['false']);
+    return root;
+  };
+  const opening = (root: ParentNode) => root.querySelector('.pack-opening') as HTMLElement;
+  const bursts = (root: ParentNode) => Array.from(root.querySelectorAll('.pack-opening__burst')).map(b => (b as HTMLElement).dataset.tone);
+  const holoSounds = () => sound.playSound.mock.calls.filter(c => c[0] === 'pack.holo').length;
+
+  it('the single card reveals with the approved timing', () => {
+    // A plain card turns on the tap; gold sparks 580ms later, once its face is up
+    const plain = openOne(one('new'));
+    expect(plain.querySelector('.pack-opening__turn-hint')?.textContent).toBe('Tap the card to turn it over');
+    click(cards(plain)[0]);
+    expect(cards(plain)[0].dataset.turned).toBe('true');
+    expect(opening(plain).dataset.spot).toBeUndefined();
+    advance(579);
+    expect(bursts(plain)).toEqual([]);
+    advance(1);
+    expect(bursts(plain)).toEqual(['gold']);
+    expect(holoSounds()).toBe(0);
+    cleanup();
+
+    // A holographic card has the screen: it trembles where it lies for 900ms, turns, bursts 580ms later, and the
+    // screen is back at 3000ms. The result beside it names it; there is no banner.
+    const holo = openOne(one('holo', {}, true));
+    click(cards(holo)[0]);
+    expect(opening(holo).dataset.spot).toBe('on');
+    expect(cards(holo)[0].style.getPropertyValue('--spot-x')).toBe('');
+    advance(899);
+    expect(cards(holo)[0].dataset.turned).toBe('false');
+    expect(holoSounds()).toBe(0);
+    advance(1);
+    expect(cards(holo)[0].dataset.turned).toBe('true');
+    expect(holoSounds()).toBe(1);
+    expect(holo.querySelector('.pack-opening__kind')?.textContent).toBe('Holographic!');
+    expect(holo.querySelector('.pack-opening__banner')).toBeNull();
+    advance(579);
+    expect(bursts(holo)).toEqual([]);
+    expect(opening(holo).dataset.jolt).toBe('a'); // the pack's top coming off was the first jolt
+    advance(1);
+    expect(bursts(holo)).toEqual(['rainbow']);
+    expect(opening(holo).dataset.jolt).toBe('b');
+    advance(1519);
+    expect(opening(holo).dataset.spot).toBe('on');
+    advance(1);
+    expect(opening(holo).dataset.spot).toBeUndefined();
+    expect(holo.querySelector('.pack-opening__banner')).toBeNull();
+  });
+
+  it('a face-down holographic card glows until it turns; a holographic repeat and a plain card never do', () => {
+    // The four keyframes the glow rules name are in the stylesheet, and the gold versions wait on the holo setting
+    for (const name of ['pack-holo-back', 'pack-gold-back', 'pack-holo-rush', 'pack-gold-rush']) {
+      expect(packCss, name).toMatch(new RegExp(`@keyframes ${name}\\s*\\{[^}]*box-shadow`));
+      const users = backRules.filter(rule => rule.body.includes(name));
+      expect(users, name).toHaveLength(1);
+      expect(users[0].selector.includes('[data-holo-light="gold"]'), name).toBe(name.includes('gold'));
+    }
+
+    for (const kind of ['holo', 'holo_upgrade'] as const) {
+      const root = openOne(one(kind, {}, true));
+      // Face down: the steady glow and the colours in turn, from the moment it lies there
+      expect(glowing(root, 'steady'), kind).toEqual(['Ninja']);
+      expect(glowing(root, 'cycle'), kind).toEqual(['Ninja']);
+      expect(glowing(root, 'rush'), kind).toEqual([]);
+      // The tap: it trembles for 900ms and the glow races
+      click(cards(root)[0]);
+      expect(glowing(root, 'rush'), kind).toEqual(['Ninja']);
+      advance(899);
+      expect(glowing(root, 'rush'), kind).toEqual(['Ninja']);
+      // Face up: no glow round it, though it still has the screen
+      advance(1);
+      expect(cards(root)[0].dataset.turned).toBe('true');
+      expect(opening(root).dataset.spot).toBe('on');
+      expect(glowing(root), kind).toEqual([]);
+      act(() => { vi.runAllTimers(); });
+      expect(glowing(root), kind).toEqual([]);
+      cleanup();
+    }
+
+    // A holographic repeat is a plain turn with no fanfare, and a plain card is plain: no glow before, during or after
+    for (const result of [one('repeat', { shardsGained: 10, shards: 80 }, true), one('new'), one('repeat', { shardsGained: 10 })]) {
+      const root = openOne(result);
+      expect(glowing(root)).toEqual([]);
+      click(cards(root)[0]);
+      expect(glowing(root)).toEqual([]);
+      act(() => { vi.runAllTimers(); });
+      expect(glowing(root)).toEqual([]);
+      cleanup();
+    }
+  });
+
+  it('a repeat shows its shard gain and new balance, and its shard sparks fly as the gain lands', () => {
+    const root = openOne(one('repeat', { shardsGained: 10, shards: 70 }));
+    click(cards(root)[0]);
+    const gain = root.querySelector('.pack-opening__shards');
+    expect(gain?.textContent).toBe('+10 shards');
+    expect(gain?.querySelector('svg.shard-icon')).not.toBeNull();
+    expect(root.querySelector('.pack-opening__sub')?.textContent).toBe('You now have 70 shards.');
+    expect(root.querySelector('.pack-opening__sub b')?.textContent).toBe('70');
+    // Shard sparks fly from the crystal as "+10 shards" lands: 700ms after the face is up (280ms)
+    advance(979);
+    expect(bursts(root)).toEqual(['gold']);
+    advance(1);
+    expect(bursts(root)).toEqual(['gold', 'shard']);
+    cleanup();
+
+    // A holographic repeat is a plain turn: no takeover, no holographic sound, the same shards
+    const holo = openOne(one('repeat', { shardsGained: 10, shards: 80 }, true));
+    click(cards(holo)[0]);
+    expect(cards(holo)[0].dataset.turned).toBe('true');
+    expect(opening(holo).dataset.spot).toBeUndefined();
+    advance(980);
+    expect(bursts(holo)).toEqual(['gold', 'shard']);
+    expect(holoSounds()).toBe(0);
+    cleanup();
+
+    // A new hero pays no shards: no crystal, no shard sparks
+    const fresh = openOne(one('new', { shards: 40 }));
+    click(cards(fresh)[0]);
+    advance(980);
+    expect(fresh.querySelector('.shard-icon')).toBeNull();
+    expect(bursts(fresh)).toEqual(['gold']);
+  });
+
+  it('animation off shows the end state at once', () => {
+    const atOnce = (result: PackResult, kind: string) => {
+      const root = mount(result);
+      click(root.querySelector('.pack-opening__pack'));
+      expect(opening(root).dataset.stage).toBe('cards');
+      expect(opening(root).className).toContain('pack-opening--still');
+      expect(cards(root).map(c => c.dataset.turned)).toEqual(['true']);
+      expect(root.querySelector('.pack-opening__kind')?.textContent).toBe(kind);
+      expect(root.querySelector('.pack-opening__turn-hint')).toBeNull();
+      expect(opening(root).dataset.spot).toBeUndefined();
+      expect(opening(root).dataset.jolt).toBeUndefined();
+      expect(root.querySelector('.pack-opening__banner')).toBeNull();
+      expect(glowing(root)).toEqual([]); // face up at once: nothing glows
+      // ...and nothing is waiting to move
+      advance(5000);
+      expect(bursts(root)).toEqual([]);
+      expect(opening(root).dataset.spot).toBeUndefined();
+      expect(opening(root).dataset.jolt).toBeUndefined();
+      return root;
+    };
+
+    localStorage.setItem('heroscall.animSpeed', 'off');
+    const repeat = atOnce(one('repeat', { shardsGained: 10, shards: 70 }), 'Already owned');
+    expect(repeat.querySelector('.pack-opening__shards')?.textContent).toBe('+10 shards');
+    expect(repeat.querySelector('.pack-opening__sub')?.textContent).toBe('You now have 70 shards.');
+    cleanup();
+    atOnce(one('holo', {}, true), 'Holographic!');
+    expect(holoSounds()).toBe(1);
+    cleanup();
+    atOnce(one('holo_upgrade', {}, true), 'Upgraded to holographic!');
+    cleanup();
+    // Every move in the pack opening, the glow's among them, is stopped under pack-opening--still
+    expect(packCss).toMatch(/\.pack-opening--still \*,[^{]*\{\s*animation:\s*none !important/);
+
+    // The system's reduced-motion setting does the same
+    localStorage.clear();
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    atOnce(one('new'), 'New hero!');
   });
 });

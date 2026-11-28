@@ -203,7 +203,7 @@
   background: radial-gradient(
     ellipse,
     color-mix(in srgb, var(--pack-light) 85%, transparent),
-    color-mix(in srgb, var(--pack-glow) 70%, transparent) 30%,
+    color-mix(in srgb, var(--ember-glow) 70%, transparent) 30%,
     transparent 62%
   );
   opacity: 0;

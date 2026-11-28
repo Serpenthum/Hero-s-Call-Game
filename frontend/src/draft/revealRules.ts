@@ -46,6 +46,18 @@ export function faceOffLineY(upper: Box[], lower: Box[], screenHeight: number): 
   return (upperBottom + lowerTop) / 2;
 }
 
+/**
+ * The room the face-off has for VS: `gap` is the height between the two rows as they stand on the board, and
+ * `span` is how much one step of shrinking opens it (the upper row shrinks towards the top of the screen, the
+ * lower row towards the bottom). DraftReveal.css shrinks the rows just enough for VS to stand clear of the cards.
+ */
+export function faceOffRoom(upper: Box[], lower: Box[], screenHeight: number): { gap: number; span: number } {
+  if (upper.length === 0 || lower.length === 0) return { gap: screenHeight, span: screenHeight };
+  const upperBottom = Math.max(...upper.map(c => c.top + c.height));
+  const lowerTop = Math.min(...lower.map(c => c.top));
+  return { gap: lowerTop - upperBottom, span: Math.max(1, upperBottom + screenHeight - lowerTop) };
+}
+
 /** Two measurements of the same cards agree (to a tenth of a pixel): the board has stopped moving. */
 export function sameBoxes(a: Box[] | null, b: Box[] | null): boolean {
   if (!a || !b || a.length !== b.length) return false;

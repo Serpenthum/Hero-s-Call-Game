@@ -135,3 +135,25 @@ export function fitCards(
 export function shouldPlayReveal(sawSetupInThisTab: boolean, prevPhase: string | null, phase: string): boolean {
   return sawSetupInThisTab && prevPhase === 'setup' && phase === 'initiative';
 }
+
+// Order step: the order tapped so far, kept for this tab so a refresh before Ready does not lose it.
+// One entry, tagged with its game, so another game never reads it. Cleared when the order is sent.
+const ORDER_KEY = 'hc-draft-order';
+
+export function loadTappedOrder(gameId: string): string[] | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(ORDER_KEY) || 'null');
+    return saved && saved.gameId === gameId && Array.isArray(saved.order) ? saved.order : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveTappedOrder(gameId: string, order: string[] | null): void {
+  try {
+    if (order) sessionStorage.setItem(ORDER_KEY, JSON.stringify({ gameId, order }));
+    else sessionStorage.removeItem(ORDER_KEY);
+  } catch {
+    // Storage off or full: the order just isn't kept across a refresh
+  }
+}

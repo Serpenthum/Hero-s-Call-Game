@@ -1,4 +1,5 @@
 const { hashPassword, verifyPassword, randomPasswordHash } = require('./passwords');
+const { applyXP, xpForNextLevel } = require('./economy');
 
 class Database {
   constructor(db) {
@@ -25,7 +26,8 @@ class Database {
         favorite_heroes TEXT DEFAULT '[]',
         player_id TEXT,
         tutorial_completed INTEGER DEFAULT 1,
-        holo_heroes TEXT DEFAULT '[]'
+        holo_heroes TEXT DEFAULT '[]',
+        shards INTEGER DEFAULT 0
       )
     `;
 
@@ -85,6 +87,13 @@ class Database {
     this.db.run("ALTER TABLE users ADD COLUMN holo_heroes TEXT DEFAULT '[]'", (err) => {
       if (err && !String(err.message).includes('duplicate column')) {
         console.error('Error adding holo_heroes column:', err.message);
+      }
+    });
+
+    // Databases made before shards existed lack the column; add it once (a no-op error after that).
+    this.db.run('ALTER TABLE users ADD COLUMN shards INTEGER DEFAULT 0', (err) => {
+      if (err && !String(err.message).includes('duplicate column')) {
+        console.error('Error adding shards column:', err.message);
       }
     });
 
@@ -215,7 +224,8 @@ class Database {
                 survival_losses: 0,
                 survival_used_heroes: [],
                 available_heroes: starterHeroes,
-                holo_heroes: []
+                holo_heroes: [],
+                shards: 0
               });
             });
           } catch (heroErr) {
@@ -230,7 +240,7 @@ class Database {
     return new Promise((resolve, reject) => {
       const query = `
         SELECT id, username, password_hash, victory_points, survival_wins, 
-               survival_losses, survival_used_heroes, available_heroes, holo_heroes, tutorial_completed
+               survival_losses, survival_used_heroes, available_heroes, holo_heroes, shards, tutorial_completed
         FROM users 
         WHERE username = ?
       `;
@@ -283,6 +293,7 @@ class Database {
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
               holo_heroes: holoHeroes,
+              shards: row.shards || 0,
               tutorial_completed: row.tutorial_completed !== 0,
               xp: playerStats.xp,
               level: playerStats.level
@@ -299,6 +310,7 @@ class Database {
               survival_used_heroes: survivalUsedHeroes,
               available_heroes: availableHeroes,
               holo_heroes: holoHeroes,
+              shards: row.shards || 0,
               tutorial_completed: row.tutorial_completed !== 0,
               xp: 0,
               level: 1
@@ -314,7 +326,7 @@ class Database {
       const query = `
         SELECT 
           u.id, u.username, u.victory_points, u.survival_wins, 
-          u.survival_losses, u.survival_used_heroes, u.available_heroes, u.holo_heroes,
+          u.survival_losses, u.survival_used_heroes, u.available_heroes, u.holo_heroes, u.shards,
           u.favorite_heroes, u.best_gauntlet_trial, u.player_id,
           ps.level, ps.xp
         FROM users u
@@ -357,6 +369,7 @@ class Database {
           survival_used_heroes: survivalUsedHeroes,
           available_heroes: availableHeroes,
           holo_heroes: holoHeroes,
+          shards: row.shards || 0,
           favorite_heroes: favoriteHeroes,
           xp: row.xp || 0,
           level: row.level || 1,
@@ -372,6 +385,17 @@ class Database {
       this.db.get('SELECT tutorial_completed FROM users WHERE id = ?', [userId], (err, row) => {
         if (err) return reject(err);
         resolve(!row || row.tutorial_completed !== 0);
+      });
+    });
+  }
+
+  // Marks the tutorial done only if it was not already, in one statement: resolves true for the one
+  // caller that made the change, so two requests at once can never both claim the reward.
+  async claimTutorialCompletion(userId) {
+    return new Promise((resolve, reject) => {
+      this.db.run('UPDATE users SET tutorial_completed = 1 WHERE id = ? AND tutorial_completed = 0', [userId], function(err) {
+        if (err) return reject(err);
+        resolve(this.changes === 1);
       });
     });
   }
@@ -477,30 +501,6 @@ class Database {
         }
         resolve(this.changes > 0);
       });
-    });
-  }
-
-  async addHeroToUser(userId, heroName) {
-    return new Promise((resolve, reject) => {
-      this.getUserById(userId)
-        .then(user => {
-          if (!user.available_heroes.includes(heroName)) {
-            const updatedHeroes = [...user.available_heroes, heroName];
-            const heroesJson = JSON.stringify(updatedHeroes);
-            
-            const query = 'UPDATE users SET available_heroes = ? WHERE id = ?';
-            this.db.run(query, [heroesJson, userId], function(err) {
-              if (err) {
-                reject(err);
-                return;
-              }
-              resolve(updatedHeroes);
-            });
-          } else {
-            resolve(user.available_heroes);
-          }
-        })
-        .catch(reject);
     });
   }
 
@@ -821,26 +821,9 @@ class Database {
       // First get current stats
       this.getPlayerStats(userId)
         .then(stats => {
-          let currentXP = stats.xp + xpGain;
-          let currentLevel = stats.level;
-          let levelsGained = 0;
-          
-          // Keep leveling up while player has enough XP
-          while (currentLevel < 20) {
-            const xpRequired = this.getXPRequiredForLevel(currentLevel);
-            if (currentXP >= xpRequired) {
-              currentXP -= xpRequired;
-              currentLevel++;
-              levelsGained++;
-            } else {
-              break;
-            }
-          }
-          
-          // Cap XP at max for level 20
-          if (currentLevel >= 20) {
-            currentXP = Math.min(currentXP, this.getXPRequiredForLevel(19));
-          }
+          // Carries the leftover XP across as many levels as it covers; levels have no cap.
+          const { level: currentLevel, xp: currentXP, levelsGained, coinsGained } =
+            applyXP({ level: stats.level, xp: stats.xp }, xpGain);
 
           const query = `
             UPDATE player_stats 
@@ -854,9 +837,9 @@ class Database {
               return;
             }
 
-            // Award 12 VP per level gained
+            // Every level gained pays LEVEL_UP_COINS
             if (levelsGained > 0) {
-              const vpGained = levelsGained * 12;
+              const vpGained = coinsGained;
               this.updateUserVictoryPoints(userId, vpGained)
                 .then(() => {
                   resolve({
@@ -887,41 +870,9 @@ class Database {
     });
   }
 
-  calculateLevel(xp) {
-    // XP progression: 25, 50, 75, 100, 125, 150... (+25 per level)
-    // Level 1: 0-24 XP (need 25 to level up)
-    // Level 2: 0-49 XP (need 50 to level up)
-    // Level 3: 0-74 XP (need 75 to level up)
-    // etc.
-    // Max level is 20
-    
-    if (xp < 25) return 1;
-    if (xp < 50) return 2;
-    if (xp < 75) return 3;
-    if (xp < 100) return 4;
-    if (xp < 125) return 5;
-    if (xp < 150) return 6;
-    if (xp < 175) return 7;
-    if (xp < 200) return 8;
-    if (xp < 225) return 9;
-    if (xp < 250) return 10;
-    if (xp < 275) return 11;
-    if (xp < 300) return 12;
-    if (xp < 325) return 13;
-    if (xp < 350) return 14;
-    if (xp < 375) return 15;
-    if (xp < 400) return 16;
-    if (xp < 425) return 17;
-    if (xp < 450) return 18;
-    if (xp < 475) return 19;
-    return 20; // Max level (475+ XP)
-  }
-
   getXPRequiredForLevel(level) {
-    // Returns XP required to reach next level
-    // Level 1->2: 25, 2->3: 50, 3->4: 75, etc.
-    if (level >= 20) return 0; // Max level reached
-    return level * 25;
+    // XP needed to go from this level to the next (no level cap)
+    return xpForNextLevel(level);
   }
 
   async checkAndLevelUpPlayer(userId) {
@@ -929,34 +880,16 @@ class Database {
     return new Promise((resolve, reject) => {
       this.getPlayerStats(userId)
         .then(stats => {
-          let currentXP = stats.xp;
-          let currentLevel = stats.level;
-          let leveledUp = false;
-          let levelsGained = 0;
-          
-          // Keep leveling up until XP is below required amount
-          while (currentLevel < 20) {
-            const xpRequired = this.getXPRequiredForLevel(currentLevel);
-            if (currentXP >= xpRequired) {
-              currentXP -= xpRequired;
-              currentLevel++;
-              levelsGained++;
-              leveledUp = true;
-              console.log(`🎉 Player ${userId} leveled up to ${currentLevel}! Remaining XP: ${currentXP}`);
-            } else {
-              break;
-            }
-          }
-          
-          // Cap XP at max for level 20
-          if (currentLevel >= 20) {
-            currentXP = Math.min(currentXP, this.getXPRequiredForLevel(19));
-          }
-          
+          // Carries the leftover XP across as many levels as it covers; levels have no cap.
+          const { level: currentLevel, xp: currentXP, levelsGained, coinsGained } =
+            applyXP({ level: stats.level, xp: stats.xp }, 0);
+          const leveledUp = levelsGained > 0;
+
           if (leveledUp) {
-            // Award 12 VP per level gained
-            const vpGained = levelsGained * 12;
-            
+            console.log(`🎉 Player ${userId} leveled up to ${currentLevel}! Remaining XP: ${currentXP}`);
+            // Every level gained pays LEVEL_UP_COINS
+            const vpGained = coinsGained;
+
             // Update database with new level, remaining XP, and VP
             const updateQuery = `
               UPDATE player_stats 
@@ -993,7 +926,8 @@ class Database {
     });
   }
 
-  async updatePlayerStats(userId, isWin, gameMode) {
+  // Counts a win or a loss. Battle XP is paid separately (economy.battleXP).
+  async updatePlayerStats(userId, isWin) {
     return new Promise((resolve, reject) => {
       const winInc = isWin ? 1 : 0;
       const lossInc = isWin ? 0 : 1;
@@ -1009,21 +943,7 @@ class Database {
           reject(err);
           return;
         }
-
-        // Calculate XP gain based on game mode and result
-        let xpGain = 0;
-        if (gameMode === 'draft') {
-          xpGain = isWin ? 10 : 3;
-        } else if (gameMode === 'random') {
-          xpGain = isWin ? 5 : 1;
-        }
-
-        // Update XP if there's a gain
-        if (xpGain > 0) {
-          resolve({ winsAdded: winInc, lossesAdded: lossInc, xpGain });
-        } else {
-          resolve({ winsAdded: winInc, lossesAdded: lossInc, xpGain: 0 });
-        }
+        resolve({ winsAdded: winInc, lossesAdded: lossInc });
       });
     });
   }
@@ -1064,33 +984,11 @@ class Database {
     });
   }
 
-  // Spends Victory Points and adds heroes in a single guarded statement: it only applies if the player can
-  // still afford it, so two simultaneous purchases can never spend the same points twice.
-  // Resolves { success: true, newVP, available_heroes } or { success: false, error }.
-  async purchaseHeroes(userId, cost, heroNames) {
-    const user = await this.getUserById(userId);
-    if (!user) return { success: false, error: 'User not found' };
-    if (user.victory_points < cost) return { success: false, error: 'Not enough to buy this.' };
-    
-    const updatedHeroes = [...new Set([...user.available_heroes, ...heroNames])];
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'UPDATE users SET victory_points = victory_points - ?, available_heroes = ? WHERE id = ? AND victory_points >= ?',
-        [cost, JSON.stringify(updatedHeroes), userId, cost],
-        function(err) {
-          if (err) return reject(err);
-          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough to buy this.' });
-          resolve({ success: true, newVP: user.victory_points - cost, available_heroes: updatedHeroes });
-        }
-      );
-    });
-  }
-
-  // Saves an opened pack in one guarded statement: spends `cost`, pays back `refund`, and adds the new
+  // Saves an opened pack in one guarded statement: spends `cost` coins, adds `shards`, and adds the new
   // heroes and holographics. Every holographic hero is also an owned hero. Applies only if the player
-  // can still afford `cost`, so two simultaneous packs can never spend the same points twice.
-  // Resolves { success: true, newVP, available_heroes, holo_heroes } or { success: false, error }.
-  async savePack(userId, { cost = 0, refund = 0, addHeroes = [], addHolo = [] } = {}) {
+  // can still afford `cost`, so two simultaneous packs can never spend the same coins twice.
+  // Resolves { success: true, newVP, shards, available_heroes, holo_heroes } or { success: false, error }.
+  async savePack(userId, { cost = 0, shards = 0, addHeroes = [], addHolo = [] } = {}) {
     const user = await this.getUserById(userId);
     if (!user) return { success: false, error: 'User not found' };
     if (user.victory_points < cost) return { success: false, error: 'Not enough to buy this.' };
@@ -1099,12 +997,35 @@ class Database {
     const updatedHolo = [...new Set([...user.holo_heroes, ...addHolo])];
     return new Promise((resolve, reject) => {
       this.db.run(
-        'UPDATE users SET victory_points = victory_points - ? + ?, available_heroes = ?, holo_heroes = ? WHERE id = ? AND victory_points >= ?',
-        [cost, refund, JSON.stringify(updatedHeroes), JSON.stringify(updatedHolo), userId, cost],
+        'UPDATE users SET victory_points = victory_points - ?, shards = shards + ?, available_heroes = ?, holo_heroes = ? WHERE id = ? AND victory_points >= ?',
+        [cost, shards, JSON.stringify(updatedHeroes), JSON.stringify(updatedHolo), userId, cost],
         function(err) {
           if (err) return reject(err);
           if (this.changes !== 1) return resolve({ success: false, error: 'Not enough to buy this.' });
-          resolve({ success: true, newVP: user.victory_points - cost + refund, available_heroes: updatedHeroes, holo_heroes: updatedHolo });
+          resolve({ success: true, newVP: user.victory_points - cost, shards: user.shards + shards, available_heroes: updatedHeroes, holo_heroes: updatedHolo });
+        }
+      );
+    });
+  }
+
+  // Crafts a hero in one guarded statement: spends `price` shards and adds the hero to the owned heroes
+  // (never as a holographic). Applies only if the player still has `price` shards, so two simultaneous
+  // crafts can never spend the same shards twice.
+  // Resolves { success: true, shards, available_heroes } or { success: false, error }.
+  async craftHero(userId, heroName, price) {
+    const user = await this.getUserById(userId);
+    if (!user) return { success: false, error: 'User not found' };
+    if (user.shards < price) return { success: false, error: 'Not enough shards.' };
+
+    const updatedHeroes = [...new Set([...user.available_heroes, heroName])];
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'UPDATE users SET shards = shards - ?, available_heroes = ? WHERE id = ? AND shards >= ?',
+        [price, JSON.stringify(updatedHeroes), userId, price],
+        function(err) {
+          if (err) return reject(err);
+          if (this.changes !== 1) return resolve({ success: false, error: 'Not enough shards.' });
+          resolve({ success: true, shards: user.shards - price, available_heroes: updatedHeroes });
         }
       );
     });

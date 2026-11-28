@@ -249,7 +249,7 @@ test('a revived focus is still focused', () => {
 test('untargetable enemies cannot be focused', () => {
   const game = battle('Barbarian');
   hero(game, 1, 'Warlock').statusEffects.untargetable = true;
-  assert.deepEqual(pick(gm.selectTarget('p0', 'Warlock')), { success: false, error: "Can't be targeted" });
+  assert.deepEqual(pick(gm.selectTarget('p0', 'Warlock')), { success: false, error: "Can't be Focused" });
   assert.equal(game.players[0].selectedTarget, null);
 });
 
@@ -258,6 +258,7 @@ test('the hero that triggered a Vanish can still focus it', () => {
   const warlock = hero(game, 1, 'Warlock');
   warlock.statusEffects.untargetable = true;
   warlock.statusEffects.untargetableAttacker = 'Barbarian';
+  warlock.statusEffects.untargetableAttackerId = hero(game, 0, 'Barbarian').id;
   const result = gm.selectTarget('p0', 'Warlock');
   assert.equal(result.success, true, result.error);
   assert.equal(game.players[0].selectedTarget, 'Warlock');

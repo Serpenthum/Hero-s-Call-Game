@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import HeroCard from '../HeroCard';
 import Coin from '../Coin';
+import Shard from '../ui/Shard';
 import { useCardReader } from '../../cards/CardReader';
 import { cardMotionOff } from '../../cards/cardMotion';
 import { getHoloEffects } from '../../holoSetting';
@@ -37,13 +38,15 @@ const HOLO_TREMBLE_MS = 900; // a holographic card trembles in the middle before
 const HOLO_SPOT_MS = 3000; // ...and goes back to its place this long after it took the screen
 const SPARKS_LIFE_MS = 1300;
 const BANNER_MS = 2200; // the banner has faded out
+// One card, its result beside it (the approved mockup's times).
+const FACE_UP_MS = 280; // the back has swung away and the face starts to swing in
+const ONE_SPARKS_MS = FACE_UP_MS + 300; // sparks off the card, and the jolt and light for a holographic one
+const SHARD_SPARKS_MS = FACE_UP_MS + 700; // "+10 shards" has landed: sparks off the crystal
 
-// Where a holographic card sits while it has the screen to itself.
+// The holographic card that has the screen to itself, and where it sits meanwhile (one card alone stays where it lies).
 interface Spot {
   index: number;
-  dx: number;
-  dy: number;
-  scale: number;
+  move?: { dx: number; dy: number; scale: number };
 }
 
 /** "Turn all over" order: the plain cards left to right, then any holographic card last. */
@@ -63,6 +66,37 @@ const CardLabel: React.FC<{ card: PackCard }> = ({ card }) => {
     case 'holo_upgrade':
       return <>Upgraded to holographic!</>;
   }
+};
+
+/** What a one-card pack gave, beside the card once it is face up. */
+const OneCardResult: React.FC<{ card: PackCard; shardsGained: number; shards?: number }> = ({ card, shardsGained, shards }) => {
+  const holo = isHoloCard(card);
+  let kind: string;
+  let tone: string;
+  let line: React.ReactNode = null;
+  switch (card.kind) {
+    case 'new':
+      [kind, tone, line] = ['New hero!', 'new', `${card.name} joins your binder.`];
+      break;
+    case 'repeat':
+      [kind, tone] = [holo ? 'Already owned as a holographic' : 'Already owned', 'repeat'];
+      break;
+    case 'holo':
+      [kind, tone, line] = ['Holographic!', 'holo', `A new hero. ${card.name} joins your binder as a holographic.`];
+      break;
+    case 'holo_upgrade':
+      [kind, tone, line] = ['Upgraded to holographic!', 'holo', `You already had ${card.name}. Now it is holographic.`];
+      break;
+  }
+  const paid = card.kind === 'repeat' && shardsGained > 0;
+  if (paid) line = typeof shards === 'number' ? <>You now have <b>{shards}</b> shards.</> : null;
+  return (
+    <>
+      <p className="pack-opening__kind" data-tone={tone}>{kind}</p>
+      {paid && <p className="pack-opening__shards"><Shard />+{shardsGained} shards</p>}
+      {line && <p className="pack-opening__sub">{line}</p>}
+    </>
+  );
 };
 
 const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother, buying, onBuyAnother, onDone, onTurn }) => {
@@ -119,6 +153,8 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
   }
 
   const { cards } = result;
+  // Today's server sends one card; an older one sends three (or four with a bonus) and gets today's row.
+  const single = cards.length === 1;
 
   const turn = (index: number) => {
     setTurned(prev => {
@@ -157,6 +193,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
     if (still) {
       playSound('pack.tear'); // reduced motion still hears the pack open
       setStage('cards');
+      if (single) reveal(0); // one card: face up with its result at once, nothing to wait for
       return;
     }
     setStage('opening');
@@ -174,6 +211,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
   };
 
   // A holographic card takes over the screen: the rest dims, the card comes to the middle and trembles, then turns.
+  // One card alone trembles where it lies, and the result beside it does the banner's job.
   const holoTakeover = (index: number) => {
     if (spotBusy.current) {
       later(() => holoTakeover(index), 400);
@@ -186,6 +224,22 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
       return;
     }
     spotBusy.current = true;
+    if (single) {
+      setSpot({ index });
+      later(() => {
+        turn(index);
+        playSound('pack.holo');
+        later(() => {
+          jolt();
+          sparks(el, holoTone, 70, 0.9);
+        }, ONE_SPARKS_MS);
+      }, HOLO_TREMBLE_MS);
+      later(() => {
+        setSpot(null);
+        spotBusy.current = false;
+      }, HOLO_SPOT_MS);
+      return;
+    }
     // Measured from the card's place in the row, not where its launch has carried it so far.
     const row = el.offsetParent?.getBoundingClientRect();
     const box = el.getBoundingClientRect();
@@ -196,9 +250,11 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
     const screen = root.getBoundingClientRect();
     setSpot({
       index,
-      dx: screen.left + screen.width / 2 - centreX,
-      dy: screen.top + screen.height * 0.54 - centreY,
-      scale: Math.min(1.38, (screen.height * 0.72) / height, (screen.width * 0.86) / width),
+      move: {
+        dx: screen.left + screen.width / 2 - centreX,
+        dy: screen.top + screen.height * 0.54 - centreY,
+        scale: Math.min(1.38, (screen.height * 0.72) / height, (screen.width * 0.86) / width),
+      },
     });
     later(() => {
       turn(index);
@@ -224,13 +280,16 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
       turn(index);
       if (holo) {
         playSound('pack.holo');
-        showBanner(index);
+        if (!single) showBanner(index);
       }
       return;
     }
     if (!holo) {
       turn(index);
-      later(() => sparks(cardEls.current[index], 'gold', 14, 0.45), TURN_SPARKS_MS);
+      later(() => sparks(cardEls.current[index], 'gold', 14, 0.45), single ? ONE_SPARKS_MS : TURN_SPARKS_MS);
+      if (single && cards[index].kind === 'repeat' && result.shardsGained > 0) {
+        later(() => sparks(rootEl.current?.querySelector('.pack-opening__shards .shard-icon') ?? null, 'shard', 12, 1.6), SHARD_SPARKS_MS);
+      }
       return;
     }
     holoTakeover(index);
@@ -261,6 +320,26 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
 
   const allTurned = turned.every(Boolean);
   const middle = (cards.length - 1) / 2;
+  const actions = (
+    <div className="pack-opening__actions">
+      {!single && (
+        <button type="button" className="ui-btn ui-btn--quiet pack-opening__turn-all" onClick={turnAll} disabled={allTurned}>
+          Turn all over
+        </button>
+      )}
+      <button
+        type="button"
+        className="ui-btn pack-opening__again"
+        onClick={onBuyAnother}
+        disabled={!canBuyAnother || buying}
+      >
+        Buy another<Coin />{price}
+      </button>
+      <button type="button" className="ui-btn ui-btn--primary pack-opening__done" onClick={onDone} disabled={buying}>
+        Done
+      </button>
+    </div>
+  );
 
   return (
     <div
@@ -305,8 +384,8 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
         </div>
       )}
       {stage === 'cards' && (
-        <div key="reveal" className="pack-opening__reveal">
-          <h2 className="pack-opening__heading">{cards.length === 4 ? 'A bonus fourth card!' : 'Your heroes'}</h2>
+        <div key="reveal" className={`pack-opening__reveal${single ? ' pack-opening__reveal--single' : ''}`}>
+          {!single && <h2 className="pack-opening__heading">Your heroes</h2>}
           <div className="pack-opening__cards" ref={grid.ref} style={grid.style}>
             {cards.map((card, index) => {
               const inSpot = spot?.index === index;
@@ -314,7 +393,7 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
                 '--i': index,
                 '--o': index - middle,
                 '--lift': Math.abs(index - middle),
-                ...(inSpot ? { '--spot-x': `${spot.dx}px`, '--spot-y': `${spot.dy}px`, '--spot-scale': spot.scale } : null),
+                ...(inSpot && spot.move ? { '--spot-x': `${spot.move.dx}px`, '--spot-y': `${spot.move.dy}px`, '--spot-scale': spot.move.scale } : null),
               } as React.CSSProperties;
               return (
                 <div
@@ -345,27 +424,21 @@ const PackOpening: React.FC<PackOpeningProps> = ({ result, price, canBuyAnother,
                       </div>
                     )}
                   </div>
-                  {turned[index] && <div className="pack-opening__label"><CardLabel card={card} /></div>}
+                  {turned[index] && !single && <div className="pack-opening__label"><CardLabel card={card} /></div>}
                 </div>
               );
             })}
           </div>
-          <div className="pack-opening__actions">
-            <button type="button" className="ui-btn ui-btn--quiet pack-opening__turn-all" onClick={turnAll} disabled={allTurned}>
-              Turn all over
-            </button>
-            <button
-              type="button"
-              className="ui-btn pack-opening__again"
-              onClick={onBuyAnother}
-              disabled={!canBuyAnother || buying}
-            >
-              Buy another<Coin />{price}
-            </button>
-            <button type="button" className="ui-btn ui-btn--primary pack-opening__done" onClick={onDone} disabled={buying}>
-              Done
-            </button>
-          </div>
+          {single ? (
+            <div className="pack-opening__panel">
+              <div className="pack-opening__result">
+                {turned[0]
+                  ? <OneCardResult card={cards[0]} shardsGained={result.shardsGained} shards={result.shards} />
+                  : <p className="pack-opening__turn-hint">Tap the card to turn it over</p>}
+              </div>
+              {actions}
+            </div>
+          ) : actions}
         </div>
       )}
       {banner && <div key={banner.id} className="pack-opening__banner" aria-hidden="true">{banner.text}</div>}

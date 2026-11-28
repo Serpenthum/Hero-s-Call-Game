@@ -443,6 +443,158 @@
   margin-right: 0.1em;
 }
 
+/* ---------- One card: the card on the left, what it gave beside it ---------- */
+
+.pack-opening__reveal--single {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.pack-opening__reveal--single .pack-opening__cards {
+  flex: 0 1 26rem;
+  min-width: 0;
+  height: 100%;
+}
+
+/* The one card comes out of the pack, round once and down, and lies straight. */
+.pack-opening__reveal--single .pack-opening__card {
+  --drop: 0px;
+  animation-name: pack-launch-one;
+}
+
+.pack-opening__panel {
+  flex: 0 1 20rem;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.pack-opening__result {
+  --result-from: 0 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 7rem;
+}
+
+.pack-opening__result p {
+  margin: 0;
+  text-shadow: 0 1px 3px var(--card-black);
+}
+
+.pack-opening__turn-hint {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--bone);
+  animation: pack-hint-pulse 1.4s ease-in-out infinite;
+}
+
+/* The result lands as the face swings in (0.28s after the tap turns the card): what it is, the shards, then the line. */
+.pack-opening__kind {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  line-height: 1.1;
+  transform-origin: var(--result-from);
+  animation: pack-result-pop 0.45s cubic-bezier(0.2, 1.8, 0.4, 1) 0.5s backwards;
+}
+
+.pack-opening__kind[data-tone="new"] { color: var(--verdigris); }
+.pack-opening__kind[data-tone="repeat"] { color: var(--brass-hi); }
+
+.pack-opening__kind[data-tone="holo"] {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--text-2xl);
+  background: var(--holo-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 2px var(--card-black)) drop-shadow(0 0 12px color-mix(in srgb, var(--holo-aura) 50%, transparent));
+  animation: pack-result-stamp 0.3s ease-out 0.28s backwards;
+}
+
+.pack-opening__result .pack-opening__shards {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--shard-hot);
+  text-shadow: 0 2px 4px var(--card-black);
+  transform-origin: var(--result-from);
+  animation: pack-result-pop 0.45s cubic-bezier(0.2, 1.8, 0.4, 1) 0.76s backwards;
+}
+
+.pack-opening__shards .shard-icon {
+  width: 1.125em;
+  height: 1.125em;
+  filter: drop-shadow(0 2px 3px var(--card-black));
+}
+
+.pack-opening__sub {
+  font-size: var(--text-md);
+  line-height: 1.3;
+  color: var(--bone);
+  animation: pack-opening-fade 0.4s ease 0.78s backwards;
+}
+
+.pack-opening__shards + .pack-opening__sub {
+  animation-delay: 1.08s;
+}
+
+.pack-opening__sub b {
+  font-weight: 700;
+}
+
+.pack-opening__panel .pack-opening__actions {
+  justify-content: flex-start;
+  padding-top: var(--space-2);
+}
+
+/* An upright phone: the result goes under the card, and the card, the words and the buttons sit together on the
+   middle line. The card's box is only as tall as the card needs (the grid keeps 7.5% above and below for the
+   launch's bounce; the negative margin takes most of that back), so no gap opens between the card and its result. */
+@media (orientation: portrait) and (max-width: 600px) {
+  .pack-opening__reveal--single {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .pack-opening__reveal--single .pack-opening__cards {
+    flex: 0 1 auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 260 / 391;
+    margin: calc(var(--grid-card-height) * -0.065) 0;
+  }
+
+  .pack-opening__panel {
+    flex: none;
+    width: 100%;
+    align-items: center;
+    text-align: center;
+  }
+
+  .pack-opening__result {
+    --result-from: 50% 50%;
+    align-items: center;
+    min-height: 6.5rem;
+  }
+
+  .pack-opening__panel .pack-opening__actions {
+    justify-content: center;
+  }
+}
+
 /* ---------- A holographic card takes over ---------- */
 
 .pack-opening[data-spot] .pack-opening__card:not(.is-spot) {
@@ -479,6 +631,19 @@
 
 .pack-opening[data-holo-light="gold"] .pack-opening__card.is-spot:not(.is-turned) .pack-opening__back {
   animation: pack-gold-rush 0.9s linear forwards;
+}
+
+/* One card alone has the screen where it lies: only the table behind goes dark, and the light waits for its face. */
+.pack-opening__reveal--single .pack-opening__card.is-spot {
+  transform: none;
+}
+
+.pack-opening[data-count="1"][data-spot] .pack-opening__actions {
+  opacity: 1;
+}
+
+.pack-opening__reveal--single .pack-opening__rays {
+  animation-delay: 0.58s;
 }
 
 .pack-opening__rays {
@@ -553,6 +718,9 @@
 .pack-opening__burst[data-tone="rainbow"] i:nth-child(5n + 2) { --spark: var(--pack-yellow); }
 .pack-opening__burst[data-tone="rainbow"] i:nth-child(5n + 3) { --spark: var(--pack-mint); }
 .pack-opening__burst[data-tone="rainbow"] i:nth-child(5n + 4) { --spark: var(--pack-blue); }
+.pack-opening__burst[data-tone="shard"] i:nth-child(4n + 1) { --spark: var(--shard-hot); }
+.pack-opening__burst[data-tone="shard"] i:nth-child(4n + 2),
+.pack-opening__burst[data-tone="shard"] i:nth-child(4n + 3) { --spark: var(--shard); }
 
 /* ---------- Buttons ---------- */
 
@@ -690,6 +858,15 @@
   100% { opacity: 1; transform: translate(0, var(--drop)) scale(1) rotate(var(--turn)); }
 }
 
+/* One card: out of the pack below it, up and round once, down into its place. */
+@keyframes pack-launch-one {
+  0% { opacity: 0; transform: translate(0, 70%) scale(0.3) rotate(0deg); }
+  15% { opacity: 1; }
+  58% { transform: translate(0, -10%) scale(1.12) rotate(360deg); }
+  85% { transform: translate(0, 2%) scale(1.04) rotate(360deg); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1) rotate(360deg); }
+}
+
 @keyframes pack-back-away {
   from { transform: rotateY(0deg); }
   to { transform: rotateY(90deg); visibility: hidden; }
@@ -748,6 +925,16 @@
   91% { box-shadow: 0 0 30px 11px var(--pack-glow); }
   95% { box-shadow: 0 0 20px 6px var(--brass-hi); }
   100% { box-shadow: 0 0 36px 14px var(--pack-light); }
+}
+
+@keyframes pack-result-pop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+@keyframes pack-result-stamp {
+  from { transform: scale(3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 @keyframes pack-tremble {
@@ -821,4 +1008,9 @@
 
 .pack-opening--still .pack-opening__banner {
   animation: pack-banner-fade 2.2s ease both !important;
+}
+
+/* One card: it is simply face up with its result beside it. Nothing fades or moves. */
+.pack-opening--still[data-count="1"] * {
+  animation: none !important;
 }

@@ -96,9 +96,9 @@ describe('savePack', () => {
   before(async () => { env = await createTestDatabase(); database = env.database; });
   after(async () => { await env.cleanup(); });
 
-  test('savePack spends, refunds and adds heroes and holographics together', async () => {
-    const id = await createUser(database, 'pack1', { heroes: ['Fighter'], victoryPoints: 20 });
-    const result = await database.savePack(id, { cost: 12, refund: 2, addHeroes: ['Bard'], addHolo: ['Monk'] });
+  test('savePack spends and adds heroes and holographics together', async () => {
+    const id = await createUser(database, 'pack1', { heroes: ['Fighter'], victoryPoints: 30 });
+    const result = await database.savePack(id, { cost: 20, addHeroes: ['Bard'], addHolo: ['Monk'] });
     assert.equal(result.success, true);
     assert.equal(result.newVP, 10);
     for (const h of ['Fighter', 'Bard', 'Monk']) assert.ok(result.available_heroes.includes(h), h);
@@ -110,12 +110,12 @@ describe('savePack', () => {
   });
 
   test('savePack refuses when the player cannot afford it', async () => {
-    const id = await createUser(database, 'pack2', { heroes: ['Fighter'], victoryPoints: 11 });
-    const result = await database.savePack(id, { cost: 12, refund: 2, addHeroes: ['Bard'], addHolo: ['Monk'] });
+    const id = await createUser(database, 'pack2', { heroes: ['Fighter'], victoryPoints: 19 });
+    const result = await database.savePack(id, { cost: 20, addHeroes: ['Bard'], addHolo: ['Monk'] });
     assert.equal(result.success, false);
     assert.equal(result.error, 'Not enough to buy this.');
     const user = await database.getUserById(id);
-    assert.equal(user.victory_points, 11);
+    assert.equal(user.victory_points, 19);
     assert.deepEqual(user.holo_heroes, []);
     assert.deepEqual(user.available_heroes, ['Fighter']);
   });
@@ -388,7 +388,8 @@ describe('holo across the wire', () => {
     assert.ok(teamOf(state, 'Admin2').every(h => !('holo' in h)), "Admin2's heroes are plain");
     b.send('surrender-game');
     await b.waitFor('game-surrendered');
-    await b.waitFor('xp-update');
+    // Surrendering at once pays no XP; the +0 coins update comes once the battle is settled
+    await b.waitFor('victory-points-update');
   });
 
   test("a gauntlet battle shows the queueing player's holographics", async (t) => {
@@ -421,6 +422,7 @@ describe('holo across the wire', () => {
     assert.ok(teamOf(spectate.gameState, 'Admin2').every(h => !('holo' in h)));
     b.send('surrender-game');
     await b.waitFor('game-surrendered');
-    await b.waitFor('xp-update');
+    // Surrendering at once pays no XP; the +0 coins update comes once the battle is settled
+    await b.waitFor('victory-points-update');
   });
 });

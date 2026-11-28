@@ -1,0 +1,409 @@
+<title>Battle Badge Redesign</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700&family=Grenze+Gotisch:wght@500;700&family=IM+Fell+English&display=swap">
+<style>
+/* Layout: one column on the game's felt table; badge tokens are the only bright objects. Single dark look, same as the game. */
+:root{
+  color-scheme:dark;
+  --felt:#101b18; --felt-deep:#0b1311; --walnut:#241a14; --leather:#33261d; --leather-hi:#40322a;
+  --brass:#b08a45; --brass-hi:#cfa95f; --brass-dim:#6e5629; --bone:#e6dfcf; --bone-dim:#a89f8c;
+  --ember:#c4482f; --ember-hi:#dc6246; --verd:#5fa08a; --poison:#9a7fc9; --def:#7fa3c9;
+  --display:'Grenze Gotisch',Georgia,serif; --label:'IM Fell English',Georgia,serif; --ui:'Alegreya Sans','Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{background:radial-gradient(ellipse at 50% 0,#17302a,var(--felt) 45%,var(--felt-deep));background-color:var(--felt);color:var(--bone);font:17px/1.5 var(--ui);
+  padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+h1{font:700 2.6rem/1 var(--display);color:var(--brass-hi);margin:0;text-wrap:balance}
+h2{font:700 1.8rem/1.1 var(--display);color:var(--brass-hi);margin:0 0 4px;text-wrap:balance}
+h3{font:400 1.15rem/1.2 var(--label);color:var(--bone);margin:0}
+p{margin:0;max-width:68ch}
+.lede{color:var(--bone-dim)}
+section{display:flex;flex-direction:column;gap:16px}
+.eyebrow{font:400 .95rem var(--label);color:var(--bone-dim);letter-spacing:.04em}
+a{color:var(--brass-hi)}
+
+/* ---- the token ---- */
+.tok{--rim:var(--verd);position:relative;display:inline-grid;place-items:center;width:2.1em;height:2.1em;border-radius:50%;padding:0;cursor:pointer;
+  background:radial-gradient(circle at 35% 30%,#22332e,var(--felt-deep) 70%);border:.14em solid var(--rim);
+  box-shadow:0 0 0 .07em #000,0 .12em .3em rgb(0 0 0/.6),inset 0 0 .3em rgb(0 0 0/.7);color:var(--bone);font:inherit;flex:none}
+.tok svg{width:72%;height:72%;display:block}
+.tok.debuff{--rim:var(--ember-hi)} .tok.poison{--rim:var(--poison)} .tok.pending{border-style:dashed}
+.tok.pending svg{opacity:.55}
+.tok .pip{position:absolute;right:-.42em;bottom:-.3em;min-width:1.25em;height:1.25em;padding:0 .22em;border-radius:.65em;display:grid;place-items:center;
+  background:var(--rim);color:#0b1311;font:700 .62em/1 var(--ui);box-shadow:0 0 0 .1em #000}
+.tok:focus-visible{outline:2px solid var(--bone);outline-offset:2px}
+.big{font-size:26px}.real{font-size:13px}
+
+/* old chip, as it is today */
+.chip{display:inline-block;padding:.12em .5em;border-radius:1em;border:1px solid rgb(230 223 207/.2);font:700 .85rem/1.25 var(--ui);color:var(--bone);white-space:nowrap;background:var(--verd)}
+.chip.d{background:var(--ember)} .chip.none{background:none;border-style:dashed;color:var(--bone-dim);font-weight:400}
+
+/* ---- demo cards ---- */
+.demo{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:22px;align-items:start}
+.demo figure{margin:0;display:flex;flex-direction:column;gap:10px;align-items:center}
+.demo figcaption{font-size:.95rem;color:var(--bone-dim);text-align:center;max-width:30ch}
+.card{position:relative;width:210px;max-width:100%;aspect-ratio:5/7;border-radius:12px;border:3px solid var(--brass);
+  background:linear-gradient(180deg,rgb(255 255 255/.10),rgb(0 0 0/.35)),linear-gradient(160deg,#4d6a55,#2b3b46 55%,#3a2c3d);box-shadow:0 6px 18px rgb(0 0 0/.55)}
+.card.phone{width:118px;border-width:2px;border-radius:8px}
+.card .plate{position:absolute;left:8%;right:8%;bottom:6%;padding:.25em .4em;border-radius:6px;background:rgb(11 19 17/.78);font:700 1.05rem/1.1 var(--display);color:var(--brass-hi);text-align:center}
+.card.phone .plate{font-size:.75rem}
+.card .hp{position:absolute;left:7%;top:5%;font:700 .9rem var(--ui);color:#fff;background:#d2543c;border-radius:1em;padding:0 .5em}
+.card.phone .hp{font-size:.62rem}
+.col{position:absolute;top:7px;right:7px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;font-size:13px}
+.card.phone .col{font-size:10.5px;top:4px;right:4px;gap:4px}
+.col.old{gap:3px}
+.tip{position:absolute;right:calc(100% + .7em);top:50%;transform:translateY(-50%);width:max-content;max-width:150px;padding:.45em .6em;border-radius:8px;text-align:left;
+  background:var(--walnut);border:1px solid var(--brass);color:var(--bone);font:400 13px/1.3 var(--ui);box-shadow:0 4px 12px rgb(0 0 0/.6);display:none;z-index:5}
+.tip b{display:block;color:var(--brass-hi);font:700 13px/1.2 var(--ui)}
+.card.phone .tip{max-width:88px;font-size:11.5px}
+.card.phone .tip b{font-size:11.5px}
+.tok.open .tip,.tok:hover .tip{display:block}
+.sheet{width:210px;max-width:100%;border:1px solid var(--brass-dim);border-radius:10px;background:var(--walnut);padding:10px 12px;display:flex;flex-direction:column;gap:9px}
+.sheet div{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;font-size:.9rem;line-height:1.3}
+.sheet b{color:var(--brass-hi)}
+.sheet .tok{font-size:13px;cursor:default}
+
+/* ---- catalogue ---- */
+.cat{display:flex;flex-direction:column;border-top:1px solid var(--leather-hi)}
+.row{display:grid;grid-template-columns:118px 92px minmax(0,1.5fr) minmax(0,1.2fr);gap:14px 18px;padding:14px 0;border-bottom:1px solid var(--leather-hi);align-items:center}
+.row .new{display:flex;align-items:center;gap:14px}
+.row .who{font:400 .9rem var(--label);color:var(--bone-dim)}
+.row .short{display:inline-block;margin-top:4px;padding:.05em .5em;border-radius:5px;background:var(--leather);color:var(--bone);font-size:.9rem}
+.row .full{font-size:.98rem}
+.note{font-size:.92rem;color:var(--bone-dim)}
+.tag{display:inline-block;font:700 .72rem/1.5 var(--ui);letter-spacing:.06em;text-transform:uppercase;padding:0 .5em;border-radius:4px;margin-right:6px;vertical-align:1px}
+.ok{background:rgb(95 160 138/.22);color:#9fd4c2}.bad{background:rgb(196 72 47/.25);color:#f1a895}.new-t{background:rgb(207 169 95/.2);color:var(--brass-hi)}.cut{background:rgb(168 159 140/.2);color:var(--bone-dim)}
+.head{font:400 .85rem var(--label);color:var(--bone-dim);letter-spacing:.05em;padding:8px 0}
+@media (max-width:760px){.row{grid-template-columns:auto 1fr}.row.head{display:none}.row .text,.row .note{grid-column:1/-1}}
+
+/* ---- golem ---- */
+.golem{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:center}
+.golem svg{width:100%;height:auto;background:radial-gradient(ellipse at 50% 80%,#24382f,transparent 70%);border-radius:14px}
+.golem ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px}
+.core{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.core{animation:none}}
+@media (max-width:640px){.golem{grid-template-columns:1fr}}
+
+/* ---- tables ---- */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:.95rem}
+th{font:400 .85rem var(--label);color:var(--bone-dim);letter-spacing:.05em;text-align:left;padding:8px 12px 8px 0;border-bottom:1px solid var(--brass-dim)}
+td{padding:10px 12px 10px 0;border-bottom:1px solid var(--leather-hi);vertical-align:top}
+td:first-child{color:var(--bone);font-weight:700;white-space:nowrap}
+ol.bugs{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:10px;max-width:78ch}
+ol.bugs b{color:var(--brass-hi)}
+.ask{border:1px solid var(--brass-dim);border-radius:10px;padding:14px 16px;background:rgb(36 26 20/.6)}
+.ask ol{margin:8px 0 0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+.rules{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px;max-width:78ch}.rules b{color:var(--brass-hi)}.tog{display:flex;gap:8px;align-items:center;cursor:pointer}#wt.only tr.same{display:none}#wt td{font-size:.93rem}#wt td:nth-child(3){color:var(--bone-dim)}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<radialGradient id="coreg"><stop offset="0" stop-color="#eaf3ff"/><stop offset=".35" stop-color="#7fb0ff"/><stop offset="1" stop-color="#2f58d8"/></radialGradient>
+<symbol id="i-paw" viewBox="0 0 32 32"><g fill="#e6dfcf"><path d="M16 15.500c4 0 7.500 3.600 7.500 7.200 0 2.600-2 4-4 3.600-1.600-.3-2.300-1-3.500-1s-1.900.7-3.500 1c-2 .4-4-1-4-3.600 0-3.600 3.500-7.200 7.500-7.200z"/><ellipse cx="7" cy="14.500" rx="2.500" ry="3.300" transform="rotate(-22 7 14.500)"/><ellipse cx="12.300" cy="8.800" rx="2.600" ry="3.600" transform="rotate(-8 12.300 8.800)"/><ellipse cx="19.700" cy="8.800" rx="2.600" ry="3.600" transform="rotate(8 19.700 8.800)"/><ellipse cx="25" cy="14.500" rx="2.500" ry="3.300" transform="rotate(22 25 14.500)"/></g></symbol>
+<g id="hd"><rect width="11" height="8.200" rx="1.600" fill="#b08a45"/><circle cx="3.300" cy="3.200" r="1.200" fill="#241a14"/><circle cx="7.700" cy="3.200" r="1.200" fill="#241a14"/><rect x="3" y="5.400" width="5" height="1.300" fill="#241a14"/></g><symbol id="i-totem1" viewBox="0 0 32 32"><use href="#hd" x="10.500" y="20.2"/><rect x="11" y="12.1" width="10" height="7.200" rx="1.600" fill="none" stroke="#6e5629" stroke-width="1" stroke-dasharray="2 1.500"/><rect x="11" y="3.5" width="10" height="7.200" rx="1.600" fill="none" stroke="#6e5629" stroke-width="1" stroke-dasharray="2 1.500"/><path d="M3.500 24.799999999999997l7-2.500v4.600l-7 1.500zM28.500 24.799999999999997l-7-2.500v4.600l7 1.500z" fill="#cfa95f"/></symbol><symbol id="i-totem2" viewBox="0 0 32 32"><use href="#hd" x="10.500" y="20.2"/><use href="#hd" x="10.500" y="11.6"/><rect x="11" y="3.5" width="10" height="7.200" rx="1.600" fill="none" stroke="#6e5629" stroke-width="1" stroke-dasharray="2 1.500"/><path d="M3.500 16.2l7-2.500v4.600l-7 1.500zM28.500 16.2l-7-2.500v4.600l7 1.500z" fill="#cfa95f"/></symbol><symbol id="i-totem3" viewBox="0 0 32 32"><use href="#hd" x="10.500" y="20.2"/><use href="#hd" x="10.500" y="11.6"/><use href="#hd" x="10.500" y="3"/><path d="M3.500 7.6l7-2.500v4.600l-7 1.500zM28.500 7.6l-7-2.500v4.600l7 1.500z" fill="#cfa95f"/></symbol><symbol id="i-blows" viewBox="0 0 32 32"><g stroke-linecap="round"><path d="M6 5l17 17" stroke="#e6dfcf" stroke-width="3.200"/><path d="M26 5L9 22" stroke="#e6dfcf" stroke-width="3.200"/><path d="M19.500 24.500l5.500-5.500M12.500 24.500L7 19" stroke="#cfa95f" stroke-width="2.600"/><path d="M23 22l4.500 4.500M9 22l-4.500 4.500" stroke="#b08a45" stroke-width="3.400"/></g><path d="M16 9l1.300 3.200 3.200 1.300-3.200 1.300L16 18l-1.300-3.200-3.200-1.300 3.200-1.300z" fill="#dc6246"/></symbol>
+<symbol id="i-golem" viewBox="0 0 32 32"><path d="M2.500 30v-6.500l4.500-3.500h18l4.500 3.500V30z" fill="#6b6658"/><path d="M2.500 23.500L7 20h5v10H2.500zM20 20h5l4.500 3.500V30H20z" fill="#9a9483"/><path d="M2.500 26.500H12M20 26h9.500M7 23.500v3M25 23v3" stroke="#55503f" stroke-width=".8" fill="none"/><rect x="7.500" y="4.500" width="17" height="16" rx="3.500" fill="#4b4d52"/><rect x="7.500" y="4.500" width="17" height="4.500" rx="2.200" fill="#5f6166"/><circle cx="16" cy="13" r="5.800" fill="#1b2233"/><circle cx="16" cy="13" r="4.300" fill="url(#coreg)"/><circle cx="9.800" cy="18.500" r=".8" fill="#26272a"/><circle cx="22.200" cy="18.500" r=".8" fill="#26272a"/><path d="M6.500 6c1.500-3.500 4-3.800 5.500-1.500 1-2 3-2 4 0-3 1.500-6.500 2.300-9.500 1.500zM23.500 21c1-2.500 3.500-2.500 4.500 0l-2 1z" fill="#6fa544"/></symbol>
+<symbol id="i-bot" viewBox="0 0 32 32"><rect x="15.300" y="3" width="1.400" height="4.500" fill="#e6dfcf"/><circle cx="16" cy="3.200" r="1.700" fill="#dc6246"/><rect x="2.800" y="13" width="3.500" height="6.500" rx="1.200" fill="#a89f8c"/><rect x="25.700" y="13" width="3.500" height="6.500" rx="1.200" fill="#a89f8c"/><rect x="6" y="7" width="20" height="18.500" rx="6" fill="#e6dfcf"/><path d="M14 10.200h4v3.800h3.800v4H18v3.800h-4V18h-3.800v-4H14z" fill="#c4482f"/><rect x="10.500" y="25.500" width="3.800" height="3.500" rx="1" fill="#a89f8c"/><rect x="17.700" y="25.500" width="3.800" height="3.500" rx="1" fill="#a89f8c"/></symbol>
+<symbol id="i-blood" viewBox="0 0 32 32"><path d="M16 3c5.500 7.500 8.500 11.800 8.500 16.300a8.500 8.500 0 0 1-17 0C7.500 14.800 10.500 10.500 16 3z" fill="#c4482f"/><path d="M11.300 19.500c0 2.600 1.600 4.600 4 5.100" stroke="#f0b3a3" stroke-width="1.700" fill="none" stroke-linecap="round"/></symbol>
+<symbol id="i-hidden" viewBox="0 0 32 32"><g fill="#a89f8c"><circle cx="9.500" cy="19.500" r="6.500"/><circle cx="16.500" cy="13.500" r="8.500"/><circle cx="23.500" cy="20" r="6"/><rect x="8" y="18" width="17" height="8" rx="3"/></g><path d="M10.500 14.800l4.500 1.900-4.500 1.300zM22.500 14.800L18 16.700l4.500 1.300z" fill="#0b1311"/></symbol>
+<symbol id="i-ashield" viewBox="0 0 32 32"><path d="M16 2.500l10.500 3.800v8.700c0 6.500-4.500 11.200-10.500 14.500C10 26.200 5.500 21.500 5.500 15V6.300z" fill="#7fa3c9"/><path d="M16 2.500v27c6-3.300 10.500-8 10.500-14.500V6.300z" fill="#5f84ab"/><path d="M16 8l1.900 5 5 1.900-5 1.900-1.900 5-1.900-5-5-1.900 5-1.900z" fill="#fff"/></symbol>
+<symbol id="i-poison" viewBox="0 0 32 32"><path d="M16 3c5.500 7.500 8.500 11.800 8.500 16.300a8.500 8.500 0 0 1-17 0C7.500 14.800 10.500 10.500 16 3z" fill="#9a7fc9"/><g fill="#0b1311"><circle cx="12.800" cy="18" r="2.300"/><circle cx="19.200" cy="18" r="2.300"/><rect x="12.600" y="22.600" width="1.700" height="2.800"/><rect x="15.150" y="22.600" width="1.700" height="2.800"/><rect x="17.700" y="22.600" width="1.700" height="2.800"/></g></symbol>
+<symbol id="i-taunt" viewBox="0 0 32 32"><path d="M5.500 5.500L8 8.500M26.500 5.500L24 8.500M16 2v3" stroke="#dc6246" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="16" cy="18" r="10.500" fill="#dc6246"/><path d="M8.800 12.800l5.700 2.600M23.200 12.800l-5.700 2.600" stroke="#0b1311" stroke-width="2.200" stroke-linecap="round" fill="none"/><circle cx="12.200" cy="17.800" r="1.400" fill="#0b1311"/><circle cx="19.800" cy="17.800" r="1.400" fill="#0b1311"/><rect x="11" y="21.300" width="10" height="3.800" rx="1" fill="#e6dfcf"/><path d="M14.300 21.300v3.800M17.700 21.300v3.800" stroke="#0b1311" stroke-width=".9" fill="none"/></symbol>
+<symbol id="i-silence" viewBox="0 0 32 32"><path d="M5 6h22a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H15.500L9 27.500V22H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" fill="#e6dfcf"/><path d="M5.500 28L26.500 3" stroke="#0b1311" stroke-width="6" stroke-linecap="round" fill="none"/><path d="M5.500 28L26.500 3" stroke="#dc6246" stroke-width="3.200" stroke-linecap="round" fill="none"/></symbol>
+<symbol id="i-stun" viewBox="0 0 32 32"><g transform="rotate(42 16 16)"><rect x="14.200" y="23" width="3.600" height="6.500" rx="1.200" fill="#b08a45"/><rect x="9.500" y="20.800" width="13" height="2.800" rx="1.200" fill="#cfa95f"/><path d="M13.300 20.800v-7.300l2.200-1.800 1.300 2.300 1.900-1.700v8.500z" fill="#e6dfcf"/><path d="M13.300 9.300l2.200-2 1.300 2.500 1.900-1.800V4.500L16 1 13.300 4.500z" fill="#e6dfcf" transform="translate(3.500 -.5) rotate(14 16 6)"/></g></symbol>
+<symbol id="i-bribe" viewBox="0 0 32 32"><path d="M11 9.500c-4 4-6.500 8-6.500 12 0 4.500 4.500 7 11.500 7s11.500-2.500 11.500-7c0-4-2.500-8-6.500-12z" fill="#b08a45"/><path d="M11.300 4.300l2.700 1.700 2-2 2 2 2.700-1.700L21 9.500H11z" fill="#cfa95f"/><rect x="10.300" y="8.500" width="11.400" height="2.300" rx="1.150" fill="#6e5629"/><circle cx="16" cy="19.800" r="4.800" fill="#f6cf57"/><circle cx="16" cy="19.800" r="2.700" fill="none" stroke="#b08a45" stroke-width="1.200"/></symbol>
+<symbol id="i-exposed" viewBox="0 0 32 32"><circle cx="15" cy="17.500" r="11.500" fill="#e6dfcf"/><circle cx="15" cy="17.500" r="8" fill="#c4482f"/><circle cx="15" cy="17.500" r="4.500" fill="#e6dfcf"/><circle cx="15" cy="17.500" r="1.800" fill="#c4482f"/><path d="M29 2l-8 8.500 3.300.7-8.300 7" stroke="#0b1311" stroke-width="4.200" fill="none" stroke-linejoin="round" stroke-linecap="round"/><path d="M29 2l-8 8.500 3.300.7-8.300 7" stroke="#f6cf57" stroke-width="2.200" fill="none" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+<symbol id="i-shoe" viewBox="0 0 32 32"><path d="M4.500 28V15a11.500 11.500 0 0 1 23 0v13h-5V15a6.500 6.500 0 0 0-13 0v13z" fill="#a89f8c"/><g fill="#0b1311"><circle cx="7" cy="23.500" r="1.100"/><circle cx="7" cy="16" r="1.100"/><circle cx="10.500" cy="9.300" r="1.100"/><circle cx="21.500" cy="9.300" r="1.100"/><circle cx="25" cy="16" r="1.100"/><circle cx="25" cy="23.500" r="1.100"/></g></symbol>
+<symbol id="i-link" viewBox="0 0 32 32"><path d="M9.500 4.500C6 4.500 3.500 7.200 3.500 10.500c0 5 5 8.500 9.500 12.500 4.500-4 9.500-7.500 9.500-12.500 0-3.300-2.500-6-6-6-1.500 0-2.700.6-3.500 1.700-.8-1.100-2-1.700-3.500-1.700z" fill="#dc6246"/><g fill="none" stroke="#e6dfcf" stroke-width="2.300"><ellipse cx="19.500" cy="21" rx="4.800" ry="3" transform="rotate(40 19.500 21)"/><ellipse cx="25" cy="25.800" rx="4.300" ry="2.800" transform="rotate(40 25 25.800)"/></g></symbol>
+<symbol id="i-defdown" viewBox="0 0 32 32"><path d="M16 2.500l10.500 3.800v8.700c0 6.500-4.500 11.200-10.500 14.500C10 26.200 5.500 21.500 5.500 15V6.300z" fill="#7fa3c9"/><path d="M16 8.500v10M11 15l5 5.500 5-5.500" stroke="#0b1311" stroke-width="2.800" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-wind" viewBox="0 0 32 32"><g fill="none" stroke="#bcd3ea" stroke-width="2.600" stroke-linecap="round"><path d="M3.500 11H18a3.600 3.600 0 1 0-3.600-3.600"/><path d="M3.500 16.500h20.500a3.600 3.600 0 1 1-3.600 3.600"/><path d="M3.500 22h9a3.200 3.200 0 1 1-3.200 3.200"/></g></symbol>
+<symbol id="i-flame" viewBox="0 0 32 32"><path d="M16 2c1 5.500 8 8.500 8 16.500a8 8 0 0 1-16 0c0-3.200 1.500-5.300 3.200-7 .3 2.200 1 3.200 2.100 3.800C13 11 14 6 16 2z" fill="#dc6246"/><path d="M16.300 15c.5 2.700 3.700 3.800 3.700 7.500a3.800 3.800 0 0 1-7.600 0c0-1.600.8-2.700 1.600-3.500.3 1 .8 1.500 1.300 1.700-.2-2.100.2-4.100 1-5.700z" fill="#f6cf57"/></symbol>
+<symbol id="i-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="8.500" fill="none" stroke="#c9a7ff" stroke-width="2.400"/><path d="M16 2.500v7M16 22.500v7M2.500 16h7M22.500 16h7" stroke="#c9a7ff" stroke-width="2.400" stroke-linecap="round" fill="none"/><circle cx="16" cy="16" r="2.600" fill="#fff"/></symbol>
+</defs>
+</svg>
+
+<main>
+<header style="display:flex;flex-direction:column;gap:10px">
+  <span class="eyebrow">Hero's Call · battle · mockup for review, nothing built yet</span>
+  <h1>Battle Badge Redesign</h1>
+  <p class="lede">Every buff and debuff badge was checked against the game's rules code. Six are right. The rest either say the wrong thing, leave something out, or stay on the board when they should go. Below: the redrawn badges with new helper text, the golem turret, what outlasts a dead hero, and the bugs found.</p>
+</header>
+
+<section>
+  <h2>How the badges would look and read</h2>
+  <p>Round tokens replace the emoji pills. A green rim is a buff, a red rim is a debuff, violet is poison. A number sits on the corner when the badge counts something. Tap or hover a token on the right-hand cards to open its helper text.</p>
+  <div class="demo">
+    <figure>
+      <div class="card"><span class="hp">14</span>
+        <div class="col old"><span class="chip">⚙️ 2</span><span class="chip">👻</span><span class="chip d">☠ 3</span><span class="chip d">😤</span><span class="chip d">🛡️ -1</span></div>
+        <div class="plate">Engineer</div></div>
+      <figcaption>Today. Helper text shows only when a mouse hovers, so phones and tablets never see it.</figcaption>
+    </figure>
+    <figure>
+      <div class="card" id="demoBig"><span class="hp">14</span><div class="col"></div><div class="plate">Engineer</div></div>
+      <figcaption>Proposed, tablet and computer. Tap or hover opens the name and the full sentence.</figcaption>
+    </figure>
+    <figure>
+      <div class="card phone" id="demoPhone"><span class="hp">14</span><div class="col"></div><div class="plate">Engineer</div></div>
+      <figcaption>Proposed, phone. Tap opens the short form: keyword and number only.</figcaption>
+    </figure>
+    <figure>
+      <div class="sheet" id="sheet"></div>
+      <figcaption>Proposed, every device. Opening a hero's details lists each badge with its full sentence.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <h2>Every badge, old and new</h2>
+  <p>The left token is drawn large so you can judge the picture. The small one beside it is the size it appears on a card. "Short" is what a phone shows. The full sentence shows wherever there is room.</p>
+  <div class="cat" id="cat">
+    <div class="row head"><span class="head">Today</span><span class="head">Proposed</span><span class="head">Helper text</span><span class="head">What the check found</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>The golem turret</h2>
+  <div class="golem">
+    <svg viewBox="0 0 200 190" role="img" aria-label="Stone and iron golem with a glowing blue core">
+      <ellipse cx="100" cy="177" rx="80" ry="8" fill="#000" opacity=".4"/>
+      <!-- legs -->
+      <rect x="70" y="126" width="24" height="44" rx="4" fill="#6b6658"/><rect x="108" y="126" width="24" height="44" rx="4" fill="#6b6658"/>
+      <rect x="63" y="158" width="36" height="16" rx="5" fill="#8d8777"/><rect x="103" y="158" width="36" height="16" rx="5" fill="#8d8777"/>
+      <!-- neck machinery -->
+      <rect x="92" y="34" width="46" height="42" rx="6" fill="#3d3f44"/><rect x="100" y="42" width="30" height="8" rx="2" fill="#55575d"/><rect x="100" y="54" width="30" height="8" rx="2" fill="#55575d"/>
+      <!-- torso -->
+      <path d="M60 70h80l9 30-11 34H62L51 100z" fill="#4b4d52"/><path d="M71 79h58l6 20-8 25H73l-8-25z" fill="#5c5e63"/>
+      <path d="M100 79v45M68 100h64" stroke="#3d3f44" stroke-width="2" fill="none"/>
+      <g fill="#2a2b2e"><circle cx="76" cy="85" r="2"/><circle cx="124" cy="85" r="2"/><circle cx="78" cy="118" r="2"/><circle cx="122" cy="118" r="2"/></g>
+      <!-- right arm: stacked stone -->
+      <rect x="142" y="56" width="42" height="32" rx="6" fill="#a39d8b"/><rect x="146" y="90" width="38" height="28" rx="6" fill="#8d8777"/><rect x="153" y="118" width="26" height="9" fill="#35363a"/><rect x="143" y="127" width="44" height="38" rx="8" fill="#a39d8b"/>
+      <path d="M142 72h42M160 56v16M170 72v16M146 104h38M143 146h44M158 127v19M172 146v19" stroke="#6b6658" stroke-width="1.600" fill="none"/>
+      <!-- left arm -->
+      <rect x="18" y="72" width="40" height="28" rx="6" fill="#8d8777" transform="rotate(-8 38 86)"/><rect x="12" y="101" width="38" height="27" rx="6" fill="#7c7767"/><rect x="4" y="130" width="48" height="40" rx="10" fill="#8d8777"/>
+      <path d="M12 114h38M30 101v13M4 150h48M20 150v20M36 150v20M22 130v20" stroke="#5d5849" stroke-width="1.600" fill="none"/>
+      <!-- cannon head -->
+      <circle cx="82" cy="46" r="33" fill="none" stroke="#35363a" stroke-width="7" stroke-dasharray="7 6.500"/>
+      <circle cx="82" cy="46" r="31" fill="#3d3f44"/><circle cx="82" cy="46" r="25" fill="#5c5e63"/><circle cx="82" cy="46" r="19" fill="#141a28"/>
+      <circle class="core" cx="82" cy="46" r="15" fill="url(#coreg)"/><circle cx="82" cy="46" r="15" fill="none" stroke="#9cc4ff" stroke-width="1.200" opacity=".7"/>
+      <g fill="#2a2b2e"><circle cx="60" cy="30" r="2"/><circle cx="104" cy="30" r="2"/><circle cx="60" cy="62" r="2"/><circle cx="104" cy="62" r="2"/></g>
+      <!-- moss -->
+      <g fill="#6fa544"><path d="M140 58c3-9 9-10 12-4 3-7 10-7 13-1 4-5 11-3 13 3-12 4-26 5-38 2z"/><path d="M110 36c2-8 8-9 11-3 3-5 9-4 11 1-7 3-15 4-22 2z"/><path d="M16 76c2-7 8-8 11-3 3-5 9-4 11 0-7 4-15 5-22 3z"/><path d="M143 128c3-5 8-5 10-1 3-4 8-3 10 1z"/></g>
+      <g fill="#8cc152"><path d="M150 54l3-10 2 10zM118 33l2-8 2 8zM24 73l2-8 2 8z"/></g>
+    </svg>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <p>Drawn from the golem behind the Engineer on his card. The card keeps the name "Turret".</p>
+      <ul>
+        <li>Stone arms, iron body, one glowing blue core. Moss on the shoulders, like the card art.</li>
+        <li>The badge is the golem's head, <span class="tok real" style="vertical-align:middle;cursor:default"><svg><use href="#i-golem"/></svg><span class="pip">2</span></span> with the turret count on the corner.</li>
+        <li>The full figure could stand in for the turret when it fires at the end of the Engineer's turn. The core lights, then the shot lands. That animation would be a later step.</li>
+        
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What outlasts a dead hero</h2>
+  <p>Decided: Ride Down fades when Cavalier dies, as it does now. Dark Pact must stay after Warlock dies, so its disappearing is a bug to fix.</p>
+  <div class="scroll"><table>
+    <tr><th>Effect</th><th>After its hero dies</th><th>On purpose?</th><th>Suggested</th></tr>
+    <tr><td>Warlock · Dark Pact</td><td>Stays, until Fighter, Berserker or Dragon Rider crosses an HP mark. Then it vanishes.</td><td>Staying is on purpose. Vanishing is a bug.</td><td>Fix the bug. Card: "Adjacent allies <b>permanently</b> deal +1 damage with attacks and abilities."</td></tr>
+    <tr><td>Cavalier · Ride Down</td><td>Removed from every enemy.</td><td>Yes, the code removes it on purpose.</td><td>Leave as is. Make every heal to full clear it. The card does not say so. Card: "Attacks against enemies hit by Cavalier have advantage."</td></tr>
+    <tr><td>Ranger · Piercing Shot</td><td>The -1 Defense never ends.</td><td>Accident. It only ends on Ranger's own turn.</td><td>Remove it when Ranger dies.</td></tr>
+    <tr><td>Paladin · Shield of Faith</td><td>A taunt still waiting to land goes onto the attacker, pointing at a dead Paladin. The attacker cannot attack or use abilities on its next turn.</td><td>Accident. Worst bug found.</td><td>Drop waiting taunts when Paladin dies.</td></tr>
+    <tr><td>Hoarder · Offer Bribe</td><td>The badge stays forever. It does nothing.</td><td>Accident.</td><td>Remove it when Hoarder dies.</td></tr>
+    <tr><td>Angel · Health Link</td><td>The badge stays forever. It does nothing.</td><td>Accident.</td><td>Remove it when Angel dies.</td></tr>
+    <tr><td>Beast Tamer · Beast</td><td>The paw stays on the dead Beast Tamer.</td><td>Accident, looks only.</td><td>Remove it on death.</td></tr>
+    <tr><td>Poison, Silence, Stun, Guiding Bolt</td><td>Stay until they run out or are used up. Poison never runs out.</td><td>Reasonable. They are not tied to who cast them.</td><td>Leave. Poison cards could say "permanently" since it never wears off.</td></tr>
+    <tr><td>Bless, Totemic Bond, Aura of Dread, Defend, Taunt, turrets, totems, Med Bots</td><td>Removed.</td><td>Yes.</td><td>Leave. These cards already say "While … is alive".</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>Bugs found, worst first</h2>
+  <p>Each one marked "ran" was reproduced against the real rules code, not just read.</p>
+  <ol class="bugs">
+    <li><b>Taunt from a dead Paladin locks a hero out of its turn.</b> An enemy attacks next to Paladin, Paladin dies the same turn, the taunt still lands at end of turn. Next turn that enemy can only choose the dead Paladin, so it cannot attack or use its ability. Ran.</li>
+    <li><b>Dark Pact disappears after Warlock dies.</b> When an ally drops below an HP mark (Fighter, Berserker, Dragon Rider), bonuses are recounted and the dead Warlock is skipped. Ran.</li>
+    <li><b>A hero revived by Angel and killed again in the same turn never properly dies.</b> Its aura stays all game (Shaman's +1 Defense, for example), and Hoarder and Bomber do not react to the death. Ran.</li>
+    <li><b>Ranger's -1 Defense is permanent if Ranger dies before its next turn.</b> Ran.</li>
+    <li><b>Piercing Shot's -1 Defense keeps working after the badge goes away,</b> until somebody uses an ability. Ran.</li>
+    <li><b>Three badges state the wrong numbers.</b> Arcane Shield says "greater than 6" (rule is more than 5). Turrets reads as two turrets dealing 2D4 each (each deals 1D4). Totems shows one totem too few for the next strike.</li>
+    <li><b>A hero revived by Angel after Cavalier's killing blow comes back already carrying Ride Down.</b> Ran.</li>
+    <li><b>A revived Wizard gets a second Arcane Shield,</b> with no badge showing it. Ran.</li>
+    <li><b>Ninja's Vanish ignores "once per round".</b> Each new hit also changes who is still allowed to target Ninja to the newest attacker. Ran.</li>
+    <li><b>Ride Down is cleared by healing to full, except by Druid's Healing Word and Medic's Med Bots.</b> Read from code.</li>
+    <li><b>Small leftovers.</b> Bribe always says "1 turns left". The "Inspired" badge belongs to no hero in the game.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Card wording</h2>
+  <p>80 card texts on the 40 heroes in play were read. 64 would change and 16 stay as they are. No change alters what a card does. Where the note asks a question, the card is unclear today and I did not guess.</p>
+<h3>The rules the new wording follows</h3>
+<ul class="rules">
+<li><b>Damage:</b> "Deal 1D6 damage." Always the word "damage", always a capital D. Extra damage is "an extra 1D4 damage".</li>
+<li><b>Who:</b> the hero's own name, then "it". No "you", "he", "she" or "the Medic".</li>
+<li><b>Sides:</b> "enemy" and "ally" only. "The target" is the Focused enemy. "All heroes" means both teams.</li>
+<li><b>Focus:</b> cards say "Focus", never "target" or "untargetable". Taunt reads "it must Focus Warden on its next turn".</li>
+<li><b>Key words get a capital:</b> Focus, Taunt, Poison, Silence, Defense, Accuracy, HP, Turret, Totem, Beast, Med Bot.</li>
+<li><b>Stats:</b> "+1 Defense", "-1 Defense", "+1 Accuracy". Never "+1 to hit". Always "HP", never "health".</li>
+<li><b>How long:</b> "on its next turn", "until Ranger's next turn", "once per round", "once per game", or "permanently" when it outlasts the hero.</li>
+<li><b>Form:</b> short sentences with a period. No semicolons. "Can't", not "cannot". Numbers as digits.</li>
+</ul>
+<label class="tog"><input type="checkbox" id="onlyChanged" checked> Show only cards that change</label>
+<div class="scroll"><table id="wt" class="only"><tr><th>Hero</th><th>Card</th><th>Today</th><th>Proposed</th><th>Why</th></tr>
+<tr class=""><td>Barbarian</td><td>Reckless Swing<br><span class="who">Ability</span></td><td>Deal 2D6 damage; Barbarian takes 2D4 recoil damage.</td><td>Deal 2D6 damage. Barbarian takes 2D4 damage.</td><td class="note">Semicolon → period; dropped &quot;recoil&quot; (matches Blood Hunter). Q: does the recoil also happen on a miss?</td></tr>
+<tr class=""><td>Barbarian</td><td>Break the Line<br><span class="who">Special</span></td><td>Attacks and abilities ignore taunts and deflections.</td><td>Barbarian's attacks and abilities ignore Taunt and deflections.</td><td class="note">Subject added. Taunt gets a capital. "Deflections" stays, for future heroes that deflect.</td></tr>
+<tr class=""><td>Engineer</td><td>Call Turret<br><span class="who">Ability</span></td><td>Summon a Mechanical Turret (max 2). At the end of Engineer&#x27;s turn, deal 1D4 damage to a random enemy for each active turret.</td><td>Summon a Turret (max 2). At the end of Engineer&#x27;s turn, deal 1D4 damage to a random enemy per Turret.</td><td class="note">Shorter unit name (data unit is &quot;Mechanical Turret&quot;; keep the full name if the board shows it); &quot;per&quot;; capitalisation. Q: does each Turret pick its own enemy?</td></tr>
+<tr class=""><td>Engineer</td><td>Protective Gear<br><span class="who">Special</span></td><td>When taking damage, sacrifice a Turret to negate the damage.</td><td>When Engineer takes damage, sacrifice a Turret to block it.</td><td class="note">Subject; &quot;negate&quot; → &quot;block&quot;. Q: automatic or the player&#x27;s choice?</td></tr>
+<tr class="same"><td>Assassin</td><td>Poison Strike<br><span class="who">Ability</span></td><td>Deal 1D6 damage and give the target 1 Poison stack.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Assassin</td><td>Twin Daggers<br><span class="who">Special</span></td><td>No basic attack; may trigger ability twice per turn.</td><td>No basic attack. Can use its ability twice per turn.</td><td class="note">Semicolon; &quot;trigger&quot; → &quot;use&quot;</td></tr>
+<tr class=""><td>Paladin</td><td>Divine Smite<br><span class="who">Ability</span></td><td>Deal 1D4 damage and heal the lowest health ally 1D4.</td><td>Deal 1D4 damage and heal the lowest-HP ally for 1D4.</td><td class="note">HP; &quot;for&quot;. Q: can that ally be Paladin?</td></tr>
+<tr class=""><td>Paladin</td><td>Shield of Faith<br><span class="who">Special</span></td><td>When an opponent attacks an ally adjacent to the Paladin, taunt it.</td><td>When an enemy damages an ally adjacent to Paladin, Taunt that enemy: it must Focus Paladin on its next turn.</td><td class="note">&quot;opponent&quot; → &quot;enemy&quot;; clears up &quot;it&quot;; Taunt/Focus form. &quot;attacks&quot; → &quot;damages&quot; matches the engine (a miss doesn&#x27;t trigger); keep &quot;attacks&quot; if the owner prefers</td></tr>
+<tr class="same"><td>Sorcerer</td><td>Chromatic Orb<br><span class="who">Ability</span></td><td>Deal 1D8 damage.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Sorcerer</td><td>Twin Spell<br><span class="who">Special</span></td><td>When Sorcerer hits with it&#x27;s ability, roll to cast it again.</td><td>Once per round, when Sorcerer&#x27;s ability hits, it can use its ability again.</td><td class="note">Typo fixed; states the once-per-round limit the engine already applies</td></tr>
+<tr class="same"><td>Druid</td><td>Wildshape<br><span class="who">Ability</span></td><td>Heal Druid for 1D4.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Druid</td><td>Healing Word<br><span class="who">Special</span></td><td>At the end of the Druid&#x27;s turn, heal the lowest health ally 1D4.</td><td>At the end of Druid&#x27;s turn, heal the lowest-HP ally for 1D4.</td><td class="note">Dropped &quot;the&quot;; HP; &quot;for&quot;</td></tr>
+<tr class=""><td>Cleric</td><td>Guiding Bolt<br><span class="who">Ability</span></td><td>Deal 1D4 damage and grant advantage on the next attack or ability roll against the target.</td><td>Deal 1D4 damage. The next attack or ability against the target has advantage.</td><td class="note">Advantage form; shorter</td></tr>
+<tr class=""><td>Cleric</td><td>Bless<br><span class="who">Special</span></td><td>While Cleric is alive, all allies gain +1 to hit.</td><td>While Cleric is alive, all allies gain +1 Accuracy.</td><td class="note">Uses the stat name</td></tr>
+<tr class=""><td>Monk</td><td>One-Two Punch<br><span class="who">Ability</span></td><td>Deal 1D6 damage and attack again.</td><td>Deal 1D6 damage, then make a basic attack.</td><td class="note">Says what &quot;attack again&quot; means (the engine gives it only on a hit)</td></tr>
+<tr class=""><td>Monk</td><td>Deflect<br><span class="who">Special</span></td><td>Once per round, when an ally would be hit by an attack or ability with a roll lower than monk&#x27;s defense, negate the damage and deal 1D4 to the attacker. Resets at the start of Monk&#x27;s turn.</td><td>Once per round, when an enemy hits an ally with a roll lower than Monk&#x27;s Defense, block the damage and deal 1D4 damage to the attacker.</td><td class="note">Dropped the duplicate reset sentence (covered by rule 14); capitalisation; &quot;damage&quot; added. Q: does it protect Monk itself?</td></tr>
+<tr class="same"><td>Cavalier</td><td>Trample<br><span class="who">Ability</span></td><td>Deal 1D6 damage.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Cavalier</td><td>Ride Down<br><span class="who">Special</span></td><td>All attacks against enemies hit by Cavalier have advantage</td><td>Attacks against enemies hit by Cavalier have advantage.</td><td class="note">Dropped "All", added the period. It ends on a heal to full and when Cavalier dies. The card does not spell that out.</td></tr>
+<tr class=""><td>Piercer</td><td>Piercing Strike<br><span class="who">Ability</span></td><td>Deal 1D4 damage. Deal an additional 1D6 damage if the target has more than 8 defense.</td><td>Deal 1D4 damage. If the target has more than 8 Defense, deal an extra 1D6 damage.</td><td class="note">Condition first; &quot;extra&quot;; Defense</td></tr>
+<tr class=""><td>Piercer</td><td>Armor Breaker<br><span class="who">Special</span></td><td>Gain advantage against enemies with more than 8 defense.</td><td>Piercer has advantage against enemies with more than 8 Defense.</td><td class="note">Subject; advantage form; Defense</td></tr>
+<tr class=""><td>Silencer</td><td>Silence<br><span class="who">Ability</span></td><td>Deal 1D6 and Silence target until next turn.</td><td>Deal 1D6 damage and Silence the target on its next turn.</td><td class="note">&quot;damage&quot; added; says whose turn (matches the engine)</td></tr>
+<tr class=""><td>Silencer</td><td>Anti-Magic Field<br><span class="who">Special</span></td><td>Enemies attacking Silencer have disadvantage on their ability rolls.</td><td>Enemy abilities against Silencer have disadvantage.</td><td class="note">Shorter; &quot;attacking&quot; was misleading because only abilities count</td></tr>
+<tr class=""><td>Berserker</td><td>Bloodbath<br><span class="who">Ability</span></td><td>Gain a bloodbath stack (max 2); each stack gives +1 damage to attacks.</td><td>Gain 1 Bloodbath stack (max 2). Each stack gives Berserker&#x27;s attacks +1 damage.</td><td class="note">Semicolon; capitalisation</td></tr>
+<tr class="same"><td>Berserker</td><td>Frenzy<br><span class="who">Special</span></td><td>Below 10 HP, Berserker can attack twice per turn.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class="same"><td>Wizard</td><td>Fireball<br><span class="who">Ability</span></td><td>Deal 1D4 damage to all enemies.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Wizard</td><td>Arcane Shield<br><span class="who">Special</span></td><td>The first time Wizard would take damage more than 5 damage, reduce it to 0</td><td>Once per game, when Wizard would take more than 5 damage, block it.</td><td class="note">Grammar; period; frequency form; &quot;block&quot;. Also fix the HeroCard tooltip &quot;&gt;6&quot;</td></tr>
+<tr class=""><td>Fighter</td><td>Cleave<br><span class="who">Ability</span></td><td>Deal 1D6 to your target and 1D6 to the enemy to the left of them.</td><td>Deal 1D6 damage to the target and 1D6 damage to the enemy on its left.</td><td class="note">&quot;damage&quot; added; no &quot;your&quot;; shorter. Q: left from whose view?</td></tr>
+<tr class="same"><td>Fighter</td><td>Desperate Blows<br><span class="who">Special</span></td><td>Below 10 HP, Fighter&#x27;s attacks have advantage.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Warlock</td><td>Vitality Drain<br><span class="who">Ability</span></td><td>Lifesteal 1D6.</td><td>Deal 1D6 damage and heal Warlock for that amount.</td><td class="note">Jargon replaced with the Blood Hunter wording</td></tr>
+<tr class=""><td>Warlock</td><td>Dark Pact<br><span class="who">Special</span></td><td>Increase the damage of all attacks and abilities of adjacent allies by +1.</td><td>Adjacent allies permanently deal +1 damage with attacks and abilities.</td><td class="note">Shorter. &quot;Permanently&quot; says it stays after Warlock dies.</td></tr>
+<tr class=""><td>Warden</td><td>Compel Duel<br><span class="who">Ability</span></td><td>Deal 1D4 damage and Taunt the target to attack Warden next turn.</td><td>Deal 1D4 damage and Taunt the target: it must Focus Warden on its next turn.</td><td class="note">Taunt/Focus form; whose turn</td></tr>
+<tr class=""><td>Warden</td><td>Shield Bash<br><span class="who">Special</span></td><td>Whenever an attack misses Warden, the attacker takes 1D6 damage.</td><td>When an attack misses Warden, the attacker takes 1D6 damage.</td><td class="note">&quot;Whenever&quot; → &quot;When&quot;. Q: does a missed ability count?</td></tr>
+<tr class=""><td>Champion</td><td>Inspiring Crowd<br><span class="who">Ability</span></td><td>Heal Champion for 1D4 HP (1D6 if below 11 HP).</td><td>Heal Champion for 1D4 (1D6 if below 11 HP).</td><td class="note">Dropped the repeated &quot;HP&quot;</td></tr>
+<tr class=""><td>Champion</td><td>Last Stand<br><span class="who">Special</span></td><td>For each fallen ally, Champion gains +1 Defense and +1D6 damage.</td><td>For each fallen ally, Champion gains +1 Defense and deals an extra 1D6 damage.</td><td class="note">&quot;+1D6 damage&quot; → &quot;deals an extra 1D6 damage&quot;</td></tr>
+<tr class=""><td>Ranger</td><td>Piercing Shot<br><span class="who">Ability</span></td><td>Deal 1D6 damage and reduce the target&#x27;s defense by 1 until Ranger&#x27;s next turn.</td><td>Deal 1D6 damage. The target has -1 Defense until Ranger&#x27;s next turn.</td><td class="note">Stat form; Defense. (Q: what if Ranger dies first?)</td></tr>
+<tr class=""><td>Ranger</td><td>Eagle Eye<br><span class="who">Special</span></td><td>Ranger rolls attacks and abilities with advantage.</td><td>Ranger&#x27;s attacks and abilities have advantage.</td><td class="note">Advantage form</td></tr>
+<tr class=""><td>Blood Hunter</td><td>Crimson Rite<br><span class="who">Ability</span></td><td>Deal 3D4 damage and take 2D4 damage.</td><td>Deal 3D4 damage. Blood Hunter takes 2D4 damage.</td><td class="note">Subject added (matches Barbarian)</td></tr>
+<tr class="same"><td>Blood Hunter</td><td>Sanguine Renewal<br><span class="who">Ability</span></td><td>Deal 1D4 damage and heal Blood Hunter for that amount.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Blood Hunter</td><td>Blood Price<br><span class="who">Special</span></td><td>No basic attack; may trigger each ability once per turn.</td><td>No basic attack. Can use each ability once per turn.</td><td class="note">Semicolon; &quot;use&quot;</td></tr>
+<tr class=""><td>Shaman</td><td>Elemental Strike<br><span class="who">Ability</span></td><td>Summon a totem (max 3), then deal 1D4 damage for each totem.</td><td>Summon a Totem (max 3), then deal 1D4 damage per Totem.</td><td class="note">Capitalisation; &quot;per&quot;</td></tr>
+<tr class="same"><td>Shaman</td><td>Totemic Bond<br><span class="who">Special</span></td><td>While Shaman is alive, all allies gain +1 Defense.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Timekeeper</td><td>Chrono Shift<br><span class="who">Ability</span></td><td>Trigger an ally&#x27;s ability.</td><td>Choose an ally to use its ability on the target.</td><td class="note">Plain verb; says who it hits (the engine uses the Focus)</td></tr>
+<tr class=""><td>Timekeeper</td><td>Haste<br><span class="who">Special</span></td><td>Adjacent allies gain advantage on their ability rolls.</td><td>Adjacent allies&#x27; abilities have advantage.</td><td class="note">Advantage form</td></tr>
+<tr class="same"><td>Ninja</td><td>Sharpened Shuriken<br><span class="who">Ability</span></td><td>Deal 2D6 damage.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Ninja</td><td>Vanish<br><span class="who">Special</span></td><td>Once per round after being hit, become untargetable by other heroes until Ninja&#x27;s next turn.</td><td>Once per round, after an enemy damages Ninja, it can't be Focused until its next turn.</td><td class="note">Your wording. The hero that hit Ninja can finish its turn attacking it, and area damage still hits. "Once per round" will be enforced, which it is not today.</td></tr>
+<tr class="same"><td>Dragon Rider</td><td>Fire Breath<br><span class="who">Ability</span></td><td>Deal 3D4 damage.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Dragon Rider</td><td>Dismount<br><span class="who">Special</span></td><td>When Dragon Rider is reduced below 9 HP, it loses 3 Defense and cannot use its Ability; this cannot be restored by healing.</td><td>When Dragon Rider drops below 9 HP, it permanently loses 3 Defense and can&#x27;t use its ability.</td><td class="note">&quot;permanently&quot; replaces the clause; semicolon; can&#x27;t; lowercase &quot;ability&quot;</td></tr>
+<tr class="same"><td>Bomber</td><td>Bomb Toss<br><span class="who">Ability</span></td><td>Deal 1D6 damage to all enemies.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Bomber</td><td>Explosion<br><span class="who">Special</span></td><td>On death, deal 1D6 damage to Bomber&#x27;s killer.</td><td>When Bomber dies, deal 1D6 damage to its killer.</td><td class="note">Trigger form</td></tr>
+<tr class=""><td>Beast Tamer</td><td>Call Beast / Command Attack<br><span class="who">Ability</span></td><td>Summon beast; if beast is already summoned, command it to deal 2D8 damage.</td><td>Summon the Beast. If the Beast is already summoned, it deals 2D8 damage to the target instead.</td><td class="note">Semicolon; capitalisation; shorter</td></tr>
+<tr class=""><td>Beast Tamer</td><td>Pack Tactics<br><span class="who">Special</span></td><td>Beast Tamer&#x27;s attacks have advantage while the beast is summoned.</td><td>While the Beast is summoned, Beast Tamer&#x27;s attacks have advantage.</td><td class="note">Condition first (matches the &quot;While X&quot; cards); capitalisation</td></tr>
+<tr class=""><td>Brawler</td><td>Iron Fists<br><span class="who">Special</span></td><td>Brawler makes two basic attacks per turn. Has no abilities.</td><td>Brawler makes 2 basic attacks per turn. No ability.</td><td class="note">Digits; parallel to &quot;No basic attack.&quot;</td></tr>
+<tr class=""><td>Reaper</td><td>Soul Harvest<br><span class="who">Ability</span></td><td>Deal 1D8 damage. If the target dies, heal Reaper to full health.</td><td>Deal 1D8 damage. If this kills the target, heal Reaper to full HP.</td><td class="note">HP; &quot;kills&quot; (same wording as Pyromancer)</td></tr>
+<tr class=""><td>Reaper</td><td>Aura of Dread<br><span class="who">Special</span></td><td>All enemies lose 1 Defense while Reaper is alive.</td><td>While Reaper is alive, all enemies have -1 Defense.</td><td class="note">Same form as Cleric/Shaman</td></tr>
+<tr class=""><td>Plague Spreader</td><td>Poison Touch<br><span class="who">Ability</span></td><td>Deal 1D4 damage and apply that many Poison stacks.</td><td>Deal 1D4 damage and give the target that many Poison stacks.</td><td class="note">&quot;apply&quot; → &quot;give the target&quot; (matches Assassin)</td></tr>
+<tr class="same"><td>Plague Spreader</td><td>Aura of Death<br><span class="who">Special</span></td><td>At the start of Plague Spreader&#x27;s turn, all other heroes take 1D4 damage.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Dual Defender</td><td>Stun<br><span class="who">Ability</span></td><td>Deal 1D4 damage. The target cannot make an attack on its next turn.</td><td>Deal 1D4 damage. The target can&#x27;t attack on its next turn.</td><td class="note">can&#x27;t; shorter (&quot;attack&quot; = basic attack; abilities still allowed, as in the engine)</td></tr>
+<tr class=""><td>Dual Defender</td><td>Defend<br><span class="who">Special</span></td><td>While Dual Defender is alive, the ally to the right uses Dual Defender&#x27;s Defense.</td><td>While Dual Defender is alive, the ally to its right uses Dual Defender&#x27;s Defense.</td><td class="note">&quot;its right&quot;. Q: right from whose view?</td></tr>
+<tr class="same"><td>Swordsman</td><td>Colossal Strike<br><span class="who">Ability</span></td><td>Deal 1D8 damage.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class="same"><td>Swordsman</td><td>Critical Strikes<br><span class="who">Special</span></td><td>Swordsman crits on 17, 18, 19, and 20.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Ace</td><td>Stacked Deck<br><span class="who">Ability</span></td><td>Deal 2D4 damage. If you crit, deal an additional 1D4 damage.</td><td>Deal 2D4 damage. On a crit, deal an extra 1D4 damage.</td><td class="note">No &quot;you&quot;; &quot;extra&quot;</td></tr>
+<tr class=""><td>Ace</td><td>Ace Up The Sleeve<br><span class="who">Special</span></td><td>When Ace rolls 1 on an attack or ability, it automatically hits and crits.</td><td>When Ace rolls a 1 on an attack or ability, it automatically hits and crits.</td><td class="note">&quot;a 1&quot;</td></tr>
+<tr class=""><td>Elementalist</td><td>Thunderclap<br><span class="who">Ability</span></td><td>Deal 1D4 to your target and 1D4 to the enemy to the right of them.</td><td>Deal 1D4 damage to the target and 1D4 damage to the enemy on its right.</td><td class="note">Same form as Fighter</td></tr>
+<tr class=""><td>Elementalist</td><td>Wind Wall<br><span class="who">Special</span></td><td>Each time Elementalist lands an attack or ability, she gains +1 Defense until the start of her next turn.</td><td>Each time Elementalist hits with an attack or ability, it gains +1 Defense until its next turn.</td><td class="note">&quot;lands&quot; → &quot;hits&quot;; pronoun; duration form. Q: does it stack?</td></tr>
+<tr class=""><td>Mech</td><td>Charged Fist<br><span class="who">Ability</span></td><td>Deal 1D6 damage and taunt the target to attack Mech next turn.</td><td>Deal 1D6 damage and Taunt the target: it must Focus Mech on its next turn.</td><td class="note">Same form as Warden</td></tr>
+<tr class=""><td>Mech</td><td>Self Destruct<br><span class="who">Special</span></td><td>Mech can choose to Self Destruct and deal 2D6 damage to ALL heroes.</td><td>Mech can destroy itself to deal 2D6 damage to all heroes, including allies.</td><td class="note">No capitals; &quot;including allies&quot; replaces &quot;ALL&quot;</td></tr>
+<tr class=""><td>Diplomat</td><td>Declare War<br><span class="who">Ability</span></td><td>Make adjacent allies attack the target.</td><td>Adjacent allies make a basic attack on the target.</td><td class="note">Says the attack is a basic attack (command_adjacent_allies / basic_attack)</td></tr>
+<tr class=""><td>Diplomat</td><td>Peace Treaty<br><span class="who">Special</span></td><td>Once: The Diplomat can heal ALL heroes 2D6.</td><td>Once per game: Diplomat can heal all heroes for 2D6, including enemies.</td><td class="note">Frequency form; &quot;the&quot;; &quot;for&quot;; &quot;including enemies&quot; replaces &quot;ALL&quot;</td></tr>
+<tr class=""><td>Arcane Archer</td><td>Far Shot<br><span class="who">Ability</span></td><td>Deal 1D4 damage. If Arcane Archer has full hp, deal an additional 1D8 damage.</td><td>Deal 1D4 damage. If Arcane Archer is at full HP, deal an extra 1D8 damage.</td><td class="note">HP; &quot;extra&quot;</td></tr>
+<tr class=""><td>Arcane Archer</td><td>Arcane Arrows<br><span class="who">Special</span></td><td>When attacking or using an ability against an enemy Arcane Archer already damaged, add 1D4 to the damage.</td><td>Arcane Archer&#x27;s attacks and abilities deal an extra 1D4 damage to enemies it has already damaged.</td><td class="note">Shorter; damage form</td></tr>
+<tr class=""><td>Shroomguard</td><td>Cleansing Spores<br><span class="who">Ability</span></td><td>Deal 1D4 damage and cleanse a random ally of all poison stacks.</td><td>Deal 1D4 damage and remove all Poison from a random Poisoned ally.</td><td class="note">&quot;cleanse&quot; → &quot;remove&quot;; Poison; says what the data picks (a random Poisoned ally)</td></tr>
+<tr class=""><td>Shroomguard</td><td>Poison Aura<br><span class="who">Special</span></td><td>When Shroomguard takes damage, give ALL heroes 1 Poison Stack.</td><td>When Shroomguard takes damage, give all heroes 1 Poison stack.</td><td class="note">No capitals. Q: does it include Shroomguard?</td></tr>
+<tr class=""><td>Angel</td><td>Health Link<br><span class="who">Ability</span></td><td>Deal 1D4 damage and link the target to the Angel. The next time Angel takes damage, it is also dealt to the target.</td><td>Deal 1D4 damage and link the target to Angel. The next time Angel takes damage, the target takes the same damage.</td><td class="note">&quot;the&quot;; active voice</td></tr>
+<tr class=""><td>Angel</td><td>Resurrect<br><span class="who">Special</span></td><td>Once: When an ally dies, resurrect them at half health.</td><td>Once per game: when an ally dies, revive it at half HP.</td><td class="note">Frequency form; &quot;revive&quot;; HP; pronoun</td></tr>
+<tr class=""><td>Pyromancer</td><td>Incinerate<br><span class="who">Ability</span></td><td>Deal 1d6 damage. If that kills the target, deal 1d6 to adjacent enemies.</td><td>Deal 1D6 damage. If this kills the target, deal 1D6 damage to enemies adjacent to it.</td><td class="note">Dice case; &quot;damage&quot; added; clearer about which &quot;adjacent&quot;</td></tr>
+<tr class="same"><td>Pyromancer</td><td>Endless Burn<br><span class="who">Special</span></td><td>At the end of Pyromancer&#x27;s turn, it and all enemies take 1D4 damage.</td><td><span class=who>no change</span></td><td class="note"></td></tr>
+<tr class=""><td>Medic</td><td>Med Bots<br><span class="who">Ability</span></td><td>Summon 1 Med Bot (Max 3).</td><td>Summon a Med Bot (max 3).</td><td class="note">&quot;a&quot;; &quot;max&quot;</td></tr>
+<tr class=""><td>Medic</td><td>Emergency Heal<br><span class="who">Special</span></td><td>At the end of the Medic&#x27;s turn, heal the lowest health ally 1D4 for each summoned Med Bot.</td><td>At the end of Medic&#x27;s turn, heal the lowest-HP ally for 1D4 per Med Bot.</td><td class="note">&quot;the&quot;; HP; &quot;for&quot;; &quot;per&quot;</td></tr>
+<tr class=""><td>Hoarder</td><td>Offer Bribe<br><span class="who">Ability</span></td><td>Deal 1D4 damage. The target cannot use its ability against Hoarder until the start of his next turn.</td><td>Deal 1D4 damage. The target can&#x27;t use its ability on Hoarder until Hoarder&#x27;s next turn.</td><td class="note">can&#x27;t; pronoun; duration form. (Engine: blocked while Focused on Hoarder)</td></tr>
+<tr class=""><td>Hoarder</td><td>Collect Weapons<br><span class="who">Special</span></td><td>When any hero dies, gain their basic attack dice.</td><td>When any hero dies, Hoarder adds its basic attack dice to its own.</td><td class="note">Subject; pronoun. (Implicitly lasts for the rest of the battle)</td></tr>
+</table></div>
+<p class="lede">The 17 heroes that are switched off were read too. Their rewrites are ready and can be added when those heroes come back.</p>
+</section>
+
+<section>
+  <div class="ask">
+    <h3>Decided on 22 November</h3>
+    <ol>
+      <li>Ride Down fades when Cavalier dies. Healing to full clears it. Neither is written on the card.</li>
+      <li>Dark Pact stays after Warlock dies. Its disappearing gets fixed.</li>
+      <li>The Totem badge grows a head for each Totem.</li>
+      <li>Barbarian keeps "deflections".</li>
+      <li>The card keeps the name "Turret". The golem is the picture.</li>
+      <li>The hero that hit Ninja can finish its turn attacking it. Area damage still hits Ninja. The helper text does not spell this out.</li>
+      <li>All the new badges go in: Wind Wall, Taunt coming, Frenzy, Desperate Blows, Arcane mark.</li>
+    </ol>
+  </div>
+</section>
+</main>
+
+<script>
+const B=[
+ {k:'golem',n:2,old:'⚙️ 2',name:'Turrets',who:'Engineer',short:'Turrets 2/2',full:'2 of 2 turrets. At the end of Engineer\'s turn each deals 1D4 to a random enemy. One is given up to block damage.',tag:'bad',tagt:'Wrong text',note:'Today it reads as two turrets dealing 2D4 each. Each turret deals 1D4.'},
+ {k:'totem2',grow:1,old:'🗿 2',name:'Totems',who:'Shaman',short:'Totems 2/3',full:'2 of 3 Totems. Elemental Strike adds a Totem, then deals 1D4 damage per Totem.',tag:'bad',tagt:'Wrong text',note:'A head is carved for each Totem, so no number is needed. Today the text promises 2D4 on the next strike. The strike adds a Totem first, so it deals 3D4.'},
+ {k:'bot',n:2,old:'💉 2',name:'Med Bots',who:'Medic',short:'Med Bots 2/3',full:'2 of 3 Med Bots. At the end of Medic\'s turn, the lowest-health ally heals 2D4.',tag:'ok',tagt:'Correct',note:'Behaves as the card says.'},
+ {k:'paw',old:'🐾',name:'Beast',who:'Beast Tamer',short:'Beast out',full:'The beast is out. Beast Tamer\'s attacks have advantage.',tag:'ok',tagt:'Correct',note:'Stays on Beast Tamer after death. Should clear.'},
+ {k:'blood',n:2,old:'⚔️ 2',name:'Bloodbath',who:'Berserker',short:'Bloodbath +2',full:'+2 damage to attacks (max 2).',tag:'ok',tagt:'Correct',note:'Behaves as the card says.'},
+ {k:'hidden',old:'👻',name:'Hidden',who:'Ninja · Vanish',short:'Hidden',full:'Can\'t be Focused until Ninja\'s next turn.',tag:'bad',tagt:'Misleading',note:'Today it says "cannot be targeted by attacks or abilities". Area abilities still hit, and the hero that hit Ninja can still target it.'},
+ {k:'ashield',old:'🛡️',name:'Arcane Shield',who:'Wizard',short:'Arcane Shield',full:'The first hit of more than 5 damage is reduced to 0.',tag:'bad',tagt:'Wrong text',note:'Today it says "greater than 6". The card and the rule say more than 5.'},
+ {k:'wind',n:'+1',old:null,name:'Wind Wall',who:'Elementalist',short:'Wind Wall +1',full:'+1 Defense until Elementalist\'s next turn.',tag:'new-t',tagt:'New',note:'No badge today. The Defense number changes with no explanation.'},
+ {k:'flame',old:null,name:'Frenzy',who:'Berserker',short:'Frenzy',full:'Below 10 HP: Berserker can attack twice per turn.',tag:'new-t',tagt:'New',note:'No badge today. Nothing shows that Frenzy has switched on.'},
+ {k:'blows',old:null,name:'Desperate Blows',who:'Fighter',short:'Desperate Blows',full:'Below 10 HP: Fighter\'s attacks have advantage.',tag:'new-t',tagt:'New',note:'No badge today. Nothing shows that Desperate Blows has switched on.'},
+ {k:'poison',n:3,c:'poison',old:'☠ 3',name:'Poison',who:'Assassin, Plague Spreader, Shroomguard',short:'Poison 3',full:'Takes 3 damage at the end of its turn.',tag:'ok',tagt:'Correct',note:'Never wears off by itself.'},
+ {k:'taunt',c:'debuff',old:'😤',name:'Taunted',who:'Warden, Mech, Paladin',short:'Taunted: Warden',full:'Must Focus Warden with attacks and abilities on its next turn.',tag:'bad',tagt:'Misleading',note:'Today it says "next attack" only. It also blocks abilities aimed elsewhere.'},
+ {k:'taunt',c:'debuff pending',old:null,name:'Taunt coming',who:'Paladin · Shield of Faith',short:'Taunt coming',full:'Will be taunted by Paladin at the end of this turn.',tag:'new-t',tagt:'New',note:'Paladin\'s taunt is invisible until the turn ends.'},
+ {k:'silence',n:1,c:'debuff',old:'🔇',name:'Silenced',who:'Silencer, first pick',short:'Silenced 1',full:'Can\'t use abilities for 1 more turn.',tag:'ok',tagt:'Correct',note:'Behaves as the card says.'},
+ {k:'stun',n:1,c:'debuff',old:'⚔️❌',name:'Stunned',who:'Dual Defender',short:'Stunned 1',full:'Can\'t make basic attacks for 1 more turn.',tag:'ok',tagt:'Correct',note:'Behaves as the card says.'},
+ {k:'bribe',c:'debuff',old:'💰',name:'Bribed',who:'Hoarder',short:'Bribed',full:'Can\'t use its ability on Hoarder until Hoarder\'s next turn.',tag:'bad',tagt:'Wrong text',note:'Always says "1 turns left". Stays forever if Hoarder dies.'},
+ {k:'exposed',c:'debuff',old:'🎯⬆️',name:'Guiding Bolt',who:'Cleric',short:'Guiding Bolt',full:'The next attack or ability roll against this hero has advantage.',tag:'bad',tagt:'Misleading',note:'Today it says "next attack". Abilities use it up too.'},
+ {k:'shoe',c:'debuff',old:'🏇⬇️',name:'Ride Down',who:'Cavalier',short:'Ride Down',full:'Attacks against this hero have advantage.',tag:'bad',tagt:'Behaviour',note:'Text is fine. It is removed when Cavalier dies, and two heals fail to clear it.'},
+ {k:'link',c:'debuff',old:'🔗',name:'Health Link',who:'Angel',short:'Health Link',full:'The next time Angel takes damage, this hero takes it too.',tag:'bad',tagt:'Misleading',note:'Today it does not say it works once. Stays forever if Angel dies.'},
+ {k:'defdown',n:'-1',c:'debuff',old:'🛡️ -1',name:'Defense down',who:'Ranger · Piercing Shot',short:'Defense -1',full:'Piercing Shot: -1 Defense until Ranger\'s next turn.',tag:'bad',tagt:'Behaviour',note:'Never ends if Ranger dies first. Today it does not say when it ends.'},
+ {k:'mark',c:'debuff',old:null,name:'Arcane mark',who:'Arcane Archer',short:'Arcane mark',full:'Arcane Archer deals +1D4 to this hero.',tag:'new-t',tagt:'New',note:'No badge today. Players cannot see who is marked.'},
+ {k:null,old:'✨ 1',name:'Inspired',who:'No hero',short:'',full:'',tag:'cut',tagt:'Remove',note:'No hero in the game gives it, and nothing in the damage rules reads it.'}
+];
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function tok(b,size,tip){
+  const pip=b.n!=null?`<span class="pip">${esc(b.n)}</span>`:'';
+  const t=tip?`<span class="tip"><b>${esc(tip==='short'?b.short:b.name)}</b>${tip==='full'?esc(b.full):''}</span>`:'';
+  return `<button type="button" class="tok ${size} ${b.c||''}" aria-label="${esc(b.name)}: ${esc(b.full)}"><svg aria-hidden="true"><use href="#i-${b.k}"/></svg>${pip}${t}</button>`;
+}
+const cat=document.getElementById('cat');
+cat.insertAdjacentHTML('beforeend',B.map(b=>`<div class="row">
+  <div>${b.old?`<span class="chip ${/debuff/.test(b.c||'')||b.c==='poison'?'d':''}">${b.old}</span>`:'<span class="chip none">no badge</span>'}</div>
+  <div class="new">${b.k?tok(b,'big')+tok(b,'real'):'<span class="chip none">removed</span>'}</div>
+  <div class="text"><h3>${esc(b.name)}</h3><div class="who">${esc(b.who)}</div>${b.full?`<div class="full">${esc(b.full)}</div>${b.grow?`<div class="new" style="margin:6px 0 2px">${[1,2,3].map(n=>tok({k:'totem'+n,name:n+' Totem',full:''},'real')).join('')}<span class="who">1, 2 and 3 Totems</span></div>`:''}<span class="short">Short: ${esc(b.short)}</span>`:''}</div>
+  <div class="note"><span class="tag ${b.tag}">${b.tagt}</span>${esc(b.note)}</div></div>`).join(''));
+const pick=['golem','hidden','poison','taunt','defdown'].map(k=>B.find(b=>b.k===k));
+document.querySelector('#demoBig .col').innerHTML=pick.map(b=>tok(b,'','full')).join('');
+document.querySelector('#demoPhone .col').innerHTML=pick.map(b=>tok(b,'','short')).join('');
+document.getElementById('sheet').innerHTML=pick.map(b=>`<div>${tok(b,'')}<span><b>${esc(b.short)}</b><br>${esc(b.full)}</span></div>`).join('');
+document.querySelector('#demoBig .tok').classList.add('open');
+document.querySelectorAll('#demoPhone .tok')[2].classList.add('open');
+document.querySelectorAll('.demo .card').forEach(c=>c.addEventListener('click',e=>{
+  const t=e.target.closest('.tok'); if(!t)return;
+  const was=t.classList.contains('open');
+  c.querySelectorAll('.tok.open').forEach(o=>o.classList.remove('open'));
+  if(!was)t.classList.add('open');
+}));
+document.getElementById('onlyChanged').addEventListener('change',e=>document.getElementById('wt').classList.toggle('only',e.target.checked));
+</script>
