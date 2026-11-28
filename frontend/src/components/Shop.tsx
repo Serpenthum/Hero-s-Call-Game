@@ -328,7 +328,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: sha
               </div>
             </aside>
 
-            <section className="shop-inside-table">
+            <section className="shop-inside-table" style={packContentsGrid.style}>
               <button
                 type="button"
                 className="shop-inside-arrow prev"
@@ -338,7 +338,7 @@ const Shop: React.FC<ShopProps> = ({ onClose, userId, victoryPoints, shards: sha
               >
                 ←
               </button>
-              <div className="shop-inside-grid" ref={packContentsGrid.ref} style={packContentsGrid.style}>
+              <div className="shop-inside-grid" ref={packContentsGrid.ref}>
                 {displayedPackContents.map((hero) => (
                   <div key={hero.name} className="shop-slot">
                     <HeroCard

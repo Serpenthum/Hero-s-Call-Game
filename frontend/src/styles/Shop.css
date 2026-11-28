@@ -549,6 +549,17 @@
 .shop--b .shop-inside-arrow:disabled { opacity: 0.35; cursor: default; }
 /* With one page there is nowhere to go, so the arrows go too */
 .shop--b .shop-inside-table:not(:has(.shop-inside-arrow:enabled)) .shop-inside-arrow { display: none; }
+/* Beside the cards, the arrows stand next to the card block, not out at the table's edges (a wide screen leaves
+   room either side of the block). The table carries useCardGrid's sizes, so each arrow steps in over the spare room. */
+@media (min-height: 501px) {
+  .shop--b .shop-inside-arrow {
+    --shop-arrow-in: max(0px, calc(50% - 50px - (var(--grid-columns) * var(--grid-card-width) + (var(--grid-columns) - 1) * var(--shop-card-gap)) / 2));
+    position: relative;
+    z-index: 1;
+  }
+  .shop--b .shop-inside-arrow.prev { left: var(--shop-arrow-in); }
+  .shop--b .shop-inside-arrow.next { right: var(--shop-arrow-in); }
+}
 
 /* Each page of cards turns in */
 .shop--b .shop-inside-grid .shop-slot {
