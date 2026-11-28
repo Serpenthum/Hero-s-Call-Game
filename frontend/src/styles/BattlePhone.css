@@ -290,9 +290,11 @@
     padding: 2px 6px;
     border-width: 1px;
     font-size: clamp(9px, calc(var(--phone-label-width) / 8), 16px);
-    white-space: nowrap;
+    /* A name too long for the plate goes onto a second line, split near its middle: it is never cut off */
+    white-space: normal;
+    word-break: break-all;
+    text-wrap: balance;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .App .battle-layout .player-profile-icon {
